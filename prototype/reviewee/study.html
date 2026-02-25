@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Study Hub - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }        .status-tab.active {
+            border-bottom-color: #800000 !important;
+            color: #800000 !important;
+            font-weight: 700;
+        }    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+
+<header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+<div class="container mx-auto max-w-7xl">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<div>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Study Hub</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Master your LET preparation with focused flashcard and study sessions.</p>
+</div>
+                        <div class="relative w-full lg:w-96">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                            <input class="w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-200 dark:border-white/10 dark:bg-white/5 focus:ring-primary focus:border-primary text-sm" id="deck-search" placeholder="Search decks, topics, or subjects..." type="text"/>
+                        </div>
+                    </div>
+</div>
+</header>
+
+<!-- Filter Bar -->
+<div class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 shrink-0 z-10">
+    <div class="container mx-auto max-w-7xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-0">
+            <!-- Category Tabs -->
+            <nav class="flex gap-0 overflow-x-auto" id="category-tabs">
+                <button data-category="all" class="status-tab active border-b-2 border-primary py-3.5 px-3 text-sm font-bold text-primary whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    All Decks
+                    <span class="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded-full" id="count-all"></span>
+                </button>
+                <button data-category="Professional Education" class="status-tab border-b-2 border-transparent py-3.5 px-3 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    Prof. Education
+                    <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full" id="count-profedu"></span>
+                </button>
+                <button data-category="General Education" class="status-tab border-b-2 border-transparent py-3.5 px-3 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    Gen. Education
+                    <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full" id="count-genedu"></span>
+                </button>
+                <button data-category="Specialization" class="status-tab border-b-2 border-transparent py-3.5 px-3 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-1.5" id="specialization-tab">
+                    Specialization
+                    <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full" id="count-spec"></span>
+                </button>
+                <button data-category="saved" class="status-tab border-b-2 border-transparent py-3.5 px-3 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px]">bookmark</span>
+                    Saved
+                    <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full" id="count-saved"></span>
+                </button>
+            </nav>
+
+        </div>
+    </div>
+</div>
+
+<div class="flex-1 overflow-y-auto">
+<div class="container mx-auto max-w-7xl px-6 py-8">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="deck-container">
+                        <div class="deck-card group bg-white dark:bg-[#1f1212] border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full" data-category="Professional Education">
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="px-3 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-widest border border-accent/20">Prof Ed</span>
+                                <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-1 text-xs font-bold text-gray-400">
+                                    </div>
+                                    <button class="bookmark-btn text-gray-400 hover:text-primary transition-colors" data-bookmark="false">
+                                        <span class="material-symbols-outlined text-[20px]">bookmark</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors mb-2">Child &amp; Adolescent Development</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-1 line-clamp-2">Theories of growth and development from conception to adolescence.</p>
+<div class="space-y-3 mt-auto">
+                        <div class="pt-4 flex items-center justify-between border-t border-gray-50 dark:border-white/5">
+                            <span class="text-xs text-gray-500">50 Cards</span>
+                            <div class="flex gap-2">
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors" href="study-session.html?mode=flashcards">
+                                    <span class="material-symbols-outlined text-[16px]">style</span>
+                                    Flashcard
+                                </a>
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow-sm transition-colors" href="study-session.html?mode=study">
+                                    <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                                    Study
+                                </a>
+                            </div>
+                        </div>
+</div>
+</div>
+                        <div class="deck-card group bg-white dark:bg-[#1f1212] border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full" data-category="General Education">
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/30">Gen Ed</span>
+                                <div class="flex items-center gap-3">
+                                    <button class="bookmark-btn text-primary hover:text-primary transition-colors" data-bookmark="true">
+                                        <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">bookmark</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors mb-2">Historical Foundations</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-1 line-clamp-2">Key philosophical and historical roots of the Philippine Education System.</p>
+<div class="space-y-3 mt-auto">
+                        <div class="pt-4 flex items-center justify-between border-t border-gray-50 dark:border-white/5">
+                            <span class="text-xs text-gray-500">45 Cards</span>
+                            <div class="flex gap-2">
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors" href="study-session.html?mode=flashcards">
+                                    <span class="material-symbols-outlined text-[16px]">style</span>
+                                    Flashcard
+                                </a>
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow-sm transition-colors" href="study-session.html?mode=study">
+                                    <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                                    Study
+                                </a>
+                            </div>
+                        </div>
+</div>
+</div>
+<div class="deck-card group bg-white dark:bg-[#1f1212] border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full" data-category="Specialization">
+<div class="flex justify-between items-start mb-4">
+<span class="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-widest border border-emerald-100 dark:border-emerald-900/30">Specialization</span>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 text-xs font-bold text-emerald-500">
+<span class="material-symbols-outlined text-[14px]">new_releases</span>
+<span>New Material</span>
+</div>
+<button class="bookmark-btn text-gray-400 hover:text-primary transition-colors" data-bookmark="false">
+<span class="material-symbols-outlined text-[20px]">bookmark</span>
+</button>
+</div>
+</div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors mb-2" id="major-deck-title">Structure of English</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-1 line-clamp-2" id="major-deck-desc">Linguistics, phonology, morphology, and syntax concepts for English majors.</p>
+<div class="space-y-3 mt-auto">
+                        <div class="pt-4 flex items-center justify-between border-t border-gray-50 dark:border-white/5">
+                            <span class="text-xs text-gray-500">62 Cards</span>
+                            <div class="flex gap-2">
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors" href="study-session.html?mode=flashcards&deck=major">
+                                    <span class="material-symbols-outlined text-[16px]">style</span>
+                                    Flashcard
+                                </a>
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow-sm transition-colors" href="study-session.html?mode=study&deck=major">
+                                    <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                                    Study
+                                </a>
+                            </div>
+                        </div>
+</div>
+</div>
+<div class="deck-card group bg-white dark:bg-[#1f1212] border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full opacity-90 grayscale-[0.5] hover:grayscale-0 hover:opacity-100" data-category="Professional Education">
+<div class="flex justify-between items-start mb-4">
+<span class="px-3 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-widest border border-accent/20">Prof Ed</span>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 text-xs font-bold text-green-500">
+</div>
+<button class="bookmark-btn text-primary hover:text-primary transition-colors" data-bookmark="true">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">bookmark</span>
+</button>
+</div>
+</div>
+<h3 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors mb-2">Theories of Learning</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-1 line-clamp-2">Behaviorism, Cognitivism, and Constructivism in education.</p>
+<div class="space-y-3 mt-auto">
+                        <div class="pt-4 flex items-center justify-between border-t border-gray-50 dark:border-white/5">
+                            <span class="text-xs text-gray-500">30 Cards</span>
+                            <div class="flex gap-2">
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors" href="study-session.html?mode=flashcards&deck=theories">
+                                    <span class="material-symbols-outlined text-[16px]">style</span>
+                                    Flashcard
+                                </a>
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow-sm transition-colors" href="study-session.html?mode=study&deck=theories">
+                                    <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                                    Study
+                                </a>
+                            </div>
+                        </div>
+</div>
+</div>
+<div class="deck-card group bg-white dark:bg-[#1f1212] border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full" data-category="Professional Education">
+<div class="flex justify-between items-start mb-4">
+<span class="px-3 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-widest border border-accent/20">Prof Ed</span>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 text-xs font-bold text-gray-400">
+<span class="material-symbols-outlined text-[14px]">timer</span>
+<span>10m review</span>
+</div>
+<button class="bookmark-btn text-gray-400 hover:text-primary transition-colors" data-bookmark="false">
+<span class="material-symbols-outlined text-[20px]">bookmark</span>
+</button>
+</div>
+</div>
+<h3 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors mb-2">Legal Bases of Education</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-1 line-clamp-2">Philippine Constitution, RA 7836, and other educational laws.</p>
+<div class="space-y-3 mt-auto">
+                        <div class="pt-4 flex items-center justify-between border-t border-gray-50 dark:border-white/5">
+                            <span class="text-xs text-gray-500">25 Cards</span>
+                            <div class="flex gap-2">
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors" href="study-session.html?mode=flashcards&deck=legal-bases">
+                                    <span class="material-symbols-outlined text-[16px]">style</span>
+                                    Flashcard
+                                </a>
+                                <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow-sm transition-colors" href="study-session.html?mode=study&deck=legal-bases">
+                                    <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                                    Study
+                                </a>
+                            </div>
+                        </div>
+</div>
+</div>
+<div class="group border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-primary/50 hover:bg-white/50 dark:hover:bg-white/5 transition-all cursor-pointer min-h-[280px]" style="display:none"></div>
+</div>
+
+<!-- Custom Decks Section -->
+<div class="mt-10" id="custom-decks-section">
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">My Custom Decks</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Flashcard sets you've created for personalized review.</p>
+        </div>
+        <a href="custom-deck.html" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            New Deck
+        </a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="custom-deck-container">
+        <div class="group border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-primary/50 hover:bg-white/50 dark:hover:bg-white/5 transition-all cursor-pointer min-h-[240px]" id="custom-empty-state">
+            <div class="bg-gray-100 dark:bg-white/5 p-4 rounded-full mb-4">
+                <span class="material-symbols-outlined text-gray-400 text-3xl">add_circle</span>
+            </div>
+            <h3 class="text-base font-bold text-gray-900 dark:text-white mb-1">No custom decks yet</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Create your own set of flashcards for personalized review.</p>
+            <button class="mt-4 px-4 py-2 bg-white dark:bg-transparent border border-gray-200 dark:border-white/10 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-primary hover:text-white hover:border-primary transition-all" onclick="window.location.href='custom-deck.html'">Create New</button>
+        </div>
+    </div>
+</div>
+<div class="md:hidden fixed bottom-6 right-6">
+<button class="h-14 w-14 rounded-full bg-primary text-white shadow-xl flex items-center justify-center">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+    <script>
+        // Load user data and filter content
+        document.addEventListener('DOMContentLoaded', () => {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            const userSpecialization = localStorage.getItem('userSpecialization') || 'BSEd - English';
+            const major = userSpecialization.includes(' - ') ? userSpecialization.split(' - ')[1] : userSpecialization;
+
+            if (userData.fullname) {
+                document.getElementById('user-fullname').textContent = userData.fullname;
+            } else if (userData.firstName && userData.lastName) {
+                document.getElementById('user-fullname').textContent = `${userData.firstName} ${userData.lastName}`;
+            }
+            
+            if (document.getElementById('user-specialization-text')) {
+                document.getElementById('user-specialization-text').textContent = userSpecialization;
+            }
+                
+            // Update Major Deck Card
+            const majorTitle = document.getElementById('major-deck-title');
+            const majorDesc = document.getElementById('major-deck-desc');
+            
+            if (majorTitle && major !== 'Major') {
+                majorTitle.textContent = `${major} Specialist`;
+                majorDesc.textContent = `Comprehensive review of ${major} core concepts, principles, and professional standards.`;
+            }
+
+            // Load Custom Decks from LocalStorage
+            loadCustomDecks();
+
+            function loadCustomDecks() {
+                const container = document.getElementById('custom-deck-container');
+                const emptyState = document.getElementById('custom-empty-state');
+                const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
+                
+                // Sort by newest first
+                customDecks.sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+
+                if (customDecks.length === 0) {
+                    emptyState.style.display = '';
+                    return;
+                }
+                emptyState.style.display = 'none';
+                
+                customDecks.forEach(deck => {
+                    const deckCard = document.createElement('div');
+                    deckCard.className = 'deck-card group bg-white dark:bg-[#1f1212] border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full';
+                    const tagsHtml = (deck.tags && deck.tags.length)
+                        ? deck.tags.map(t => `<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/8 text-primary text-[10px] font-semibold border border-primary/20">${t}</span>`).join('')
+                        : '<span class="text-[10px] text-gray-400 italic">No tags</span>';
+
+                    deckCard.innerHTML = `
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex flex-wrap gap-1">${tagsHtml}</div>
+                            <div class="flex items-center gap-3 shrink-0 ml-2">
+                                <button class="bookmark-btn text-gray-400 hover:text-primary transition-colors" data-bookmark="false">
+                                    <span class="material-symbols-outlined text-[18px]">bookmark</span>
+                                </button>
+                                <button onclick="deleteCustomDeck(${deck.id})" class="text-gray-400 hover:text-red-500 transition-colors">
+                                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors mb-2">${deck.title}</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 flex-1 line-clamp-2">${deck.description}</p>
+                        <div class="space-y-3 mt-auto">
+                            <div class="pt-4 flex items-center justify-between border-t border-gray-50 dark:border-white/5">
+                                <span class="text-xs text-gray-500">${deck.cardCount} Cards</span>
+                                <div class="flex gap-2">
+                                    <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-colors" href="study-session.html?mode=flashcards&deck=custom&id=${deck.id}">
+                                        <span class="material-symbols-outlined text-[16px]">style</span>
+                                        Flashcards
+                                    </a>
+                                    <a class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow-sm transition-colors" href="study-session.html?mode=study&deck=custom&id=${deck.id}">
+                                        <span class="material-symbols-outlined text-[16px]">menu_book</span>
+                                        Study
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    // Insert before the last item (the "Create New" card)
+                    container.appendChild(deckCard);
+                });
+            }
+
+            // Category Filtering Logic
+            const categoryTabs = document.querySelectorAll('#category-tabs button');
+            const searchInput = document.getElementById('deck-search');
+
+            function isCardSaved(card) {
+                const btn = card.querySelector('button[data-bookmark]');
+                return btn ? btn.dataset.bookmark === 'true' : false;
+            }
+
+            function updateCounts() {
+                const allCards = document.querySelectorAll('#deck-container .deck-card');
+                const counts = {};
+                let savedCount = 0;
+                allCards.forEach(card => {
+                    const cat = card.getAttribute('data-category') || '';
+                    counts[cat] = (counts[cat] || 0) + 1;
+                    if (isCardSaved(card)) savedCount++;
+                });
+                // Also count saved custom cards
+                document.querySelectorAll('#custom-deck-container .deck-card').forEach(card => {
+                    if (isCardSaved(card)) savedCount++;
+                });
+                document.getElementById('count-all').textContent = allCards.length;
+                document.getElementById('count-profedu').textContent = counts['Professional Education'] || 0;
+                document.getElementById('count-genedu').textContent = counts['General Education'] || 0;
+                document.getElementById('count-spec').textContent = counts['Specialization'] || 0;
+                document.getElementById('count-saved').textContent = savedCount;
+            }
+
+            function filterDecks() {
+                const activeTab = document.querySelector('#category-tabs button.active');
+                const activeCategory = activeTab ? activeTab.getAttribute('data-category') : 'all';
+                const searchQuery = searchInput ? searchInput.value.toLowerCase() : '';
+                const deckCards = document.querySelectorAll('#deck-container .deck-card');
+
+                deckCards.forEach(card => {
+                    const category = card.getAttribute('data-category');
+                    const title = card.querySelector('h3').textContent.toLowerCase();
+                    const desc = card.querySelector('p') ? card.querySelector('p').textContent.toLowerCase() : '';
+
+                    const matchesCategory = activeCategory === 'all' || category === activeCategory
+                        || (activeCategory === 'saved' && isCardSaved(card));
+                    const matchesSearch = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery);
+
+                    card.style.display = (matchesCategory && matchesSearch) ? 'flex' : 'none';
+                });
+
+                // Custom decks section: hide when a specific category tab is active (not 'all')
+                // but show when 'all' or 'saved' (filter custom too if saved)
+                const customSection = document.getElementById('custom-decks-section');
+                if (customSection) {
+                    if (activeCategory !== 'all' && activeCategory !== 'saved') {
+                        customSection.style.display = 'none';
+                    } else {
+                        customSection.style.display = '';
+                        if (activeCategory === 'saved') {
+                            document.querySelectorAll('#custom-deck-container .deck-card').forEach(card => {
+                                const title = card.querySelector('h3').textContent.toLowerCase();
+                                const matchesSaved = isCardSaved(card);
+                                const matchesSearch = !searchQuery || title.includes(searchQuery);
+                                card.style.display = (matchesSaved && matchesSearch) ? 'flex' : 'none';
+                            });
+                        } else {
+                            document.querySelectorAll('#custom-deck-container .deck-card').forEach(card => {
+                                const title = card.querySelector('h3').textContent.toLowerCase();
+                                const matchesSearch = !searchQuery || title.includes(searchQuery);
+                                card.style.display = matchesSearch ? 'flex' : 'none';
+                            });
+                        }
+                    }
+                }
+            }
+
+            categoryTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    categoryTabs.forEach(t => {
+                        t.classList.remove('active', 'border-primary', 'text-primary', 'font-bold');
+                        t.classList.add('border-transparent', 'text-gray-500', 'font-medium');
+                    });
+                    tab.classList.add('active', 'border-primary', 'text-primary', 'font-bold');
+                    tab.classList.remove('border-transparent', 'text-gray-500', 'font-medium');
+                    filterDecks();
+                });
+            });
+
+            if (searchInput) searchInput.addEventListener('input', filterDecks);
+
+            // Bookmark toggle (system + custom decks)
+            function setupBookmarkToggle(container) {
+                container.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.bookmark-btn');
+                    if (!btn) return;
+                    const saved = btn.dataset.bookmark === 'true';
+                    btn.dataset.bookmark = saved ? 'false' : 'true';
+                    const icon = btn.querySelector('.material-symbols-outlined');
+                    if (saved) {
+                        btn.classList.replace('text-primary', 'text-gray-400');
+                        icon.style.fontVariationSettings = '';
+                    } else {
+                        btn.classList.replace('text-gray-400', 'text-primary');
+                        icon.style.fontVariationSettings = "'FILL' 1";
+                    }
+                    updateCounts();
+                    filterDecks();
+                });
+            }
+            setupBookmarkToggle(document.getElementById('deck-container'));
+            setupBookmarkToggle(document.getElementById('custom-deck-container'));
+
+            updateCounts();
+            filterDecks();
+        });
+
+        function deleteCustomDeck(id) {
+            if (confirm('Are you sure you want to delete this custom deck?')) {
+                const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
+                const filteredDecks = customDecks.filter(deck => deck.id !== id);
+                localStorage.setItem('customDecks', JSON.stringify(filteredDecks));
+                location.reload();
+            }
+        }
+    </script>
+    <script>
+    </script>
+</body></html>

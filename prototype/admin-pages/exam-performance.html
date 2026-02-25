@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Student Performance Analytics - Normalite EDGE</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=Noto+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+    <div class="flex h-screen w-full">
+        <div id="sidebar-container"></div>
+<script src="../components/sidebar.js"></script>
+
+        <main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+
+            <!-- Global Notification Panel -->
+            <div class="fixed bottom-24 left-4 md:left-64 ml-2 w-80 bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 hidden z-[100] overflow-hidden" id="notification-panel">
+                <div class="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                    <h3 class="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                    <button class="text-xs text-primary hover:underline">Mark all as read</button>
+                </div>
+                <div class="max-h-[70vh] overflow-y-auto p-2">
+                    <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                        <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-primary">quiz</span>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">New Exam submission</p>
+                            <p class="text-xs text-gray-500">A student has submitted an exam.</p>
+                            <p class="text-[10px] text-gray-400 mt-1">2 hours ago</p>
+                        </div>
+                    </a>
+                    <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                        <div class="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-accent">campaign</span>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">New Announcement</p>
+                            <p class="text-xs text-gray-500">Reviewer meeting at 3:00 PM today.</p>
+                            <p class="text-[10px] text-gray-400 mt-1">Yesterday</p>
+                        </div>
+                    </a>
+                </div>
+                <div class="p-3 border-t border-gray-100 dark:border-white/5 text-center">
+                    <a class="text-sm font-bold text-primary hover:text-primary/80" href="notifications.html">View all notifications</a>
+                </div>
+            </div>
+
+            <div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+                <div class="flex items-center gap-2">
+                    <div class="bg-primary/10 p-1.5 rounded-md">
+                        <span class="material-symbols-outlined text-primary">school</span>
+                    </div>
+                    <span class="font-bold text-lg text-primary">Normalite EDGE</span>
+                </div>
+                <button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+            </div>
+            <!-- Header -->
+            <header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-4 shrink-0 z-10">
+                <div class="container mx-auto max-w-6xl">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.location.href='exams.html'" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500">
+                                <span class="material-symbols-outlined">arrow_back</span>
+                            </button>
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Exam Performance</h2>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">LET 2024 Comprehensive: Professional Education</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button class="px-4 py-2 rounded-lg bg-white border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-colors flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[18px]">download</span>
+                                Export CSV
+                            </button>
+                            <button class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[18px]">sync</span>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto">
+                <div class="container mx-auto max-w-6xl px-6 py-8 space-y-8">
+                    
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div class="bg-white dark:bg-[#1a0a0a] p-5 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Total Examinees</p>
+                            <h3 class="text-3xl font-bold mb-1">124</h3>
+                            <p class="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">trending_up</span>
+                                +12 this week
+                            </p>
+                        </div>
+                        <div class="bg-white dark:bg-[#1a0a0a] p-5 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Average Score</p>
+                            <h3 class="text-3xl font-bold mb-1">117.6<span class="text-lg text-gray-400">/150</span></h3>
+                            <p class="text-xs text-gray-500">78.4% overall</p>
+                        </div>
+                        <div class="bg-white dark:bg-[#1a0a0a] p-5 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Passing Rate</p>
+                            <h3 class="text-3xl font-bold mb-1">79<span class="text-lg text-gray-400">/124</span></h3>
+                            <p class="text-xs text-amber-600 dark:text-amber-400">63.7% passed</p>
+                        </div>
+                        <div class="bg-white dark:bg-[#1a0a0a] p-5 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Avg Time / Question</p>
+                            <h3 class="text-3xl font-bold mb-1">42<span class="text-lg text-gray-400">s</span></h3>
+                            <div class="w-full bg-gray-100 rounded-full h-1.5 dark:bg-white/10 mt-2">
+                                <div class="bg-green-500 h-1.5 rounded-full" style="width: 70%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-[#1a0a0a] p-5 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Completion Rate</p>
+                            <h3 class="text-3xl font-bold mb-1">96%</h3>
+                            <p class="text-xs text-gray-500">119 completed</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Student List -->
+                        <div class="lg:col-span-2 space-y-4">
+                            <div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 shadow-sm overflow-hidden text-sm">
+                                <div class="p-4 border-b border-gray-100 dark:border-white/10 flex items-center justify-between">
+                                    <h4 class="font-bold">Student Results <span class="text-gray-400 font-normal text-xs">(124 total)</span></h4>
+                                    <div class="flex items-center gap-2">
+                                        <select id="filterStatus" class="px-3 py-1.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-xs">
+                                            <option value="all">All Status</option>
+                                            <option value="passed">Passed</option>
+                                            <option value="failed">Below Target</option>
+                                        </select>
+                                        <div class="relative">
+                                            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+                                            <input type="text" id="searchStudent" placeholder="Search students..." class="pl-8 pr-3 py-1.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-xs w-48">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-gray-400 font-medium text-xs">
+                                                <th class="px-4 py-3 cursor-pointer hover:text-primary" onclick="sortTable(0)">
+                                                    <div class="flex items-center gap-1">
+                                                        Student Name
+                                                        <span class="material-symbols-outlined text-[14px]">unfold_more</span>
+                                                    </div>
+                                                </th>
+                                                <th class="px-4 py-3 text-center cursor-pointer hover:text-primary" onclick="sortTable(1)">
+                                                    <div class="flex items-center justify-center gap-1">
+                                                        Score
+                                                        <span class="material-symbols-outlined text-[14px]">unfold_more</span>
+                                                    </div>
+                                                </th>
+                                                <th class="px-4 py-3 text-center cursor-pointer hover:text-primary" onclick="sortTable(2)">
+                                                    <div class="flex items-center justify-center gap-1">
+                                                        Percentage
+                                                        <span class="material-symbols-outlined text-[14px]">unfold_more</span>
+                                                    </div>
+                                                </th>
+                                                <th class="px-4 py-3 text-center cursor-pointer hover:text-primary" onclick="sortTable(3)">
+                                                    <div class="flex items-center justify-center gap-1">
+                                                        Avg Time
+                                                        <span class="material-symbols-outlined text-[14px]">unfold_more</span>
+                                                    </div>
+                                                </th>
+                                                <th class="px-4 py-3 text-center">Status</th>
+                                                <th class="px-4 py-3 text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="studentTableBody" class="divide-y divide-gray-100 dark:divide-white/5">
+                                            <!-- Dynamically populated -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="p-4 border-t border-gray-100 dark:border-white/10 flex items-center justify-between">
+                                    <p class="text-xs text-gray-500">Showing <span id="showingCount">10</span> of <span id="totalCount">124</span> students</p>
+                                    <button id="viewAllBtn" class="text-primary hover:text-primary/80 font-bold text-xs flex items-center gap-1 transition-colors">
+                                        <span id="viewAllText">View All Results</span>
+                                        <span class="material-symbols-outlined text-[16px]">expand_more</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Question Difficulty Map -->
+                        <div class="space-y-4">
+                            <div class="bg-white dark:bg-[#1a0a0a] p-5 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm overflow-hidden">
+                                <h4 class="font-bold text-sm mb-4 flex items-center justify-between">
+                                    Question Difficulty Analysis
+                                    <span class="text-[10px] text-gray-400 font-normal">150 Questions</span>
+                                </h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1.5">
+                                            <span class="text-gray-600 dark:text-gray-400 font-medium">Q24: Theories of Development</span>
+                                            <span class="font-bold text-red-600 dark:text-red-400">12%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2 dark:bg-white/10">
+                                            <div class="bg-red-500 h-2 rounded-full transition-all" style="width: 12%"></div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-400 mt-1">Most difficult - Only 15 correct answers</p>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1.5">
+                                            <span class="text-gray-600 dark:text-gray-400 font-medium">Q56: Professional Ethics</span>
+                                            <span class="font-bold text-amber-600">34%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2 dark:bg-white/10">
+                                            <div class="bg-amber-500 h-2 rounded-full transition-all" style="width: 34%"></div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-400 mt-1">Below average - 42 correct answers</p>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1.5">
+                                            <span class="text-gray-600 dark:text-gray-400 font-medium">Q89: Assessment Methods</span>
+                                            <span class="font-bold text-amber-600">47%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2 dark:bg-white/10">
+                                            <div class="bg-amber-500 h-2 rounded-full transition-all" style="width: 47%"></div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-400 mt-1">Challenging - 58 correct answers</p>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1.5">
+                                            <span class="text-gray-600 dark:text-gray-400 font-medium">Q12: Basic Terminology</span>
+                                            <span class="font-bold text-green-600">92%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2 dark:bg-white/10">
+                                            <div class="bg-green-500 h-2 rounded-full transition-all" style="width: 92%"></div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-400 mt-1">Easiest - 114 correct answers</p>
+                                    </div>
+                                </div>
+                                <div class="mt-6 pt-4 border-t border-gray-100 dark:border-white/10">
+                                    <p class="text-[10px] text-gray-400 leading-relaxed uppercase font-bold tracking-widest mb-3">Common Misconception</p>
+                                    <div class="bg-amber-50 dark:bg-amber-900/10 p-3 rounded-lg border border-amber-100 dark:border-amber-900/30">
+                                        <p class="text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-1.5">Q24: Behaviorist vs Cognitivist Theories</p>
+                                        <p class="text-[10px] text-amber-700 dark:text-amber-400/80 leading-relaxed">65% confused operant conditioning (Choice B) with social learning theory (Choice C - Correct). Recommend reviewing Bandura's work.</p>
+                                    </div>
+                                </div>
+                                <button class="w-full mt-4 px-4 py-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 text-xs font-medium transition-colors flex items-center justify-center gap-2">
+                                    <span class="material-symbols-outlined text-[16px]">bar_chart</span>
+                                    View Full Analysis
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Student Analysis Modal -->
+    <div id="analysisModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-gray-200 dark:border-white/10">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-white/10">
+                <div class="flex items-center gap-4">
+                    <div id="modalAvatar" class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                    </div>
+                    <div>
+                        <h3 id="modalStudentName" class="text-lg font-bold text-gray-900 dark:text-white"></h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            Score: <span id="modalScore" class="font-bold"></span> | 
+                            Avg Time: <span id="modalAvgTime" class="font-bold"></span> | 
+                            Status: <span id="modalStatus" class="font-bold"></span>
+                        </p>
+                    </div>
+                </div>
+                <button onclick="closeAnalysisModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors">
+                    <span class="material-symbols-outlined text-gray-500">close</span>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="space-y-4">
+                    <!-- Summary Stats -->
+                    <div class="grid grid-cols-4 gap-4 mb-6">
+                        <div class="bg-gray-50 dark:bg-white/5 p-4 rounded-lg border border-gray-200 dark:border-white/10">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold mb-1">Correct</p>
+                            <p id="correctCount" class="text-2xl font-bold text-green-600"></p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-white/5 p-4 rounded-lg border border-gray-200 dark:border-white/10">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold mb-1">Incorrect</p>
+                            <p id="incorrectCount" class="text-2xl font-bold text-red-600"></p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-white/5 p-4 rounded-lg border border-gray-200 dark:border-white/10">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold mb-1">Fastest</p>
+                            <p id="fastestTime" class="text-2xl font-bold text-blue-600"></p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-white/5 p-4 rounded-lg border border-gray-200 dark:border-white/10">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold mb-1">Slowest</p>
+                            <p id="slowestTime" class="text-2xl font-bold text-amber-600"></p>
+                        </div>
+                    </div>
+
+                    <!-- Filter and Search -->
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <select id="sectionFilter" class="px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm">
+                                <option value="all">All Sections</option>
+                                <option value="Professional Education">Professional Education (Q1-50)</option>
+                                <option value="General Education">General Education (Q51-100)</option>
+                                <option value="Specialization">Specialization (Q101-150)</option>
+                            </select>
+                            <select id="answerFilter" class="px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm">
+                                <option value="all">All Questions</option>
+                                <option value="correct">Correct Only</option>
+                                <option value="incorrect">Incorrect Only</option>
+                            </select>
+                            <button id="sortByTime" class="px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">sort</span>
+                                Sort by Time
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500">Showing <span id="questionCount">150</span> questions</p>
+                    </div>
+
+                    <!-- Questions List -->
+                    <div id="questionsList" class="space-y-2">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-6 border-t border-gray-200 dark:border-white/10 flex items-center justify-between">
+                <button class="px-4 py-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 text-sm font-medium transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    Export Report
+                </button>
+                <button onclick="closeAnalysisModal()" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 text-sm font-medium transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Realistic student data with varied scores and times
+        const studentData = [
+            { name: "Juan Dela Cruz", score: 142, time: 38, status: "passed", initials: "JD", color: "primary" },
+            { name: "Maria Santos", score: 85, time: 45, status: "failed", initials: "MS", color: "blue" },
+            { name: "Antonio Luna", score: 118, time: 41, status: "passed", initials: "AL", color: "amber" },
+            { name: "Sofia Reyes", score: 134, time: 35, status: "passed", initials: "SR", color: "purple" },
+            { name: "Miguel Torres", score: 97, time: 52, status: "failed", initials: "MT", color: "green" },
+            { name: "Isabella Garcia", score: 128, time: 39, status: "passed", initials: "IG", color: "pink" },
+            { name: "Diego Ramos", score: 72, time: 58, status: "failed", initials: "DR", color: "indigo" },
+            { name: "Carmen Flores", score: 145, time: 33, status: "passed", initials: "CF", color: "teal" },
+            { name: "Rafael Cruz", score: 104, time: 48, status: "passed", initials: "RC", color: "orange" },
+            { name: "Lucia Mendoza", score: 89, time: 54, status: "failed", initials: "LM", color: "rose" },
+            { name: "Carlos Velasco", score: 121, time: 42, status: "passed", initials: "CV", color: "cyan" },
+            { name: "Ana Bautista", score: 112, time: 44, status: "passed", initials: "AB", color: "lime" },
+            { name: "Fernando Silva", score: 93, time: 50, status: "failed", initials: "FS", color: "violet" },
+            { name: "Elena Morales", score: 138, time: 36, status: "passed", initials: "EM", color: "fuchsia" },
+            { name: "Roberto Castillo", score: 108, time: 46, status: "passed", initials: "RC", color: "sky" },
+            { name: "Patricia Diaz", score: 79, time: 56, status: "failed", initials: "PD", color: "red" },
+            { name: "Jose Martinez", score: 126, time: 40, status: "passed", initials: "JM", color: "emerald" },
+            { name: "Gloria Perez", score: 115, time: 43, status: "passed", initials: "GP", color: "amber" },
+            { name: "Ricardo Gomez", score: 87, time: 53, status: "failed", initials: "RG", color: "slate" },
+            { name: "Teresa Navarro", score: 140, time: 34, status: "passed", initials: "TN", color: "primary" },
+            { name: "Victor Herrera", score: 101, time: 47, status: "passed", initials: "VH", color: "blue" },
+            { name: "Sandra Lopez", score: 76, time: 59, status: "failed", initials: "SL", color: "gray" },
+            { name: "Manuel Rivera", score: 133, time: 37, status: "passed", initials: "MR", color: "purple" },
+            { name: "Adriana Castro", score: 119, time: 41, status: "passed", initials: "AC", color: "green" },
+            { name: "Eduardo Ortiz", score: 95, time: 49, status: "failed", initials: "EO", color: "pink" },
+            { name: "Rosa Jimenez", score: 124, time: 42, status: "passed", initials: "RJ", color: "indigo" },
+            { name: "Luis Romero", score: 110, time: 45, status: "passed", initials: "LR", color: "teal" },
+            { name: "Beatriz Vargas", score: 82, time: 55, status: "failed", initials: "BV", color: "orange" },
+            { name: "Pablo Ruiz", score: 136, time: 38, status: "passed", initials: "PR", color: "rose" },
+            { name: "Cecilia Gutierrez", score: 107, time: 46, status: "passed", initials: "CG", color: "cyan" },
+            { name: "Andres Soto", score: 91, time: 51, status: "failed", initials: "AS", color: "lime" },
+            { name: "Mariana Campos", score: 129, time: 39, status: "passed", initials: "MC", color: "violet" },
+            { name: "Javier Medina", score: 113, time: 44, status: "passed", initials: "JM", color: "fuchsia" },
+            { name: "Valeria Ibarra", score: 78, time: 57, status: "failed", initials: "VI", color: "sky" },
+            { name: "Hector Aguilar", score: 141, time: 35, status: "passed", initials: "HA", color: "red" },
+            { name: "Diana Rojas", score: 116, time: 43, status: "passed", initials: "DR", color: "emerald" },
+            { name: "Sergio Vega", score: 88, time: 52, status: "failed", initials: "SV", color: "amber" },
+            { name: "Monica Fuentes", score: 131, time: 38, status: "passed", initials: "MF", color: "slate" },
+            { name: "Alejandro Pena", score: 105, time: 47, status: "passed", initials: "AP", color: "primary" },
+            { name: "Silvia Nunez", score: 74, time: 60, status: "failed", initials: "SN", color: "blue" },
+            { name: "Gabriel Mora", score: 127, time: 40, status: "passed", initials: "GM", color: "gray" },
+            { name: "Laura Salazar", score: 120, time: 42, status: "passed", initials: "LS", color: "purple" },
+            { name: "Raul Mendez", score: 94, time: 50, status: "failed", initials: "RM", color: "green" },
+            { name: "Susana Carrillo", score: 139, time: 36, status: "passed", initials: "SC", color: "pink" },
+            { name: "Oscar Duran", score: 109, time: 45, status: "passed", initials: "OD", color: "indigo" },
+            { name: "Veronica Escobar", score: 81, time: 56, status: "failed", initials: "VE", color: "teal" },
+            { name: "Felipe Chavez", score: 125, time: 41, status: "passed", initials: "FC", color: "orange" },
+            { name: "Natalia Guerrero", score: 114, time: 44, status: "passed", initials: "NG", color: "rose" },
+            { name: "Marcos Paredes", score: 86, time: 53, status: "failed", initials: "MP", color: "cyan" },
+            { name: "Gabriela Suarez", score: 137, time: 37, status: "passed", initials: "GS", color: "lime" }
+        ];
+
+        // Exam sections with specific topics
+        const examSections = {
+            "Professional Education": [
+                "Child Development Theory", "Learning Theories", "Educational Psychology", 
+                "Teaching Methods", "Classroom Management", "Assessment Methods",
+                "Professional Ethics", "Curriculum Development", "Student Motivation",
+                "Cognitive Development"
+            ],
+            "General Education": [
+                "English Language", "Mathematics", "Natural Sciences", "Social Sciences",
+                "Filipino Language", "Arts & Humanities", "Physical Education", 
+                "Information Literacy", "Critical Thinking", "Problem Solving"
+            ],
+            "Specialization": [
+                "Subject Pedagogy", "Content Knowledge", "Specialized Methods",
+                "Advanced Assessment", "Research in Education", "Leadership & Management",
+                "Special Education", "Technology Integration", "Lesson Planning", 
+                "Teaching Profession"
+            ]
+        };
+
+        // Flatten topics with section info
+        const questionTopics = [];
+        Object.entries(examSections).forEach(([section, topics]) => {
+            topics.forEach(topic => {
+                questionTopics.push({ section, topic });
+            });
+        });
+
+        // Generate question-level data for each student
+        function generateStudentAnswers(student) {
+            const answers = [];
+            const totalQuestions = 150;
+            const correctAnswers = student.score;
+            
+            // Exam structure: 50 questions per section
+            const questionsPerSection = 50;
+            const sections = Object.keys(examSections);
+            
+            // Create array of correct/incorrect flags
+            const results = Array(totalQuestions).fill(false);
+            for (let i = 0; i < correctAnswers; i++) {
+                results[i] = true;
+            }
+            // Shuffle to randomize correct answers
+            results.sort(() => Math.random() - 0.5);
+            
+            for (let i = 1; i <= totalQuestions; i++) {
+                const isCorrect = results[i - 1];
+                const baseTime = student.time;
+                
+                // Determine section based on question number
+                const sectionIndex = Math.floor((i - 1) / questionsPerSection);
+                const section = sections[sectionIndex];
+                const sectionTopics = examSections[section];
+                
+                // Vary time per question (faster for easy, slower for hard)
+                const timeVariation = Math.random() * 30 - 15; // ±15 seconds
+                const questionTime = Math.max(15, Math.floor(baseTime + timeVariation));
+                
+                const correctAnswer = ['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)];
+                let studentAnswer;
+                
+                if (isCorrect) {
+                    studentAnswer = correctAnswer;
+                } else {
+                    // Wrong answer (different from correct)
+                    const wrongOptions = ['A', 'B', 'C', 'D'].filter(opt => opt !== correctAnswer);
+                    studentAnswer = wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
+                }
+                
+                answers.push({
+                    questionNumber: i,
+                    section: section,
+                    topic: sectionTopics[Math.floor(Math.random() * sectionTopics.length)],
+                    studentAnswer: studentAnswer,
+                    correctAnswer: correctAnswer,
+                    isCorrect: isCorrect,
+                    timeSpent: questionTime
+                });
+            }
+            
+            return answers;
+        }
+
+        // Store answers for each student (generated on demand)
+        const studentAnswersCache = {};
+
+        function getStudentAnswers(studentName) {
+            if (!studentAnswersCache[studentName]) {
+                const student = studentData.find(s => s.name === studentName);
+                studentAnswersCache[studentName] = generateStudentAnswers(student);
+            }
+            return studentAnswersCache[studentName];
+        }
+
+        // Generate additional students to reach 124
+        const firstNames = ["Angel", "Camila", "Daniel", "Fernanda", "Ignacio", "Juliana", "Leonardo", "Valentina", "Sebastian", "Carolina"];
+        const lastNames = ["Alvarez", "Moreno", "Delgado", "Ramirez", "Fernandez", "Sanchez", "Guzman", "Mendoza", "Acosta", "Herrera"];
+        const colors = ["primary", "blue", "amber", "purple", "green", "pink", "indigo", "teal", "orange", "rose", "cyan", "lime", "violet", "fuchsia", "sky", "red", "emerald", "slate", "gray"];
+
+        for (let i = studentData.length; i < 124; i++) {
+            const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+            const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+            const score = Math.floor(Math.random() * 80) + 60; // Score between 60-139
+            const time = Math.floor(Math.random() * 30) + 33; // Time between 33-62s
+            const status = score >= 113 ? "passed" : "failed"; // 113/150 = 75% passing
+            const initials = firstName[0] + lastName[0];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            studentData.push({
+                name: `${firstName} ${lastName}`,
+                score: score,
+                time: time,
+                status: status,
+                initials: initials,
+                color: color
+            });
+        }
+
+        // State management
+        let displayLimit = 10;
+        let isShowingAll = false;
+        let filteredData = [...studentData];
+
+        // Initialize table
+        function renderTable(limit = displayLimit) {
+            const tbody = document.getElementById('studentTableBody');
+            const dataToShow = filteredData.slice(0, limit);
+            
+            tbody.innerHTML = dataToShow.map(student => {
+                const percentage = ((student.score / 150) * 100).toFixed(1);
+                const statusColor = student.status === 'passed' ? 'green' : 'red';
+                const scoreColor = student.status === 'passed' ? 'text-green-600' : 'text-red-600';
+                
+                return `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors" data-name="${student.name.toLowerCase()}" data-status="${student.status}">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-${student.color}-100 text-${student.color}-600 dark:bg-${student.color}-900/30 dark:text-${student.color}-400 flex items-center justify-center font-bold text-[10px]">
+                                    ${student.initials}
+                                </div>
+                                <span class="font-medium text-gray-900 dark:text-white">${student.name}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center font-bold ${scoreColor}">${student.score}/150</td>
+                        <td class="px-4 py-3 text-center text-gray-600 dark:text-gray-400 font-medium">${percentage}%</td>
+                        <td class="px-4 py-3 text-center text-gray-500 dark:text-gray-400">${student.time}s</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] bg-${statusColor}-100 text-${statusColor}-700 dark:bg-${statusColor}-900/30 dark:text-${statusColor}-400 font-bold uppercase">
+                                ${student.status === 'passed' ? 'Passed' : 'Below Target'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                                            <button onclick="openAnalysisModal('${student.name}')" class="text-primary hover:underline font-bold text-xs transition-colors">Analyze</button>
+                                        </td>
+                                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('showingCount').textContent = Math.min(limit, filteredData.length);
+            document.getElementById('totalCount').textContent = filteredData.length;
+        }
+
+        // Modal functions
+        let currentStudentAnswers = [];
+        let currentFilteredAnswers = [];
+
+        function openAnalysisModal(studentName) {
+            const student = studentData.find(s => s.name === studentName);
+            if (!student) return;
+
+            const modal = document.getElementById('analysisModal');
+            const answers = getStudentAnswers(studentName);
+            currentStudentAnswers = answers;
+            currentFilteredAnswers = answers;
+
+            // Populate modal header
+            document.getElementById('modalAvatar').textContent = student.initials;
+            document.getElementById('modalAvatar').className = `w-12 h-12 rounded-full bg-${student.color}-100 text-${student.color}-600 dark:bg-${student.color}-900/30 dark:text-${student.color}-400 flex items-center justify-center font-bold`;
+            document.getElementById('modalStudentName').textContent = student.name;
+            document.getElementById('modalScore').textContent = `${student.score}/150 (${((student.score/150)*100).toFixed(1)}%)`;
+            document.getElementById('modalAvgTime').textContent = `${student.time}s`;
+            
+            const statusColor = student.status === 'passed' ? 'text-green-600' : 'text-red-600';
+            const statusText = student.status === 'passed' ? 'Passed' : 'Below Target';
+            document.getElementById('modalStatus').innerHTML = `<span class="${statusColor}">${statusText}</span>`;
+
+            // Calculate summary stats
+            const correctCount = answers.filter(a => a.isCorrect).length;
+            const incorrectCount = answers.length - correctCount;
+            const times = answers.map(a => a.timeSpent);
+            const fastestTime = Math.min(...times);
+            const slowestTime = Math.max(...times);
+
+            document.getElementById('correctCount').textContent = correctCount;
+            document.getElementById('incorrectCount').textContent = incorrectCount;
+            document.getElementById('fastestTime').textContent = `${fastestTime}s`;
+            document.getElementById('slowestTime').textContent = `${slowestTime}s`;
+
+            // Reset filters
+            document.getElementById('answerFilter').value = 'all';
+            document.getElementById('sectionFilter').value = 'all';
+            
+            // Render questions
+            renderQuestions(answers);
+
+            // Show modal
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAnalysisModal() {
+            const modal = document.getElementById('analysisModal');
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function renderQuestions(answers) {
+            const questionsList = document.getElementById('questionsList');
+            currentFilteredAnswers = answers;
+            
+            document.getElementById('questionCount').textContent = answers.length;
+            
+            // Group by section
+            const groupedBySection = {};
+            answers.forEach(answer => {
+                if (!groupedBySection[answer.section]) {
+                    groupedBySection[answer.section] = [];
+                }
+                groupedBySection[answer.section].push(answer);
+            });
+
+            // Render sections
+            let html = '';
+            Object.entries(groupedBySection).forEach(([section, sectionAnswers]) => {
+                const correctInSection = sectionAnswers.filter(a => a.isCorrect).length;
+                const totalInSection = sectionAnswers.length;
+                const percentageInSection = ((correctInSection / totalInSection) * 100).toFixed(1);
+                
+                // Determine section color based on performance
+                let sectionColor = 'gray';
+                if (percentageInSection >= 75) sectionColor = 'green';
+                else if (percentageInSection >= 50) sectionColor = 'amber';
+                else sectionColor = 'red';
+
+                html += `
+                    <div class="mb-6">
+                        <div class="sticky top-0 bg-white dark:bg-[#1a0a0a] z-10 pb-3 mb-3">
+                            <div class="flex items-center justify-between p-4 bg-${sectionColor}-50 dark:bg-${sectionColor}-900/10 border border-${sectionColor}-200 dark:border-${sectionColor}-900/30 rounded-lg">
+                                <div>
+                                    <h4 class="font-bold text-${sectionColor}-900 dark:text-${sectionColor}-300 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[20px]">folder</span>
+                                        ${section}
+                                    </h4>
+                                    <p class="text-xs text-${sectionColor}-700 dark:text-${sectionColor}-400 mt-1">
+                                        Questions ${sectionAnswers[0].questionNumber} - ${sectionAnswers[sectionAnswers.length - 1].questionNumber}
+                                    </p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-2xl font-bold text-${sectionColor}-600 dark:text-${sectionColor}-400">${correctInSection}/${totalInSection}</p>
+                                    <p class="text-xs text-${sectionColor}-700 dark:text-${sectionColor}-400">${percentageInSection}% Correct</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                `;
+                
+                sectionAnswers.forEach(answer => {
+                    const statusColor = answer.isCorrect ? 'green' : 'red';
+                    const statusIcon = answer.isCorrect ? 'check_circle' : 'cancel';
+                    const bgColor = answer.isCorrect ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30';
+                    
+                    // Time indicator color based on speed
+                    let timeColor = 'text-gray-600';
+                    if (answer.timeSpent < 30) timeColor = 'text-green-600';
+                    else if (answer.timeSpent > 50) timeColor = 'text-red-600';
+                    else if (answer.timeSpent > 40) timeColor = 'text-amber-600';
+                    
+                    html += `
+                        <div class="border ${bgColor} rounded-lg p-4 hover:shadow-sm transition-shadow">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="flex items-center gap-3">
+                                    <span class="material-symbols-outlined text-${statusColor}-600 dark:text-${statusColor}-400 font-variation-settings-'FILL'1">${statusIcon}</span>
+                                    <div>
+                                        <p class="font-bold text-gray-900 dark:text-white">Question ${answer.questionNumber}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">${answer.topic}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-bold ${timeColor}">${answer.timeSpent}s</p>
+                                    <p class="text-[10px] text-gray-400">Time Spent</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 mt-3 pt-3 border-t ${answer.isCorrect ? 'border-green-200 dark:border-green-900/30' : 'border-red-200 dark:border-red-900/30'}">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Student:</span>
+                                    <span class="px-2 py-1 rounded text-xs font-bold ${answer.isCorrect ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">${answer.studentAnswer}</span>
+                                </div>
+                                ${!answer.isCorrect ? `
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Correct:</span>
+                                    <span class="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">${answer.correctAnswer}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            questionsList.innerHTML = html;
+        }
+
+        // Filter questions in modal
+        function applyFilters() {
+            const answerFilter = document.getElementById('answerFilter').value;
+            const sectionFilter = document.getElementById('sectionFilter').value;
+            let filtered = currentStudentAnswers;
+            
+            // Apply section filter
+            if (sectionFilter !== 'all') {
+                filtered = filtered.filter(a => a.section === sectionFilter);
+            }
+            
+            // Apply answer filter
+            if (answerFilter === 'correct') {
+                filtered = filtered.filter(a => a.isCorrect);
+            } else if (answerFilter === 'incorrect') {
+                filtered = filtered.filter(a => !a.isCorrect);
+            }
+            
+            renderQuestions(filtered);
+        }
+
+        document.getElementById('answerFilter').addEventListener('change', applyFilters);
+        document.getElementById('sectionFilter').addEventListener('change', applyFilters);
+
+        // Sort by time
+        let sortTimeAsc = true;
+        document.getElementById('sortByTime').addEventListener('click', function() {
+            const sorted = [...currentFilteredAnswers].sort((a, b) => {
+                return sortTimeAsc ? a.timeSpent - b.timeSpent : b.timeSpent - a.timeSpent;
+            });
+            sortTimeAsc = !sortTimeAsc;
+            renderQuestions(sorted);
+        });
+
+        // Close modal on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAnalysisModal();
+            }
+        });
+
+        // Close modal on backdrop click
+        document.getElementById('analysisModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAnalysisModal();
+            }
+        });
+        document.getElementById('viewAllBtn').addEventListener('click', function() {
+            isShowingAll = !isShowingAll;
+            const btn = this;
+            const text = document.getElementById('viewAllText');
+            const icon = btn.querySelector('.material-symbols-outlined');
+            
+            if (isShowingAll) {
+                renderTable(filteredData.length);
+                text.textContent = 'Show Less';
+                icon.textContent = 'expand_less';
+            } else {
+                renderTable(10);
+                text.textContent = 'View All Results';
+                icon.textContent = 'expand_more';
+                // Scroll back to top of table
+                document.querySelector('.overflow-x-auto').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+
+        // Search functionality
+        document.getElementById('searchStudent').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const statusFilter = document.getElementById('filterStatus').value;
+            
+            filteredData = studentData.filter(student => {
+                const matchesSearch = student.name.toLowerCase().includes(searchTerm);
+                const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+            
+            isShowingAll = false;
+            document.getElementById('viewAllText').textContent = 'View All Results';
+            document.querySelector('#viewAllBtn .material-symbols-outlined').textContent = 'expand_more';
+            renderTable(10);
+        });
+
+        // Status filter
+        document.getElementById('filterStatus').addEventListener('change', function(e) {
+            const statusFilter = e.target.value;
+            const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+            
+            filteredData = studentData.filter(student => {
+                const matchesSearch = student.name.toLowerCase().includes(searchTerm);
+                const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+            
+            isShowingAll = false;
+            document.getElementById('viewAllText').textContent = 'View All Results';
+            document.querySelector('#viewAllBtn .material-symbols-outlined').textContent = 'expand_more';
+            renderTable(10);
+        });
+
+        // Table sorting
+        let sortDirection = 1;
+        function sortTable(columnIndex) {
+            const rows = Array.from(document.querySelectorAll('#studentTableBody tr'));
+            
+            rows.sort((a, b) => {
+                let aVal, bVal;
+                
+                if (columnIndex === 0) { // Name
+                    aVal = a.querySelector('td:nth-child(1) span').textContent;
+                    bVal = b.querySelector('td:nth-child(1) span').textContent;
+                    return sortDirection * aVal.localeCompare(bVal);
+                } else if (columnIndex === 1) { // Score
+                    aVal = parseInt(a.querySelector('td:nth-child(2)').textContent.split('/')[0]);
+                    bVal = parseInt(b.querySelector('td:nth-child(2)').textContent.split('/')[0]);
+                } else if (columnIndex === 2) { // Percentage
+                    aVal = parseFloat(a.querySelector('td:nth-child(3)').textContent);
+                    bVal = parseFloat(b.querySelector('td:nth-child(3)').textContent);
+                } else if (columnIndex === 3) { // Time
+                    aVal = parseInt(a.querySelector('td:nth-child(4)').textContent);
+                    bVal = parseInt(b.querySelector('td:nth-child(4)').textContent);
+                }
+                
+                return sortDirection * (aVal - bVal);
+            });
+            
+            sortDirection *= -1;
+            
+            const tbody = document.getElementById('studentTableBody');
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get examId from URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('examId');
+            
+            if (examId) {
+                // Try to load exam data from localStorage
+                const exams = JSON.parse(localStorage.getItem('reviewerMockExams') || '[]');
+                const exam = exams.find(e => e.id === examId);
+                
+                if (exam) {
+                    // Update page with exam title
+                    const examTitleElement = document.querySelector('h2.text-xl + p.text-xs');
+                    if (examTitleElement) {
+                        examTitleElement.textContent = exam.title || 'Exam Performance';
+                    }
+                }
+            }
+            
+            renderTable();
+        });
+
+        // Sidebar & Notification Toggle Logic
+        const notificationButton = document.getElementById('notification-button');
+        const notificationPanel = document.getElementById('notification-panel');
+
+        mobileMenuButton?.addEventListener('click', toggleSidebar);
+        closeSidebarButton?.addEventListener('click', toggleSidebar);
+        sidebarBackdrop?.addEventListener('click', toggleSidebar);
+        notificationButton?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleNotifications();
+        });
+
+        // Close notification panel when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!notificationPanel?.contains(e.target) && !notificationButton?.contains(e.target)) {
+                notificationPanel?.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

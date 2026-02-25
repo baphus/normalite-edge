@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detailed Mistake Analysis - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                        "pass": "#16a34a",
+                        "fail": "#dc2626",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<script>
+    let activeStatus = 'incorrect';
+    let activeSection = 'all';
+
+    function applyFilters() {
+        const questions = document.querySelectorAll('.question-item');
+        const sectionHeaders = document.querySelectorAll('.section-header');
+
+        questions.forEach(q => {
+            const statusMatch = activeStatus === 'all' || q.getAttribute('data-status') === activeStatus;
+            const sectionMatch = activeSection === 'all' || q.getAttribute('data-section') === activeSection;
+            q.classList.toggle('hidden', !(statusMatch && sectionMatch));
+        });
+
+        // Show/hide section headers based on whether they have visible questions
+        sectionHeaders.forEach(header => {
+            const sectionId = header.getAttribute('data-section-id');
+            const hasVisible = [...questions].some(q =>
+                q.getAttribute('data-section') === sectionId && !q.classList.contains('hidden')
+            );
+            header.classList.toggle('hidden', !hasVisible);
+        });
+    }
+
+    function filterQuestions(status) {
+        activeStatus = status;
+        const incorrectTab = document.getElementById('incorrect-tab');
+        const allTab = document.getElementById('all-tab');
+
+        if (status === 'incorrect') {
+            incorrectTab.classList.add('border-primary', 'text-primary');
+            incorrectTab.classList.remove('border-transparent', 'text-gray-500');
+            allTab.classList.remove('border-primary', 'text-primary');
+            allTab.classList.add('border-transparent', 'text-gray-500');
+        } else {
+            allTab.classList.add('border-primary', 'text-primary');
+            allTab.classList.remove('border-transparent', 'text-gray-500');
+            incorrectTab.classList.remove('border-primary', 'text-primary');
+            incorrectTab.classList.add('border-transparent', 'text-gray-500');
+        }
+        applyFilters();
+    }
+
+    function filterSection(section) {
+        activeSection = section;
+        const sectionBtns = document.querySelectorAll('.section-filter-btn');
+        sectionBtns.forEach(btn => {
+            if (btn.getAttribute('data-section') === section) {
+                btn.classList.add('bg-primary', 'text-white');
+                btn.classList.remove('bg-gray-100', 'text-gray-600', 'dark:bg-white/10', 'dark:text-gray-300');
+            } else {
+                btn.classList.remove('bg-primary', 'text-white');
+                btn.classList.add('bg-gray-100', 'text-gray-600', 'dark:bg-white/10', 'dark:text-gray-300');
+            }
+        });
+        applyFilters();
+    }
+</script>
+<style type="text/tailwindcss">
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+        details summary::-webkit-details-marker {
+            display: none;
+        }
+        details[open] .expand-icon {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 z-10">
+<div class="flex items-center gap-4">
+<a class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 transition-colors" href="mock-exam-result.html">
+<span class="material-symbols-outlined">arrow_back</span>
+</a>
+<div class="flex flex-col">
+<h2 class="text-xl font-bold text-gray-900 dark:text-white leading-tight">Detailed Mistake Analysis</h2>
+<p class="text-sm text-gray-500">Mock Exam Set A • Review Mode</p>
+</div>
+</div>
+<div class="flex items-center gap-4 sm:gap-8 bg-gray-50 dark:bg-white/5 px-6 py-2 rounded-2xl border border-gray-100 dark:border-white/10">
+<div class="text-center">
+<div class="text-fail font-bold text-xl leading-none">23</div>
+<div class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">Mistakes</div>
+</div>
+<div class="h-8 w-px bg-gray-200 dark:bg-white/10"></div>
+<div class="text-center">
+<div class="text-gray-900 dark:text-white font-bold text-xl leading-none">122<span class="text-xs font-normal text-gray-400">/150</span></div>
+<div class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">Total Score</div>
+</div>
+<div class="h-8 w-px bg-gray-200 dark:bg-white/10"></div>
+<div class="text-center">
+<div class="text-pass font-bold text-xl leading-none">81%</div>
+<div class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">Accuracy</div>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-hidden flex flex-col">
+<div class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 shrink-0">
+<div class="container mx-auto max-w-5xl flex gap-8">
+<button id="incorrect-tab" onclick="filterQuestions('incorrect')" class="py-4 text-sm font-bold border-b-2 border-primary text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">error</span>
+                        Incorrect Answers Only
+                    </button>
+<button id="all-tab" onclick="filterQuestions('all')" class="py-4 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[18px]">list_alt</span>
+                        View All Questions
+                    </button>
+</div>
+</div>
+<!-- Section filter pills -->
+<div class="bg-gray-50 dark:bg-white/[0.02] border-b border-gray-200 dark:border-white/10 px-6 py-3 shrink-0">
+<div class="container mx-auto max-w-5xl flex flex-wrap gap-2 items-center">
+<span class="text-xs font-bold text-gray-400 uppercase tracking-widest mr-1">Section:</span>
+<button class="section-filter-btn bg-primary text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors" data-section="all" onclick="filterSection('all')">All Sections</button>
+<button class="section-filter-btn bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5" data-section="gened" onclick="filterSection('gened')">
+<span class="h-2 w-2 rounded-full bg-blue-500 inline-block"></span> General Education
+</button>
+<button class="section-filter-btn bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5" data-section="proed" onclick="filterSection('proed')">
+<span class="h-2 w-2 rounded-full bg-purple-500 inline-block"></span> Professional Education
+</button>
+<button class="section-filter-btn bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5" data-section="major" onclick="filterSection('major')">
+<span class="h-2 w-2 rounded-full bg-orange-500 inline-block"></span> Specialization (Major)
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto">
+<div class="container mx-auto max-w-5xl px-4 sm:px-6 py-8 flex flex-col gap-4">
+
+<!-- ── SECTION: General Education ── -->
+<div class="section-header flex items-center gap-3" data-section-id="gened">
+<div class="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 shrink-0">
+<span class="material-symbols-outlined text-[18px]">menu_book</span>
+</div>
+<h3 class="text-sm font-bold text-blue-600 uppercase tracking-widest">General Education</h3>
+<div class="flex-1 h-px bg-blue-100 dark:bg-blue-900/30"></div>
+<span class="text-xs font-semibold text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">Q1–50</span>
+</div>
+
+<!-- Question 1 (Correct) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item hidden" data-status="correct" data-section="gened">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center font-bold text-sm">1</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">What is the capital city of the Philippines?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">What is the capital city of the Philippines?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Your Answer (Correct)</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">D. Manila</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        Manila has been the capital of the Philippines since the Spanish colonial period. It is the center of government, culture, and economy.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 2 (Correct) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item hidden" data-status="correct" data-section="gened">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center font-bold text-sm">2</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">What is the main theme of Jose Rizal's "Noli Me Tangere"?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">What is the main theme of Jose Rizal's "Noli Me Tangere"?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Your Answer (Correct)</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">A. Social cancer and the call for reform</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        Rizal's novel exposed the injustices and corruption in Philippine society under Spanish rule, metaphorically referring to it as a "social cancer."
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 3 (Correct) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item hidden" data-status="correct" data-section="gened">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center font-bold text-sm">3</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">What is the value of 5! (5 factorial)?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">What is the value of 5! (5 factorial)?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Your Answer (Correct)</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">C. 120</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        5 factorial is calculated as 5 × 4 × 3 × 2 × 1 = 120.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 4 (Correct) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item hidden" data-status="correct" data-section="gened">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center font-bold text-sm">4</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">What is the square root of the sum of the first four prime numbers?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">What is the square root of the sum of the first four prime numbers?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-red-600 text-[18px]">cancel</span>
+<span class="text-xs font-bold text-red-600 uppercase">Your Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">A. 4</p>
+</div>
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Correct Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">B. √17</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        The first four prime numbers are 2, 3, 5, and 7. Their sum is 2 + 3 + 5 + 7 = 17. The square root of the sum is therefore √17.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 5 (Correct) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item hidden" data-status="correct" data-section="gened">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center font-bold text-sm">5</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">Which of the following is the best example of a renewable energy source?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">Which of the following is the best example of a renewable energy source?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Your Answer (Correct)</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">C. Solar energy</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        Solar energy is derived from the sun and is naturally replenished. It is one of the most widely recognized renewable energy sources alongside wind and hydroelectric power.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 45 (Incorrect) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item" data-status="incorrect" data-section="gened">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-sm">45</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">What is the square root of the sum of the first four prime numbers?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">What is the square root of the sum of the first four prime numbers?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-red-600 text-[18px]">cancel</span>
+<span class="text-xs font-bold text-red-600 uppercase">Your Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">A. 4</p>
+</div>
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Correct Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">B. √17</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        The first four prime numbers are 2, 3, 5, and 7. Their sum is 2 + 3 + 5 + 7 = 17. The square root of the sum is therefore √17.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+
+<!-- ── SECTION: Professional Education ── -->
+<div class="section-header flex items-center gap-3 mt-4" data-section-id="proed">
+<div class="h-8 w-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 shrink-0">
+<span class="material-symbols-outlined text-[18px]">psychology</span>
+</div>
+<h3 class="text-sm font-bold text-purple-600 uppercase tracking-widest">Professional Education</h3>
+<div class="flex-1 h-px bg-purple-100 dark:bg-purple-900/30"></div>
+<span class="text-xs font-semibold text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full">Q51–100</span>
+</div>
+
+<!-- Question 6 (Correct) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item hidden" data-status="correct" data-section="proed">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center font-bold text-sm">6</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">In Maslow's hierarchy of needs, what is the most basic level of need?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">In Maslow's hierarchy of needs, what is the most basic level of need that must be met before other needs can be addressed?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Your Answer (Correct)</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">B. Physiological Needs</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        Physiological needs (food, water, shelter, etc.) are at the base of Maslow's pyramid and are considered the most fundamental human requirements.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 12 (Incorrect) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item" data-status="incorrect" data-section="proed" open="">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-sm">12</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">In John Dewey's educational philosophy, what is the primary role of the teacher?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">In John Dewey's educational philosophy, what is the primary role of the teacher?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-red-600 text-[18px]">cancel</span>
+<span class="text-xs font-bold text-red-600 uppercase">Your Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">A. An authoritative source of absolute knowledge</p>
+</div>
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Correct Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">C. A facilitator and guide of student learning experiences</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        John Dewey's "Progressivism" emphasizes that education should be student-centered. He believed the teacher should act as a guide or facilitator (partner in learning) rather than a rigid taskmaster or the sole source of wisdom. Students learn best through experience and inquiry.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 27 (Incorrect) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item" data-status="incorrect" data-section="proed">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-sm">27</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">Which of the following describes the 'Zone of Proximal Development'?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">Which of the following describes the 'Zone of Proximal Development' as proposed by Vygotsky?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-red-600 text-[18px]">cancel</span>
+<span class="text-xs font-bold text-red-600 uppercase">Your Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">B. The level of knowledge a child can achieve independently</p>
+</div>
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Correct Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">D. The gap between what a learner can do alone and with help</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        Lev Vygotsky's ZPD refers to the distance between the actual developmental level as determined by independent problem solving and the level of potential development as determined through problem-solving under adult guidance or in collaboration with more capable peers.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+<!-- Question 30 (Incorrect) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item" data-status="incorrect" data-section="proed">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-sm">30</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">What type of assessment is used to monitor student learning and provide ongoing feedback?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">What type of assessment is used to monitor student learning and provide ongoing feedback to improve teaching and learning?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-red-600 text-[18px]">cancel</span>
+<span class="text-xs font-bold text-red-600 uppercase">Your Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">C. Summative Assessment</p>
+</div>
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Correct Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">A. Formative Assessment</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        Formative assessment is ongoing and used to improve instruction. Summative assessment is used to evaluate student learning at the end of an instructional unit.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+
+<!-- ── SECTION: Specialization (Major) ── -->
+<div class="section-header flex items-center gap-3 mt-4" data-section-id="major">
+<div class="h-8 w-8 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 shrink-0">
+<span class="material-symbols-outlined text-[18px]">history_edu</span>
+</div>
+<h3 class="text-sm font-bold text-orange-600 uppercase tracking-widest">Specialization (Major)</h3>
+<div class="flex-1 h-px bg-orange-100 dark:bg-orange-900/30"></div>
+<span class="text-xs font-semibold text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-full">Q101–150</span>
+</div>
+
+<!-- Question 15 (Incorrect) -->
+<details class="group bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/5 shadow-sm overflow-hidden question-item" data-status="incorrect" data-section="major">
+<summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors list-none">
+<div class="flex items-center gap-4">
+<span class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-sm">15</span>
+<div class="flex flex-col">
+<p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1">Sino ang kinikilalang "Ama ng Wikang Pambansa"?</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-gray-400 transition-transform duration-200 expand-icon">expand_more</span>
+</summary>
+<div class="p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02]">
+<div class="space-y-6">
+<div>
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">The Question</h4>
+<p class="text-gray-800 dark:text-gray-200 font-medium">Sino ang kinikilalang "Ama ng Wikang Pambansa"?</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-red-600 text-[18px]">cancel</span>
+<span class="text-xs font-bold text-red-600 uppercase">Your Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">A. Jose Rizal</p>
+</div>
+<div class="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
+<span class="text-xs font-bold text-green-600 uppercase">Correct Answer</span>
+</div>
+<p class="text-sm font-medium text-gray-900 dark:text-white">B. Manuel L. Quezon</p>
+</div>
+</div>
+<div class="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900/20">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-blue-600 text-[20px]">info</span>
+<span class="text-xs font-bold text-blue-600 uppercase">Rationalization</span>
+</div>
+<p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        Si Manuel L. Quezon ang kinikilalang "Ama ng Wikang Pambansa" dahil sa kanyang pagsisikap na magkaroon ng isang wikang magbubuklod sa lahat ng mga Pilipino.
+                                    </p>
+</div>
+</div>
+</div>
+</details>
+
+<div class="mt-8 flex items-center justify-between">
+<button class="text-gray-500 text-sm font-bold flex items-center gap-2 hover:text-primary transition-colors" onclick="window.location.href='mock-exam-result.html'">
+<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                            Back to Summary
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<script>
+        }
+    </script>
+</body></html>

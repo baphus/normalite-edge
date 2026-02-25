@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Study Session - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            -webkit-backface-visibility: hidden !important;
+            backface-visibility: hidden !important;
+            -webkit-transform-style: preserve-3d;
+            transform-style: preserve-3d;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative">
+
+<!-- Global Notification Panel -->
+<div class="fixed bottom-24 left-4 md:left-64 ml-2 w-80 bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 hidden z-[100] overflow-hidden" id="notification-panel">
+<div class="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+<h3 class="font-bold text-gray-900 dark:text-white">Notifications</h3>
+<button class="text-xs text-primary hover:underline">Mark all as read</button>
+</div>
+<div class="max-h-[70vh] overflow-y-auto p-2">
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">quiz</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">New Mock Exam Released</p>
+<p class="text-xs text-gray-500">General Education - Set C is now available.</p>
+<p class="text-[10px] text-gray-400 mt-1">2 hours ago</p>
+</div>
+</a>
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-accent">emoji_events</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Achievement Unlocked!</p>
+<p class="text-xs text-gray-500">You've unlocked the "Fast Learner" badge.</p>
+<p class="text-[10px] text-gray-400 mt-1">Yesterday</p>
+</div>
+</a>
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-indigo-500">video_call</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Upcoming Live Coaching</p>
+<p class="text-xs text-gray-500">LET Coaching Session starts in 30 minutes.</p>
+<p class="text-[10px] text-gray-400 mt-1">Today, 2:00 PM</p>
+</div>
+</a>
+</div>
+<div class="p-3 border-t border-gray-100 dark:border-white/5 text-center">
+<a class="text-sm font-bold text-primary hover:text-primary/80" href="notifications.html">View all notifications</a>
+</div>
+</div>
+
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+
+<div class="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 min-h-full flex flex-col">
+<div class="md:hidden flex items-center justify-between pb-6">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+<div>
+                        <nav class="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
+                            <a class="hover:text-primary transition-colors" href="study.html">Study</a>
+                            <span class="mx-2 text-gray-300">/</span>
+                            <a class="hover:text-primary transition-colors" href="#" id="breadcrumb-category">Professional Education</a>
+                            <span class="mx-2 text-gray-300">/</span>
+                            <span class="text-gray-900 dark:text-white font-medium" id="breadcrumb-deck">Child &amp; Adolescent Dev.</span>
+                        </nav>
+<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <span id="header-deck-title">Child &amp; Adolescent Development</span>
+                        <span class="px-2.5 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-bold uppercase tracking-wider border border-accent/20" id="header-deck-category">Prof Ed</span>
+</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors dark:bg-white/5 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="text-sm font-medium hidden sm:inline">Options</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors dark:bg-white/5 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">close</span>
+<span class="text-sm font-medium hidden sm:inline">Exit</span>
+</button>
+</div>
+</div>
+<div class="flex-1 flex flex-col items-center justify-center py-4" id="session-wrapper">
+    <!-- Flashcard Mode UI -->
+    <div id="flashcard-mode" class="w-full flex flex-col items-center">
+        <div class="w-full max-w-3xl mb-4 flex items-center justify-between text-sm">
+            <span class="text-gray-500 font-medium dark:text-gray-400" id="card-counter">Card 1 of 5</span>
+            <span class="text-primary font-bold bg-primary/5 px-2 py-0.5 rounded text-xs" id="progress-percent">20% Complete</span>
+        </div>
+        <div class="w-full max-w-3xl mb-8 bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+            <div id="progress-bar" class="bg-primary h-full rounded-full transition-all duration-500" style="width: 20%"></div>
+        </div>
+        <div class="w-full max-w-3xl perspective-1000 group cursor-pointer relative z-10 aspect-[4/3] md:aspect-[16/9] lg:aspect-[2/1]" onclick="flipCard()">
+            <div id="flashcard-inner" class="relative w-full h-full transition-transform duration-700 transform-style-3d">
+                <!-- Front -->
+                <div class="absolute inset-0 backface-hidden bg-white dark:bg-[#1f1212] rounded-3xl shadow-xl border border-gray-100 dark:border-white/10 hover:shadow-2xl hover:border-primary/20 transition-all duration-300 flex flex-col z-10">
+                    <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-accent to-primary opacity-50"></div>
+                    <div class="flex-1 flex flex-col items-center justify-center p-8 md:p-16 text-center z-10">
+                        <div class="mb-6">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 dark:bg-white/5 text-gray-500 text-xs font-bold uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-[14px]">help</span>
+                                Question
+                            </span>
+                        </div>
+                        <h2 id="flashcard-question" class="text-2xl md:text-3xl lg:text-4xl font-medium text-gray-800 dark:text-gray-100 leading-relaxed font-display">
+                            According to Piaget's theory of cognitive development, in which stage do children begin to think logically about concrete events?
+                        </h2>
+                    </div>
+                    <div class="absolute bottom-6 inset-x-0 flex justify-center z-10">
+                        <p class="text-sm text-gray-400 dark:text-gray-500 flex items-center gap-2 animate-pulse">
+                            <span class="material-symbols-outlined text-[18px]">touch_app</span>
+                            Click card to reveal answer
+                        </p>
+                    </div>
+                </div>
+                <!-- Back -->
+                <div class="absolute inset-0 backface-hidden bg-white dark:bg-[#1f1212] rounded-3xl shadow-xl border-2 border-primary/20 flex flex-col rotate-y-180">
+                    <div class="absolute top-0 inset-x-0 h-1 bg-primary"></div>
+                    <div class="flex-1 flex flex-col items-center justify-center p-8 md:p-16 text-center z-10">
+                        <div class="mb-6">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-600 text-xs font-bold uppercase tracking-wider border border-green-200">
+                                <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                Correct Answer
+                            </span>
+                        </div>
+                        <h2 id="flashcard-answer" class="text-2xl md:text-4xl font-bold text-primary leading-tight font-display mb-4">
+                            Concrete Operational Stage
+                        </h2>
+                        <p id="flashcard-rationalization" class="text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-lg">
+                            This stage typically occurs between ages 7 and 11, characterized by the development of logical thought and the understanding of conservation.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Study Mode (Quiz) UI -->
+    <div id="study-mode" class="w-full flex flex-col items-center hidden">
+        <div class="w-full max-w-3xl mb-4 flex items-center justify-between text-sm">
+            <span class="text-gray-500 font-medium dark:text-gray-400" id="study-counter">Question 1 of 5</span>
+            <div class="flex items-center gap-4">
+                <button onclick="randomizeQuestions()" class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">shuffle</span>
+                    Randomize
+                </button>
+                <span class="text-primary font-bold bg-primary/5 px-2 py-0.5 rounded text-xs" id="study-progress-percent">20%</span>
+            </div>
+        </div>
+        <div class="w-full max-w-3xl mb-8 bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+            <div id="study-progress-bar" class="bg-primary h-full rounded-full transition-all duration-500" style="width: 20%"></div>
+        </div>
+        <div class="w-full max-w-3xl bg-white dark:bg-[#1f1212] rounded-3xl shadow-xl border border-gray-100 dark:border-white/10 p-8 md:p-12">
+            <div class="mb-6">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+                    Question
+                </span>
+            </div>
+            <h2 id="study-question" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-8 border-b border-gray-100 dark:border-white/5 pb-6">
+                According to Piaget's theory of cognitive development, in which stage do children begin to think logically about concrete events?
+            </h2>
+            <div id="options-container" class="grid grid-cols-1 gap-4 mb-8">
+                <!-- Options will be injected here -->
+            </div>
+            <div id="rationalization-container" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500 mt-6">
+                <div class="p-6 rounded-2xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 flex gap-3 items-start">
+                    <span class="material-symbols-outlined text-[18px] text-green-700 dark:text-green-400 shrink-0 mt-0.5">info</span>
+                    <p id="study-rationalization" class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                        This stage typically occurs between ages 7 and 11, characterized by the development of logical thought and the understanding of conservation.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results/Review Mode -->
+    <div id="results-mode" class="w-full flex flex-col items-center hidden">
+        <div class="w-full max-w-3xl bg-white dark:bg-[#1f1212] rounded-3xl shadow-xl border border-gray-100 dark:border-white/10 p-8 md:p-12">
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center justify-center h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 mb-4">
+                    <span class="material-symbols-outlined text-5xl">task_alt</span>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Study Session Complete!</h2>
+                <div id="score-display" class="hidden my-4">
+                    <div class="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20">
+                        <span class="text-4xl font-bold text-primary" id="score-percent">0%</span>
+                        <div class="text-left">
+                            <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Score</p>
+                            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300" id="score-fraction">0 / 0 correct</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-gray-500 dark:text-gray-400" id="result-summary">You've completed all questions in this set.</p>
+            </div>
+            
+            <div class="space-y-6" id="review-container">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-white/5 pb-4">Review Your Answers</h3>
+                <div id="review-list" class="space-y-8">
+                    <!-- Review items will be injected here -->
+                </div>
+            </div>
+
+            <div class="mt-12 flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="location.reload()" class="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+                    Restart Session
+                </button>
+                <a href="study.html" class="px-8 py-3 bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 transition-all text-center">
+                    Back to Study Hub
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Common Controls -->
+    <div class="w-full max-w-3xl mt-8 grid grid-cols-3 gap-4" id="common-controls">
+        <button onclick="prevItem()" id="prev-btn" class="flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 hover:border-gray-300 dark:bg-white/5 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10 transition-all shadow-sm">
+            <span class="material-symbols-outlined">arrow_back</span>
+            <span>Previous</span>
+        </button>
+        <!-- Flashcard mode: Reveal button | Study mode: End Session button -->
+        <button id="main-action-btn" class="flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 shadow-md shadow-primary/20 transition-all transform active:scale-95" onclick="handleMainAction()">
+            <span id="main-action-icon" class="material-symbols-outlined">visibility</span>
+            <span id="main-action-text">Reveal Answer</span>
+        </button>
+        <button id="end-session-btn" class="hidden flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 shadow-md shadow-red-500/20 transition-all transform active:scale-95" onclick="showResults()">
+            <span class="material-symbols-outlined">stop_circle</span>
+            <span>End Session</span>
+        </button>
+        <button onclick="nextItem()" id="next-btn" class="flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 hover:border-gray-300 dark:bg-white/5 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10 transition-all shadow-sm">
+            <span id="next-btn-text">Next</span>
+            <span id="next-btn-icon" class="material-symbols-outlined">arrow_forward</span>
+        </button>
+    </div>
+
+</div>
+<div class="mt-8 pt-8 border-t border-gray-100 dark:border-white/5">
+<h3 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-4">Related Decks</h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<a class="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all dark:bg-white/5 dark:border-white/10" href="#">
+<div class="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 h-10 w-10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">psychology</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-bold text-gray-900 dark:text-white truncate">Theories of Learning</p>
+<p class="text-xs text-gray-500 truncate">30 Cards</p>
+</div>
+</a>
+<a class="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all dark:bg-white/5 dark:border-white/10" href="#">
+<div class="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 h-10 w-10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">history_edu</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-bold text-gray-900 dark:text-white truncate">Historical Foundations</p>
+<p class="text-xs text-gray-500 truncate">45 Cards</p>
+</div>
+</a>
+<a class="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all dark:bg-white/5 dark:border-white/10" href="#">
+<div class="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300 h-10 w-10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">gavel</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-bold text-gray-900 dark:text-white truncate">Legal Bases of Education</p>
+<p class="text-xs text-gray-500 truncate">25 Cards</p>
+</div>
+</a>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<script>
+    let questions = [
+        {
+            id: 1,
+            question: "According to Piaget's theory of cognitive development, in which stage do children begin to think logically about concrete events?",
+            options: [
+                "Sensorimotor Stage",
+                "Preoperational Stage",
+                "Concrete Operational Stage",
+                "Formal Operational Stage"
+            ],
+            answer: 2,
+            rationalization: "This stage typically occurs between ages 7 and 11, characterized by the development of logical thought and the understanding of conservation."
+        }
+    ];
+
+    function loadQuestions(deck, major) {
+        if (deck === 'custom') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const deckId = urlParams.get('id');
+            const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
+            const foundDeck = customDecks.find(d => d.id == deckId);
+            
+            if (foundDeck) {
+                questions = foundDeck.cards.map((c, i) => ({
+                    id: i + 1,
+                    question: c.front,
+                    options: c.options || [c.back || "No option provided", "Incorrect Option A", "Incorrect Option B", "Incorrect Option C"],
+                    answer: c.answer !== undefined ? c.answer : 0,
+                    rationalization: c.rationalization || "No rationalization provided for this card."
+                }));
+                return;
+            }
+        }
+        
+        if (deck === 'major') {
+            if (major === 'English') {
+                questions = [
+                    {
+                        id: 1,
+                        question: "What is the smallest unit of sound that can distinguish one word from another in a language?",
+                        options: ["Morpheme", "Phoneme", "Grapheme", "Allophone"],
+                        answer: 1,
+                        rationalization: "A phoneme is the smallest distinctive unit of sound. For example, /p/ and /b/ are phonemes in English (pin vs bin)."
+                    },
+                    {
+                        id: 2,
+                        question: "Which linguistic branch transitions from sentence structure to the study of word formation?",
+                        options: ["Syntax", "Semantics", "Morphology", "Pragmatics"],
+                        answer: 2,
+                        rationalization: "Morphology is the study of the internal structure of words and the rules by which words are formed."
+                    }
+                ];
+            } else if (major === 'Mathematics') {
+                questions = [
+                    {
+                        id: 1,
+                        question: "Which branch of mathematics deals with the study of rates of change?",
+                        options: ["Algebra", "Geometry", "Calculus", "Statistics"],
+                        answer: 2,
+                        rationalization: "Calculus is the mathematical study of continuous change, focusing on derivatives and integrals."
+                    },
+                    {
+                        id: 2,
+                        question: "What is the value of Pi rounded to two decimal places?",
+                        options: ["3.12", "3.14", "3.16", "3.18"],
+                        answer: 1,
+                        rationalization: "Pi (π) is approximately 3.14159..., so 3.14 is the standard two-decimal rounding."
+                    }
+                ];
+            } else {
+                questions = [
+                    {
+                        id: 1,
+                        question: `Core concept in ${major} Specialization?`,
+                        options: ["Option A", "Option B", "Option C", "Option D"],
+                        answer: 0,
+                        rationalization: `This is a fundamental concept specifically for ${major} majors.`
+                    }
+                ];
+            }
+        } else if (deck === 'theories') {
+            questions = [
+                {
+                    id: 1,
+                    question: "Who developed the theory of Multiple Intelligences?",
+                    options: ["Howard Gardner", "Robert Sternberg", "Charles Spearman", "Daniel Goleman"],
+                    answer: 0,
+                    rationalization: "Howard Gardner proposed that there are at least eight different types of intelligence."
+                }
+            ];
+        } else if (deck === 'legal-bases') {
+            questions = [
+                {
+                    id: 1,
+                    question: "Which Philippine law is known as the Magna Carta for Public School Teachers?",
+                    options: ["RA 4670", "RA 7836", "RA 9155", "RA 10533"],
+                    answer: 0,
+                    rationalization: "Republic Act No. 4670 provides the guidelines for the rights and welfare of public school teachers."
+                }
+            ];
+        } else {
+            // Default Prof Ed (Child Dev)
+            questions = [
+                {
+                    id: 1,
+                    question: "According to Piaget's theory of cognitive development, in which stage do children begin to think logically about concrete events?",
+                    options: ["Sensorimotor Stage", "Preoperational Stage", "Concrete Operational Stage", "Formal Operational Stage"],
+                    answer: 2,
+                    rationalization: "This stage typically occurs between ages 7 and 11, characterized by the development of logical thought."
+                },
+                {
+                    id: 2,
+                    question: "Which of the following describes the 'Zone of Proximal Development'?",
+                    options: [
+                        "The gap between what a learner can do alone and what they can do with help.",
+                        "The maximum biological potential for learning.",
+                        "The physical space where learning occurs.",
+                        "The period of time after a lesson when concepts are internalized."
+                    ],
+                    answer: 0,
+                    rationalization: "Vygotsky's ZPD is the distance between the actual developmental level and the level of potential development with guidance."
+                }
+            ];
+        }
+    }
+
+    let currentIndex = 0;
+    let isFlipped = false;
+    let selectedOption = null;
+    let mode = 'flashcards';
+    let userAnswers = []; // To track answers for review
+
+    function initSession() {
+        const urlParams = new URLSearchParams(window.location.search);
+        mode = urlParams.get('mode') || 'flashcards';
+        const deckParam = urlParams.get('deck') || 'prof-ed';
+        
+        // Load User Data
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        const userSpecialization = localStorage.getItem('userSpecialization') || 'BSEd - English';
+        const major = userSpecialization.includes(' - ') ? userSpecialization.split(' - ')[1] : userSpecialization;
+
+        if (userData.fullname) {
+            document.getElementById('user-fullname').textContent = userData.fullname;
+        }
+        document.getElementById('user-specialization-text').textContent = userSpecialization;
+
+        // Update Deck Content based on params
+        if (deckParam === 'custom') {
+            const deckId = urlParams.get('id');
+            const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
+            const foundDeck = customDecks.find(d => d.id == deckId);
+            if (foundDeck) {
+                document.getElementById('breadcrumb-category').textContent = foundDeck.category;
+                document.getElementById('breadcrumb-deck').textContent = foundDeck.title;
+                document.getElementById('header-deck-title').textContent = foundDeck.title;
+                document.getElementById('header-deck-category').textContent = 'Custom';
+                document.getElementById('header-deck-category').className = 'px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider border border-primary/20';
+            }
+        } else if (deckParam === 'major') {
+            const majorTitle = major === 'English' ? 'Structure of English' : major + ' Specialist';
+            document.getElementById('breadcrumb-category').textContent = 'Major Specialization';
+            document.getElementById('breadcrumb-deck').textContent = majorTitle;
+            document.getElementById('header-deck-title').textContent = majorTitle;
+            document.getElementById('header-deck-category').textContent = 'Major';
+        } else if (deckParam === 'theories') {
+            document.getElementById('breadcrumb-category').textContent = 'Professional Education';
+            document.getElementById('breadcrumb-deck').textContent = 'Theories of Learning';
+            document.getElementById('header-deck-title').textContent = 'Theories of Learning';
+            document.getElementById('header-deck-category').textContent = 'Prof Ed';
+        } else if (deckParam === 'legal-bases') {
+            document.getElementById('breadcrumb-category').textContent = 'Professional Education';
+            document.getElementById('breadcrumb-deck').textContent = 'Legal Bases of Education';
+            document.getElementById('header-deck-title').textContent = 'Legal Bases of Education';
+            document.getElementById('header-deck-category').textContent = 'Prof Ed';
+        }
+
+        loadQuestions(deckParam, major);
+        userAnswers = new Array(questions.length).fill(null);
+        
+        if (mode === 'study') {
+            document.getElementById('flashcard-mode').classList.add('hidden');
+            document.getElementById('study-mode').classList.remove('hidden');
+            document.getElementById('main-action-btn').classList.add('hidden');
+            document.getElementById('end-session-btn').classList.remove('hidden');
+        } else {
+            document.getElementById('flashcard-mode').classList.remove('hidden');
+            document.getElementById('study-mode').classList.add('hidden');
+            document.getElementById('main-action-btn').classList.remove('hidden');
+            document.getElementById('end-session-btn').classList.add('hidden');
+            document.getElementById('main-action-text').textContent = 'Reveal Answer';
+            document.getElementById('main-action-icon').textContent = 'visibility';
+        }
+        
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        if (currentIndex >= questions.length) {
+            showResults();
+            return;
+        }
+
+        const q = questions[currentIndex];
+        const progress = ((currentIndex + 1) / questions.length) * 100;
+
+        // Update Next Button Text
+        if (currentIndex === questions.length - 1) {
+            document.getElementById('next-btn-text').textContent = 'Finish';
+            document.getElementById('next-btn-icon').textContent = 'check_circle';
+        } else {
+            document.getElementById('next-btn-text').textContent = 'Next';
+            document.getElementById('next-btn-icon').textContent = 'arrow_forward';
+        }
+
+        if (mode === 'flashcards') {
+            document.getElementById('card-counter').textContent = `Card ${currentIndex + 1} of ${questions.length}`;
+            document.getElementById('progress-percent').textContent = `${Math.round(progress)}% Complete`;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+            document.getElementById('flashcard-question').textContent = q.question;
+            document.getElementById('flashcard-answer').textContent = q.options[q.answer];
+            document.getElementById('flashcard-rationalization').textContent = q.rationalization;
+            
+            const card = document.getElementById('flashcard-inner');
+            card.classList.remove('rotate-y-180');
+            isFlipped = false;
+            document.getElementById('main-action-text').textContent = 'Reveal Answer';
+            document.getElementById('main-action-icon').textContent = 'visibility';
+        } else {
+            document.getElementById('study-counter').textContent = `Question ${currentIndex + 1} of ${questions.length}`;
+            document.getElementById('study-progress-percent').textContent = `${Math.round(progress)}%`;
+            document.getElementById('study-progress-bar').style.width = `${progress}%`;
+            document.getElementById('study-question').textContent = q.question;
+            document.getElementById('study-rationalization').textContent = q.rationalization;
+            
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            selectedOption = userAnswers[currentIndex];
+            
+            if (selectedOption !== null) {
+                document.getElementById('rationalization-container').classList.remove('hidden');
+            } else {
+                document.getElementById('rationalization-container').classList.add('hidden');
+            }
+
+            q.options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                let extraClasses = 'border-gray-100 dark:border-white/5';
+                
+                if (selectedOption !== null) {
+                    if (index === q.answer) {
+                        extraClasses = 'border-green-500 bg-green-50 dark:bg-green-900/10';
+                    } else if (index === selectedOption) {
+                        extraClasses = 'border-red-500 bg-red-50 dark:bg-red-900/10';
+                    }
+                }
+
+                btn.className = `flex items-center gap-4 p-4 rounded-xl border-2 ${extraClasses} hover:border-primary/30 transition-all text-left group`;
+                btn.onclick = () => selectOption(index);
+                
+                let iconClasses = 'border-gray-200 dark:border-white/10';
+                if (selectedOption !== null) {
+                    if (index === q.answer) iconClasses = 'bg-green-500 text-white border-green-500';
+                    else if (index === selectedOption) iconClasses = 'bg-red-500 text-white border-red-500';
+                }
+
+                btn.innerHTML = `
+                    <div class="h-8 w-8 rounded-full border-2 ${iconClasses} flex items-center justify-center shrink-0 group-hover:border-primary/50 transition-colors">
+                        <span class="text-xs font-bold">${String.fromCharCode(65 + index)}</span>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300 font-body">${option}</span>
+                `;
+                optionsContainer.appendChild(btn);
+            });
+        }
+    }
+
+    function selectOption(index) {
+        if (userAnswers[currentIndex] !== null) return;
+
+        userAnswers[currentIndex] = index;
+        selectedOption = index;
+        checkAnswer();
+    }
+
+    function handleMainAction() {
+        if (mode === 'flashcards') {
+            flipCard();
+        } else {
+            checkAnswer();
+        }
+    }
+
+    function flipCard() {
+        const card = document.getElementById('flashcard-inner');
+        card.classList.toggle('rotate-y-180');
+        isFlipped = !isFlipped;
+        document.getElementById('main-action-text').textContent = isFlipped ? 'Hide Answer' : 'Reveal Answer';
+        document.getElementById('main-action-icon').textContent = isFlipped ? 'visibility_off' : 'visibility';
+    }
+
+    function checkAnswer() {
+        const q = questions[currentIndex];
+        const options = document.getElementById('options-container').children;
+        
+        if (selectedOption === q.answer) {
+            options[selectedOption].classList.add('border-green-500', 'bg-green-50', 'dark:bg-green-900/10');
+            options[selectedOption].querySelector('div').classList.add('bg-green-500', 'text-white', 'border-green-500');
+        } else if (selectedOption !== null) {
+            options[selectedOption].classList.add('border-red-500', 'bg-red-50', 'dark:bg-red-900/10');
+            options[selectedOption].querySelector('div').classList.add('bg-red-500', 'text-white', 'border-red-500');
+            
+            options[q.answer].classList.add('border-green-500', 'bg-green-50', 'dark:bg-green-900/10');
+            options[q.answer].querySelector('div').classList.add('bg-green-500', 'text-white', 'border-green-500');
+        }
+        
+        document.getElementById('rationalization-container').classList.remove('hidden');
+    }
+
+    function showResults() {
+        document.getElementById('flashcard-mode').classList.add('hidden');
+        document.getElementById('study-mode').classList.add('hidden');
+        document.getElementById('common-controls').classList.add('hidden');
+        document.getElementById('results-mode').classList.remove('hidden');
+
+        const reviewList = document.getElementById('review-list');
+        reviewList.innerHTML = '';
+
+        let correctCount = 0;
+
+        questions.forEach((q, idx) => {
+            const userAnswer = userAnswers[idx];
+            const isCorrect = userAnswer === q.answer;
+            if (isCorrect) correctCount++;
+
+            const item = document.createElement('div');
+            item.className = 'p-6 rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5';
+            
+            let statusBadge = '';
+            if (mode === 'study') {
+                statusBadge = `<span class="px-2 py-1 rounded text-[10px] font-bold uppercase ${isCorrect ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}">
+                    ${isCorrect ? 'Correct' : 'Incorrect'}
+                </span>`;
+            }
+
+            item.innerHTML = `
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <p class="font-bold text-gray-900 dark:text-white">${idx + 1}. ${q.question}</p>
+                    ${statusBadge}
+                </div>
+                <div class="grid grid-cols-1 gap-2 mb-4">
+                    ${q.options.map((opt, i) => `
+                        <div class="text-sm p-3 rounded-lg border ${i === q.answer ? 'border-green-500 bg-green-50 dark:bg-green-900/10 font-bold' : (mode === 'study' && i === userAnswer ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-transparent text-gray-500')}">
+                            ${String.fromCharCode(65 + i)}. ${opt}
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
+                    <p class="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase mb-1">Rationalization:</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">${q.rationalization}</p>
+                </div>
+            `;
+            reviewList.appendChild(item);
+        });
+
+        if (mode === 'study') {
+            const pct = Math.round((correctCount / questions.length) * 100);
+            document.getElementById('score-display').classList.remove('hidden');
+            document.getElementById('score-percent').textContent = `${pct}%`;
+            document.getElementById('score-fraction').textContent = `${correctCount} / ${questions.length} correct`;
+            // Color the percentage based on score
+            const scoreEl = document.getElementById('score-percent');
+            scoreEl.className = 'text-4xl font-bold ' + (pct >= 75 ? 'text-green-600' : pct >= 50 ? 'text-amber-500' : 'text-red-500');
+            document.getElementById('result-summary').textContent = `Review your answers below. ${pct >= 75 ? 'Great job!' : pct >= 50 ? 'Keep practicing!' : 'Keep studying — you\'ll get there!'}`;
+        } else {
+            document.getElementById('score-display').classList.add('hidden');
+            document.getElementById('result-summary').textContent = `You've completed the flashcard set. Review all concepts below.`;
+        }
+    }
+
+    function nextItem() {
+        if (currentIndex < questions.length - 1) {
+            currentIndex++;
+            updateDisplay();
+        } else {
+            showResults();
+        }
+    }
+
+    function prevItem() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            updateDisplay();
+        }
+    }
+
+    function randomizeQuestions() {
+        questions.sort(() => Math.random() - 0.5);
+        currentIndex = 0;
+        userAnswers = new Array(questions.length).fill(null);
+        updateDisplay();
+    }
+
+    document.addEventListener('DOMContentLoaded', initSession);
+    const notificationButton = document.getElementById('notification-button');
+    const notificationPanel = document.getElementById('notification-panel');
+    }
+
+    const toggleNotifications = (e) => {
+        e.stopPropagation();
+        notificationPanel.classList.toggle('hidden');
+    };
+
+    notificationButton?.addEventListener('click', toggleNotifications);
+
+    document.addEventListener('click', (e) => {
+        if (notificationPanel && !notificationPanel.contains(e.target) && !notificationButton?.contains(e.target)) {
+            notificationPanel.classList.add('hidden');
+        }
+    });
+
+    mobileMenuButton?.addEventListener('click', toggleSidebar);
+    closeSidebarButton?.addEventListener('click', toggleSidebar);
+    sidebarBackdrop?.addEventListener('click', toggleSidebar);
+</script>
+</body></html>

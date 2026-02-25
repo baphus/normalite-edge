@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "secondary": "#FFD700",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e5e7eb] bg-background-light/95 backdrop-blur-md px-10 py-3 dark:bg-background-dark/95 dark:border-b-gray-800">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl">school</span>
+</div>
+<h2 class="text-[#1d0c0c] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Normalite EDGE</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8 hidden md:flex">
+<div class="flex items-center gap-9">
+<a class="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="index.html">Home</a>
+<a class="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#features">Features</a>
+<a class="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#testimonials">Success Stories</a>
+</div>
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-6 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#600000] transition-colors shadow-md shadow-primary/20" onclick="window.location.href='login.html'">
+<span class="truncate">Login</span>
+</button>
+</div>
+<button class="md:hidden text-[#1d0c0c] dark:text-white" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</header>
+
+<!-- Mobile Menu -->
+<div class="fixed inset-0 z-[100] hidden" id="mobile-menu">
+<div class="fixed inset-0 bg-black/50 backdrop-blur-sm" id="mobile-menu-overlay"></div>
+<div class="fixed right-0 top-0 h-full w-64 bg-background-light dark:bg-background-dark p-6 shadow-xl transition-transform duration-300 translate-x-full" id="mobile-menu-content">
+<div class="flex flex-col gap-6">
+<div class="flex justify-between items-center mb-4 border-b dark:border-gray-800 pb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">school</span>
+<span class="font-bold text-[#1d0c0c] dark:text-white">Menu</span>
+</div>
+<button class="text-[#1d0c0c] dark:text-white" id="close-menu">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<nav class="flex flex-col gap-4">
+<a class="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="index.html">Home</a>
+<a class="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#features">Features</a>
+<a class="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#testimonials">Success Stories</a>
+<hr class="border-gray-200 dark:border-gray-800 my-2"/>
+<button class="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-primary text-white text-sm font-bold shadow-md" onclick="window.location.href='login.html'">
+<span class="truncate">Login</span>
+</button>
+</nav>
+</div>
+</div>
+</div>
+
+<div class="relative w-full">
+<div class="absolute inset-0 z-0">
+<div class="h-full w-full bg-cover bg-center bg-no-repeat" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBRR9ik7du_NN8BbhtzHgmEFdhEHHeTgNy3cjFn5wc_jkOz-DyKEK0AIWtwt7eZ94ewuUkYZnauRden46dcPtskCS-idsL1gtyT_pDO5L7nfb4loDomydtkseoggtMqYofqbSaaO2mbAX55oC73yjWODFtUhFvGxez8zYKcp84AkYgzV9N7Val59FVsTgdLanh7_8mQOQBSJ-CpRNhapJAQ3uDP_hvUddV78bfd9MbjLFzUssku_cO_N-TUvosJrdLyAeNPAKFjpIhs");'>
+</div>
+<div class="absolute inset-0 bg-gradient-to-r from-primary/90 to-primary/40 mix-blend-multiply"></div>
+<div class="absolute inset-0 bg-black/30"></div>
+</div>
+<div class="relative z-10 flex min-h-[600px] items-center justify-center px-4 py-20">
+<div class="flex max-w-[960px] flex-col items-center gap-8 text-center">
+<div class="flex flex-col gap-4">
+<span class="mx-auto w-fit rounded-full bg-secondary/20 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#FFD700] ring-1 ring-[#FFD700]/50 backdrop-blur-sm">
+                            Normalite EDGE
+                        </span>
+<h1 class="text-white text-4xl font-black leading-tight tracking-[-0.033em] md:text-6xl drop-shadow-sm">
+                            Conquer the LET with the <span class="text-[#FFD700]">Normalite EDGE</span>
+</h1>
+<h2 class="text-gray-100 text-lg font-normal leading-relaxed md:text-xl max-w-2xl mx-auto">
+                            The Everyday Digital Guide to Excellence for Cebu Normal University students. Access adaptive mock exams, smart flashcards, and track your progress towards that license.
+                        </h2>
+</div>
+<div class="flex flex-wrap justify-center gap-4">
+<button class="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-8 bg-[#FFD700] text-primary text-base font-bold leading-normal hover:bg-[#ffe033] transition-transform hover:-translate-y-0.5 shadow-lg shadow-[#FFD700]/20" onclick="window.location.href='register.html'">
+<span class="truncate">Join the Review</span>
+</button>
+<button class="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-8 bg-white/10 backdrop-blur-sm border border-white/30 text-white text-base font-bold leading-normal hover:bg-white/20 transition-colors">
+<span class="truncate">Learn More</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-center justify-center py-20 bg-background-light dark:bg-background-dark" id="features">
+<div class="layout-content-container flex flex-col max-w-[960px] w-full px-6">
+<div class="mb-16 flex flex-col gap-3 text-center">
+<h2 class="text-primary text-sm font-bold uppercase tracking-[0.2em]">Why Choose Normalite EDGE?</h2>
+<h3 class="text-[#1d0c0c] dark:text-white text-3xl font-extrabold leading-tight md:text-4xl">
+                        Simplified Excellence in Preparation
+                    </h3>
+<div class="h-1 w-20 bg-secondary mx-auto mt-2"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="group flex flex-col items-center text-center gap-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-[#2a1212] p-8 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
+<div class="flex size-16 items-center justify-center rounded-full bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
+<span class="material-symbols-outlined text-3xl">edit_note</span>
+</div>
+<div class="flex flex-col gap-2">
+<h4 class="text-[#1d0c0c] dark:text-white text-xl font-bold">Mock Exams</h4>
+<p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+                                Practice with high-fidelity simulations of the actual Licensure Examination for Teachers.
+                            </p>
+</div>
+</div>
+<div class="group flex flex-col items-center text-center gap-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-[#2a1212] p-8 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
+<div class="flex size-16 items-center justify-center rounded-full bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
+<span class="material-symbols-outlined text-3xl">auto_stories</span>
+</div>
+<div class="flex flex-col gap-2">
+<h4 class="text-[#1d0c0c] dark:text-white text-xl font-bold">Reviewer Material</h4>
+<p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+                                Access curated, high-yield study resources specifically tailored for CNU academic standards.
+                            </p>
+</div>
+</div>
+<div class="group flex flex-col items-center text-center gap-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-[#2a1212] p-8 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
+<div class="flex size-16 items-center justify-center rounded-full bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
+<span class="material-symbols-outlined text-3xl">insights</span>
+</div>
+<div class="flex flex-col gap-2">
+<h4 class="text-[#1d0c0c] dark:text-white text-xl font-bold">Performance Analytics</h4>
+<p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+                                Monitor your strengths and address focus areas with detailed progress tracking tools.
+                            </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#1a0a0a]" id="testimonials">
+<div class="layout-content-container flex flex-col max-w-[960px] w-full px-6">
+<div class="mb-12 text-center">
+<h2 class="text-[#1d0c0c] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">Student Success Stories</h2>
+<p class="mt-4 text-gray-600 dark:text-gray-400">Join thousands of Normalites who aced the boards.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="flex flex-col justify-between rounded-xl bg-background-light dark:bg-[#230f0f] p-6 border border-gray-100 dark:border-gray-800">
+<div>
+<div class="flex gap-1 mb-4 text-[#FFD700]">
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+</div>
+<p class="text-[#1d0c0c] dark:text-gray-200 text-sm italic leading-relaxed">
+                                "The adaptive exams were a game changer. I felt so prepared walking into the testing center. This portal helped me top the boards!"
+                            </p>
+</div>
+<div class="mt-6 flex items-center gap-3">
+<div class="h-10 w-10 overflow-hidden rounded-full bg-gray-200 bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAKn061WQl7nb2w-pA7CxNk32iNmnmhhkcfTVBvVr8Fi7sknyMzZn4FrCaomPqkZmmGcwMGhdyLfje-D9op5qClyPi9lRRwuLpNq_u_kfe0JABnluNSUd3w7l3lj1Rjju9MMxDstBgWdujsEQPYMlltuLvqapq7Vdw9oVs07wtK_N2OvU3w16FgtfLxnPCFuHgrH41Hsb2D5oFa7n7BzVKfxjNUbhOYGH8aovRieI0TiCN77uPUXu5Vh3HlFR_a-TRJKM8bQcXObsQn");'>
+</div>
+<div>
+<p class="text-sm font-bold text-[#1d0c0c] dark:text-white">Maria Santos, LPT</p>
+<p class="text-xs text-primary font-medium">Top 4, LET 2023</p>
+</div>
+</div>
+</div>
+<div class="flex flex-col justify-between rounded-xl bg-background-light dark:bg-[#230f0f] p-6 border border-gray-100 dark:border-gray-800">
+<div>
+<div class="flex gap-1 mb-4 text-[#FFD700]">
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+</div>
+<p class="text-[#1d0c0c] dark:text-gray-200 text-sm italic leading-relaxed">
+                                "The review materials helped me master Gen Ed concepts during my commute. Highly recommended for every Normalite."
+                            </p>
+</div>
+<div class="mt-6 flex items-center gap-3">
+<div class="h-10 w-10 overflow-hidden rounded-full bg-gray-200 bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD4tLIhBtGP40gGIruajYZshf4ajOcCoHxWBysah8GEp8QI6VtHOMomajeJIIAvEHZSoeYVaMDdN6vRwfVj-oaYJUnH4To0NCFzvl1mSOWpD-6xqNHRf0KR0QYxZwGpyzwlCTkL5AZue7wGChbKsGSAoKWkz4-fSoQ1VwsqvJO_5Q2z32xW1vOzzgBEhZr0S1xrv6J1Ey4WWYIMABOS_7GM1P6-JVHOls-l1VrhQPEdEptcosqUaSRSInadrjYeIcSiye-PvIMy9MW4");'>
+</div>
+<div>
+<p class="text-sm font-bold text-[#1d0c0c] dark:text-white">Juan Dela Cruz, LPT</p>
+<p class="text-xs text-primary font-medium">BSED Math</p>
+</div>
+</div>
+</div>
+<div class="flex flex-col justify-between rounded-xl bg-background-light dark:bg-[#230f0f] p-6 border border-gray-100 dark:border-gray-800">
+<div>
+<div class="flex gap-1 mb-4 text-[#FFD700]">
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star</span>
+<span class="material-symbols-outlined text-[20px] fill-current">star_half</span>
+</div>
+<p class="text-[#1d0c0c] dark:text-gray-200 text-sm italic leading-relaxed">
+                                "The analytics showed me exactly where I was weak in Prof Ed. I focused my review there and it paid off big time."
+                            </p>
+</div>
+<div class="mt-6 flex items-center gap-3">
+<div class="h-10 w-10 overflow-hidden rounded-full bg-gray-200 bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDoJ6rrB8dp2GuOiA_5S7dZNqeYUZk_4YirEaoijgK-Zf5fsAk7pSl16uAYs1niySSQdCI9oQ-TAf0vSGMyCoY85pimHyjXydF2AzcbhUEZCqtasqS2EkNvX5L_yrngqvpjN-Xd8R3ZPQnMg4c0MOgkg_c455RPgvs-Eb-bIpUY4cOmSMRXdApVV-Wq4M2kPjty93WcsxJnhfJb9Wyu4gM5aX8NaGQBfyIWY5n9ZO0loq47A2_loPs-I65QwdPzxnvWFycsOMch244p");'>
+</div>
+<div>
+<p class="text-sm font-bold text-[#1d0c0c] dark:text-white">Anna Reyes, LPT</p>
+<p class="text-xs text-primary font-medium">BEED Generalist</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-primary py-16 text-center">
+<div class="layout-content-container mx-auto flex max-w-[960px] flex-col items-center gap-6 px-6">
+<h2 class="text-3xl font-bold text-white md:text-4xl">Ready to secure your license?</h2>
+<p class="max-w-xl text-lg text-white/90">Join the official reviewer community for Cebu Normal University today.</p>
+<button class="mt-2 rounded-lg bg-[#FFD700] px-8 py-3 text-base font-bold text-primary shadow-lg hover:bg-[#ffe033] transition-colors" onclick="window.location.href='register.html'">
+                    Get Started Now
+                </button>
+</div>
+</div>
+<footer class="bg-background-dark text-white pt-16 pb-8 border-t border-primary/20">
+<div class="layout-content-container mx-auto max-w-[960px] px-6">
+<div class="grid grid-cols-1 gap-10 md:grid-cols-4">
+<div class="col-span-1 md:col-span-2">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-3xl text-primary">school</span>
+<h3 class="text-xl font-bold">Normalite EDGE</h3>
+</div>
+<p class="text-sm text-gray-400 max-w-xs leading-relaxed">
+                            The official LET reviewer platform designed exclusively for the students and alumni of Cebu Normal University.
+                        </p>
+</div>
+<div>
+<h4 class="mb-4 text-sm font-bold uppercase tracking-wider text-[#FFD700]">Platform</h4>
+<ul class="flex flex-col gap-2 text-sm text-gray-400">
+<li><a class="hover:text-white transition-colors" href="#">Mock Exams</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Review Materials</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Analytics</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Login</a></li>
+</ul>
+</div>
+<div>
+<h4 class="mb-4 text-sm font-bold uppercase tracking-wider text-[#FFD700]">Contact</h4>
+<ul class="flex flex-col gap-2 text-sm text-gray-400">
+<li>Osmeña Blvd, Cebu City</li>
+<li>6000 Philippines</li>
+<li>support@cnu.edu.ph</li>
+<li class="flex gap-4 mt-2">
+<a class="text-gray-400 hover:text-white" href="#"><span class="material-symbols-outlined text-xl">public</span></a>
+<a class="text-gray-400 hover:text-white" href="#"><span class="material-symbols-outlined text-xl">mail</span></a>
+</li>
+</ul>
+</div>
+</div>
+<div class="mt-12 border-t border-gray-800 pt-8 text-center text-xs text-gray-500">
+<p>© 2024 Cebu Normal University. All rights reserved.</p>
+</div>
+</div>
+</footer>
+</div>
+
+<script>
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileMenuContent = document.getElementById('mobile-menu-content');
+        const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
+        const closeMenuButton = document.getElementById('close-menu');
+
+        function toggleMenu() {
+            const isHidden = mobileMenu.classList.contains('hidden');
+            if (isHidden) {
+                mobileMenu.classList.remove('hidden');
+                setTimeout(() => {
+                    mobileMenuContent.classList.remove('translate-x-full');
+                }, 10);
+            } else {
+                mobileMenuContent.classList.add('translate-x-full');
+                setTimeout(() => {
+                    mobileMenu.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        mobileMenuButton.addEventListener('click', toggleMenu);
+        closeMenuButton.addEventListener('click', toggleMenu);
+        mobileMenuOverlay.addEventListener('click', toggleMenu);
+
+        // Close menu when clicking links
+        const mobileLinks = mobileMenu.querySelectorAll('a');
+        mobileLinks.forEach(link => {
+            link.addEventListener('click', toggleMenu);
+        });
+    </script>
+</body></html>

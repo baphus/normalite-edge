@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: { "DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark relative">
+
+<!-- Global Notification Panel -->
+<div class="fixed bottom-24 left-4 md:left-64 ml-2 w-80 bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 hidden z-[100] overflow-hidden" id="notification-panel">
+<div class="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+<h3 class="font-bold text-gray-900 dark:text-white">Notifications</h3>
+<button class="text-xs text-primary hover:underline">Mark all as read</button>
+</div>
+<div class="max-h-[70vh] overflow-y-auto p-2">
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">quiz</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">New Mock Exam Released</p>
+<p class="text-xs text-gray-500">General Education - Set C is now available.</p>
+<p class="text-[10px] text-gray-400 mt-1">2 hours ago</p>
+</div>
+</a>
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-accent">emoji_events</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Achievement Unlocked!</p>
+<p class="text-xs text-gray-500">You've unlocked the "Fast Learner" badge.</p>
+<p class="text-[10px] text-gray-400 mt-1">Yesterday</p>
+</div>
+</a>
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-indigo-500">video_call</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Upcoming Live Coaching</p>
+<p class="text-xs text-gray-500">LET Coaching Session starts in 30 minutes.</p>
+<p class="text-[10px] text-gray-400 mt-1">Today, 2:00 PM</p>
+</div>
+</a>
+</div>
+<div class="p-3 border-t border-gray-100 dark:border-white/5 text-center">
+<a class="text-sm font-bold text-primary hover:text-primary/80" href="notifications.html">View all notifications</a>
+</div>
+</div>
+
+<div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-8">
+<div class="md:hidden flex items-center justify-between pb-4">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+            <header class="flex flex-col gap-2">
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight" id="welcome-name">Welcome back, Maria!</h1>
+                        <p class="text-gray-500 dark:text-gray-400 mt-2 text-base">You're on track to top the LET. Here's your daily digest.</p>
+                    </div>
+                </div>
+            </header>
+<section aria-label="Progress Overview">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center gap-4 transition-all hover:shadow-md">
+                            <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider text-center">Overall Readiness</h3>
+                            <div class="relative h-32 w-32">
+                                <svg class="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                                    <path class="text-gray-100 dark:text-gray-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+                                    <path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="75, 100" stroke-linecap="round" stroke-width="3"></path>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span class="text-2xl font-bold text-gray-900 dark:text-white">75%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-medium dark:bg-green-900/20 dark:text-green-400">
+                                <span class="material-symbols-outlined text-[14px]">trending_up</span>
+                                <span>+5% this week</span>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center gap-4 transition-all hover:shadow-md">
+                            <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider text-center">Avg. Mock Score</h3>
+                            <div class="relative h-32 w-32">
+                                <svg class="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                                    <path class="text-gray-100 dark:text-gray-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+                                    <path class="text-accent" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="82, 100" stroke-linecap="round" stroke-width="3"></path>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span class="text-2xl font-bold text-gray-900 dark:text-white">82%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-medium dark:bg-green-900/20 dark:text-green-400">
+                                <span class="material-symbols-outlined text-[14px]">trending_up</span>
+                                <span>+2% vs last mock</span>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/5 flex flex-col items-center justify-center gap-4 transition-all hover:shadow-md">
+                            <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider text-center">Syllabus Progress</h3>
+                            <div class="relative h-32 w-32">
+                                <svg class="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                                    <path class="text-gray-100 dark:text-gray-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+                                    <path class="text-indigo-500" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="70, 100" stroke-linecap="round" stroke-width="3"></path>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span class="text-2xl font-bold text-gray-900 dark:text-white">70%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium dark:bg-white/10 dark:text-gray-400">
+                                <span>14/20 Modules</span>
+                            </div>
+                        </div>
+</div>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 flex flex-col gap-8">
+                        <section class="bg-white dark:bg-[#1a0a0a] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/5">
+                            <div class="flex items-center justify-between mb-6">
+                                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Average Exam Scores (Mock Exams)</h2>
+                                <button class="text-primary text-sm font-semibold hover:text-primary/80">View Analysis</button>
+                            </div>
+                            <div class="flex flex-col gap-5" id="stats-container">
+                                <div class="flex flex-col gap-1.5">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="font-medium text-gray-700 dark:text-gray-300">General Education</span>
+                                        <span class="font-bold text-gray-900 dark:text-white">82%</span>
+                                    </div>
+                                    <div class="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-primary rounded-full" style="width: 82%"></div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="font-medium text-gray-700 dark:text-gray-300">Professional Education</span>
+                                        <span class="font-bold text-gray-900 dark:text-white">75%</span>
+                                    </div>
+                                    <div class="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-accent rounded-full" style="width: 75%"></div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="font-medium text-gray-700 dark:text-gray-300" id="major-stat-label">Major Specialization</span>
+                                        <span class="font-bold text-gray-900 dark:text-white">68%</span>
+                                    </div>
+                                    <div class="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-indigo-500 rounded-full" style="width: 68%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+<section>
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-bold text-gray-900 dark:text-white">Recent Mock Exams</h2>
+<a class="text-primary text-sm font-semibold hover:text-primary/80" href="#">View All Exams</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="group flex flex-col justify-between bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-5 hover:border-primary/30 hover:shadow-md transition-all">
+<div>
+<div class="flex justify-between items-start mb-2">
+<div class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">Gen Ed</div>
+<span class="text-xs text-gray-400">Oct 24</span>
+</div>
+<h4 class="font-bold text-gray-900 dark:text-white text-lg leading-tight mb-1">Mock Exam 1</h4>
+<p class="text-sm text-gray-500 mb-4">100 Items • 2 Hours</p>
+</div>
+<div>
+<div class="flex items-end gap-2 mb-4">
+<span class="text-3xl font-bold text-gray-900 dark:text-white">85</span>
+<span class="text-sm text-gray-400 mb-1">/ 100</span>
+<span class="ml-auto text-sm font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded dark:bg-green-900/20">Passed</span>
+</div>
+<button class="w-full py-2 rounded-lg bg-gray-50 text-gray-700 text-sm font-semibold hover:bg-gray-100 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10 transition-colors" onclick="window.location.href='mock-exam-review.html'">Review Answers</button>
+</div>
+</div>
+<div class="group flex flex-col justify-between bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-5 hover:border-primary/30 hover:shadow-md transition-all">
+<div>
+<div class="flex justify-between items-start mb-2">
+<div class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent">Prof Ed</div>
+<span class="text-xs text-gray-400">Oct 23</span>
+</div>
+<h4 class="font-bold text-gray-900 dark:text-white text-lg leading-tight mb-1">Drill Set B</h4>
+<p class="text-sm text-gray-500 mb-4">50 Items • 1 Hour</p>
+</div>
+<div>
+<div class="flex items-end gap-2 mb-4">
+<span class="text-3xl font-bold text-gray-900 dark:text-white">38</span>
+<span class="text-sm text-gray-400 mb-1">/ 50</span>
+<span class="ml-auto text-sm font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded dark:bg-green-900/20">Passed</span>
+</div>
+<button class="w-full py-2 rounded-lg bg-gray-50 text-gray-700 text-sm font-semibold hover:bg-gray-100 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10 transition-colors" onclick="window.location.href='mock-exam-review.html'">Review Answers</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+<div class="lg:col-span-1 flex flex-col gap-6">
+<div class="bg-white dark:bg-[#1a0a0a] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/5">
+<div class="flex items-center justify-between mb-5">
+<div>
+<h3 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-widest opacity-70">Live Sessions</h3>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Join ongoing calls or check upcoming meetings.</p>
+</div>
+<a class="text-primary text-xs font-semibold hover:text-primary/80" href="video-conference.html">View all</a>
+</div>
+<div class="flex flex-col gap-4">
+<div class="rounded-xl border border-primary/20 bg-primary/5 p-4">
+<div class="flex items-start justify-between gap-3">
+<div>
+<p class="text-sm font-bold text-gray-900 dark:text-white">LET Coaching Call</p>
+<div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+<span>Today • 2:00 PM - 3:00 PM</span>
+</div>
+</div>
+<span class="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[11px] font-bold dark:bg-red-500/20 dark:text-red-300">
+<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+Live
+</span>
+</div>
+<button class="mt-3 w-full rounded-lg bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors" onclick="showJoinCallModal()">
+Join Call
+</button>
+</div>
+<div class="rounded-xl border border-gray-200 dark:border-white/10 p-4">
+<div class="flex items-center justify-between mb-3">
+<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Upcoming</p>
+<span class="material-symbols-outlined text-gray-400 text-lg">event</span>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-start justify-between gap-3">
+<div>
+<p class="text-sm font-semibold text-gray-900 dark:text-white">General Education Q&A</p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Tomorrow • 10:00 AM - 11:00 AM</p>
+</div>
+<button class="text-xs font-semibold text-primary hover:text-primary/80">Details</button>
+</div>
+<div class="flex items-start justify-between gap-3">
+<div>
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Mock Exam Debrief</p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Feb 20 • 4:00 PM - 5:00 PM</p>
+</div>
+<button class="text-xs font-semibold text-primary hover:text-primary/80">Details</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[#5a0000] p-8 text-white shadow-lg">
+<div class="relative z-10 flex flex-col gap-6">
+<div class="flex items-center gap-2 text-white/80">
+<span class="material-symbols-outlined">bolt</span>
+<span class="text-sm font-bold uppercase tracking-wider">Daily Challenge</span>
+</div>
+<div>
+<h3 class="text-2xl font-bold leading-tight">Which educational philosophy em...</h3>
+<p class="text-white/80 mt-2 text-sm">Question of the day streak: 4 🔥</p>
+</div>
+<div class="pt-2">
+    <div class="grid grid-cols-7 gap-2 text-center text-xs">
+        <!-- Monday: Missed -->
+        <div class="flex flex-col items-center gap-1 opacity-50">
+            <span class="text-white/60 font-medium">M</span>
+            <div class="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center">
+            </div>
+        </div>
+        <!-- Tuesday: Missed -->
+        <div class="flex flex-col items-center gap-1 opacity-50">
+            <span class="text-white/60 font-medium">T</span>
+            <div class="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center">
+            </div>
+        </div>
+        <!-- Wednesday: Streak -->
+        <div class="flex flex-col items-center gap-1">
+            <span class="text-white/60 font-medium">W</span>
+            <div class="h-7 w-7 rounded-full bg-amber-400/50 flex items-center justify-center">
+                <span class="material-symbols-outlined text-sm text-amber-200" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+            </div>
+        </div>
+        <!-- Thursday: Streak -->
+        <div class="flex flex-col items-center gap-1">
+            <span class="text-white/60 font-medium">T</span>
+            <div class="h-7 w-7 rounded-full bg-amber-400/50 flex items-center justify-center">
+                <span class="material-symbols-outlined text-sm text-amber-200" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+            </div>
+        </div>
+        <!-- Friday: Streak -->
+        <div class="flex flex-col items-center gap-1">
+            <span class="text-white/60 font-medium">F</span>
+            <div class="h-7 w-7 rounded-full bg-amber-400/50 flex items-center justify-center">
+                <span class="material-symbols-outlined text-sm text-amber-200" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+            </div>
+        </div>
+        <!-- Saturday: Streak -->
+        <div class="flex flex-col items-center gap-1">
+            <span class="text-white/60 font-medium">S</span>
+            <div class="h-7 w-7 rounded-full bg-amber-400/50 flex items-center justify-center">
+                <span class="material-symbols-outlined text-sm text-amber-200" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+            </div>
+        </div>
+        <!-- Sunday (Current Day) -->
+        <div class="flex flex-col items-center gap-1">
+            <span class="text-white font-bold">S</span>
+            <div class="h-7 w-7 rounded-full bg-white ring-2 ring-offset-2 ring-offset-[#6a0000] ring-white flex items-center justify-center">
+                 <span class="material-symbols-outlined text-sm text-primary animate-pulse">edit_calendar</span>
+            </div>
+        </div>
+    </div>
+</div>
+<button class="w-full rounded-lg bg-white py-3.5 text-center text-sm font-bold text-primary hover:bg-gray-50 transition-colors shadow-sm" onclick="showModal()">
+                                Answer Now
+                            </button>
+</div>
+<div class="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
+<div class="absolute -bottom-10 -left-6 h-40 w-40 rounded-full bg-accent/20 blur-3xl"></div>
+</div>
+<div class="bg-accent/5 rounded-2xl p-6 border border-accent/20">
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-accent text-3xl">format_quote</span>
+<div>
+<p class="text-sm italic text-gray-700 dark:text-gray-300 leading-relaxed">"Education is the passport to the future, for tomorrow belongs to those who prepare for it today."</p>
+<p class="text-xs font-bold text-gray-900 dark:text-white mt-3">— Malcolm X</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm hidden" id="daily-challenge-modal">
+<div class="w-full max-w-2xl bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 animate-fade-in-up">
+<div class="bg-primary px-6 py-4 flex items-center justify-between">
+<div class="flex items-center gap-2 text-white">
+<span class="material-symbols-outlined">bolt</span>
+<h3 class="font-bold text-lg tracking-tight">Daily Challenge: Question of the Day</h3>
+</div>
+<div class="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full text-white/90 text-xs font-medium border border-white/20">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+<span>Ends in 12h</span>
+</div>
+</div>
+<div class="p-6 md:p-8">
+<div class="mb-6">
+<h4 class="text-xl md:text-2xl font-display font-semibold text-gray-900 dark:text-white leading-snug">
+                    Which educational philosophy emphasizes the development of the child's potential through active learning and experimentation?
+                </h4>
+<div class="mt-3 flex gap-2">
+<span class="inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-500/10">Professional Education</span>
+<span class="inline-flex items-center rounded-md bg-accent/10 px-2 py-1 text-xs font-medium text-accent ring-1 ring-inset ring-accent/20">Foundations of Education</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+<label class="group relative flex cursor-pointer rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 p-4 shadow-sm hover:border-primary hover:bg-primary/5 transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 dark:focus-within:ring-offset-[#1a0a0a]">
+<input class="sr-only" name="answer" type="radio" value="A"/>
+<span class="flex flex-1">
+<span class="flex flex-col">
+<span class="block text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary mb-1">Option A</span>
+<span class="block text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">Essentialism</span>
+</span>
+</span>
+<span aria-hidden="true" class="pointer-events-none absolute -inset-px rounded-xl border-2 border-transparent group-hover:border-primary/20"></span>
+</label>
+<label class="group relative flex cursor-pointer rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 p-4 shadow-sm hover:border-primary hover:bg-primary/5 transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 dark:focus-within:ring-offset-[#1a0a0a]">
+<input class="sr-only" name="answer" type="radio" value="B"/>
+<span class="flex flex-1">
+<span class="flex flex-col">
+<span class="block text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary mb-1">Option B</span>
+<span class="block text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">Progressivism</span>
+</span>
+</span>
+<span aria-hidden="true" class="pointer-events-none absolute -inset-px rounded-xl border-2 border-transparent group-hover:border-primary/20"></span>
+</label>
+<label class="group relative flex cursor-pointer rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 p-4 shadow-sm hover:border-primary hover:bg-primary/5 transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 dark:focus-within:ring-offset-[#1a0a0a]">
+<input class="sr-only" name="answer" type="radio" value="C"/>
+<span class="flex flex-1">
+<span class="flex flex-col">
+<span class="block text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary mb-1">Option C</span>
+<span class="block text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">Perennialism</span>
+</span>
+</span>
+<span aria-hidden="true" class="pointer-events-none absolute -inset-px rounded-xl border-2 border-transparent group-hover:border-primary/20"></span>
+</label>
+<label class="group relative flex cursor-pointer rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 p-4 shadow-sm hover:border-primary hover:bg-primary/5 transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 dark:focus-within:ring-offset-[#1a0a0a]">
+<input class="sr-only" name="answer" type="radio" value="D"/>
+<span class="flex flex-1">
+<span class="flex flex-col">
+<span class="block text-sm font-medium text-gray-900 dark:text-white group-hover:text-primary mb-1">Option D</span>
+<span class="block text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">Existentialism</span>
+</span>
+</span>
+<span aria-hidden="true" class="pointer-events-none absolute -inset-px rounded-xl border-2 border-transparent group-hover:border-primary/20"></span>
+</label>
+</div>
+<div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-6 border-t border-gray-100 dark:border-white/5">
+<button class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white font-medium text-sm transition-colors" onclick="hideModal()">
+                    Close
+                </button>
+<button class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-sm transition-all transform active:scale-95 flex items-center justify-center gap-2">
+<span>Submit Answer</span>
+<span class="material-symbols-outlined text-[18px]">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md hidden" id="join-call-modal">
+<div class="w-full max-w-5xl bg-[#1a1a1a] rounded-xl shadow-2xl overflow-hidden border border-white/10 animate-fade-in-up aspect-video flex flex-col relative">
+<!-- Zoom Top Bar -->
+<div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-20 pointer-events-none">
+<div class="bg-black/40 backdrop-blur-md rounded-lg p-2 flex items-center gap-3 pointer-events-auto">
+<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+<span class="text-white/90 text-xs font-medium tracking-wide">LET Coaching Call - Live</span>
+</div>
+<button onclick="hideJoinCallModal()" class="bg-black/40 hover:bg-white/10 text-white/70 hover:text-white p-2 rounded-lg backdrop-blur-md transition-all pointer-events-auto">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+
+<!-- Main Video Area -->
+<div class="flex-1 flex items-center justify-center p-8 bg-[#0a0a0a] relative overflow-hidden">
+<!-- Grid of Participants (Simulated) -->
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4 w-full h-full max-w-4xl mx-auto items-center">
+<!-- Host Card -->
+<div class="aspect-video bg-gray-800 rounded-xl relative overflow-hidden ring-2 ring-primary/50 shadow-2xl">
+<img alt="Host" class="w-full h-full object-cover opacity-60" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=800"/>
+<div class="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-md flex items-center gap-2 border border-white/10">
+<span class="material-symbols-outlined text-white text-[14px]">mic</span>
+<span class="text-white text-[11px] font-medium tracking-wide">Dr. Maria Santos (Host)</span>
+</div>
+</div>
+<!-- Participant 1 -->
+<div class="aspect-video bg-gray-900 rounded-xl relative overflow-hidden border border-white/5">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
+<span class="text-primary font-bold text-xl uppercase">JS</span>
+</div>
+</div>
+<div class="absolute bottom-3 left-3 bg-black/60 px-3 py-1 rounded-md border border-white/10">
+<span class="text-white/90 text-[11px] font-medium">Juan Sebastian</span>
+</div>
+</div>
+<!-- Participant 2 -->
+<div class="aspect-video bg-gray-900 rounded-xl relative overflow-hidden border border-white/5">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center border border-accent/30">
+<span class="text-accent font-bold text-xl uppercase">AD</span>
+</div>
+</div>
+<div class="absolute bottom-3 left-3 bg-black/60 px-3 py-1 rounded-md border border-white/10">
+<span class="text-white/90 text-[11px] font-medium">Anna Dela Cruz</span>
+</div>
+</div>
+<!-- Desktop View Extras -->
+<div class="hidden md:flex aspect-video bg-gray-900 rounded-xl relative overflow-hidden border border-white/5">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+<span class="text-emerald-500 font-bold text-xl uppercase">MM</span>
+</div>
+</div>
+<div class="absolute bottom-3 left-3 bg-black/60 px-3 py-1 rounded-md border border-white/10">
+<span class="text-white/90 text-[11px] font-medium">Marco Mercado</span>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Zoom Bottom Control Bar -->
+<div class="bg-[#1a1a1a] border-t border-white/10 px-6 py-4 flex items-center justify-between">
+<div class="flex items-center gap-1">
+<div class="flex flex-col items-center gap-1 group cursor-pointer px-3 py-1 hover:bg-white/5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-white/90 text-[20px]">mic</span>
+<span class="text-[10px] text-white/60 font-medium">Mute</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer px-3 py-1 hover:bg-white/5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-white/90 text-[20px]">videocam</span>
+<span class="text-[10px] text-white/60 font-medium">Start Video</span>
+</div>
+</div>
+
+<div class="flex items-center gap-2 lg:gap-4 ml-8">
+<div class="flex flex-col items-center gap-1 group cursor-pointer px-3 py-1 hover:bg-white/5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-white/90 text-[20px]">group</span>
+<span class="text-[10px] text-white/60 font-medium">Participants</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer px-3 py-1 hover:bg-white/5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-white/90 text-[20px]">chat</span>
+<span class="text-[10px] text-white/60 font-medium">Chat</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer px-3 py-1 hover:bg-white/5 rounded-lg transition-colors text-green-500">
+<span class="material-symbols-outlined text-[20px]">screen_share</span>
+<span class="text-[10px] font-medium">Share Screen</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer px-3 py-1 hover:bg-white/5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-white/90 text-[20px]">radio_button_checked</span>
+<span class="text-[10px] text-white/60 font-medium">Record</span>
+</div>
+<div class="flex flex-col items-center gap-1 group cursor-pointer px-3 py-1 hover:bg-white/5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-white/90 text-[20px]">mood</span>
+<span class="text-[10px] text-white/60 font-medium">Reactions</span>
+</div>
+</div>
+
+<div class="flex items-center ml-8">
+<button onclick="hideJoinCallModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-all transform active:scale-95">
+                Leave
+            </button>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+    function showModal() {
+        document.getElementById('daily-challenge-modal').classList.remove('hidden');
+    }
+
+    function hideModal() {
+        document.getElementById('daily-challenge-modal').classList.add('hidden');
+    }
+
+    function showJoinCallModal() {
+        document.getElementById('join-call-modal').classList.remove('hidden');
+    }
+
+    function hideJoinCallModal() {
+        document.getElementById('join-call-modal').classList.add('hidden');
+    }
+</script>
+    <script>
+        // Load user data from localStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            const userSpecialization = localStorage.getItem('userSpecialization') || 'BSEd - English';
+            const major = userSpecialization.includes(' - ') ? userSpecialization.split(' - ')[1] : userSpecialization;
+
+            if (userData.fullname) {
+                document.getElementById('user-fullname').textContent = userData.fullname;
+            } else if (userData.firstName && userData.lastName) {
+                document.getElementById('user-fullname').textContent = `${userData.firstName} ${userData.lastName}`;
+            }
+
+            if (userData.firstName) {
+                document.getElementById('welcome-name').textContent = `Welcome back, ${userData.firstName}!`;
+            }
+            
+            if (document.getElementById('user-specialization-text')) {
+                document.getElementById('user-specialization-text').textContent = userSpecialization;
+            }
+            
+            const majorStatLabel = document.getElementById('major-stat-label');
+            if (majorStatLabel) {
+                majorStatLabel.textContent = `Major - ${major}`;
+            }
+        });
+    </script>
+    <script>
+        const notificationButton = document.getElementById('notification-button');
+        const notificationPanel = document.getElementById('notification-panel');
+        }
+
+        const toggleNotifications = (e) => {
+            e.stopPropagation();
+            notificationPanel.classList.toggle('hidden');
+        };
+
+        notificationButton?.addEventListener('click', toggleNotifications);
+
+        document.addEventListener('click', (e) => {
+            if (!notificationPanel.contains(e.target) && !notificationButton?.contains(e.target)) {
+                notificationPanel.classList.add('hidden');
+            }
+        });
+    </script>
+</body></html>

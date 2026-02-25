@@ -1,0 +1,612 @@
+<!-- Student Performance Dashboard -->
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exams - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+        .filter-tab.active {
+            background-color: #800000;
+            color: white;
+            border-color: #800000;
+        }
+        .status-tab.active {
+            border-bottom-color: #800000 !important;
+            color: #800000 !important;
+            font-weight: 700;
+        }
+        .status-tab.active {
+            border-bottom-color: #800000;
+            color: #800000;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+
+<!-- Global Notification Panel -->
+<div class="fixed bottom-24 left-4 md:left-64 ml-2 w-80 bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 hidden z-[100] overflow-hidden" id="notification-panel">
+<div class="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+<h3 class="font-bold text-gray-900 dark:text-white">Notifications</h3>
+<button class="text-xs text-primary hover:underline">Mark all as read</button>
+</div>
+<div class="max-h-[70vh] overflow-y-auto p-2">
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">quiz</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">New Mock Exam Released</p>
+<p class="text-xs text-gray-500">General Education - Set C is now available.</p>
+<p class="text-[10px] text-gray-400 mt-1">2 hours ago</p>
+</div>
+</a>
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-accent">emoji_events</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Achievement Unlocked!</p>
+<p class="text-xs text-gray-500">You've unlocked the "Fast Learner" badge.</p>
+<p class="text-[10px] text-gray-400 mt-1">Yesterday</p>
+</div>
+</a>
+<a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+<div class="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-indigo-500">video_call</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Upcoming Live Coaching</p>
+<p class="text-xs text-gray-500">LET Coaching Session starts in 30 minutes.</p>
+<p class="text-[10px] text-gray-400 mt-1">Today, 2:00 PM</p>
+</div>
+</a>
+</div>
+<div class="p-3 border-t border-gray-100 dark:border-white/5 text-center">
+<a class="text-sm font-bold text-primary hover:text-primary/80" href="notifications.html">View all notifications</a>
+</div>
+</div>
+
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+<div class="container mx-auto max-w-7xl">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<div>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mock Exams</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a practice exam to begin your preparation.</p>
+</div>
+                        <div class="relative w-full lg:w-96">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                            <input class="w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-200 dark:border-white/10 dark:bg-white/5 focus:ring-primary focus:border-primary text-sm" id="exam-search" placeholder="Search exams, categories, or topics..." type="text"/>
+                        </div>
+                    </div>
+                    
+</div>
+</header>
+
+<!-- Filter Bar -->
+<div class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 shrink-0 z-10">
+    <div class="container mx-auto max-w-7xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-0">
+            <!-- Category Tabs -->
+            <nav class="flex gap-0 overflow-x-auto" id="category-tabs">
+                <button data-category="" class="status-tab active border-b-2 border-primary py-3.5 px-3 text-sm font-bold text-primary whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    All Exams
+                    <span class="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded-full" id="count-all"></span>
+                </button>
+                <button data-category="Professional Education" class="status-tab border-b-2 border-transparent py-3.5 px-3 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    Prof. Education
+                    <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full" id="count-profedu"></span>
+                </button>
+                <button data-category="General Education" class="status-tab border-b-2 border-transparent py-3.5 px-3 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    Gen. Education
+                    <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full" id="count-genedu"></span>
+                </button>
+                <button data-category="Specialization" class="status-tab border-b-2 border-transparent py-3.5 px-3 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-1.5">
+                    Specialization
+                    <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full" id="count-spec"></span>
+                </button>
+            </nav>
+            <!-- Status Filter -->
+            <div class="flex items-center gap-2 py-2.5 sm:py-0 shrink-0">
+                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Status:</span>
+                <select id="status-filter" class="px-3 py-1.5 border border-gray-200 dark:border-white/10 dark:bg-white/5 rounded-lg text-xs focus:ring-primary focus:border-primary text-gray-600 dark:text-gray-300">
+                    <option value="">All</option>
+                    <option value="available">Available</option>
+                    <option value="completed">Completed</option>
+                    <option value="locked">Locked / No Attempts</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="flex-1 overflow-y-auto">
+<div class="container mx-auto max-w-7xl px-6 py-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6" id="exam-cards-container">
+<div class="exam-card group bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col" data-category="Professional Education">
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent">Professional Education</span>
+<div class="h-8 w-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</div>
+</div>
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors leading-snug">Mock Exam Set A: Child &amp; Adolescent Development</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 line-clamp-2">Comprehensive review covering developmental theories, cognitive growth, and social-emotional behavior.</p>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                    150 Questions
+                                </div>
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                                    90 Minutes
+                                </div>
+</div>
+</div>
+<div class="p-4 bg-gray-50/50 dark:bg-white/5 border-t border-gray-100 dark:border-white/10">
+<button onclick="window.location.href='mock-exam.html'" class="w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-primary/20">
+                                Start Exam
+                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="exam-card group bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col" data-category="General Education">
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-600">General Education</span>
+<div class="h-8 w-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</div>
+</div>
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors leading-snug">Gen Ed: English &amp; Communication Skills</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 line-clamp-2">Mastering grammar, vocabulary, reading comprehension, and professional writing standards.</p>
+<div class="grid grid-cols-2 gap-4 mb-4">
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                    100 Questions
+                                </div>
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                                    60 Minutes
+                                </div>
+</div>
+<div class="pt-4 border-t border-gray-200 dark:border-white/10">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-accent">refresh</span>
+<span class="font-medium">Attempts: <span class="font-bold text-primary exam-attempts" data-exam-id="gen-ed-eng">1</span> remaining</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-red-500">event</span>
+<span class="font-medium">Deadline: <span class="font-semibold exam-deadline" data-exam-id="gen-ed-eng">March 20, 2026</span></span>
+</div>
+</div>
+</div>
+<div class="p-4 bg-gray-50/50 dark:bg-white/5 border-t border-gray-100 dark:border-white/10">
+<button onclick="window.location.href='mock-exam.html'" class="exam-start-btn w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-primary/20" data-exam-id="gen-ed-eng">
+                                Start Exam
+                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="exam-card group bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col" data-category="Specialization">
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-600">Specialization</span>
+<div class="h-8 w-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</div>
+</div>
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors leading-snug" id="major-exam-title">Major: Social Science Specialization</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 line-clamp-2" id="major-exam-desc">Deep dive into Economics, Sociology, and Political Science modules.</p>
+<div class="grid grid-cols-2 gap-4 mb-4">
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                    200 Questions
+                                </div>
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                                    120 Minutes
+                                </div>
+</div>
+<div class="pt-4 border-t border-gray-200 dark:border-white/10">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-accent">refresh</span>
+<span class="font-medium">Attempts: <span class="font-bold text-red-600 exam-attempts" data-exam-id="spec-major">0</span> remaining</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-red-500">event</span>
+<span class="font-medium">Deadline: <span class="font-semibold exam-deadline" data-exam-id="spec-major">March 10, 2026</span></span>
+</div>
+</div>
+</div>
+<div class="p-4 bg-gray-50/50 dark:bg-white/5 border-t border-gray-100 dark:border-white/10">
+<button disabled class="exam-start-btn w-full py-2.5 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-not-allowed opacity-60" data-exam-id="spec-major">
+                                No Attempts Left
+                                <span class="material-symbols-outlined text-[18px]">block</span>
+</button>
+</div>
+</div>
+<div class="exam-card group bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col opacity-80" data-category="Professional Education">
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-600">Completed</span>
+<div class="h-8 w-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+</div>
+</div>
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors leading-snug">Mock Exam Set B: Teaching Profession</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 line-clamp-2">Last score: 88% - Excellent performance in Code of Ethics section.</p>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                    150 Questions
+                                </div>
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">history</span>
+                                    Retake available
+                                </div>
+</div>
+</div>
+<div class="p-4 bg-gray-50/50 dark:bg-white/5 border-t border-gray-100 dark:border-white/10">
+<button class="w-full py-2.5 border-2 border-primary text-primary hover:bg-primary/5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2">
+                                Review Results
+                                <span class="material-symbols-outlined text-[18px]">analytics</span>
+</button>
+</div>
+</div>
+<div class="exam-card group bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col" data-category="Professional Education">
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent">Professional Education</span>
+<div class="h-8 w-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</div>
+</div>
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors leading-snug">Curriculum Development &amp; Assessment</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 line-clamp-2">Evaluation strategies, curriculum design phases, and classroom assessment tools.</p>
+<div class="grid grid-cols-2 gap-4 mb-4">
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                    150 Questions
+                                </div>
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                                    90 Minutes
+                                </div>
+</div>
+<div class="pt-4 border-t border-gray-200 dark:border-white/10">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-accent">refresh</span>
+<span class="font-medium">Attempts: <span class="font-bold text-primary exam-attempts" data-exam-id="curric-dev">2</span> remaining</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-red-500">event</span>
+<span class="font-medium">Deadline: <span class="font-semibold exam-deadline" data-exam-id="curric-dev">March 25, 2026</span></span>
+</div>
+</div>
+</div>
+<div class="p-4 bg-gray-50/50 dark:bg-white/5 border-t border-gray-100 dark:border-white/10">
+<button onclick="window.location.href='mock-exam.html'" class="exam-start-btn w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-primary/20" data-exam-id="curric-dev">
+                                Start Exam
+                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="exam-card group bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col" data-category="General Education">
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-600">General Education</span>
+<div class="h-8 w-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</div>
+</div>
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary transition-colors leading-snug">Gen Ed: Mathematics &amp; Logic</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 line-clamp-2">Fundamental math operations, algebra, geometry, and critical thinking problems.</p>
+<div class="grid grid-cols-2 gap-4 mb-4">
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                    100 Questions
+                                </div>
+<div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                                    75 Minutes
+                                </div>
+</div>
+<div class="pt-4 border-t border-gray-200 dark:border-white/10">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-accent">refresh</span>
+<span class="font-medium">Attempts: <span class="font-bold text-primary exam-attempts" data-exam-id="gen-ed-math">1</span> remaining</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+<span class="material-symbols-outlined text-[14px] text-red-500">event</span>
+<span class="font-medium">Deadline: <span class="font-semibold exam-deadline" data-exam-id="gen-ed-math">March 22, 2026</span></span>
+</div>
+</div>
+</div>
+<div class="p-4 bg-gray-50/50 dark:bg-white/5 border-t border-gray-100 dark:border-white/10">
+<button onclick="window.location.href='mock-exam.html'" class="exam-start-btn w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-primary/20" data-exam-id="gen-ed-math">
+                                Start Exam
+                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+    <script>
+        // Load user data and filter content
+        document.addEventListener('DOMContentLoaded', () => {
+            const userData = JSON.parse(localStorage.getItem('userData'));
+            const userSpecialization = localStorage.getItem('userSpecialization');
+            
+            if (userData) {
+                const fullName = `${userData.firstName} ${userData.lastName}`;
+                document.getElementById('user-fullname').textContent = fullName;
+            }
+            
+            if (userSpecialization) {
+                document.getElementById('user-specialization-text').textContent = userSpecialization;
+                
+                // Update Specialization Tab Name
+                const specTab = document.getElementById('specialization-tab');
+                const major = userSpecialization.split(' - ')[1] || 'Major';
+                if (specTab) {
+                    specTab.textContent = major;
+                }
+
+                // Filter/Update Major Exam Card
+                const majorTitle = document.getElementById('major-exam-title');
+                const majorDesc = document.getElementById('major-exam-desc');
+                
+                if (majorTitle && major !== 'Major') {
+                    majorTitle.textContent = `Major: ${major} Specialization`;
+                    majorDesc.textContent = `Deep dive into advanced ${major} concepts for ${userSpecialization.split(' - ')[0]} majors.`;
+                }
+            }
+
+            const examCards = document.querySelectorAll('.exam-card');
+            const searchInput = document.getElementById('exam-search');
+            const statusFilter = document.getElementById('status-filter');
+            const categoryTabs = document.querySelectorAll('#category-tabs button');
+            let activeCategory = '';
+
+            // Count cards per category and update badges
+            function updateCounts() {
+                const counts = {};
+                examCards.forEach(card => {
+                    const cat = card.getAttribute('data-category') || '';
+                    counts[cat] = (counts[cat] || 0) + 1;
+                });
+                const total = examCards.length;
+                document.getElementById('count-all').textContent = total;
+                document.getElementById('count-profedu').textContent = counts['Professional Education'] || 0;
+                document.getElementById('count-genedu').textContent = counts['General Education'] || 0;
+                document.getElementById('count-spec').textContent = counts['Specialization'] || 0;
+            }
+
+            function getCardStatus(card) {
+                const badge = card.querySelector('.px-2.py-1, .inline-flex');
+                const badgeText = badge ? badge.textContent.trim().toLowerCase() : '';
+                const startBtn = card.querySelector('.exam-start-btn');
+                if (badgeText.includes('completed')) return 'completed';
+                if (startBtn && startBtn.disabled) return 'locked';
+                return 'available';
+            }
+
+            function filterExams() {
+                const searchQuery = searchInput ? searchInput.value.toLowerCase() : '';
+                const statusValue = statusFilter ? statusFilter.value : '';
+
+                examCards.forEach(card => {
+                    const title = card.querySelector('h3').textContent.toLowerCase();
+                    const desc = card.querySelector('p').textContent.toLowerCase();
+                    const category = card.getAttribute('data-category') || '';
+                    const cardStatus = getCardStatus(card);
+
+                    const matchesSearch = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery);
+                    const matchesCategory = !activeCategory || category === activeCategory;
+                    const matchesStatus = !statusValue || cardStatus === statusValue;
+
+                    card.style.display = (matchesSearch && matchesCategory && matchesStatus) ? 'flex' : 'none';
+                });
+            }
+
+            // Category tab click handlers
+            categoryTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    categoryTabs.forEach(t => {
+                        t.classList.remove('active', 'border-primary', 'text-primary', 'font-bold');
+                        t.classList.add('border-transparent', 'text-gray-500', 'font-medium');
+                    });
+                    tab.classList.add('active', 'border-primary', 'text-primary', 'font-bold');
+                    tab.classList.remove('border-transparent', 'text-gray-500', 'font-medium');
+                    activeCategory = tab.getAttribute('data-category');
+                    filterExams();
+                });
+            });
+
+            if (searchInput) searchInput.addEventListener('input', filterExams);
+            if (statusFilter) statusFilter.addEventListener('change', filterExams);
+
+            updateCounts();
+            filterExams();
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load User Data
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            const userSpecialization = localStorage.getItem('userSpecialization') || 'BSEd - English';
+            const major = userSpecialization.includes(' - ') ? userSpecialization.split(' - ')[1] : userSpecialization;
+
+            if (userData.fullname) {
+                document.getElementById('user-fullname').textContent = userData.fullname;
+            }
+            if (document.getElementById('user-specialization-text')) {
+                document.getElementById('user-specialization-text').textContent = userSpecialization;
+            }
+
+            // Update Major Exam Title if it exists
+            const majorExamTitle = document.getElementById('major-exam-title');
+            const majorExamDesc = document.getElementById('major-exam-desc');
+            if (majorExamTitle) {
+                majorExamTitle.textContent = major === 'English' ? 'Major: Structure of English' : 'Major: ' + major + ' Specialization';
+            }
+            if (majorExamDesc) {
+                majorExamDesc.textContent = 'Comprehensive review modules specifically designed for ' + major + ' majors.';
+            }
+        const notificationButton = document.getElementById('notification-button');
+        const notificationPanel = document.getElementById('notification-panel');
+        }
+
+        const toggleNotifications = (e) => {
+            e.stopPropagation();
+            notificationPanel.classList.toggle('hidden');
+        };
+
+        notificationButton?.addEventListener('click', toggleNotifications);
+
+        document.addEventListener('click', (e) => {
+            if (!notificationPanel.contains(e.target) && !notificationButton?.contains(e.target)) {
+                notificationPanel.classList.add('hidden');
+            }
+        });
+    </script>
+    <script>
+        // Exam Attempts and Deadline Management
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mock data for exam attempts and deadlines from backend/database
+            // In production, this would come from an API call
+            const examData = {
+                'prof-edu-a': { attemptsRemaining: 1, deadline: '2026-03-15' },
+                'gen-ed-eng': { attemptsRemaining: 1, deadline: '2026-03-20' },
+                'spec-major': { attemptsRemaining: 0, deadline: '2026-03-10' },
+                'curric-dev': { attemptsRemaining: 2, deadline: '2026-03-25' },
+                'gen-ed-math': { attemptsRemaining: 1, deadline: '2026-03-22' }
+            };
+
+            // Helper function to check if deadline has passed
+            function isDeadlinePassed(deadlineStr) {
+                const deadline = new Date(deadlineStr);
+                const now = new Date();
+                return now > deadline;
+            }
+
+            // Helper function to format date
+            function formatDate(dateStr) {
+                const date = new Date(dateStr);
+                const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                return date.toLocaleDateString('en-US', options);
+            }
+
+            // Update all exam cards with attempt and deadline info
+            Object.keys(examData).forEach(examId => {
+                const data = examData[examId];
+                const attemptsElement = document.querySelector(`.exam-attempts[data-exam-id="${examId}"]`);
+                const deadlineElement = document.querySelector(`.exam-deadline[data-exam-id="${examId}"]`);
+                const button = document.querySelector(`.exam-start-btn[data-exam-id="${examId}"]`);
+                
+                if (attemptsElement) {
+                    attemptsElement.textContent = data.attemptsRemaining;
+                    // Color code attempts
+                    if (data.attemptsRemaining === 0) {
+                        attemptsElement.classList.remove('text-primary');
+                        attemptsElement.classList.add('text-red-600', 'dark:text-red-400');
+                    } else if (data.attemptsRemaining === 1) {
+                        attemptsElement.classList.add('text-accent', 'dark:text-accent');
+                    }
+                }
+
+                if (deadlineElement) {
+                    deadlineElement.textContent = formatDate(data.deadline);
+                    // Highlight if deadline is soon or passed
+                    if (isDeadlinePassed(data.deadline)) {
+                        deadlineElement.classList.add('text-red-600', 'dark:text-red-400', 'font-bold');
+                    }
+                }
+
+                if (button) {
+                    // Disable button if no attempts left or deadline passed
+                    if (data.attemptsRemaining === 0 || isDeadlinePassed(data.deadline)) {
+                        button.disabled = true;
+                        button.classList.remove('bg-primary', 'hover:bg-primary/90', 'shadow-primary/20');
+                        button.classList.add('bg-gray-300', 'dark:bg-gray-700', 'text-gray-500', 'dark:text-gray-400', 'cursor-not-allowed', 'opacity-60');
+                        button.onclick = null;
+                        
+                        const icon = button.querySelector('.material-symbols-outlined');
+                        if (data.attemptsRemaining === 0) {
+                            button.innerHTML = 'No Attempts Left<span class="material-symbols-outlined text-[18px]">block</span>';
+                        } else if (isDeadlinePassed(data.deadline)) {
+                            button.innerHTML = 'Deadline Passed<span class="material-symbols-outlined text-[18px]">event_busy</span>';
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body></html>

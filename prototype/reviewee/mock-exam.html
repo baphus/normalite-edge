@@ -1,0 +1,365 @@
+<!-- Student Performance Dashboard -->
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mock Exam Interface - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }.option-radio:checked + div {
+            border-color: #800000;
+            background-color: rgba(128, 0, 0, 0.05);
+        }
+        .option-radio:checked + div .option-indicator {
+            background-color: #800000;
+            color: white;
+            border-color: #800000;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 shadow-sm z-10">
+<div class="flex flex-col items-center sm:items-start">
+<h2 class="text-lg font-bold text-gray-900 dark:text-white leading-tight">Mock Exam Set A</h2>
+</div>
+<div class="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
+<div class="flex items-center gap-2 bg-gray-50 dark:bg-white/5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10">
+<span class="material-symbols-outlined text-gray-500 text-[20px]">timer</span>
+<span class="font-mono font-bold text-primary text-lg" id="exam-timer">01:29:45</span>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-hidden flex">
+<!-- Question Content Area -->
+<div class="flex-1 overflow-y-auto" id="question-scroll-area">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+<div class="flex items-center justify-between text-sm font-medium text-gray-500 mb-4">
+<span id="question-counter">Question 1 of 5</span>
+</div>
+<div class="bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden">
+<div id="section-banner" class="px-6 py-3 flex items-center gap-3 border-b border-gray-100 dark:border-white/5">
+<span id="section-icon" class="material-symbols-outlined text-[20px]"></span>
+<span id="section-label" class="text-sm font-bold uppercase tracking-widest"></span>
+</div>
+<div class="p-6 md:p-8">
+<h3 class="text-xl md:text-2xl font-medium text-gray-900 dark:text-white leading-relaxed mb-8" id="question-text"></h3>
+<div class="flex flex-col gap-3" id="options-container"></div>
+<div class="flex items-center justify-between pt-6 mt-2">
+<button id="prev-btn" class="flex items-center gap-2 px-6 py-2.5 rounded-lg text-gray-600 hover:bg-white hover:shadow-sm hover:text-gray-900 font-medium transition-all dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed">
+<span class="material-symbols-outlined">arrow_back</span> Previous
+</button>
+<button id="next-btn" class="flex items-center gap-2 px-8 py-2.5 rounded-lg bg-primary text-white hover:bg-primary/90 font-bold shadow-md shadow-primary/20 transition-all transform active:scale-95">
+Next Question <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Question Navigator Sidebar (always visible on the right) -->
+<aside class="w-72 shrink-0 border-l border-gray-200 dark:border-white/10 bg-white dark:bg-[#1a0a0a] flex flex-col overflow-y-auto">
+<div class="p-5 flex flex-col flex-1">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-gray-900 dark:text-white">Question Navigator</h3>
+<div class="text-xs text-gray-500 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded" id="nav-answered-count">0 / 5 Answered</div>
+</div>
+<div class="flex flex-wrap gap-x-4 gap-y-2 mb-5 text-xs text-gray-600 dark:text-gray-400">
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span>Current</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 rounded-full bg-green-100 border border-green-200"></div>
+<span>Answered</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 rounded-full border border-gray-200 bg-white dark:bg-white/5"></div>
+<span>Unanswered</span>
+</div>
+</div>
+<div class="grid grid-cols-5 gap-2 content-start" id="nav-buttons"></div>
+<div class="mt-6 pt-4 border-t border-gray-100 dark:border-white/10">
+<p class="text-xs text-gray-400 mb-3 text-center">Sections</p>
+<div class="flex flex-col gap-2" id="section-buttons">
+<button data-section="Professional Education" class="section-btn text-left px-3 py-2 rounded text-xs font-medium border transition-colors">
+<span class="flex items-center justify-between gap-2">
+<span>Professional Education</span>
+<span class="section-unanswered-badge" data-section="Professional Education"></span>
+</span>
+</button>
+<button data-section="General Education" class="section-btn text-left px-3 py-2 rounded text-xs font-medium border transition-colors">
+<span class="flex items-center justify-between gap-2">
+<span>General Education</span>
+<span class="section-unanswered-badge" data-section="General Education"></span>
+</span>
+</button>
+<button data-section="Major Subject" class="section-btn text-left px-3 py-2 rounded text-xs font-medium border transition-colors">
+<span class="flex items-center justify-between gap-2">
+<span>Major Subject</span>
+<span class="section-unanswered-badge" data-section="Major Subject"></span>
+</span>
+</button>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-gray-100 dark:border-white/10 shrink-0">
+<button id="submit-sidebar-btn" class="w-full py-2.5 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">send</span>
+Submit Exam
+</button>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</div>
+<script>
+        // ── Sidebar toggle ──────────────────────────────────────────────
+        setInterval(() => { if (remainingSeconds > 0) timerEl.textContent = formatTime(--remainingSeconds); }, 1000);
+
+        // ── Exam data ───────────────────────────────────────────────────
+        const questions = [
+            {
+                section: 'Professional Education',
+                text: 'Teacher Anna observed that her students are very engaged when they are allowed to choose their own topics for the semester project. Which principle of learning is best illustrated in this scenario?',
+                options: ['Law of Readiness', 'Law of Exercise', 'Law of Effect', 'Law of Primacy'],
+                correct: 2
+            },
+            {
+                section: 'Professional Education',
+                text: 'Which learning theory emphasizes that knowledge is actively constructed through experience and reflection rather than passively received?',
+                options: ['Behaviorism', 'Constructivism', 'Cognitivism', 'Connectivism'],
+                correct: 1
+            },
+            {
+                section: 'General Education',
+                text: 'Which of the following best describes a democratic form of government?',
+                options: [
+                    'Power is concentrated in a single ruler',
+                    'Citizens participate in decision-making through elected representatives',
+                    'Religious leaders hold supreme authority',
+                    'The military controls all government functions'
+                ],
+                correct: 1
+            },
+            {
+                section: 'General Education',
+                text: 'What is the value of x in the equation 3x + 9 = 24?',
+                options: ['3', '5', '7', '11'],
+                correct: 1
+            },
+            {
+                section: 'Major Subject',
+                text: 'In curriculum development, what does the term "scope" refer to?',
+                options: [
+                    'The sequence in which content is taught across grade levels',
+                    'The breadth and depth of content to be covered in the curriculum',
+                    'The evaluation methods used to assess student learning',
+                    'The time allotted for each subject area per week'
+                ],
+                correct: 1
+            }
+        ];
+
+        let currentIndex = 0;
+        const answers = new Array(questions.length).fill(null);
+        const LETTERS = ['A', 'B', 'C', 'D'];
+
+        const questionTextEl    = document.getElementById('question-text');
+        const optionsContainer  = document.getElementById('options-container');
+        const questionCounter   = document.getElementById('question-counter');
+        const prevBtn           = document.getElementById('prev-btn');
+        const nextBtn           = document.getElementById('next-btn');
+        const navButtonsEl      = document.getElementById('nav-buttons');
+        const navAnsweredCount  = document.getElementById('nav-answered-count');
+        const scrollArea        = document.getElementById('question-scroll-area');
+        const submitSidebarBtn  = document.getElementById('submit-sidebar-btn');
+
+        function renderNavButtons() {
+            navButtonsEl.innerHTML = '';
+            questions.forEach((_, i) => {
+                const btn = document.createElement('button');
+                btn.textContent = i + 1;
+                if (i === currentIndex) {
+                    btn.className = 'h-9 w-9 rounded-full font-bold text-xs transition-colors bg-primary text-white ring-2 ring-primary ring-offset-2';
+                } else if (answers[i] !== null) {
+                    btn.className = 'h-9 w-9 rounded-full font-medium text-xs transition-colors bg-green-100 text-green-700 border border-green-200 hover:bg-green-200';
+                } else {
+                    btn.className = 'h-9 w-9 rounded-full font-medium text-xs transition-colors bg-white dark:bg-white/5 text-gray-500 border border-gray-200 dark:border-white/20 hover:bg-gray-50';
+                }
+                btn.addEventListener('click', () => goTo(i));
+                navButtonsEl.appendChild(btn);
+            });
+            const answered = answers.filter(a => a !== null).length;
+            navAnsweredCount.textContent = `${answered} / ${questions.length} Answered`;
+        }
+
+        const SECTION_COLORS = {
+            'Professional Education': {
+                banner: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-800/30',
+                icon: 'school',
+                active: 'bg-amber-50 text-amber-700 border-amber-300 font-bold dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700',
+                inactive: 'bg-gray-50 dark:bg-white/5 text-gray-500 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
+            },
+            'General Education': {
+                banner: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-800/30',
+                icon: 'menu_book',
+                active: 'bg-blue-50 text-blue-700 border-blue-300 font-bold dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-700',
+                inactive: 'bg-gray-50 dark:bg-white/5 text-gray-500 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
+            },
+            'Major Subject': {
+                banner: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-100 dark:border-purple-800/30',
+                icon: 'psychology',
+                active: 'bg-purple-50 text-purple-700 border-purple-300 font-bold dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-700',
+                inactive: 'bg-gray-50 dark:bg-white/5 text-gray-500 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10'
+            },
+        };
+
+        function renderSectionButtons(activeSection) {
+            // Count unanswered per section
+            const unanswered = {};
+            questions.forEach((q, i) => {
+                if (!unanswered[q.section]) unanswered[q.section] = 0;
+                if (answers[i] === null) unanswered[q.section]++;
+            });
+
+            document.querySelectorAll('.section-btn').forEach(btn => {
+                const sec = btn.dataset.section;
+                const colors = SECTION_COLORS[sec];
+                btn.className = `section-btn text-left px-3 py-2 rounded text-xs border transition-colors ${sec === activeSection ? colors.active : colors.inactive}`;
+            });
+
+            document.querySelectorAll('.section-unanswered-badge').forEach(badge => {
+                const sec = badge.dataset.section;
+                const count = unanswered[sec] || 0;
+                const isActive = sec === activeSection;
+                if (count > 0) {
+                    badge.textContent = count + ' left';
+                    badge.className = `section-unanswered-badge text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                        isActive ? 'bg-white/60 text-current' : 'bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-gray-400'
+                    }`;
+                } else {
+                    badge.textContent = '✓';
+                    badge.className = `section-unanswered-badge text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                        isActive ? 'bg-white/60 text-current' : 'bg-green-100 text-green-600'
+                    }`;
+                }
+            });
+
+            const banner = document.getElementById('section-banner');
+            const label  = document.getElementById('section-label');
+            const icon   = document.getElementById('section-icon');
+            const colors = SECTION_COLORS[activeSection];
+            banner.className = `px-6 py-3 flex items-center gap-3 border-b ${colors.banner}`;
+            label.textContent = activeSection;
+            icon.textContent  = colors.icon;
+        }
+
+        function renderQuestion() {
+            const q = questions[currentIndex];
+            questionCounter.textContent = `Question ${currentIndex + 1} of ${questions.length}`;
+            renderSectionButtons(q.section);
+            questionTextEl.textContent = q.text;
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach((opt, i) => {
+                const selected = answers[currentIndex] === i;
+                const label = document.createElement('label');
+                label.className = 'cursor-pointer group';
+                label.innerHTML = `
+                    <input class="peer sr-only" type="radio" name="q${currentIndex}" />
+                    <div class="flex items-center gap-4 p-4 rounded-xl border-2 transition-all group-hover:border-primary/30
+                        ${selected ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5'}">
+                        <span class="h-8 w-8 rounded-full border flex items-center justify-center text-sm font-bold transition-colors shrink-0
+                            ${selected ? 'bg-primary text-white border-primary' : 'border-gray-300 dark:border-gray-600 text-gray-500'}">
+                            ${LETTERS[i]}
+                        </span>
+                        <span class="text-base text-gray-700 dark:text-gray-200">${opt}</span>
+                    </div>`;
+                label.addEventListener('click', () => {
+                    answers[currentIndex] = i;
+                    renderQuestion();
+                    renderNavButtons();
+                });
+                optionsContainer.appendChild(label);
+            });
+
+            prevBtn.disabled = currentIndex === 0;
+
+            const isLast = currentIndex === questions.length - 1;
+            nextBtn.innerHTML = isLast
+                ? 'Finish Exam <span class="material-symbols-outlined">send</span>'
+                : 'Next Question <span class="material-symbols-outlined">arrow_forward</span>';
+            nextBtn.onclick = isLast ? submitExam : () => goTo(currentIndex + 1);
+
+            scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+            renderNavButtons();
+        }
+
+        function goTo(index) {
+            currentIndex = index;
+            renderQuestion();
+        }
+
+        function submitExam() {
+            window.location.href = 'mock-exam-result.html';
+        }
+
+        prevBtn.addEventListener('click', () => { if (currentIndex > 0) goTo(currentIndex - 1); });
+        submitSidebarBtn.addEventListener('click', submitExam);
+
+        // Initial render
+        renderQuestion();
+    </script>
+</body></html>

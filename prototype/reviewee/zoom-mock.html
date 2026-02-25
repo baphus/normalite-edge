@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom Meeting - Normalite EDGE Review Session</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #1a1a1a; }
+        .grid-item { position: relative; border-radius: 8px; overflow: hidden; background-color: #242424; }
+        .name-tag { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 4px; color: white; font-size: 12px; }
+        .active-speaker { border: 2px solid #0E71EB; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-white">
+    <!-- Top Bar -->
+    <div class="h-12 flex items-center justify-between px-4 bg-[#1a1a1a] shrink-0">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-green-500 text-sm">enhanced_encryption</span>
+            <span class="text-xs font-light text-gray-400">Zoom Meeting | Normalite EDGE Review Session</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <button class="bg-[#2d2d2d] hover:bg-[#3d3d3d] text-xs px-2 py-1 rounded">View</button>
+        </div>
+    </div>
+
+    <!-- Main Content (Video Grid) -->
+    <div class="flex-1 p-4 grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto">
+        <!-- Host -->
+        <div class="grid-item active-speaker aspect-video flex items-center justify-center">
+            <div class="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-3xl font-bold">RA</div>
+            <div class="name-tag flex items-center gap-1">
+                <span class="material-symbols-outlined text-xs">mic</span>
+                Reviewer A (Host)
+            </div>
+        </div>
+        <!-- Participants -->
+        <div class="grid-item aspect-video flex items-center justify-center">
+            <div class="w-24 h-24 rounded-full bg-orange-600 flex items-center justify-center text-3xl font-bold">MC</div>
+            <div class="name-tag flex items-center gap-1 text-red-500">
+                <span class="material-symbols-outlined text-xs">mic_off</span>
+                Maria Clara (You)
+            </div>
+        </div>
+        <div class="grid-item aspect-video flex items-center justify-center bg-gray-800">
+            <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=225&fit=crop" class="w-full h-full object-cover opacity-80" alt="Participant">
+            <div class="name-tag flex items-center gap-1 text-red-500">
+                <span class="material-symbols-outlined text-xs">mic_off</span>
+                Juan Dela Cruz
+            </div>
+        </div>
+        <div class="grid-item aspect-video flex items-center justify-center bg-gray-800">
+            <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=225&fit=crop" class="w-full h-full object-cover opacity-80" alt="Participant">
+            <div class="name-tag flex items-center gap-1 text-red-500">
+                <span class="material-symbols-outlined text-xs">mic_off</span>
+                Elena Adarna
+            </div>
+        </div>
+        <div class="grid-item aspect-video flex items-center justify-center">
+            <div class="w-24 h-24 rounded-full bg-green-700 flex items-center justify-center text-3xl font-bold">JD</div>
+            <div class="name-tag flex items-center gap-1 text-red-500">
+                <span class="material-symbols-outlined text-xs">mic_off</span>
+                Jose Rizal
+            </div>
+        </div>
+        <div class="grid-item aspect-video flex items-center justify-center bg-gray-800">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=225&fit=crop" class="w-full h-full object-cover opacity-80" alt="Participant">
+            <div class="name-tag flex items-center gap-1 text-red-500">
+                <span class="material-symbols-outlined text-xs">mic_off</span>
+                Andres Bonifacio
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Controls -->
+    <div class="h-20 bg-[#1a1a1a] flex items-center justify-between px-6 shrink-0 border-t border-gray-800">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-gray-400 group-hover:text-white">
+                    <span class="material-symbols-outlined">mic_off</span>
+                </div>
+                <span class="text-[10px] text-gray-400">Unmute</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-gray-400 group-hover:text-white">
+                    <span class="material-symbols-outlined">videocam_off</span>
+                </div>
+                <span class="text-[10px] text-gray-400">Start Video</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-gray-400 group-hover:text-white">
+                    <span class="material-symbols-outlined font-variation-settings-'FILL'1 text-green-500">shield</span>
+                </div>
+                <span class="text-[10px] text-gray-400">Security</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-gray-400 group-hover:text-white">
+                    <span class="material-symbols-outlined">group</span>
+                </div>
+                <span class="text-[10px] text-gray-400">Participants</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-gray-400 group-hover:text-white">
+                    <span class="material-symbols-outlined">chat</span>
+                </div>
+                <span class="text-[10px] text-gray-400">Chat</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-green-500 group-hover:text-green-400">
+                    <span class="material-symbols-outlined">screen_share</span>
+                </div>
+                <span class="text-[10px] text-gray-400">Share Screen</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-gray-400 group-hover:text-white">
+                    <span class="material-symbols-outlined">mood</span>
+                </div>
+                <span class="text-[10px] text-gray-400">Reactions</span>
+            </div>
+            <div class="flex flex-col items-center group cursor-pointer">
+                <div class="h-10 w-10 flex items-center justify-center rounded hover:bg-[#2d2d2d] text-gray-400 group-hover:text-white font-bold">
+                    ...
+                </div>
+                <span class="text-[10px] text-gray-400">More</span>
+            </div>
+        </div>
+
+        <div>
+            <button onclick="window.history.back()" class="bg-[#E02828] hover:bg-[#c02020] text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors">End</button>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Notifications - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full relative">
+
+    <div id="sidebar-container"></div>
+<script src="../components/sidebar.js"></script>
+
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden bg-background-light dark:bg-background-dark">
+        <!-- Mobile Header -->
+        <header class="h-16 flex items-center justify-between px-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-100 dark:border-white/5 md:hidden shrink-0">
+            <button id="mobile-menu-button" class="p-2 text-gray-600 dark:text-gray-400">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+            <div class="flex items-center gap-2">
+                <div class="bg-center bg-no-repeat bg-cover rounded-full h-8 w-8" style='background-image: url("https://img.icons8.com/color/512/university.png");'></div>
+                <h1 class="text-primary text-sm font-bold">Normalite EDGE</h1>
+            </div>
+            <div class="w-10"></div> <!-- Spacer for centering -->
+        </header>
+
+        <div class="flex-1 overflow-y-auto">
+            <!-- Global Notification Panel -->
+            <div id="notification-panel" class="fixed top-4 right-4 md:top-20 md:left-64 md:right-auto w-[calc(100%-2rem)] md:w-80 bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 hidden z-[100] overflow-hidden transition-all duration-300">
+                <div class="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                    <h3 class="font-bold text-gray-900 dark:text-white">Quick Notifications</h3>
+                    <button class="text-xs text-primary hover:underline font-medium">Mark all as read</button>
+                </div>
+                <div class="max-h-[70vh] overflow-y-auto p-2">
+                    <a href="notifications.html" class="flex gap-4 p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group text-left">
+                        <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-primary text-[20px]">quiz</span>
+                        </div>
+                        <div class="flex flex-col gap-1 text-left">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">New Exam submission</p>
+                            <p class="text-xs text-gray-500 line-clamp-2">A student has submitted leur Comprehensive Review Exam for Nursing 101.</p>
+                            <p class="text-[10px] text-gray-400 mt-1 font-medium italic">2 hours ago</p>
+                        </div>
+                    </a>
+                </div>
+                    <div class="p-4 border-t border-gray-100 dark:border-white/5 text-center bg-gray-50/50 dark:bg-white/2">
+                        <a href="notifications.html" class="text-sm font-bold text-primary hover:text-primary/80 transition-colors">View all notifications</a>
+                    </div>
+            <header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+                <div class="container mx-auto max-w-4xl">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Notifications</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage how you receive alerts and updates.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:bg-white/5 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10">Cancel</button>
+                            <button class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 shadow-sm shadow-primary/20">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+<div class="flex-1 overflow-y-auto">
+<div class="container mx-auto max-w-4xl px-6 py-8">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="md:col-span-1 space-y-6">
+<div class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 p-0 overflow-hidden">
+<div class="p-4 border-b border-gray-100 dark:border-white/5">
+<h4 class="font-bold text-gray-900 dark:text-white text-sm">Account Menu</h4>
+</div>
+<nav class="flex flex-col p-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-primary dark:text-gray-400 dark:hover:bg-white/5 transition-colors text-sm" href="settings.html">
+<span class="material-symbols-outlined text-[20px]">person</span>
+                                    Personal Information
+                                </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-primary dark:text-gray-400 dark:hover:bg-white/5 transition-colors text-sm" href="security.html">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+                                    Security &amp; Password
+                                </a>
+<a class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary font-medium text-sm transition-colors" href="notifications.html">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+                                    Notifications
+                                </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-primary dark:text-gray-400 dark:hover:bg-white/5 transition-colors text-sm" href="exam-performance.html">
+<span class="material-symbols-outlined text-[20px]">history_edu</span>
+                                    Exam Performance
+                                </a>
+</nav>
+</div>
+</div>
+<div class="md:col-span-2 space-y-6">
+<section class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-6">Notification Preferences</h3>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-medium text-gray-900 dark:text-white">Email Notifications</p>
+<p class="text-sm text-gray-500">Receive summaries and important alerts via email.</p>
+</div>
+<button class="w-12 h-6 rounded-full bg-green-500 relative transition-colors">
+<div class="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div>
+</button>
+</div>
+<div class="flex items-center justify-between border-t border-gray-100 dark:border-white/5 pt-6">
+<div>
+<p class="font-medium text-gray-900 dark:text-white">Push Notifications</p>
+<p class="text-sm text-gray-500">Receive real-time updates on your device.</p>
+</div>
+<button class="w-12 h-6 rounded-full bg-gray-200 dark:bg-white/10 relative transition-colors">
+<div class="absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div>
+</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const notificationButton = document.getElementById('notification-button');
+            const notificationPanel = document.getElementById('notification-panel');
+
+            if (mobileMenuButton && closeSidebarButton && sidebar && sidebarBackdrop) {
+            }
+
+            if (notificationButton && notificationPanel) {
+                notificationButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleNotifications();
+                });
+
+                // Close notification panel when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!notificationPanel.contains(e.target) && !notificationButton.contains(e.target)) {
+                        notificationPanel.classList.add('hidden');
+                    }
+                });
+            }
+        });
+    </script>
+</body></html>

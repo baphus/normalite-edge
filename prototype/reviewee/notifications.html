@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Notifications - Normalite EDGE</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=Noto+Sans:wght@100..900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        .tab-btn.active {
+            color: #800000;
+            border-bottom: 2px solid #800000;
+        }
+        .dark .tab-btn.active {
+            color: white;
+            border-bottom-color: white;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+    <div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+        
+        <!-- Global Notification Panel -->
+        <div class="fixed bottom-24 left-4 md:left-64 ml-2 w-80 bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 hidden z-[100] overflow-hidden" id="notification-panel">
+            <div class="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                <h3 class="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                <button class="text-xs text-primary hover:underline">Mark all as read</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto p-2">
+                <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                    <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-primary">quiz</span>
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">New Mock Exam Released</p>
+                        <p class="text-xs text-gray-500">General Education - Set C is now available.</p>
+                        <p class="text-[10px] text-gray-400 mt-1">2 hours ago</p>
+                    </div>
+                </a>
+                <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                    <div class="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-accent">emoji_events</span>
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">Achievement Unlocked!</p>
+                        <p class="text-xs text-gray-500">You've unlocked the "Fast Learner" badge.</p>
+                        <p class="text-[10px] text-gray-400 mt-1">Yesterday</p>
+                    </div>
+                </a>
+                <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                    <div class="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-indigo-500">video_call</span>
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">Upcoming Live Coaching</p>
+                        <p class="text-xs text-gray-500">LET Coaching Session starts in 30 minutes.</p>
+                        <p class="text-[10px] text-gray-400 mt-1">Today, 2:00 PM</p>
+                    </div>
+                </a>
+            </div>
+            <div class="p-3 border-t border-gray-100 dark:border-white/5 text-center">
+                <a class="text-sm font-bold text-primary hover:text-primary/80" href="notifications.html">View all notifications</a>
+            </div>
+        </div>
+
+        <div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+            <div class="flex items-center gap-2">
+                <div class="bg-primary/10 p-1.5 rounded-md"><span class="material-symbols-outlined text-primary">school</span></div>
+                <span class="font-bold text-lg text-primary">Normalite EDGE</span>
+            </div>
+            <button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+        </div>
+        <header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+            <div class="container mx-auto max-w-4xl">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Notifications</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Stay updated with your progress and site activities.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:bg-white/5 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10">Mark all as read</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 shrink-0">
+            <div class="container mx-auto max-w-4xl">
+                <div class="flex gap-8">
+                    <button class="tab-btn active px-1 py-4 text-sm font-bold transition-all" onclick="switchTab('inbox')">Inbox</button>
+                    <button class="tab-btn px-1 py-4 text-sm font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-all" onclick="switchTab('preferences')">Preferences</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+            <div class="container mx-auto max-w-4xl px-6 py-8" id="inbox-content">
+                <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden divide-y divide-gray-100 dark:divide-white/5">
+                    <!-- Notification List -->
+                    <div class="flex gap-4 p-5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer group unread">
+                        <div class="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-primary text-2xl">quiz</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-start justify-between gap-4 mb-1">
+                                <h4 class="font-bold text-gray-900 dark:text-white">New Mock Exam Released</h4>
+                                <span class="text-xs text-gray-400 whitespace-nowrap">2 hours ago</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">The Mock Exam for General Education - Set C is now available for practice. Try it out to test your progress!</p>
+                            <div class="flex gap-3 mt-3">
+                                <button class="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors" onclick="window.location.href='exams.html'">Start Exam</button>
+                            </div>
+                        </div>
+                        <div class="w-2 h-2 rounded-full bg-primary mt-2"></div>
+                    </div>
+
+                    <div class="flex gap-4 p-5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer group unread">
+                        <div class="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-accent text-2xl">emoji_events</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-start justify-between gap-4 mb-1">
+                                <h4 class="font-bold text-gray-900 dark:text-white">Achievement Unlocked: Fast Learner</h4>
+                                <span class="text-xs text-gray-400 whitespace-nowrap">Yesterday</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Congratulations! You've completed 5 exams in record time and earned the Fast Learner badge.</p>
+                            <div class="flex gap-3 mt-3">
+                                <button class="px-4 py-1.5 bg-accent text-white text-xs font-bold rounded-lg hover:bg-accent/90 transition-colors" onclick="window.location.href='achievements.html'">View Badges</button>
+                            </div>
+                        </div>
+                        <div class="w-2 h-2 rounded-full bg-primary mt-2"></div>
+                    </div>
+
+                    <div class="flex gap-4 p-5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer group">
+                        <div class="h-12 w-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-indigo-500 text-2xl">video_call</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-start justify-between gap-4 mb-1">
+                                <h4 class="font-bold text-gray-900 dark:text-white">Upcoming Live Coaching Call</h4>
+                                <span class="text-xs text-gray-400 whitespace-nowrap">Today, 2:30 PM</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Your scheduled coaching session for "LET Professional Education Review" starts in 30 minutes. Don't forget to join!</p>
+                            <div class="flex gap-3 mt-3">
+                                <button class="px-4 py-1.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-colors" onclick="window.location.href='video-conference.html'">Join Call</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 p-5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer group">
+                        <div class="h-12 w-12 rounded-2xl bg-green-500/10 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-green-500 text-2xl">library_books</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-start justify-between gap-4 mb-1">
+                                <h4 class="font-bold text-gray-900 dark:text-white">New Review Material Available</h4>
+                                <span class="text-xs text-gray-400 whitespace-nowrap">3 days ago</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">The faculty has uploaded new study guides for Professional Education. Download them now to prepare for your next mock exam.</p>
+                            <div class="flex gap-3 mt-3">
+                                <button class="px-4 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors" onclick="window.location.href='study.html'">View Study Materials</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center">
+                    <button class="text-sm font-bold text-gray-500 hover:text-primary transition-colors">Load more notifications...</button>
+                </div>
+            </div>
+
+            <div class="container mx-auto max-w-4xl px-6 py-8 space-y-6 hidden" id="preferences-content">
+                <section class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Email Notifications</h3>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-white">Exam reminders</p>
+                            <p class="text-xs text-gray-500">Get notified before scheduled mock exams.</p>
+                        </div>
+                        <button class="w-12 h-6 rounded-full bg-green-500 relative transition-colors"><div class="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div></button>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-white">New content updates</p>
+                            <p class="text-xs text-gray-500">Alerts when new exams or decks are published.</p>
+                        </div>
+                        <button class="w-12 h-6 rounded-full bg-gray-200 dark:bg-white/10 relative transition-colors"><div class="absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div></button>
+                    </div>
+                </section>
+                <section class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">In-App Notifications</h3>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-white">Performance alerts</p>
+                            <p class="text-xs text-gray-500">Notify when your rank changes.</p>
+                        </div>
+                        <button class="w-12 h-6 rounded-full bg-green-500 relative transition-colors"><div class="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div></button>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-white">Daily challenge</p>
+                            <p class="text-xs text-gray-500">Remind me to complete the daily challenge.</p>
+                        </div>
+                        <button class="w-12 h-6 rounded-full bg-green-500 relative transition-colors"><div class="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div></button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+</div>
+<script>
+    const notificationButton = document.getElementById('notification-button');
+    const notificationPanel = document.getElementById('notification-panel');
+    }
+
+    const toggleNotifications = (e) => {
+        e.stopPropagation();
+        notificationPanel.classList.toggle('hidden');
+    };
+
+    notificationButton?.addEventListener('click', toggleNotifications);
+
+    document.addEventListener('click', (e) => {
+        if (notificationPanel && !notificationPanel.contains(e.target) && !notificationButton?.contains(e.target)) {
+            notificationPanel.classList.add('hidden');
+        }
+    });
+
+    function switchTab(tab) {
+        const inboxContent = document.getElementById('inbox-content');
+        const preferencesContent = document.getElementById('preferences-content');
+        const tabs = document.querySelectorAll('.tab-btn');
+
+        tabs.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.textContent.toLowerCase().includes(tab)) {
+                btn.classList.add('active');
+            }
+        });
+
+        if (tab === 'inbox') {
+            inboxContent.classList.remove('hidden');
+            preferencesContent.classList.add('hidden');
+        } else {
+            inboxContent.classList.add('hidden');
+            preferencesContent.classList.remove('hidden');
+        }
+    }
+</script>
+</body>
+</html>

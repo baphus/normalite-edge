@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Achievements - Normalite EDGE</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=Noto+Sans:wght@100..900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+    <div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+
+        <!-- Global Notification Panel -->
+        <div class="fixed bottom-24 left-4 md:left-64 ml-2 w-80 bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 hidden z-[100] overflow-hidden" id="notification-panel">
+            <div class="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                <h3 class="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                <button class="text-xs text-primary hover:underline">Mark all as read</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto p-2">
+                <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                    <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-primary">quiz</span>
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">New Mock Exam Released</p>
+                        <p class="text-xs text-gray-500">General Education - Set C is now available.</p>
+                        <p class="text-[10px] text-gray-400 mt-1">2 hours ago</p>
+                    </div>
+                </a>
+                <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                    <div class="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-accent">emoji_events</span>
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">Achievement Unlocked!</p>
+                        <p class="text-xs text-gray-500">You've unlocked the "Fast Learner" badge.</p>
+                        <p class="text-[10px] text-gray-400 mt-1">Yesterday</p>
+                    </div>
+                </a>
+                <a class="flex gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" href="#">
+                    <div class="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-indigo-500">video_call</span>
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">Upcoming Live Coaching</p>
+                        <p class="text-xs text-gray-500">LET Coaching Session starts in 30 minutes.</p>
+                        <p class="text-[10px] text-gray-400 mt-1">Today, 2:00 PM</p>
+                    </div>
+                </a>
+            </div>
+            <div class="p-3 border-t border-gray-100 dark:border-white/5 text-center">
+                <a class="text-sm font-bold text-primary hover:text-primary/80" href="notifications.html">View all notifications</a>
+            </div>
+        </div>
+        <div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+            <div class="flex items-center gap-2">
+                <div class="bg-primary/10 p-1.5 rounded-md"><span class="material-symbols-outlined text-primary">school</span></div>
+                <span class="font-bold text-lg text-primary">Normalite EDGE</span>
+            </div>
+            <button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+        </div>
+        <header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+            <div class="container mx-auto max-w-6xl">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Achievements & Badges</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Unlock badges by completing milestones and mastering subjects.</p>
+            </div>
+        </header>
+        <div class="flex-1 overflow-y-auto">
+            <div class="container mx-auto max-w-6xl px-6 py-8">
+                <div class="mb-8">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Your Badges (12/25)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">🎓</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">First Step</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Take first exam</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">⚡</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Speed Demon</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Complete 5 exams</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">🎯</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Accuracy Master</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">90% score 3x</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">📚</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Knowledge Keeper</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">100 flashcards</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">🏆</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Champion</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Perfect score</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">🔥</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">On Fire</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">10-day streak</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">📖</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Subject Expert</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Master a subject</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">🎬</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Session Pro</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Join 5 sessions</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">⭐</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Rising Star</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">50% improve</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="text-5xl mb-2">💎</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Diamond</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Unlock 20 badges</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10 opacity-40">
+                            <div class="text-5xl mb-2 grayscale">🌟</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Legend</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Locked</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10 opacity-40">
+                            <div class="text-5xl mb-2 grayscale">👑</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Supreme</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Locked</p>
+                        </div>
+                        <div class="flex flex-col items-center p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10 opacity-40">
+                            <div class="text-5xl mb-2 grayscale">✨</div>
+                            <p class="text-xs font-bold text-center text-gray-900 dark:text-white">Brilliance</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">Locked</p>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Next Badges to Unlock</h3>
+                    <div class="space-y-3">
+                        <div class="p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-3xl">🌟</div>
+                                    <div>
+                                        <p class="font-bold text-gray-900 dark:text-white">Legend</p>
+                                        <p class="text-sm text-gray-500">Unlock 25 badges total</p>
+                                    </div>
+                                </div>
+                                <span class="text-sm font-bold text-primary">12/25</span>
+                            </div>
+                            <div class="w-full bg-gray-200 dark:bg-white/10 rounded-full h-2">
+                                <div class="bg-primary h-2 rounded-full" style="width: 48%"></div>
+                            </div>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-3xl">💎</div>
+                                    <div>
+                                        <p class="font-bold text-gray-900 dark:text-white">Diamond</p>
+                                        <p class="text-sm text-gray-500">Unlock 20 badges total</p>
+                                    </div>
+                                </div>
+                                <span class="text-sm font-bold text-primary">12/20</span>
+                            </div>
+                            <div class="w-full bg-gray-200 dark:bg-white/10 rounded-full h-2">
+                                <div class="bg-primary h-2 rounded-full" style="width: 60%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script>
+    const notificationButton = document.getElementById('notification-button');
+    const notificationPanel = document.getElementById('notification-panel');
+    }
+
+    const toggleNotifications = (e) => {
+        e.stopPropagation();
+        notificationPanel.classList.toggle('hidden');
+    };
+
+    notificationButton?.addEventListener('click', toggleNotifications);
+
+    document.addEventListener('click', (e) => {
+        if (!notificationPanel.contains(e.target) && !notificationButton?.contains(e.target)) {
+            notificationPanel.classList.add('hidden');
+        }
+    });
+</script>
+</body>
+</html>

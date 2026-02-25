@@ -1,0 +1,151 @@
+// Prisma Schema for Normalite EDGE
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ─────────────────────────────────────────────────
+enum Role {
+  ADMIN
+  REVIEWER
+  REVIEWEE
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  AUTO_SUBMITTED
+}
+
+// ─── Models ────────────────────────────────────────────────
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  password      String
+  name          String
+  picture       String?
+  role          Role       @default(REVIEWEE)
+  status        UserStatus @default(PENDING)
+  program       String?
+  major         String?
+  yearLevel     String?
+  section       String?
+  refreshToken  String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  examsCreated  Exam[]
+  attempts      Attempt[]
+  materials     Material[]
+  sessions      LiveSession[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Exam {
+  id            String     @id @default(cuid())
+  title         String
+  subject       String
+  program       String?
+  timeLimit     Int        // in minutes
+  totalItems    Int
+  scheduledDate DateTime?
+  isPublished   Boolean    @default(false)
+  createdBy     String
+  creator       User       @relation(fields: [createdBy], references: [id])
+  questions     Question[]
+  attempts      Attempt[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@map("exams")
+}
+
+model Question {
+  id            String @id @default(cuid())
+  examId        String
+  exam          Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  text          String
+  choices       Json   // ["Option A", "Option B", "Option C", "Option D"]
+  correctAnswer String
+  explanation   String?
+  orderIndex    Int
+
+  @@map("questions")
+}
+
+model Attempt {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  examId      String
+  exam        Exam          @relation(fields: [examId], references: [id])
+  answers     Json          @default("{}")
+  score       Int?
+  percentage  Float?
+  timeSpent   Int?          // in seconds
+  status      AttemptStatus @default(IN_PROGRESS)
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?
+
+  @@map("attempts")
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   // "pdf" | "link" | "note"
+  subject     String
+  program     String?
+  linkUrl     String?
+  content     String?  // rich text for notes
+  createdBy   String
+  creator     User     @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("materials")
+}
+
+model LiveSession {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  meetingLink   String
+  platform      String   // "zoom" | "meet"
+  scheduledDate DateTime
+  startTime     String
+  endTime       String
+  createdBy     String
+  creator       User     @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("live_sessions")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}

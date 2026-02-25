@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Results - Normalite EDGE</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                        "pass": "#16a34a",
+                        "fail": "#dc2626",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 shadow-sm z-10">
+<div class="flex items-center gap-4">
+<a class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 transition-colors" href="exams.html">
+<span class="material-symbols-outlined">arrow_back</span>
+</a>
+<div class="flex flex-col">
+<h2 class="text-xl font-bold text-gray-900 dark:text-white leading-tight">Mock Exam Set A - Result</h2>
+<p class="text-sm text-gray-500">Completed on October 24, 2023</p>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-hidden">
+<div class="h-full overflow-y-auto">
+<div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<div class="lg:col-span-8 flex flex-col gap-6">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white">Report Card</h3>
+<button class="text-primary text-sm font-semibold flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                                    Download PDF Report
+                                </button>
+</div>
+<div class="grid gap-4">
+
+                                <!-- General Education -->
+                                <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden">
+                                    <button class="section-toggle w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors" data-target="gened-errors">
+                                        <div class="flex items-center gap-4">
+                                            <div class="h-12 w-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 shrink-0">
+                                                <span class="material-symbols-outlined">menu_book</span>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-gray-900 dark:text-white">General Education</h4>
+                                                <p class="text-xs text-gray-400 mt-0.5">50 Questions &bull; <span class="text-red-500 font-semibold">8 mistakes</span></p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-4 sm:text-right">
+                                            <div class="flex flex-col items-end">
+                                                <span class="text-2xl font-bold text-gray-900 dark:text-white">84%</span>
+                                                <span class="text-xs text-gray-500 font-medium uppercase">42/50</span>
+                                            </div>
+                                            <div class="w-16 h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden hidden sm:block">
+                                                <div class="bg-pass h-full rounded-full" style="width: 84%"></div>
+                                            </div>
+                                            <span class="material-symbols-outlined text-gray-400 toggle-icon transition-transform duration-300">expand_more</span>
+                                        </div>
+                                    </button>
+                                    <div class="section-errors hidden" id="gened-errors">
+                                        <div class="px-6 pb-6 flex flex-col gap-2 border-t border-gray-100 dark:border-white/10 pt-5">
+                                            <!-- Score summary -->
+                                            <div class="grid grid-cols-3 gap-3 mb-4">
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20">
+                                                    <span class="text-lg font-black text-green-600">42</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Correct</span>
+                                                </div>
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-lg font-black text-red-500">8</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Wrong</span>
+                                                </div>
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                    <span class="text-lg font-black text-amber-500">0</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Skipped</span>
+                                                </div>
+                                            </div>
+                                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Incorrect Answers</p>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q1</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which of the following is a characteristic of a democratic society?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Centralized authority</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Freedom of expression</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q2</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The three branches of government in the Philippines are:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Executive, Legislative, Military</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Executive, Legislative, Judicial</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q3</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Who is considered the father of the Filipino nation?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Emilio Aguinaldo</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Jose Rizal</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q4</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The process by which plants make their own food is called:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Respiration</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Photosynthesis</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q5</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which mathematical concept describes the rate of change of a function?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Integration</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Differentiation</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q6</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">What is the primary function of the immune system?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Digesting food</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Defending the body against pathogens</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q7</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which of the following is NOT a classical literary form?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Sonnet</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Blog post</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q8</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The Earth's outermost layer is called the:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Mantle</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Crust</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Skipped Questions - GenEd (none) -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Professional Education -->
+                                <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden">
+                                    <button class="section-toggle w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors" data-target="proed-errors">
+                                        <div class="flex items-center gap-4">
+                                            <div class="h-12 w-12 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 shrink-0">
+                                                <span class="material-symbols-outlined">psychology</span>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-gray-900 dark:text-white">Professional Education</h4>
+                                                <p class="text-xs text-gray-400 mt-0.5">50 Questions &bull; <span class="text-red-500 font-semibold">12 mistakes</span> &bull; <span class="text-amber-500 font-semibold">2 skipped</span></p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-4 sm:text-right">
+                                            <div class="flex flex-col items-end">
+                                                <span class="text-2xl font-bold text-gray-900 dark:text-white">76%</span>
+                                                <span class="text-xs text-gray-500 font-medium uppercase">38/50</span>
+                                            </div>
+                                            <div class="w-16 h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden hidden sm:block">
+                                                <div class="bg-pass h-full rounded-full" style="width: 76%"></div>
+                                            </div>
+                                            <span class="material-symbols-outlined text-gray-400 toggle-icon transition-transform duration-300">expand_more</span>
+                                        </div>
+                                    </button>
+                                    <div class="section-errors hidden" id="proed-errors">
+                                        <div class="px-6 pb-6 flex flex-col gap-2 border-t border-gray-100 dark:border-white/10 pt-5">
+                                            <!-- Score summary -->
+                                            <div class="grid grid-cols-3 gap-3 mb-4">
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20">
+                                                    <span class="text-lg font-black text-green-600">38</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Correct</span>
+                                                </div>
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-lg font-black text-red-500">12</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Wrong</span>
+                                                </div>
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                    <span class="text-lg font-black text-amber-500">2</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Skipped</span>
+                                                </div>
+                                            </div>
+                                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Incorrect Answers</p>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q9</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">According to Bloom's Taxonomy, which level involves creating new ideas?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Evaluation</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Synthesis/Creation</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q10</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The teaching strategy where students learn by doing is known as:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Lecture method</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Experiential learning</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q11</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which assessment type is used to monitor student learning progress during instruction?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Summative assessment</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Formative assessment</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q12</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Vygotsky's Zone of Proximal Development refers to:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> What a student can do independently</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> The gap between independent and guided performance</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q13</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">A teacher who uses varied instructional materials caters to:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Students with disabilities only</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Diverse learning styles</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q14</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The Curriculum is LEAST influenced by which of the following?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Societal needs</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Teacher's personal preference</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q15</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which learning theory emphasizes reinforcement and punishment in shaping behavior?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Constructivism</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Behaviorism</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q16</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which principle states that learning is maximized when students are physically and emotionally safe?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Readiness principle</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Safe learning environment principle</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q17</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Action research in education is primarily done to:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Fulfill academic requirements</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Improve classroom practice</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q18</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The most effective way to manage a disruptive student is:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Send the student out of class</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Address behavior through positive reinforcement and private discussion</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q19</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Gardner's Theory of Multiple Intelligences suggests that:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Intelligence is a single measurable trait</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> There are multiple types of intelligence</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q20</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">A lesson plan that focuses on student outcomes is referred to as:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Content-based instruction</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Outcomes-based education</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Skipped Questions - ProEd -->
+                                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-3 mb-2">Skipped Questions</p>
+                                            <div class="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                <span class="text-xs font-bold text-amber-500 w-7 shrink-0 pt-0.5">Q20</span>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">What is the role of classroom management in effective teaching?</p>
+                                                    <p class="text-xs text-amber-600 mt-1 font-medium">Skipped</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                <span class="text-xs font-bold text-amber-500 w-7 shrink-0 pt-0.5">Q36</span>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which type of validity measures if a test accurately predicts future performance?</p>
+                                                    <p class="text-xs text-amber-600 mt-1 font-medium">Skipped</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Specialization Major -->
+                                <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden">
+                                    <button class="section-toggle w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 text-left hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors" data-target="major-errors">
+                                        <div class="flex items-center gap-4">
+                                            <div class="h-12 w-12 rounded-xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 shrink-0">
+                                                <span class="material-symbols-outlined">history_edu</span>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-gray-900 dark:text-white">Specialization (Major)</h4>
+                                                <p class="text-xs text-gray-400 mt-0.5">50 Questions &bull; <span class="text-red-500 font-semibold">8 mistakes</span> &bull; <span class="text-amber-500 font-semibold">3 skipped</span></p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-4 sm:text-right">
+                                            <div class="flex flex-col items-end">
+                                                <span class="text-2xl font-bold text-gray-900 dark:text-white">84%</span>
+                                                <span class="text-xs text-gray-500 font-medium uppercase">42/50</span>
+                                            </div>
+                                            <div class="w-16 h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden hidden sm:block">
+                                                <div class="bg-pass h-full rounded-full" style="width: 84%"></div>
+                                            </div>
+                                            <span class="material-symbols-outlined text-gray-400 toggle-icon transition-transform duration-300">expand_more</span>
+                                        </div>
+                                    </button>
+                                    <div class="section-errors hidden" id="major-errors">
+                                        <div class="px-6 pb-6 flex flex-col gap-2 border-t border-gray-100 dark:border-white/10 pt-5">
+                                            <!-- Score summary -->
+                                            <div class="grid grid-cols-3 gap-3 mb-4">
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20">
+                                                    <span class="text-lg font-black text-green-600">42</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Correct</span>
+                                                </div>
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-lg font-black text-red-500">8</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Wrong</span>
+                                                </div>
+                                                <div class="flex flex-col items-center p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                    <span class="text-lg font-black text-amber-500">3</span>
+                                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Skipped</span>
+                                                </div>
+                                            </div>
+                                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Incorrect Answers</p>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q21</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which literary device involves giving human traits to non-human things?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Simile</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Personification</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q22</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The use of "she sells seashells" is an example of:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Assonance</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Alliteration</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q23</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">A paragraph that presents an argument and supports it with evidence is called:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Narrative paragraph</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Argumentative paragraph</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q24</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The main purpose of a thesis statement in an essay is to:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Summarize the conclusion</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> State the central claim of the essay</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q25</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which verb tense is used to describe a habitual action in the past?</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Simple past tense</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Past habitual ("used to" / "would")</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q26</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Inductive reasoning in language means moving from:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> General to specific</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Specific to general</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q27</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">The reading strategy where a student rapidly scans the text for specific information is called:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Skimming</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Scanning</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="wrong-answer-item">
+                                                <div class="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                                    <span class="text-xs font-bold text-red-500 w-7 shrink-0 pt-0.5">Q28</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">In English grammar, a dependent clause cannot:</p>
+                                                        <div class="mt-2 flex flex-col gap-1">
+                                                            <p class="text-xs text-red-500"><span class="font-semibold">Your answer:</span> Contain a verb</p>
+                                                            <p class="text-xs text-green-600"><span class="font-semibold">Correct answer:</span> Stand alone as a complete sentence</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Skipped Questions - Major -->
+                                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-3 mb-2">Skipped Questions</p>
+                                            <div class="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                <span class="text-xs font-bold text-amber-500 w-7 shrink-0 pt-0.5">Q8</span>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">Which poetic form consists of 14 lines with a specific rhyme scheme?</p>
+                                                    <p class="text-xs text-amber-600 mt-1 font-medium">Skipped</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                <span class="text-xs font-bold text-amber-500 w-7 shrink-0 pt-0.5">Q26</span>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">What is the difference between a phrase and a clause in English grammar?</p>
+                                                    <p class="text-xs text-amber-600 mt-1 font-medium">Skipped</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                                                <span class="text-xs font-bold text-amber-500 w-7 shrink-0 pt-0.5">Q42</span>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm text-gray-700 dark:text-gray-200 font-medium">In literature, what does the term "foil" refer to?</p>
+                                                    <p class="text-xs text-amber-600 mt-1 font-medium">Skipped</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+<div class="mt-2">
+<button class="w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary/90 transition-all shadow-md" onclick="window.location.href='mock-exam-review.html'">See All</button>
+</div>
+</div>
+<div class="lg:col-span-4 flex flex-col gap-6">
+<div class="bg-white dark:bg-[#1a0a0a] rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-white/5">
+<h3 class="font-bold text-gray-900 dark:text-white mb-5">Performance Overview</h3>
+
+<!-- Total Score -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/10 mb-5">
+    <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Total Score</span>
+    <span class="text-2xl font-black text-primary">122<span class="text-sm font-normal text-gray-400">/150</span></span>
+</div>
+
+<!-- Pie Chart -->
+<div class="flex flex-col items-center mb-5">
+    <div class="relative w-36 h-36">
+        <canvas id="scoreChart" width="144" height="144"></canvas>
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span class="text-2xl font-black text-gray-900 dark:text-white">81%</span>
+            <span class="text-[10px] font-bold text-gray-400 uppercase">Accuracy</span>
+        </div>
+    </div>
+    <div class="flex items-center gap-4 mt-3 text-xs">
+        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span><span class="text-gray-500">Correct</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span><span class="text-gray-500">Incorrect</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span><span class="text-gray-500">Skipped</span></div>
+    </div>
+</div>
+
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between p-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20">
+<div class="flex items-center gap-3">
+<div class="h-7 w-7 rounded-full bg-green-500 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+<span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Correct</span>
+</div>
+<span class="text-lg font-black text-green-600">122</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+<div class="flex items-center gap-3">
+<div class="h-7 w-7 rounded-full bg-red-500 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</div>
+<span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Incorrect</span>
+</div>
+<span class="text-lg font-black text-red-600">23</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+<div class="flex items-center gap-3">
+<div class="h-7 w-7 rounded-full bg-amber-500 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[16px]">remove_done</span>
+</div>
+<span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Skipped</span>
+</div>
+<span class="text-lg font-black text-amber-600">5</span>
+</div>
+</div>
+<div class="mt-6 pt-5 border-t border-gray-100 dark:border-white/10">
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Time Statistics</h4>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-xs text-gray-500 mb-1">Total Time</p>
+<p class="text-base font-bold text-gray-900 dark:text-white">01:30:15</p>
+</div>
+<div>
+<p class="text-xs text-gray-500 mb-1">Avg. Time/Q</p>
+<p class="text-base font-bold text-gray-900 dark:text-white">36s</p>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<script>
+        }
+
+        // Pie chart
+        (function() {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js';
+            script.onload = function() {
+                const isDark = document.documentElement.classList.contains('dark');
+                const ctx = document.getElementById('scoreChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{
+                            data: [122, 23, 5],
+                            backgroundColor: ['#16a34a', '#ef4444', '#F59E0B'],
+                            borderWidth: 0,
+                            hoverOffset: 4,
+                        }]
+                    },
+                    options: {
+                        cutout: '72%',
+                        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                        animation: { animateRotate: true, duration: 800 },
+                    }
+                });
+            };
+            document.head.appendChild(script);
+        })();
+
+        // Collapsible section toggles
+        document.querySelectorAll('.section-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetId = btn.getAttribute('data-target');
+                const panel = document.getElementById(targetId);
+                const icon = btn.querySelector('.toggle-icon');
+                const isHidden = panel.classList.contains('hidden');
+                panel.classList.toggle('hidden', !isHidden);
+                icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+            });
+        });
+    </script>
+</body></html>

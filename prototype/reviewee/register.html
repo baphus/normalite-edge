@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Normalite EDGE - Registration</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000", // Crimson
+                        "primary-hover": "#660000",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                        "gold-accent": "#B08D2B", // Darker gold for text contrast
+                        "gold-hover": "#D4AF37",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-display text-[#1d0c0c] antialiased bg-background-light dark:bg-background-dark min-h-screen flex flex-col relative overflow-y-auto">
+<!-- Background Pattern/Image with Overlay -->
+<div class="absolute inset-0 z-0 w-full h-full">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-black/80 dark:to-black/90 z-10"></div>
+<!-- Decorative abstract background representing a campus or learning environment -->
+<div class="w-full h-full bg-cover bg-center opacity-40 dark:opacity-20 blur-sm" data-alt="Blurred view of a university campus building with classic architecture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuArzNvjpM81ghaYuiyQxM5qpbcgLPEq0jo8N-mkUsqhp24cgYqCleIywecsORTOG8yNrwi5WSxuvAcxTBUXSdXI-qwtnNBKZ6jXC2cPxHRnfGhWX9Ek1iZFqkUkixfJAOK6Cbd2300a9h0fgWx4Vm41iEKXkdk5InX7ez7OOmacb2mWhSSfIzcHggdwKPpuwdkhar-Pnt5HRb_NuLsQ6sy2ESZ51mk7upMt0FcDZCtLjECee98BD7_ALEkLTSLB-kY4Qc_TFKZ5gsny');">
+</div>
+</div>
+<!-- Main Content Container -->
+<div class="relative z-20 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+<!-- Central Card -->
+<div class="w-full max-w-[520px] bg-white dark:bg-[#1a0b0b] rounded-2xl shadow-2xl border border-[#eacdcd] dark:border-[#3d1818] overflow-hidden flex flex-col">
+<!-- Header Section -->
+<div class="pt-8 px-8 pb-2 text-center">
+<!-- CNU Identity / Logo Area -->
+<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 dark:bg-primary/20 mb-4 text-primary">
+<span class="material-symbols-outlined text-4xl">school</span>
+</div>
+<h1 class="text-2xl md:text-3xl font-bold text-[#1d0c0c] dark:text-white tracking-tight mb-2">
+                    Create your account
+                </h1>
+<p class="text-gray-500 dark:text-gray-400 text-sm md:text-base">
+                    Join Normalite EDGE for LET preparation.
+                </p>
+</div>
+<!-- Form Section -->
+<form class="p-8 pt-6 space-y-4">
+<!-- Name Row -->
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        First Name
+                    </label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+</div>
+                        <input id="first-name" class="w-full pl-11 pr-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="Juan" type="text" required=""/>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        Middle I.
+                    </label>
+                    <input id="middle-initial" class="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="Q" maxlength="2" type="text"/>
+</div>
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        Last Name
+                    </label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+</div>
+                        <input id="last-name" class="w-full pl-11 pr-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="Dela Cruz" type="text" required=""/>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        Suffix
+                    </label>
+                    <input id="suffix" class="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="Jr." type="text"/>
+</div>
+</div>
+<!-- Student Details Row -->
+<div class="grid grid-cols-3 gap-4">
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        Year
+                    </label>
+                    <input id="year-level" class="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="4" type="text" required=""/>
+</div>
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        Program
+                    </label>
+                    <div class="relative">
+                        <select id="program" class="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all appearance-none" required="">
+                            <option disabled="" selected="" value="">Select a program</option>
+                            <option value="Bachelor of Physical Education">Bachelor of Physical Education</option>
+                            <option value="Bachelor of Culture &amp; Arts Education">Bachelor of Culture &amp; Arts Education</option>
+                            <option value="Bachelor of Technology and Livelihood Education">Bachelor of Technology and Livelihood Education</option>
+                            <option value="Bachelor of Elementary Education">Bachelor of Elementary Education</option>
+                            <option value="Bachelor of Early Childhood Education">Bachelor of Early Childhood Education</option>
+                            <option value="Bachelor of Special Needs Education">Bachelor of Special Needs Education</option>
+                            <option value="Bachelor of Secondary Education">Bachelor of Secondary Education</option>
+                            <option value="Diploma in Professional Education">Diploma in Professional Education</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </div>
+                    </div>
+</div>
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        Section
+                    </label>
+                    <input id="section" class="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="A" type="text" required=""/>
+</div>
+</div>
+            <!-- Majorship Dropdown -->
+            <div class="space-y-1.5">
+                <label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                    Majorship (if applicable)
+                </label>
+                <div class="relative">
+                    <select id="majorship" class="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all appearance-none" aria-label="Majorship selection">
+                        <option disabled="" selected="" value="">Select a program first</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                        <span class="material-symbols-outlined">expand_more</span>
+                    </div>
+                </div>
+            </div>
+<!-- School Email -->
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        School Email
+                    </label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">mail</span>
+</div>
+                    <input id="school-email" class="w-full pl-11 pr-10 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="juan@cnu.edu.ph" type="email" required=""/>
+</div>
+</div>
+<!-- Password -->
+<div class="space-y-1.5">
+<label class="block text-sm font-medium text-[#1d0c0c] dark:text-gray-200">
+                        Password
+                    </label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+</div>
+<input class="w-full pl-11 pr-10 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#2a1414] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="••••••••" type="password" required=""/>
+</div>
+</div>
+<!-- Submit Button -->
+<div class="pt-2">
+<button class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold py-3.5 px-4 rounded-lg shadow-md transition-transform active:scale-[0.99] focus:ring-4 focus:ring-primary/30" type="submit">
+<span>Sign Up</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</form>
+<!-- Footer / Secondary Action -->
+<div class="bg-gray-50 dark:bg-[#251212] py-4 text-center border-t border-gray-100 dark:border-[#3d1818]">
+<p class="text-sm text-gray-600 dark:text-gray-400">
+                    Already have an account? 
+                    <a class="font-bold text-gold-accent hover:text-gold-hover hover:underline transition-colors" href="login.html">
+                        Login
+                    </a>
+</p>
+</div>
+</div>
+<!-- Bottom copyright -->
+<div class="absolute bottom-4 text-center w-full z-20 pointer-events-none">
+<p class="text-xs text-gray-500 dark:text-gray-400 opacity-80">
+                © 2024 Normalite EDGE. Cebu Normal University.
+            </p>
+</div>
+</div>
+<script>
+    // Mapping of programs to their available majorships
+    const majorsByProgram = {
+        "Bachelor of Secondary Education": [
+            "Mathematics",
+            "Science",
+            "English",
+            "Filipino",
+            "Social Studies",
+            "Values Education",
+        ],
+        "Bachelor of Technology and Livelihood Education": [
+            "Home Economics",
+        ],
+    };
+
+    const programSelect = document.getElementById('program');
+    const majorshipSelect = document.getElementById('majorship');
+
+    const updateMajorshipOptions = () => {
+        const selectedProgram = programSelect.value;
+        const availableMajors = majorsByProgram[selectedProgram] || [];
+
+        majorshipSelect.innerHTML = '';
+
+        if (availableMajors.length === 0) {
+            const option = document.createElement('option');
+            option.value = 'Not Applicable';
+            option.textContent = 'Not Applicable';
+            majorshipSelect.appendChild(option);
+            majorshipSelect.disabled = true;
+            majorshipSelect.required = false;
+        } else {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select a majorship';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            majorshipSelect.appendChild(placeholder);
+
+            availableMajors.forEach((major) => {
+                const option = document.createElement('option');
+                option.value = major;
+                option.textContent = major;
+                majorshipSelect.appendChild(option);
+            });
+
+            majorshipSelect.disabled = false;
+            majorshipSelect.required = true;
+        }
+    };
+
+    updateMajorshipOptions();
+    programSelect.addEventListener('change', updateMajorshipOptions);
+
+    // Handle registration
+    document.querySelector('form').addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const firstName = document.getElementById('first-name').value.trim();
+        const middleI = document.getElementById('middle-initial').value.trim();
+        const lastName = document.getElementById('last-name').value.trim();
+        const suffix = document.getElementById('suffix').value.trim();
+        const year = document.getElementById('year-level').value.trim();
+        const section = document.getElementById('section').value.trim();
+        const program = programSelect.value;
+        const majorship = majorshipSelect.disabled ? 'Not Applicable' : (majorshipSelect.value || 'Not Applicable');
+        const email = document.getElementById('school-email').value.trim();
+
+        const userData = {
+            firstName,
+            middleI,
+            lastName,
+            suffix,
+            year,
+            section,
+            program,
+            majorship,
+            email,
+            role: 'reviewee',
+        };
+
+        localStorage.setItem('userRole', 'reviewee');
+        localStorage.setItem('userData', JSON.stringify(userData));
+        localStorage.setItem('userSpecialization', program + (majorship !== 'Not Applicable' ? ' - ' + majorship : ''));
+
+        window.location.href = 'dashboard.html';
+    });
+</script>
+</body></html>

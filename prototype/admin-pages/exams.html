@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mock Exam Library - Normalite EDGE Admin</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+        .status-tab.active {
+            border-bottom-color: #800000 !important;
+            color: #800000 !important;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="../components/sidebar.js"></script>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark">
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE Admin</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+<div class="container mx-auto max-w-6xl">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Mock Exam Library</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage and organize all LET preparation exams.</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[20px]">search</span>
+<input class="pl-10 pr-4 py-2 border border-gray-200 dark:border-white/10 dark:bg-white/5 rounded-lg text-sm focus:ring-primary focus:border-primary w-64" placeholder="Search exams..." type="text"/>
+</div>
+                    <div class="flex items-center gap-2">
+                        <select id="program-filter" class="px-3 py-2 border border-gray-200 dark:border-white/10 dark:bg-white/5 rounded-lg text-sm focus:ring-primary focus:border-primary text-gray-600 dark:text-gray-300">
+                            <option value="">All Programs / Majorships</option>
+                            <option value="All Programs">All Programs</option>
+                            <option value="BSEd - Science">BSEd - Science</option>
+                            <option value="BSEd - English">BSEd - English</option>
+                            <option value="BSEd - Mathematics">BSEd - Mathematics</option>
+                            <option value="BSEd - Filipino">BSEd - Filipino</option>
+                            <option value="BSEd - Social Studies">BSEd - Social Studies</option>
+                            <option value="BSEd - Values Education">BSEd - Values Education</option>
+                            <option value="BTLEd - Home Economics">BTLEd - Home Economics</option>
+                            <option value="BPEd">Bachelor of Physical Education</option>
+                            <option value="BCAEd">Bachelor of Culture &amp; Arts Education</option>
+                            <option value="BEEd">Bachelor of Elementary Education</option>
+                            <option value="BECEd">Bachelor of Early Childhood Education</option>
+                            <option value="BSNEd">Bachelor of Special Needs Education</option>
+                            <option value="DPE">Diploma in Professional Education</option>
+                        </select>
+                        <select id="category-filter" class="px-3 py-2 border border-gray-200 dark:border-white/10 dark:bg-white/5 rounded-lg text-sm focus:ring-primary focus:border-primary text-gray-600 dark:text-gray-300">
+                            <option value="">All Categories</option>
+                            <option value="Professional Education">Prof. Education</option>
+                            <option value="General Education">Gen. Education</option>
+                            <option value="Specialization">Specialization</option>
+                        </select>
+                    </div>
+<button class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 text-sm font-medium transition-colors shadow-sm shadow-primary/20 flex items-center gap-2" onclick="window.location.href='create-exam.html'">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                            Create New Exam
+                        </button>
+</div>
+</div>
+</div>
+</header>
+<div class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-0 shrink-0 z-10">
+<div class="container mx-auto max-w-6xl">
+<div class="flex items-center justify-between">
+<nav class="flex gap-4 overflow-x-auto" id="status-tabs">
+<button data-status="" class="status-tab active border-b-2 border-primary py-4 px-1 text-sm font-bold text-primary flex items-center gap-2 whitespace-nowrap transition-colors">
+                            All Exams
+                            <span class="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded-full">12</span>
+</button>
+<button data-status="live" class="status-tab border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors flex items-center gap-2 whitespace-nowrap">
+                            Active / Live
+                            <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full">8</span>
+</button>
+<button data-status="draft" class="status-tab border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors flex items-center gap-2 whitespace-nowrap">
+                            Drafts
+                            <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full">3</span>
+</button>
+<button data-status="archived" class="status-tab border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors flex items-center gap-2 whitespace-nowrap">
+                            Archived
+                            <span class="bg-gray-100 dark:bg-white/10 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full">1</span>
+</button>
+</nav>
+<div class="flex items-center gap-2">
+<button class="p-2 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-50">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-50">
+<span class="material-symbols-outlined">grid_view</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto">
+<div class="container mx-auto max-w-6xl px-6 py-8">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="exam-card bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm hover:shadow-md transition-shadow group" data-status="live" data-category="Professional Education" data-program="All Programs">
+<div class="p-5 flex flex-col h-full">
+<div class="flex items-start justify-between mb-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
+                                    Live
+                                </span>
+</div>
+<div class="mb-4">
+<h3 class="text-base font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">LET 2024 Comprehensive: Professional Education</h3>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-tight">Shown to: All Programs</span>
+                    </div>
+</div>
+<div class="flex items-center gap-4 text-xs text-gray-500 mb-6 pb-6 border-b border-gray-100 dark:border-white/5">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">quiz</span>
+<span>150 Questions</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>180 min</span>
+</div>
+</div>
+<div class="mb-4 space-y-2 pb-4 border-b border-gray-100 dark:border-white/5">
+<div class="flex items-center justify-between">
+<span class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-accent">refresh</span>
+Max Attempts:
+</span>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-gray-900 dark:text-white exam-max-attempts" data-exam-id="admin-prof-edu-live">1</span>
+<button onclick="openAttemptsModal('admin-prof-edu-live')" class="text-primary hover:text-primary/80 text-xs underline">Edit</button>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-red-500">event</span>
+Deadline:
+</span>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-gray-900 dark:text-white exam-deadline" data-exam-id="admin-prof-edu-live">March 15, 2026</span>
+<button onclick="openDeadlineModal('admin-prof-edu-live')" class="text-primary hover:text-primary/80 text-xs underline">Edit</button>
+</div>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2">
+<button onclick="window.location.href='exam-performance.html?examId=admin-prof-edu-live'" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+View
+</button>
+<button onclick="window.location.href='create-exam.html?edit=admin-prof-edu-live'" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+Edit
+</button>
+<div class="relative">
+<button onclick="toggleDropdown(this)" class="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">more_horiz</span>
+</button>
+<div class="hidden absolute right-0 bottom-full mb-1 w-40 bg-white dark:bg-[#2a1a1a] rounded-lg shadow-xl border border-gray-100 dark:border-white/10 py-1 z-30">
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Duplicate
+</button>
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">archive</span> Archive
+</button>
+<div class="h-px bg-gray-100 dark:bg-white/10 my-1"></div>
+<button class="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">delete</span> Delete
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="exam-card bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm hover:shadow-md transition-shadow group" data-status="draft" data-category="Specialization" data-program="BSEd - Science">
+<div class="p-5 flex flex-col h-full">
+<div class="flex items-start justify-between mb-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600 mr-1.5"></span>
+                                    Draft
+                                </span>
+<button class="p-1 text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="mb-4">
+<h3 class="text-base font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">Specialization: Biological Science Mock 1</h3>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-200 uppercase tracking-tight">Shown to: BSEd - Science</span>
+                    </div>
+</div>
+<div class="flex items-center gap-4 text-xs text-gray-500 mb-6 pb-6 border-b border-gray-100 dark:border-white/5">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">quiz</span>
+<span>75 Questions</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>90 min</span>
+</div>
+</div>
+<div class="mb-4 space-y-2 pb-4 border-b border-gray-100 dark:border-white/5">
+<div class="flex items-center justify-between">
+<span class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-accent">refresh</span>
+Max Attempts:
+</span>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-gray-900 dark:text-white exam-max-attempts" data-exam-id="admin-bio-draft">3</span>
+<button onclick="openAttemptsModal('admin-bio-draft')" class="text-primary hover:text-primary/80 text-xs underline">Edit</button>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-red-500">event</span>
+Deadline:
+</span>
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-gray-900 dark:text-white exam-deadline" data-exam-id="admin-bio-draft">April 10, 2026</span>
+<button onclick="openDeadlineModal('admin-bio-draft')" class="text-primary hover:text-primary/80 text-xs underline">Edit</button>
+</div>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2">
+<button onclick="window.location.href='exam-performance.html?examId=admin-bio-draft'" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+View
+</button>
+<button onclick="window.location.href='create-exam.html?edit=admin-bio-draft'" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+Edit
+</button>
+<div class="relative">
+<button onclick="toggleDropdown(this)" class="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">more_horiz</span>
+</button>
+<div class="hidden absolute right-0 bottom-full mb-1 w-40 bg-white dark:bg-[#2a1a1a] rounded-lg shadow-xl border border-gray-100 dark:border-white/10 py-1 z-30">
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Duplicate
+</button>
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">archive</span> Archive
+</button>
+<div class="h-px bg-gray-100 dark:bg-white/10 my-1"></div>
+<button class="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">delete</span> Delete
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="exam-card bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm hover:shadow-md transition-shadow group border-l-4 border-l-primary/20" data-status="live" data-category="Professional Education" data-program="All Programs">
+<div class="p-5 flex flex-col h-full">
+<div class="flex items-start justify-between mb-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
+                                    Live
+                                </span>
+</div>
+<div class="mb-4">
+<h3 class="text-base font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">LET Foundation: Child and Adolescent Development</h3>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-tight">Shown to: All Programs</span>
+                    </div>
+</div>
+<div class="flex items-center gap-4 text-xs text-gray-500 mb-6 pb-6 border-b border-gray-100 dark:border-white/5">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">quiz</span>
+<span>100 Questions</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>120 min</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2">
+<button onclick="window.location.href='exam-performance.html?examId=admin-child-dev-live'" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+View
+</button>
+<button onclick="window.location.href='create-exam.html?edit=admin-child-dev-live'" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+Edit
+</button>
+<div class="relative">
+<button onclick="toggleDropdown(this)" class="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">more_horiz</span>
+</button>
+<div class="hidden absolute right-0 bottom-full mb-1 w-40 bg-white dark:bg-[#2a1a1a] rounded-lg shadow-xl border border-gray-100 dark:border-white/10 py-1 z-30">
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Duplicate
+</button>
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">archive</span> Archive
+</button>
+<div class="h-px bg-gray-100 dark:bg-white/10 my-1"></div>
+<button class="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">delete</span> Delete
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="exam-card bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm opacity-75 hover:opacity-100 transition-all group" data-status="archived" data-category="General Education" data-program="BEEd">
+<div class="p-5 flex flex-col h-full">
+<div class="flex items-start justify-between mb-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-400">
+<span class="w-1.5 h-1.5 rounded-full bg-gray-600 mr-1.5"></span>
+                                    Archived
+                                </span>
+<button class="p-1 text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="mb-4">
+<h3 class="text-base font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">Old Curriculum Mock: LET 2022</h3>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200 uppercase tracking-tight">Shown to: BEEd / BSEd - Soc Stud</span>
+                    </div>
+</div>
+<div class="flex items-center gap-4 text-xs text-gray-500 mb-6 pb-6 border-b border-gray-100 dark:border-white/5">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">quiz</span>
+<span>200 Questions</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>240 min</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2">
+<button onclick="window.location.href='exam-performance.html?examId=admin-let2022-archived'" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+View
+</button>
+<button class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">restore</span>
+Restore
+</button>
+<div class="relative">
+<button onclick="toggleDropdown(this)" class="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all dark:bg-white/5 dark:border-white/10 dark:text-gray-300 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">more_horiz</span>
+</button>
+<div class="hidden absolute right-0 bottom-full mb-1 w-40 bg-white dark:bg-[#2a1a1a] rounded-lg shadow-xl border border-gray-100 dark:border-white/10 py-1 z-30">
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Duplicate
+</button>
+<button class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">unarchive</span> Unarchive
+</button>
+<div class="h-px bg-gray-100 dark:bg-white/10 my-1"></div>
+<button class="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">delete</span> Delete
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<button class="bg-gray-50/50 dark:bg-white/[0.02] rounded-xl border-2 border-dashed border-gray-300 dark:border-white/10 p-5 flex flex-col items-center justify-center text-gray-500 hover:text-primary hover:border-primary/50 hover:bg-primary/[0.02] transition-all min-h-[300px] group" onclick="window.location.href='create-exam.html'">
+<div class="bg-white dark:bg-[#1a0a0a] p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary text-[32px]">add</span>
+</div>
+<p class="font-bold text-sm">Create New Mock Exam</p>
+<p class="text-xs text-gray-400 mt-1 px-8 text-center">Start from scratch or use a predefined template</p>
+</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Modal for Editing Attempts -->
+<div id="attemptsModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-white/10">
+        <div class="p-6 border-b border-gray-100 dark:border-white/10">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Set Maximum Attempts</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure how many times students can attempt this exam</p>
+        </div>
+        <div class="p-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Number of Attempts</label>
+            <input type="number" id="attemptsInput" min="1" max="10" value="1" class="w-full px-4 py-2.5 border border-gray-200 dark:border-white/10 dark:bg-white/5 rounded-lg focus:ring-primary focus:border-primary text-gray-900 dark:text-white">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Students will be allowed to take this exam up to the specified number of times</p>
+        </div>
+        <div class="p-6 border-t border-gray-100 dark:border-white/10 flex gap-3">
+            <button onclick="closeAttemptsModal()" class="flex-1 px-4 py-2.5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 font-medium transition-colors">
+                Cancel
+            </button>
+            <button onclick="saveAttempts()" class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-colors shadow-sm shadow-primary/20">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Editing Deadline -->
+<div id="deadlineModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-white/10">
+        <div class="p-6 border-b border-gray-100 dark:border-white/10">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Set Exam Deadline</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Set the deadline for students to complete this exam</p>
+        </div>
+        <div class="p-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Deadline Date</label>
+            <input type="date" id="deadlineInput" class="w-full px-4 py-2.5 border border-gray-200 dark:border-white/10 dark:bg-white/5 rounded-lg focus:ring-primary focus:border-primary text-gray-900 dark:text-white">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">After this date, students will no longer be able to start the exam</p>
+        </div>
+        <div class="p-6 border-t border-gray-100 dark:border-white/10 flex gap-3">
+            <button onclick="closeDeadlineModal()" class="flex-1 px-4 py-2.5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 font-medium transition-colors">
+                Cancel
+            </button>
+            <button onclick="saveDeadline()" class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-colors shadow-sm shadow-primary/20">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Dropdown toggle function
+    function toggleDropdown(button) {
+        const dropdown = button.nextElementSibling;
+        const allDropdowns = document.querySelectorAll('.relative > div.absolute');
+        
+        // Close all other dropdowns
+        allDropdowns.forEach(d => {
+            if (d !== dropdown) d.classList.add('hidden');
+        });
+        
+        // Toggle current dropdown
+        dropdown.classList.toggle('hidden');
+        
+        // Prevent event bubbling
+        event.stopPropagation();
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.relative')) {
+            const allDropdowns = document.querySelectorAll('.relative > div.absolute');
+            allDropdowns.forEach(d => d.classList.add('hidden'));
+        }
+    });
+
+    // Modal management for attempts and deadline
+    let currentExamId = null;
+
+    function openAttemptsModal(examId) {
+        currentExamId = examId;
+        const attemptsElement = document.querySelector(`.exam-max-attempts[data-exam-id="${examId}"]`);
+        const currentAttempts = parseInt(attemptsElement.textContent);
+        document.getElementById('attemptsInput').value = currentAttempts;
+        document.getElementById('attemptsModal').classList.remove('hidden');
+    }
+
+    function closeAttemptsModal() {
+        document.getElementById('attemptsModal').classList.add('hidden');
+        currentExamId = null;
+    }
+
+    function saveAttempts() {
+        const newAttempts = document.getElementById('attemptsInput').value;
+        if (currentExamId && newAttempts) {
+            const attemptsElement = document.querySelector(`.exam-max-attempts[data-exam-id="${currentExamId}"]`);
+            attemptsElement.textContent = newAttempts;
+            
+            // In production, save to backend/database
+            console.log(`Updated exam ${currentExamId} max attempts to ${newAttempts}`);
+            
+            closeAttemptsModal();
+        }
+    }
+
+    function openDeadlineModal(examId) {
+        currentExamId = examId;
+        // Set default date to current deadline if available
+        const deadlineElement = document.querySelector(`.exam-deadline[data-exam-id="${examId}"]`);
+        const currentDeadline = deadlineElement.textContent;
+        
+        // Convert display date to input format (YYYY-MM-DD)
+        const date = new Date(currentDeadline);
+        const formattedDate = date.toISOString().split('T')[0];
+        document.getElementById('deadlineInput').value = formattedDate;
+        
+        document.getElementById('deadlineModal').classList.remove('hidden');
+    }
+
+    function closeDeadlineModal() {
+        document.getElementById('deadlineModal').classList.add('hidden');
+        currentExamId = null;
+    }
+
+    function saveDeadline() {
+        const newDeadline = document.getElementById('deadlineInput').value;
+        if (currentExamId && newDeadline) {
+            const deadlineElement = document.querySelector(`.exam-deadline[data-exam-id="${currentExamId}"]`);
+            
+            // Format date for display
+            const date = new Date(newDeadline);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = date.toLocaleDateString('en-US', options);
+            
+            deadlineElement.textContent = formattedDate;
+            
+            // In production, save to backend/database
+            console.log(`Updated exam ${currentExamId} deadline to ${newDeadline}`);
+            
+            closeDeadlineModal();
+        }
+    }
+
+    // Close modals on background click
+    document.getElementById('attemptsModal').addEventListener('click', function(e) {
+        if (e.target === this) closeAttemptsModal();
+    });
+
+    document.getElementById('deadlineModal').addEventListener('click', function(e) {
+        if (e.target === this) closeDeadlineModal();
+    });
+
+    // ── Filter Logic ──────────────────────────────────────────────
+    (function () {
+        const examCards = document.querySelectorAll('.exam-card');
+        const statusTabs = document.querySelectorAll('#status-tabs button');
+        const searchInput = document.querySelector('input[placeholder="Search exams..."]');
+        const programFilter = document.getElementById('program-filter');
+        const categoryFilter = document.getElementById('category-filter');
+        let activeStatus = '';
+
+        function filterExams() {
+            const query = searchInput ? searchInput.value.toLowerCase() : '';
+            const program = programFilter ? programFilter.value : '';
+            const category = categoryFilter ? categoryFilter.value : '';
+
+            examCards.forEach(card => {
+                const title = card.querySelector('h3') ? card.querySelector('h3').textContent.toLowerCase() : '';
+                const cardStatus = card.getAttribute('data-status') || '';
+                const cardCategory = card.getAttribute('data-category') || '';
+                const cardProgram = card.getAttribute('data-program') || '';
+
+                const matchesSearch = !query || title.includes(query);
+                const matchesStatus = !activeStatus || cardStatus === activeStatus;
+                const matchesProgram = !program || cardProgram.toLowerCase().includes(program.toLowerCase()) || cardProgram === 'All Programs';
+                const matchesCategory = !category || cardCategory === category;
+
+                card.style.display = (matchesSearch && matchesStatus && matchesProgram && matchesCategory) ? '' : 'none';
+            });
+        }
+
+        statusTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                statusTabs.forEach(t => {
+                    t.classList.remove('active', 'border-primary', 'text-primary', 'font-bold');
+                    t.classList.add('border-transparent', 'text-gray-500', 'font-medium');
+                });
+                tab.classList.add('active', 'border-primary', 'text-primary', 'font-bold');
+                tab.classList.remove('border-transparent', 'text-gray-500', 'font-medium');
+                activeStatus = tab.getAttribute('data-status');
+                filterExams();
+            });
+        });
+
+        if (searchInput) searchInput.addEventListener('input', filterExams);
+        if (programFilter) programFilter.addEventListener('change', filterExams);
+        if (categoryFilter) categoryFilter.addEventListener('change', filterExams);
+    })();
+</script>
+
+</body></html>

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create Mock Exam - Normalite EDGE Reviewer</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="../components/sidebar.js"></script>
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark">
+<div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">school</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE Reviewer</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+<div class="container mx-auto max-w-5xl">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+<a class="hover:text-primary transition-colors" href="exams.html">Exams</a>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span class="text-gray-900 dark:text-white font-medium">Create New</span>
+</div>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Reviewer Mock Exam Creator</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Design and publish comprehensive mock exams for students.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors dark:bg-white/5 dark:border-white/10 dark:text-gray-300" onclick="window.location.href='exams.html'">
+                            Discard
+                        </button>
+<button class="px-4 py-2 rounded-lg bg-gray-100 text-gray-900 hover:bg-gray-200 text-sm font-medium transition-colors dark:bg-white/10 dark:text-white dark:hover:bg-white/20">
+                            Save Draft
+                        </button>
+<button class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 text-sm font-medium transition-colors shadow-sm shadow-primary/20 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">publish</span>
+                            Publish Exam
+                        </button>
+</div>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto">
+<div class="container mx-auto max-w-5xl px-6 py-8 pb-20">
+<form class="flex flex-col gap-8">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-2 text-primary">
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-xs font-bold">1</span>
+<h3 class="text-sm font-bold uppercase tracking-wide">General Information</h3>
+</div>
+<div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-sm">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="md:col-span-2">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Exam Title</label>
+<input class="w-full rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 focus:border-primary focus:ring-primary text-sm shadow-sm" placeholder="e.g., LET 2024 Comprehensive Mock: Professional Education" type="text"/>
+</div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Visible To (Programs / Majorships)</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary" checked>
+                                    <span>All Programs</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>BSEd - Mathematics</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>BSEd - Science</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>BSEd - English</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>BSEd - Filipino</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>BSEd - Social Studies</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>BSEd - Values Education</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>BTLEd - Home Economics</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>Bachelor of Physical Education</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>Bachelor of Culture &amp; Arts Education</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>Bachelor of Elementary Education</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>Bachelor of Early Childhood Education</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>Bachelor of Special Needs Education</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2">
+                                    <input type="checkbox" class="rounded text-primary focus:ring-primary">
+                                    <span>Diploma in Professional Education</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Select one or more audiences. Uncheck "All Programs" to target specific programs or majors.</p>
+                        </div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Duration (Minutes)</label>
+<div class="relative">
+<input class="w-full rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 focus:border-primary focus:ring-primary text-sm shadow-sm pr-12" placeholder="120" type="number"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">min</span>
+</div>
+</div>
+                        <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Exam Sections <span class="text-gray-400 font-normal">(Questions will be grouped by these tags)</span></label>
+                        <div id="sections-container" class="flex flex-wrap items-center gap-2 p-2 border border-gray-300 dark:border-white/10 rounded-lg bg-gray-50 dark:bg-white/5">
+                        <!-- Dynamic sections will be inserted here -->
+                        <input id="section-input" class="bg-transparent border-none text-sm focus:ring-0 p-1 flex-1 min-w-[120px]" placeholder="Type & press Enter to add section..." type="text"/>
+                        </div>
+                        </div>
+<div class="md:col-span-2">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Description &amp; Instructions</label>
+<textarea class="w-full rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 focus:border-primary focus:ring-primary text-sm shadow-sm" placeholder="Provide instructions for the students taking this mock exam..." rows="3"></textarea>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2 text-primary">
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-xs font-bold">2</span>
+<h3 class="text-sm font-bold uppercase tracking-wide">Question Management</h3>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/20 bg-white text-primary hover:bg-primary/5 text-xs font-bold transition-all" type="button">
+<span class="material-symbols-outlined text-[18px]">upload_file</span>
+                                    Bulk Import Questions
+                                </button>
+                        <div class="text-xs text-gray-500">
+                                    Total Questions: <span class="font-bold text-gray-900 dark:text-white">1</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-6">
+                    <div class="border-b border-gray-200 dark:border-white/10">
+                        <nav id="section-tabs" class="flex gap-6">
+                            <!-- Tabs will be dynamically inserted here -->
+                        </nav>
+                    </div>
+
+                    <div id="questions-list" class="space-y-6">
+                        <!-- Questions will be dynamically inserted here -->
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="addNewQuestion()" class="py-6 border-2 border-dashed border-gray-300 dark:border-white/10 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:text-primary hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-white/5 transition-all group" type="button">
+                            <div class="bg-gray-100 dark:bg-white/10 p-3 rounded-full mb-2 group-hover:bg-primary/10 transition-colors">
+                                <span class="material-symbols-outlined text-[24px]">add</span>
+                            </div>
+                            <span class="font-semibold text-sm">Add New Question</span>
+                        </button>
+                        <button class="py-6 border-2 border-dashed border-primary/20 rounded-xl flex flex-col items-center justify-center text-primary/60 hover:text-primary hover:border-primary/50 hover:bg-primary/[0.02] dark:hover:bg-white/5 transition-all group" type="button">
+                            <div class="bg-primary/5 p-3 rounded-full mb-2 group-hover:bg-primary/10 transition-colors">
+                                <span class="material-symbols-outlined text-[24px]">library_add</span>
+                            </div>
+                            <span class="font-semibold text-sm">Bulk Add Questions</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+</div>
+    <script>
+        let sections = ['Child Development', 'Curriculum Design'];
+        let activeSection = 'Child Development';
+        let questionsData = {
+            'Child Development': [
+                {
+                    id: 1,
+                    text: 'Identify the learning theory that emphasizes the active role of the learner in building understanding and making sense of information.',
+                    options: ['Behaviorism', 'Constructivism', 'Cognitivism', 'Humanism'],
+                    correctOption: 1,
+                    rationale: 'Constructivism posits that learners construct knowledge through their experiences and interactions with the environment.',
+                    hasImage: false
+                },
+                {
+                    id: 2,
+                    text: 'Who is the psychologist known for the stages of cognitive development?',
+                    options: ['Lev Vygotsky', 'Erik Erikson', 'Jean Piaget', 'B.F. Skinner'],
+                    correctOption: 2,
+                    rationale: 'Jean Piaget developed the theory of cognitive development, identifying four stages: sensorimotor, preoperational, concrete operational, and formal operational.',
+                    hasImage: false
+                }
+            ],
+            'Curriculum Design': [
+                {
+                    id: 3,
+                    text: 'Which curriculum model focuses on the interests and needs of the students rather than the teacher or subject matter?',
+                    options: ['Subject-Centered', 'Teacher-Centered', 'Learner-Centered', 'Society-Centered'],
+                    correctOption: 2,
+                    rationale: 'Learner-centered curriculum design focuses on the individual student\'s needs, interests, and developmental level.',
+                    hasImage: false
+                },
+                {
+                    id: 4,
+                    text: 'What do you call the written plan of what is to be taught in the classroom?',
+                    options: ['Curriculum Design', 'Syllabus', 'Lesson Plan', 'Curriculum Mapping'],
+                    correctOption: 0,
+                    rationale: 'Curriculum design is the overarching framework or plan that guides instruction and learning in a classroom or school.',
+                    hasImage: false
+                }
+            ],
+            'No Section': []
+        };
+
+        function initSections() {
+            renderSections();
+            
+            const input = document.getElementById('section-input');
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const value = input.value.trim();
+                    if (value && !sections.includes(value)) {
+                        sections.push(value);
+                        if (!questionsData[value]) questionsData[value] = [];
+                        input.value = '';
+                        renderSections();
+                    }
+                }
+            });
+        }
+
+        function renderSections() {
+            const container = document.getElementById('sections-container');
+            const input = document.getElementById('section-input');
+            
+            const existingTags = container.querySelectorAll('.section-tag');
+            existingTags.forEach(tag => tag.remove());
+            
+            sections.forEach((section, index) => {
+                const span = document.createElement('span');
+                span.className = 'section-tag inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white dark:bg-[#1a0a0a] border border-gray-200 dark:border-white/10 text-xs font-medium text-gray-700 dark:text-gray-300';
+                span.innerHTML = `
+                    ${section}
+                    <button onclick="removeSection(${index})" class="text-gray-400 hover:text-red-500" type="button">
+                        <span class="material-symbols-outlined text-[14px]">close</span>
+                    </button>
+                `;
+                container.insertBefore(span, input);
+            });
+
+            updateQuestionTabs();
+            renderQuestions();
+        }
+
+        function removeSection(index) {
+            const sectionName = sections[index];
+            if (activeSection === sectionName) {
+                activeSection = sections[0] !== sectionName ? sections[0] : (sections[1] || 'No Section');
+            }
+            sections.splice(index, 1);
+            renderSections();
+        }
+
+        function switchSection(sectionName) {
+            activeSection = sectionName;
+            updateQuestionTabs();
+            renderQuestions();
+        }
+
+        function updateQuestionTabs() {
+            const tabsContainer = document.getElementById('section-tabs');
+            if (!tabsContainer) return;
+
+            let html = '';
+            const allSections = [...sections, 'No Section'];
+            
+            allSections.forEach((section) => {
+                const isActive = activeSection === section;
+                const count = (questionsData[section] || []).length;
+                
+                html += `
+                    <button onclick="switchSection('${section}')" class="${isActive ? 'border-b-2 border-primary pb-3 px-1 text-sm font-bold text-primary' : 'border-b-2 border-transparent pb-3 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'} flex items-center gap-2" type="button">
+                        ${section}
+                        <span class="${isActive ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-white/10 text-gray-500'} text-[10px] px-1.5 py-0.5 rounded-full">${count}</span>
+                    </button>
+                `;
+            });
+
+            tabsContainer.innerHTML = html;
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questions-list');
+            if (!container) return;
+
+            const questions = questionsData[activeSection] || [];
+            
+            if (questions.length === 0) {
+                container.innerHTML = `
+                    <div class="py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-200 dark:border-white/5 rounded-xl">
+                        <span class="material-symbols-outlined text-[48px] mb-2 opacity-20">quiz</span>
+                        <p class="text-sm">No questions in this section yet.</p>
+                        <button onclick="addNewQuestion()" class="mt-4 text-primary text-sm font-bold hover:underline" type="button">Add the first question</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = questions.map((q, index) => `
+                <div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 shadow-sm relative group overflow-hidden">
+                    <div class="bg-gray-50 dark:bg-white/5 px-6 py-3 border-b border-gray-200 dark:border-white/10 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-bold text-gray-700 dark:text-gray-200">Question #${index + 1}</span>
+                            <span class="text-[10px] uppercase font-bold tracking-wider text-primary bg-primary/5 px-2 py-0.5 rounded">${activeSection}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="duplicateQuestion(${index})" class="p-1 text-gray-400 hover:text-blue-600 transition-colors" title="Duplicate" type="button">
+                                <span class="material-symbols-outlined text-[18px]">content_copy</span>
+                            </button>
+                            <button onclick="deleteQuestion(${index})" class="p-1 text-gray-400 hover:text-red-600 transition-colors" title="Delete" type="button">
+                                <span class="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                            <button class="p-1 text-gray-400 hover:text-gray-600 transition-colors" type="button">
+                                <span class="material-symbols-outlined text-[18px]">expand_less</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6 grid grid-cols-1 gap-6">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Question Text</label>
+                            <div class="flex flex-col gap-3">
+                                <textarea class="w-full rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 focus:border-primary focus:ring-primary text-sm shadow-sm font-medium transition-shadow" placeholder="Enter the question here..." rows="3">${q.text}</textarea>
+                                <div class="flex items-center justify-between border-b border-gray-100 dark:border-white/5 pb-3">
+                                    <div class="flex items-center gap-1">
+                                        <button class="p-1.5 text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors" title="Bold" type="button">
+                                            <span class="material-symbols-outlined text-[18px]">format_bold</span>
+                                        </button>
+                                        <button class="p-1.5 text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors" title="Italic" type="button">
+                                            <span class="material-symbols-outlined text-[18px]">format_italic</span>
+                                        </button>
+                                        <button class="p-1.5 text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 rounded transition-colors" title="Underline" type="button">
+                                            <span class="material-symbols-outlined text-[18px]">format_underlined</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                Options 
+                                <span class="text-[10px] font-normal normal-case bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Select the radio button to mark correct answer</span>
+                            </label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${q.options.map((opt, optIndex) => {
+                                    const isCorrect = q.correctOption === optIndex;
+                                    const char = String.fromCharCode(65 + optIndex);
+                                    return `
+                                        <div class="flex items-center gap-3 p-3 rounded-lg border ${isCorrect ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800' : 'border-gray-200 dark:border-white/10 bg-white dark:bg-transparent hover:border-gray-300'} transition-colors">
+                                            <div class="flex items-center h-5">
+                                                <input ${isCorrect ? 'checked' : ''} onchange="markCorrect(${index}, ${optIndex})" class="focus:ring-primary h-4 w-4 text-primary border-gray-300" name="q-${index}-correct" type="radio"/>
+                                            </div>
+                                            <div class="flex-1">
+                                                <span class="text-xs font-bold ${isCorrect ? 'text-green-600' : 'text-gray-400'} mb-1 block">Option ${char} ${isCorrect ? '(Correct)' : ''}</span>
+                                                <input class="w-full border-0 p-0 text-sm focus:ring-0 bg-transparent placeholder-gray-400 ${isCorrect ? 'text-gray-900 dark:text-white' : ''}" placeholder="Type answer..." type="text" value="${opt}"/>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Rationale / Explanation</label>
+                            <textarea onchange="updateRationale(${index}, this.value)" class="w-full rounded-lg border-gray-300 dark:border-white/10 dark:bg-white/5 focus:border-primary focus:ring-primary text-sm shadow-sm" placeholder="Explain why the correct answer is right..." rows="2">${q.rationale || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update total questions count in header
+            const totalQuestionsCount = Object.values(questionsData).reduce((acc, curr) => acc + curr.length, 0);
+            const totalCountElements = document.querySelectorAll('.text-xs.text-gray-500 span.font-bold.text-gray-900');
+            totalCountElements.forEach(el => el.textContent = totalQuestionsCount);
+        }
+
+        function updateRationale(qIndex, value) {
+            questionsData[activeSection][qIndex].rationale = value;
+        }
+
+        function addNewQuestion() {
+            if (!questionsData[activeSection]) questionsData[activeSection] = [];
+            questionsData[activeSection].push({
+                text: '',
+                options: ['', '', '', ''],
+                correctOption: 0,
+                rationale: '',
+                hasImage: false
+            });
+            renderQuestions();
+            updateQuestionTabs();
+        }
+
+        function deleteQuestion(index) {
+            if (confirm('Are you sure you want to delete this question?')) {
+                questionsData[activeSection].splice(index, 1);
+                renderQuestions();
+                updateQuestionTabs();
+            }
+        }
+
+        function duplicateQuestion(index) {
+            const original = questionsData[activeSection][index];
+            const duplicate = JSON.parse(JSON.stringify(original));
+            questionsData[activeSection].splice(index + 1, 0, duplicate);
+            renderQuestions();
+            updateQuestionTabs();
+        }
+
+        function markCorrect(qIndex, optIndex) {
+            questionsData[activeSection][qIndex].correctOption = optIndex;
+            renderQuestions();
+        }
+
+        function toggleSpecialization(value) {
+            const container = document.getElementById('specialization-container');
+            if (value === 'specialization') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function handlePublish() {
+            const title = document.querySelector('input[placeholder*="Exam Title"]').value;
+            if (!title) {
+                alert('Please enter an exam title before publishing.');
+                return;
+            }
+            if (confirm(`Are you sure you want to publish "${title}"?`)) {
+                alert('Exam published successfully!');
+                window.location.href = 'exams.html';
+            }
+        }
+
+        // Load exam data for editing
+        function loadExamForEdit() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('edit');
+            
+            if (examId) {
+                // Load exam from localStorage
+                const exams = JSON.parse(localStorage.getItem('reviewerMockExams') || '[]');
+                const exam = exams.find(e => e.id === examId);
+                
+                if (exam) {
+                    // Update page title
+                    const pageTitle = document.querySelector('h2.text-xl');
+                    if (pageTitle) {
+                        pageTitle.textContent = 'Edit Mock Exam';
+                    }
+                    
+                    // Populate form fields
+                    const titleInput = document.querySelector('input[placeholder*="Exam Title"]');
+                    if (titleInput && exam.title) {
+                        titleInput.value = exam.title;
+                    }
+                    
+                    const descInput = document.querySelector('textarea[placeholder*="Description"]');
+                    if (descInput && exam.description) {
+                        descInput.value = exam.description;
+                    }
+                    
+                    const durationInput = document.querySelector('input[placeholder*="Duration"]');
+                    if (durationInput && exam.duration) {
+                        durationInput.value = exam.duration;
+                    }
+                    
+                    const totalQuestionsInput = document.querySelector('input[placeholder*="Total Questions"]');
+                    if (totalQuestionsInput && exam.totalQuestions) {
+                        totalQuestionsInput.value = exam.totalQuestions;
+                    }
+                    
+                    // Update visible programs checkboxes if available
+                    if (exam.visibleTo && Array.isArray(exam.visibleTo)) {
+                        exam.visibleTo.forEach(program => {
+                            const checkbox = document.querySelector(`input[type="checkbox"][value="${program}"]`);
+                            if (checkbox) {
+                                checkbox.checked = true;
+                            }
+                        });
+                    }
+                    
+                    // Load sections and questions if available
+                    if (exam.sections) {
+                        sections = Object.keys(exam.sections).filter(s => s !== 'No Section');
+                        questionsData = exam.sections;
+                        renderSections();
+                    }
+                    
+                    console.log('Loaded exam for editing:', exam.title);
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            initSections();
+            loadExamForEdit();
+        });
+    </script>
+</body></html>

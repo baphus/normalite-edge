@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Live Sessions - Normalite EDGE</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=Noto+Sans:wght@100..900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+    <div id="sidebar-container"></div>
+<script src="components/sidebar.js"></script>
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative">
+        <div class="md:hidden flex shrink-0 items-center justify-between p-4 bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10">
+            <div class="flex items-center gap-2">
+                <div class="bg-primary/10 p-1.5 rounded-md"><span class="material-symbols-outlined text-primary">school</span></div>
+                <span class="font-bold text-lg text-primary">Normalite EDGE</span>
+            </div>
+            <button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10" id="mobile-menu-button">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+        </div>
+        <header class="bg-white dark:bg-[#1a0a0a] border-b border-gray-200 dark:border-white/10 px-6 py-6 shrink-0 z-10">
+            <div class="container mx-auto max-w-6xl">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Live Review Sessions</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Join scheduled sessions.</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <div class="flex-1 overflow-y-auto">
+            <div class="container mx-auto max-w-6xl px-6 py-8 flex flex-col gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Today</h3>
+                    <div class="space-y-4">
+                        <div class="p-4 rounded-xl border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">Prof Ed Mastery: Theories of Learning</p>
+                                <p class="text-xs text-gray-500">3:00 PM • Hosted by Reviewer A</p>
+                            </div>
+                            <button onclick="window.location.href='zoom-mock.html'" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold">Join Meeting</button>
+                        </div>
+                        <div class="p-4 rounded-xl border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">Gen Ed Focus: English Grammar</p>
+                                <p class="text-xs text-gray-500">6:00 PM • Hosted by Reviewer B</p>
+                            </div>
+                            <button onclick="window.location.href='zoom-mock.html'" class="px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold">Join Meeting</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Upcoming</h3>
+                    <div class="space-y-4">
+                        <div class="p-4 rounded-xl border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">Major: English Literature Review</p>
+                                <p class="text-xs text-gray-500">Feb 20 • 2:00 PM</p>
+                            </div>
+                            <button class="px-3 py-2 rounded-lg border border-primary text-primary text-xs font-bold">Set Reminder</button>
+                        </div>
+                        <div class="p-4 rounded-xl border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">LET Strategy Q&A</p>
+                                <p class="text-xs text-gray-500">Feb 22 • 5:30 PM</p>
+                            </div>
+                            <button class="px-3 py-2 rounded-lg border border-primary text-primary text-xs font-bold">Set Reminder</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <div class="bg-white dark:bg-[#1a0a0a] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Past Conferences</h3>
+                    <div class="space-y-4">
+                        <div class="p-4 rounded-xl border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">Prof Ed: Principles of Teaching</p>
+                                <p class="text-xs text-gray-500">Feb 15 • 3:00 PM • Hosted by Reviewer A</p>
+                                <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">Ended</span>
+                            </div>
+                        </div>
+                        <div class="p-4 rounded-xl border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">Gen Ed: Filipino Language & Literature</p>
+                                <p class="text-xs text-gray-500">Feb 12 • 5:00 PM • Hosted by Reviewer B</p>
+                                <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">Ended</span>
+                            </div>
+                        </div>
+                        <div class="p-4 rounded-xl border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">LET Orientation & Overview</p>
+                                <p class="text-xs text-gray-500">Feb 8 • 4:00 PM • Hosted by Reviewer A</p>
+                                <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">Ended</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+        </div>
+    </main>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        const userSpecialization = localStorage.getItem('userSpecialization') || 'BSEd - English';
+        const major = userSpecialization.includes(' - ') ? userSpecialization.split(' - ')[1] : userSpecialization;
+
+        if (userData.fullname) {
+            const userFullnameElem = document.getElementById('user-fullname');
+            if (userFullnameElem) userFullnameElem.textContent = userData.fullname;
+        } else if (userData.firstName && userData.lastName) {
+             const userFullnameElem = document.getElementById('user-fullname');
+            if (userFullnameElem) userFullnameElem.textContent = `${userData.firstName} ${userData.lastName}`;
+        }
+        
+        const userSpecElem = document.getElementById('user-specialization-text');
+        if (userSpecElem) userSpecElem.textContent = userSpecialization;
+
+        // Update major-related session title if it exists
+        const pTags = document.getElementsByTagName('p');
+        for (let p of pTags) {
+            if (p.textContent.includes('Major:')) {
+                p.textContent = `Major: ${major} Literature Review`;
+            }
+        }
+    });
+
+    // Role-based access control
+    const userRole = localStorage.getItem('userRole') || 'reviewee';
+    
+    // Show host session button only for admins
+    if (userRole === 'admin') {
+        const hostSessionBtn = document.getElementById('hostSessionBtn');
+        const createConferenceBtn = document.getElementById('createConferenceBtn');
+        const createConferenceSection = document.getElementById('create-conference');
+        
+        if (hostSessionBtn) hostSessionBtn.style.display = 'inline-flex';
+        if (createConferenceBtn) createConferenceBtn.style.display = 'inline-flex';
+        if (createConferenceSection) createConferenceSection.style.display = 'block';
+    }
+    }
+</script>
+</body>
+</html>

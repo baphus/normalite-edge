@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>User Management - Normalite EDGE Admin</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Noto+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#800000",
+                        "accent": "#F59E0B",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#230f0f",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.375rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white font-display overflow-hidden">
+<div class="flex h-screen w-full">
+<div id="sidebar-container"></div>
+<script src="../components/sidebar.js"></script>
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark">
+<div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+<!-- Mobile Header -->
+<div class="md:hidden flex items-center justify-between pb-4">
+<div class="flex items-center gap-2">
+<div class="bg-primary/10 p-1.5 rounded-md">
+<span class="material-symbols-outlined text-primary">group</span>
+</div>
+<span class="font-bold text-lg text-primary">Normalite EDGE Admin</span>
+</div>
+<button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+
+<!-- Page Header -->
+<header class="flex flex-col gap-2">
+<div class="flex flex-wrap items-end justify-between gap-4">
+<div>
+<h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">User Management</h1>
+<p class="text-gray-500 dark:text-gray-400 mt-2 text-base">Manage student accounts, faculty access, and system permissions.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex h-10 items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors text-sm font-medium">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span class="hidden sm:inline">Export</span>
+</button>
+<button class="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-white hover:bg-primary/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+<span class="text-sm font-bold">Add User</span>
+</button>
+</div>
+</div>
+</header>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
+<div class="bg-blue-100 dark:bg-blue-900/30 p-2.5 rounded-lg">
+<span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-2xl">groups</span>
+</div>
+<div>
+<p class="text-2xl font-bold text-gray-900 dark:text-white">156</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Total Users</p>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
+<div class="bg-green-100 dark:bg-green-900/30 p-2.5 rounded-lg">
+<span class="material-symbols-outlined text-green-600 dark:text-green-400 text-2xl">check_circle</span>
+</div>
+<div>
+<p class="text-2xl font-bold text-gray-900 dark:text-white">142</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Active</p>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
+<div class="bg-yellow-100 dark:bg-yellow-900/30 p-2.5 rounded-lg">
+<span class="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-2xl">hourglass_top</span>
+</div>
+<div>
+<p class="text-2xl font-bold text-gray-900 dark:text-white">8</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Pending</p>
+</div>
+</div>
+<div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
+<div class="bg-red-100 dark:bg-red-900/30 p-2.5 rounded-lg">
+<span class="material-symbols-outlined text-red-600 dark:text-red-400 text-2xl">block</span>
+</div>
+<div>
+<p class="text-2xl font-bold text-gray-900 dark:text-white">6</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Inactive</p>
+</div>
+</div>
+</div>
+
+<!-- Filters & Search Bar -->
+<section>
+<div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+<div class="relative flex-1 w-full sm:max-w-xs">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">search</span>
+<input id="userSearch" class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm focus:ring-primary focus:border-primary transition-all" placeholder="Search by name, email, or program..." type="text"/>
+</div>
+<div class="flex flex-wrap items-center gap-2">
+<select class="px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:ring-primary focus:border-primary">
+<option value="">All Roles</option>
+<option value="reviewee">Reviewee</option>
+<option value="reviewer">Reviewer</option>
+<option value="admin">Admin</option>
+</select>
+<select class="px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:ring-primary focus:border-primary">
+<option value="">All Programs</option>
+<option value="bsed">Bachelor of Secondary Education</option>
+<option value="beed">Bachelor of Elementary Education</option>
+<option value="beced">Bachelor of Early Childhood Education</option>
+<option value="bsned">Bachelor of Special Needs Education</option>
+<option value="bped">Bachelor of Physical Education</option>
+<option value="bcaed">Bachelor of Culture &amp; Arts Education</option>
+<option value="btled">Bachelor of Technology and Livelihood Education</option>
+<option value="dpe">Diploma in Professional Education</option>
+</select>
+<select class="px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:ring-primary focus:border-primary">
+<option value="">All Status</option>
+<option value="active">Active</option>
+<option value="pending">Pending</option>
+<option value="inactive">Inactive</option>
+</select>
+</div>
+</div>
+
+<!-- User Table -->
+<div class="bg-white dark:bg-[#1a0a0a] rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-sm text-left">
+<thead class="bg-gray-50 dark:bg-white/5 text-gray-500 uppercase font-medium text-xs">
+<tr>
+<th class="px-4 py-3 w-8">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</th>
+<th class="px-4 py-3">User</th>
+<th class="px-4 py-3">Program &amp; Major</th>
+<th class="px-4 py-3">Year / Sec</th>
+<th class="px-4 py-3">Role</th>
+<th class="px-4 py-3">Status</th>
+<th class="px-4 py-3">Date Joined</th>
+<th class="px-4 py-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-white/5">
+
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">JD</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Juan Q. Dela Cruz</p>
+<p class="text-xs text-gray-400 truncate">juan.delacruz@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Secondary Education</p>
+<p class="text-xs text-gray-400">English</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">4 - A</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 26, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold text-sm shrink-0">MS</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Maria C. Santos</p>
+<p class="text-xs text-gray-400 truncate">maria.santos@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Elementary Education</p>
+<p class="text-xs text-gray-400">Not Applicable</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">4 - B</td>
+<td class="px-4 py-3">
+<span class="bg-accent/10 text-accent px-2.5 py-1 rounded-full text-xs font-bold">Reviewer</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-yellow-900/20 dark:text-yellow-400">
+<span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>Pending
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 25, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 3 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">PP</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Pedro A. Penduko</p>
+<p class="text-xs text-gray-400 truncate">pedro.penduko@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Secondary Education</p>
+<p class="text-xs text-gray-400">Mathematics</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">3 - A</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 25, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 4 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">SJ</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Sisa R. Josefa</p>
+<p class="text-xs text-gray-400 truncate">sisa.josefa@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Secondary Education</p>
+<p class="text-xs text-gray-400">Filipino</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">4 - C</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 24, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 5 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-sm shrink-0">AR</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Ana B. Reyes</p>
+<p class="text-xs text-gray-400 truncate">ana.reyes@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Secondary Education</p>
+<p class="text-xs text-gray-400">Science</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">4 - A</td>
+<td class="px-4 py-3">
+<span class="bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 px-2.5 py-1 rounded-full text-xs font-bold">Admin</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Sep 15, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 6 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">RL</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Roberto M. Lim</p>
+<p class="text-xs text-gray-400 truncate">roberto.lim@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Physical Education</p>
+<p class="text-xs text-gray-400">Not Applicable</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">3 - B</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 20, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 7 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold text-sm shrink-0">CG</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Carmen L. Garcia</p>
+<p class="text-xs text-gray-400 truncate">carmen.garcia@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Secondary Education</p>
+<p class="text-xs text-gray-400">Social Studies</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">4 - B</td>
+<td class="px-4 py-3">
+<span class="bg-accent/10 text-accent px-2.5 py-1 rounded-full text-xs font-bold">Reviewer</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 18, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 8 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">ET</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Elias P. Torres Jr.</p>
+<p class="text-xs text-gray-400 truncate">elias.torres@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Technology and Livelihood Education</p>
+<p class="text-xs text-gray-400">Home Economics</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">2 - A</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 15, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 9 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">LV</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Lorna S. Villanueva</p>
+<p class="text-xs text-gray-400 truncate">lorna.villanueva@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Early Childhood Education</p>
+<p class="text-xs text-gray-400">Not Applicable</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">4 - A</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-red-900/20 dark:text-red-400">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Inactive
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Oct 10, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 10 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">DM</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Daniel F. Mendoza</p>
+<p class="text-xs text-gray-400 truncate">daniel.mendoza@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Secondary Education</p>
+<p class="text-xs text-gray-400">Values Education</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">3 - C</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-yellow-900/20 dark:text-yellow-400">
+<span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>Pending
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Nov 1, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 11 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold text-sm shrink-0">RO</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Rosa T. Ocampo</p>
+<p class="text-xs text-gray-400 truncate">rosa.ocampo@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Bachelor of Special Needs Education</p>
+<p class="text-xs text-gray-400">Not Applicable</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">4 - A</td>
+<td class="px-4 py-3">
+<span class="bg-accent/10 text-accent px-2.5 py-1 rounded-full text-xs font-bold">Reviewer</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Sep 28, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+<!-- Row 12 -->
+<tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="px-4 py-3">
+<input type="checkbox" class="rounded border-gray-300 dark:border-white/20 text-primary focus:ring-primary" />
+</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">KC</div>
+<div class="min-w-0">
+<p class="font-medium text-gray-900 dark:text-white truncate">Kevin G. Chua</p>
+<p class="text-xs text-gray-400 truncate">kevin.chua@cnu.edu.ph</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<p class="text-gray-900 dark:text-white text-sm">Diploma in Professional Education</p>
+<p class="text-xs text-gray-400">Not Applicable</p>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400">1 - A</td>
+<td class="px-4 py-3">
+<span class="bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">Reviewee</span>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold dark:bg-green-900/20 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active
+</span>
+</td>
+<td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">Nov 5, 2023</td>
+<td class="px-4 py-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="View Profile">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit User">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+
+</tbody>
+</table>
+</div>
+
+<!-- Table Footer / Pagination -->
+<div class="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-white/5 gap-3">
+<div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+<span>Showing <strong class="text-gray-900 dark:text-white">1-12</strong> of <strong class="text-gray-900 dark:text-white">156</strong> users</span>
+<span class="hidden sm:inline">|</span>
+<div class="hidden sm:flex items-center gap-2">
+<button class="text-xs text-primary hover:underline font-medium">Select All</button>
+<span>&middot;</span>
+<button class="text-xs text-red-500 hover:underline font-medium">Bulk Delete</button>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors disabled:opacity-40" disabled>
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="px-3 py-1.5 text-sm font-bold text-white bg-primary rounded-lg">1</button>
+<button class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors">2</button>
+<button class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors">3</button>
+<span class="px-2 text-gray-400">...</span>
+<button class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors">13</button>
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</body></html>
