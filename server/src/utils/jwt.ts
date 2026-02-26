@@ -6,6 +6,12 @@ export interface TokenPayload {
     role: string;
 }
 
+export interface EmailVerificationTokenPayload {
+    userId: string;
+    email: string;
+    type: 'EMAIL_VERIFICATION';
+}
+
 /**
  * Generate an access token (short-lived).
  */
@@ -36,4 +42,20 @@ export function verifyAccessToken(token: string): TokenPayload {
  */
 export function verifyRefreshToken(token: string): TokenPayload {
     return jwt.verify(token, env.JWT_REFRESH_SECRET) as TokenPayload;
+}
+
+/**
+ * Generate an email verification token.
+ */
+export function generateEmailVerificationToken(payload: EmailVerificationTokenPayload): string {
+    return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
+        expiresIn: '24h',
+    } as SignOptions);
+}
+
+/**
+ * Verify an email verification token.
+ */
+export function verifyEmailVerificationToken(token: string): EmailVerificationTokenPayload {
+    return jwt.verify(token, env.JWT_ACCESS_SECRET) as EmailVerificationTokenPayload;
 }

@@ -42,7 +42,7 @@ export class ApiResponse {
         return res.status(statusCode).json({
             success: false,
             message,
-            ...(errors && { errors }),
+            ...(errors ? { errors } : {}),
         });
     }
 }

@@ -17,8 +17,19 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SettingsPage: React.FC = () => {
+    const { user } = useAuth();
+    const userInitials = (user?.name || 'User')
+        .split(' ')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join('')
+        .slice(0, 2);
+
+    const activeSessions: Array<{ device: string; location: string; time: string; icon: React.ReactNode; isCurrent?: boolean }> = [];
+
     return (
         <div className="flex flex-col gap-8 font-lexend pb-10">
             <header className="flex flex-col gap-1">
@@ -53,15 +64,17 @@ const SettingsPage: React.FC = () => {
                             <div className="flex items-center gap-6">
                                 <div className="relative group">
                                     <div className="w-24 h-24 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary text-3xl font-black ring-4 ring-white shadow-lg">
-                                        JD
+                                        {userInitials}
                                     </div>
                                     <button className="absolute -bottom-2 -right-2 bg-white p-2 rounded-xl shadow-md border border-gray-100 text-gray-400 group-hover:text-primary transition-colors">
                                         <Smartphone size={16} />
                                     </button>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="font-black text-gray-900 uppercase tracking-tight">Juan Dela Cruz</p>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Reviewee • BSEd English</p>
+                                    <p className="font-black text-gray-900 uppercase tracking-tight">{user?.name || 'User'}</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                        {user?.role || 'Role'}{user?.program ? ` • ${user.program}` : ''}{user?.major ? ` ${user.major}` : ''}
+                                    </p>
                                     <Button variant="link" className="p-0 h-auto text-primary text-xs font-black uppercase tracking-widest">Change Photo</Button>
                                 </div>
                             </div>
@@ -69,13 +82,13 @@ const SettingsPage: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</Label>
-                                    <Input defaultValue="Juan Q. Dela Cruz" className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
+                                    <Input defaultValue={user?.name || ''} className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Email Address</Label>
                                     <div className="relative">
                                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                                        <Input defaultValue="juan.delacruz@cnu.edu.ph" className="pl-12 h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
+                                        <Input defaultValue={user?.email || ''} className="pl-12 h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
@@ -179,15 +192,11 @@ const SettingsPage: React.FC = () => {
                                 <CardTitle className="text-xl font-black">Active Sessions</CardTitle>
                                 <CardDescription className="font-medium italic">Logout from other devices where you are signed in.</CardDescription>
                             </div>
-                            <Badge className="bg-primary/5 text-primary border-none font-black text-[9px] uppercase tracking-widest px-3 py-1">3 Active</Badge>
+                            <Badge className="bg-primary/5 text-primary border-none font-black text-[9px] uppercase tracking-widest px-3 py-1">{activeSessions.length} Active</Badge>
                         </CardHeader>
                         <CardContent className="p-8 pt-4 space-y-6">
                             <div className="space-y-4">
-                                {[
-                                    { device: 'Windows PC • Chrome', location: 'Cebu City, Philippines', time: 'Active now', icon: <Globe size={20} />, isCurrent: true },
-                                    { device: 'iPhone 13 • Safari', location: 'Cebu City, Philippines', time: 'Last active: 2 hours ago', icon: <Smartphone size={20} /> },
-                                    { device: 'MacOS • Brave', location: 'Manila, Philippines', time: 'Last active: 3 days ago', icon: <Globe size={20} /> },
-                                ].map((session, i) => (
+                                {activeSessions.map((session, i) => (
                                     <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 bg-gray-50/30 group hover:border-primary/20 transition-all">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${session.isCurrent ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'}`}>
@@ -208,6 +217,11 @@ const SettingsPage: React.FC = () => {
                                         )}
                                     </div>
                                 ))}
+                                {activeSessions.length === 0 && (
+                                    <div className="p-4 rounded-2xl border border-dashed border-gray-200 text-sm text-gray-500 font-medium text-center">
+                                        No additional active sessions found.
+                                    </div>
+                                )}
                             </div>
                             <Button variant="outline" className="w-full h-12 rounded-2xl border-gray-100 font-black uppercase tracking-widest text-[10px] text-gray-500 hover:text-primary hover:bg-primary/5 transition-all">
                                 Logout from all other devices

@@ -1,7 +1,16 @@
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
+import { Role } from '@prisma/client';
+import { notificationService } from './notification.service';
 
 export class SessionService {
+    private combineDateTime(date: Date, hhmm: string) {
+        const [hour, minute] = hhmm.split(':').map((v) => Number(v));
+        const value = new Date(date);
+        value.setHours(hour || 0, minute || 0, 0, 0);
+        return value;
+    }
+
     async listSessions(params: {
         page?: number;
         limit?: number;
@@ -13,32 +22,52 @@ export class SessionService {
 
         const where: any = {};
         if (params.upcoming) {
-            where.scheduledDate = { gte: new Date() };
+            where.startAt = { gte: new Date() };
         }
 
         const [sessions, total] = await Promise.all([
-            prisma.liveSession.findMany({
+            prisma.conference.findMany({
                 where,
                 include: {
-                    creator: { select: { id: true, name: true } },
+                    host: { select: { id: true, firstName: true, lastName: true } },
                 },
                 skip,
                 take: limit,
-                orderBy: { scheduledDate: 'asc' },
+                orderBy: { startAt: 'asc' },
             }),
-            prisma.liveSession.count({ where }),
+            prisma.conference.count({ where }),
         ]);
 
-        return { sessions, total, page, limit };
+        const normalized = sessions.map((session) => ({
+            ...session,
+            createdBy: session.hostId,
+            scheduledDate: session.startAt,
+            startTime: `${session.startAt.getHours().toString().padStart(2, '0')}:${session.startAt.getMinutes().toString().padStart(2, '0')}`,
+            endTime: `${session.endAt.getHours().toString().padStart(2, '0')}:${session.endAt.getMinutes().toString().padStart(2, '0')}`,
+            creator: {
+                ...session.host,
+                name: `${session.host.firstName} ${session.host.lastName}`.trim(),
+            },
+            program_track: session.programTrack || null,
+        }));
+
+        return { sessions: normalized, total, page, limit };
     }
 
     async getSession(id: string) {
-        const session = await prisma.liveSession.findUnique({
+        const session = await prisma.conference.findUnique({
             where: { id },
-            include: { creator: { select: { id: true, name: true } } },
+            include: { host: { select: { id: true, firstName: true, lastName: true } } },
         });
         if (!session) throw ApiError.notFound('Session not found');
-        return session;
+        return {
+            ...session,
+            createdBy: session.hostId,
+            creator: {
+                ...session.host,
+                name: `${session.host.firstName} ${session.host.lastName}`.trim(),
+            },
+        };
     }
 
     async createSession(data: {
@@ -49,15 +78,38 @@ export class SessionService {
         scheduledDate: Date;
         startTime: string;
         endTime: string;
+        programTrack?: string;
         createdBy: string;
     }) {
-        return prisma.liveSession.create({
-            data,
-            include: { creator: { select: { id: true, name: true } } },
+        const session = await prisma.conference.create({
+            data: {
+                title: data.title,
+                description: data.description,
+                meetingLink: data.meetingLink,
+                hostId: data.createdBy,
+                startAt: this.combineDateTime(data.scheduledDate, data.startTime),
+                endAt: this.combineDateTime(data.scheduledDate, data.endTime),
+                programTrack: data.programTrack,
+            },
+            include: { host: { select: { id: true, firstName: true, lastName: true } } },
         });
+
+        const recipientUserIds = await notificationService.getActiveRevieweeIds(session.programTrack || undefined);
+        await notificationService.createNotifications({
+            recipientUserIds,
+            type: 'CONFERENCE_SCHEDULED',
+            title: 'Conference Scheduled',
+            message: `A conference has been scheduled: ${session.title}`,
+            link: '/video-conference',
+            entityType: 'conference',
+            entityId: session.id,
+            severity: 'INFO',
+        });
+
+        return session;
     }
 
-    async updateSession(id: string, data: {
+    async updateSession(id: string, userId: string, userRole: Role, data: {
         title?: string;
         description?: string;
         meetingLink?: string;
@@ -65,21 +117,56 @@ export class SessionService {
         scheduledDate?: Date;
         startTime?: string;
         endTime?: string;
+        programTrack?: string;
     }) {
-        const session = await prisma.liveSession.findUnique({ where: { id } });
+        const session = await prisma.conference.findUnique({ where: { id } });
         if (!session) throw ApiError.notFound('Session not found');
+        if (userRole !== 'ADMIN' && session.hostId !== userId) {
+            throw ApiError.forbidden('You can only edit sessions you created');
+        }
 
-        return prisma.liveSession.update({
+        const startAt = data.scheduledDate && data.startTime
+            ? this.combineDateTime(data.scheduledDate, data.startTime)
+            : undefined;
+        const endAt = data.scheduledDate && data.endTime
+            ? this.combineDateTime(data.scheduledDate, data.endTime)
+            : undefined;
+
+        const updated = await prisma.conference.update({
             where: { id },
-            data,
-            include: { creator: { select: { id: true, name: true } } },
+            data: {
+                title: data.title,
+                description: data.description,
+                meetingLink: data.meetingLink,
+                programTrack: data.programTrack,
+                startAt,
+                endAt,
+            },
+            include: { host: { select: { id: true, firstName: true, lastName: true } } },
         });
+
+        const recipientUserIds = await notificationService.getActiveRevieweeIds(updated.programTrack || undefined);
+        await notificationService.createNotifications({
+            recipientUserIds,
+            type: 'CONFERENCE_UPDATED',
+            title: 'Conference Updated',
+            message: `Conference details were updated: ${updated.title}`,
+            link: '/video-conference',
+            entityType: 'conference',
+            entityId: updated.id,
+            severity: 'INFO',
+        });
+
+        return updated;
     }
 
-    async deleteSession(id: string) {
-        const session = await prisma.liveSession.findUnique({ where: { id } });
+    async deleteSession(id: string, userId: string, userRole: Role) {
+        const session = await prisma.conference.findUnique({ where: { id } });
         if (!session) throw ApiError.notFound('Session not found');
-        await prisma.liveSession.delete({ where: { id } });
+        if (userRole !== 'ADMIN' && session.hostId !== userId) {
+            throw ApiError.forbidden('You can only delete sessions you created');
+        }
+        await prisma.conference.delete({ where: { id } });
         return { id };
     }
 }

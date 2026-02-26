@@ -1,12 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-    Search,
-    Bookmark,
-    BookOpen,
-    Layers,
-    Plus
-} from 'lucide-react';
+import { Search, Bookmark, BookOpen, Layers, Plus } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -20,6 +14,7 @@ interface StudyDeck {
     title: string;
     description: string;
     category: string;
+    tracks: string[];
     cardCount: number;
     isBookmarked: boolean;
     isNew?: boolean;
@@ -35,17 +30,19 @@ const StudyHubPage: React.FC = () => {
     useEffect(() => {
         const fetchDecks = async () => {
             try {
-                // Connect to exams endpoint instead of /materials/decks:
-                const response = await api.get('/exams');
-                const exams = response.data.data.items || response.data.data;
-                const formattedDecks: StudyDeck[] = exams.map((exam: any) => ({
-                    id: exam.id,
-                    title: exam.title,
-                    description: `${exam.subject} - ${exam.totalItems} Items`,
-                    category: exam.subject || 'General',
-                    cardCount: exam.totalItems || exam.questions?.length || 0,
+                const response = await api.get('/decks?limit=100');
+                const deckItems = response.data?.data?.items || response.data?.data || [];
+                const formattedDecks: StudyDeck[] = deckItems.map((deck: any) => ({
+                    id: deck.id,
+                    title: deck.title,
+                    description: deck.description || `${deck.subject || 'General'} Deck`,
+                    category: deck.subject || 'General',
+                    tracks: Array.isArray(deck.tracks)
+                        ? deck.tracks.map((track: any) => track.code || track.name)
+                        : [],
+                    cardCount: deck.totalItems || deck.questions?.length || 0,
                     isBookmarked: false,
-                    isNew: true
+                    isNew: true,
                 }));
                 setDecks(formattedDecks);
             } catch (error) {
@@ -54,13 +51,18 @@ const StudyHubPage: React.FC = () => {
                 setLoading(false);
             }
         };
+
         fetchDecks();
     }, []);
 
     const filteredDecks = decks.filter((deck: StudyDeck) => {
-        const matchesSearch = deck.title.toLowerCase().includes(search.toLowerCase()) ||
-            deck.description.toLowerCase().includes(search.toLowerCase());
-        const matchesCategory = category === 'all' ||
+        const term = search.toLowerCase();
+        const matchesSearch =
+            deck.title.toLowerCase().includes(term) ||
+            deck.description.toLowerCase().includes(term) ||
+            deck.tracks.some((track) => track.toLowerCase().includes(term));
+        const matchesCategory =
+            category === 'all' ||
             (category === 'saved' ? deck.isBookmarked : deck.category === category);
         return matchesSearch && matchesCategory;
     });
@@ -70,14 +72,15 @@ const StudyHubPage: React.FC = () => {
         { id: 'Professional Education', label: 'Prof. Education' },
         { id: 'General Education', label: 'Gen. Education' },
         { id: 'Specialization', label: 'Specialization' },
-        { id: 'saved', label: 'Saved', icon: <Bookmark size={14} /> }
+        { id: 'saved', label: 'Saved', icon: <Bookmark size={14} /> },
     ];
 
     const toggleBookmark = (id: string) => {
-        setDecks((prev: StudyDeck[]) => prev.map((deck: StudyDeck) =>
-            deck.id === id ? { ...deck, isBookmarked: !deck.isBookmarked } : deck
-        ));
-        // In production, call API
+        setDecks((prev: StudyDeck[]) =>
+            prev.map((deck: StudyDeck) =>
+                deck.id === id ? { ...deck, isBookmarked: !deck.isBookmarked } : deck
+            )
+        );
     };
 
     return (
@@ -98,7 +101,6 @@ const StudyHubPage: React.FC = () => {
                 </div>
             </header>
 
-            {/* Category Tabs */}
             <div className="flex items-center border-b border-gray-100 overflow-x-auto scrollbar-hide">
                 {categories.map(cat => (
                     <button
@@ -160,6 +162,12 @@ const StudyHubPage: React.FC = () => {
                                     {deck.description}
                                 </p>
 
+                                {deck.tracks.length > 0 && (
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-4">
+                                        Tracks: {deck.tracks.join(', ')}
+                                    </p>
+                                )}
+
                                 <div className="pt-4 mt-auto border-t border-gray-50 flex items-center justify-between">
                                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
                                         <Layers size={14} className="text-gray-300" />
@@ -185,7 +193,6 @@ const StudyHubPage: React.FC = () => {
                         </Card>
                     ))}
 
-                    {/* Create Custom Deck */}
                     <Link
                         to="/study/custom-deck"
                         className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 hover:bg-primary/[0.02] hover:border-primary/50 transition-all group"

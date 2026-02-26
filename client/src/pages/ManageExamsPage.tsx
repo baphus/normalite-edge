@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Plus,
@@ -34,26 +34,88 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import api from '@/lib/axios';
 
 interface Exam {
     id: string;
     title: string;
     category: string;
     program: string;
+    tracks: Array<{ id: string; name: string; code?: string | null }>;
     questionCount: number;
     duration: number;
     status: 'live' | 'draft' | 'archived';
     maxAttempts: number;
-    deadline: string;
+    deadline?: string;
+}
+
+interface ManagedExamApi {
+    id: string;
+    title: string;
+    category?: string;
+    program_track?: string | null;
+    totalItems?: number;
+    timeLimit?: number;
+    status?: 'PUBLISHED' | 'DRAFT' | 'CLOSED';
+    maxAttempts?: number | null;
+    scheduledDate?: string | null;
+    subject?: string;
+    categoryCode?: 'GENERAL_EDUCATION' | 'PROFESSIONAL_EDUCATION' | 'SPECIALIZATION';
+    questions?: Array<{
+        questionText?: string;
+        choiceA?: string;
+        choiceB?: string;
+        choiceC?: string;
+        choiceD?: string;
+        correctChoice?: string;
+        rationalization?: string;
+    }>;
+    tracks?: Array<{ id: string; name: string; code?: string | null }>;
 }
 
 const ManageExamsPage: React.FC = () => {
     const [exams, setExams] = useState<Exam[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'draft' | 'archived'>('all');
     const [search, setSearch] = useState('');
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [examToDelete, setExamToDelete] = useState<string | null>(null);
+    const [actionExamId, setActionExamId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchManagedExams = async () => {
+            setLoading(true);
+            try {
+                const response = await api.get('/exams/managed?page=1&limit=100');
+                const items = (response.data?.data || []) as ManagedExamApi[];
+
+                const mapped: Exam[] = items.map((exam) => ({
+                    id: exam.id,
+                    title: exam.title,
+                    category: exam.category || exam.categoryCode || 'General Education',
+                    program: exam.tracks && exam.tracks.length > 0
+                        ? exam.tracks.map((track) => track.name).join(', ')
+                        : (exam.program_track || 'All Programs'),
+                    questionCount: exam.totalItems || 0,
+                    duration: exam.timeLimit || 0,
+                    status: exam.status === 'PUBLISHED' ? 'live' : exam.status === 'CLOSED' ? 'archived' : 'draft',
+                    maxAttempts: exam.maxAttempts ?? 0,
+                    deadline: exam.scheduledDate || undefined,
+                    tracks: exam.tracks || [],
+                }));
+
+                setExams(mapped);
+            } catch (error) {
+                console.error('Failed to fetch managed exams', error);
+                setExams([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchManagedExams();
+    }, []);
 
     const filteredExams = exams.filter(exam => {
         const matchesStatus = statusFilter === 'all' || exam.status === statusFilter;
@@ -61,11 +123,91 @@ const ManageExamsPage: React.FC = () => {
         return matchesStatus && matchesSearch;
     });
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (examToDelete) {
-            setExams(prev => prev.filter(e => e.id !== examToDelete));
-            setIsDeleteDialogOpen(false);
-            setExamToDelete(null);
+            try {
+                await api.delete(`/exams/${examToDelete}`);
+                setExams(prev => prev.filter(e => e.id !== examToDelete));
+                setIsDeleteDialogOpen(false);
+                setExamToDelete(null);
+            } catch (error) {
+                console.error('Failed to delete exam', error);
+                alert('Failed to delete exam. Please try again.');
+            }
+        }
+    };
+
+    const handleArchive = async (examId: string) => {
+        setActionExamId(examId);
+        try {
+            await api.put(`/exams/${examId}`, { isPublished: false });
+            setExams((prev) =>
+                prev.map((exam) =>
+                    exam.id === examId
+                        ? { ...exam, status: 'draft' }
+                        : exam
+                )
+            );
+        } catch (error) {
+            console.error('Failed to archive exam', error);
+            alert('Failed to archive exam. Please try again.');
+        } finally {
+            setActionExamId(null);
+        }
+    };
+
+    const handleDuplicate = async (examId: string) => {
+        setActionExamId(examId);
+        try {
+            const detailResponse = await api.get(`/exams/${examId}?questions=true`);
+            const exam = detailResponse.data?.data as ManagedExamApi;
+            const questions = exam.questions || [];
+
+            const payload = {
+                title: `${exam.title} (Copy)`,
+                subject: exam.subject || 'General Education',
+                category: exam.categoryCode || 'GENERAL_EDUCATION',
+                trackIds: exam.tracks?.map((track) => track.id) || [],
+                timeLimit: exam.timeLimit || 60,
+                isPublished: false,
+                questions: questions.map((question) => ({
+                    text: question.questionText || 'Untitled question',
+                    choices: [
+                        question.choiceA || '',
+                        question.choiceB || '',
+                        question.choiceC || '',
+                        question.choiceD || '',
+                    ],
+                    correctAnswer: (question.correctChoice || 'A').toUpperCase(),
+                    explanation: question.rationalization || undefined,
+                })),
+            };
+
+            const createResponse = await api.post('/exams', payload);
+            const created = createResponse.data?.data as ManagedExamApi;
+
+            setExams((prev) => [
+                {
+                    id: created.id,
+                    title: created.title,
+                    category: created.category || created.categoryCode || 'General Education',
+                    program: created.tracks && created.tracks.length > 0
+                        ? created.tracks.map((track) => track.name).join(', ')
+                        : (created.program_track || 'All Programs'),
+                    questionCount: created.totalItems || payload.questions.length,
+                    duration: created.timeLimit || payload.timeLimit,
+                    status: created.status === 'PUBLISHED' ? 'live' : created.status === 'CLOSED' ? 'archived' : 'draft',
+                    maxAttempts: created.maxAttempts ?? 0,
+                    deadline: created.scheduledDate || undefined,
+                    tracks: created.tracks || [],
+                },
+                ...prev,
+            ]);
+        } catch (error) {
+            console.error('Failed to duplicate exam', error);
+            alert('Failed to duplicate exam. Please try again.');
+        } finally {
+            setActionExamId(null);
         }
     };
 
@@ -117,6 +259,11 @@ const ManageExamsPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                {loading && (
+                    <Card className="border-gray-100 rounded-[2rem] bg-white">
+                        <CardContent className="p-6 text-sm text-gray-500 font-medium">Loading exams...</CardContent>
+                    </Card>
+                )}
                 {filteredExams.map((exam) => (
                     <Card key={exam.id} className="group border-gray-100 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 rounded-[2rem] overflow-hidden bg-white">
                         <CardContent className="p-6 flex flex-col h-full">
@@ -139,10 +286,18 @@ const ManageExamsPage: React.FC = () => {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="rounded-xl border-gray-100 shadow-xl w-40">
-                                        <DropdownMenuItem className="gap-2 font-bold text-xs py-2.5">
+                                        <DropdownMenuItem
+                                            className="gap-2 font-bold text-xs py-2.5"
+                                            onClick={() => handleDuplicate(exam.id)}
+                                            disabled={actionExamId === exam.id}
+                                        >
                                             <Copy size={14} /> Duplicate
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="gap-2 font-bold text-xs py-2.5">
+                                        <DropdownMenuItem
+                                            className="gap-2 font-bold text-xs py-2.5"
+                                            onClick={() => handleArchive(exam.id)}
+                                            disabled={actionExamId === exam.id}
+                                        >
                                             <Archive size={14} /> Archive
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
@@ -193,15 +348,17 @@ const ManageExamsPage: React.FC = () => {
                                         <Button variant="link" className="h-auto p-0 text-[10px] font-black text-primary uppercase">Edit</Button>
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Calendar size={12} className="text-red-500" /> Deadline
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-black text-gray-900">{new Date(exam.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                        <Button variant="link" className="h-auto p-0 text-[10px] font-black text-primary uppercase">Edit</Button>
+                                {exam.deadline && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Calendar size={12} className="text-red-500" /> Deadline
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black text-gray-900">{new Date(exam.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                            <Button variant="link" className="h-auto p-0 text-[10px] font-black text-primary uppercase">Edit</Button>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
 
                             <div className="mt-auto grid grid-cols-2 gap-3">

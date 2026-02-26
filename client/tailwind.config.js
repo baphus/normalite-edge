@@ -8,11 +8,11 @@ export default {
         extend: {
             colors: {
                 primary: {
-                    DEFAULT: '#800000', // Crimson
+                    DEFAULT: '#7A1E1E',
                     foreground: '#FFFFFF',
                 },
                 secondary: {
-                    DEFAULT: '#FFD700', // Gold
+                    DEFAULT: '#F2B744',
                     foreground: '#000000',
                 },
                 'background-light': '#f8f5f5',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
 
@@ -29,6 +30,18 @@ interface CardItem {
     explanation: string;
 }
 
+interface TrackOption {
+    id: string;
+    name: string;
+    code?: string | null;
+}
+
+const categoryOptions = [
+    { value: 'GENERAL_EDUCATION', label: 'General Education' },
+    { value: 'PROFESSIONAL_EDUCATION', label: 'Professional Education' },
+    { value: 'SPECIALIZATION', label: 'Specialization' },
+] as const;
+
 const CustomDeckPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -36,36 +49,35 @@ const CustomDeckPage: React.FC = () => {
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [category, setCategory] = useState<(typeof categoryOptions)[number]['value']>('GENERAL_EDUCATION');
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
-    const [visiblePrograms, setVisiblePrograms] = useState<string[]>(['All Programs']);
+    const [tracks, setTracks] = useState<TrackOption[]>([]);
+    const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
     const [cards, setCards] = useState<CardItem[]>([
         { id: '1', question: '', options: ['', '', '', ''], correctIndex: 0, explanation: '' }
     ]);
 
-    const programs = [
-        "BSEd - Mathematics", "BSEd - Science", "BSEd - English", "BSEd - Filipino",
-        "BSEd - Social Studies", "BSEd - Values Education", "BTLEd - Home Economics",
-        "Bachelor of Physical Education", "Bachelor of Culture & Arts Education",
-        "Bachelor of Elementary Education", "Bachelor of Early Childhood Education",
-        "Bachelor of Special Needs Education", "Diploma in Professional Education"
-    ];
+    useEffect(() => {
+        const fetchTracks = async () => {
+            try {
+                const response = await api.get('/tracks');
+                const items = response.data?.data || [];
+                setTracks(items);
+            } catch (error) {
+                console.error('Failed to load tracks', error);
+            }
+        };
 
-    const toggleProgram = (program: string) => {
-        if (program === 'All Programs') {
-            setVisiblePrograms(['All Programs']);
-            return;
-        }
+        fetchTracks();
+    }, []);
 
-        let newSelection = visiblePrograms.filter(p => p !== 'All Programs');
-        if (newSelection.includes(program)) {
-            newSelection = newSelection.filter(p => p !== program);
-        } else {
-            newSelection = [...newSelection, program];
-        }
-
-        if (newSelection.length === 0) newSelection = ['All Programs'];
-        setVisiblePrograms(newSelection);
+    const toggleTrack = (trackId: string) => {
+        setSelectedTrackIds((prev) =>
+            prev.includes(trackId)
+                ? prev.filter((id) => id !== trackId)
+                : [...prev, trackId]
+        );
     };
 
     const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,22 +173,26 @@ const CustomDeckPage: React.FC = () => {
         try {
             const payload = {
                 title,
-                subject: description || 'Custom Deck',
-                program: tags.length > 0 ? tags.join(', ') : 'General',
-                timeLimit: 60,
-                isPublished: false,
+                description: description || undefined,
+                subject: tags[0] || 'General',
+                category,
+                visibility: isAdminOrReviewer ? 'PUBLISHED' : 'DRAFT',
+                trackIds: selectedTrackIds,
                 questions: cards.map(c => {
                     const filledChoices = c.options.map((opt, i) => opt.trim() || `Option ${i + 1}`);
                     return {
-                        text: c.question.trim() || 'Empty Question',
-                        choices: filledChoices,
-                        correctAnswer: filledChoices[c.correctIndex],
-                        explanation: c.explanation || undefined
+                        questionText: c.question.trim() || 'Empty Question',
+                        choiceA: filledChoices[0],
+                        choiceB: filledChoices[1],
+                        choiceC: filledChoices[2],
+                        choiceD: filledChoices[3],
+                        correctChoice: ['A', 'B', 'C', 'D'][c.correctIndex],
+                        rationalization: c.explanation || undefined,
                     };
                 })
             };
 
-            await api.post('/exams', payload);
+            await api.post('/decks', payload);
             alert('Deck created successfully!');
             navigate('/study');
         } catch (error: any) {
@@ -243,6 +259,22 @@ const CustomDeckPage: React.FC = () => {
                                 />
                             </div>
 
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Category</Label>
+                                <Select value={category} onValueChange={(value) => setCategory(value as (typeof categoryOptions)[number]['value'])}>
+                                    <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold">
+                                        <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categoryOptions.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Tags</Label>
                                 <div className="flex flex-wrap gap-2 mb-2">
@@ -273,15 +305,15 @@ const CustomDeckPage: React.FC = () => {
                                 <div className="space-y-4 pt-4 border-t border-gray-50">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Visibility Settings</Label>
                                     <div className="space-y-3">
-                                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 border border-transparent hover:border-primary/10 transition-colors cursor-pointer" onClick={() => toggleProgram('All Programs')}>
-                                            <Checkbox checked={visiblePrograms.includes('All Programs')} onCheckedChange={() => toggleProgram('All Programs')} />
+                                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 border border-transparent hover:border-primary/10 transition-colors cursor-pointer" onClick={() => setSelectedTrackIds([])}>
+                                            <Checkbox checked={selectedTrackIds.length === 0} onCheckedChange={() => setSelectedTrackIds([])} />
                                             <span className="text-xs font-bold text-gray-700">All Programs</span>
                                         </div>
                                         <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 scrollbar-hide">
-                                            {programs.map(prog => (
-                                                <div key={prog} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => toggleProgram(prog)}>
-                                                    <Checkbox checked={visiblePrograms.includes(prog)} onCheckedChange={() => toggleProgram(prog)} />
-                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">{prog}</span>
+                                            {tracks.map(track => (
+                                                <div key={track.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => toggleTrack(track.id)}>
+                                                    <Checkbox checked={selectedTrackIds.includes(track.id)} onCheckedChange={() => toggleTrack(track.id)} />
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">{track.code || track.name}</span>
                                                 </div>
                                             ))}
                                         </div>

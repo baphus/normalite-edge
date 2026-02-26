@@ -3,7 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface RoleRouteProps {
-    allowedRoles: string[];
+    allowedRoles: Array<'ADMIN' | 'REVIEWER' | 'REVIEWEE'>;
 }
 
 const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles }) => {

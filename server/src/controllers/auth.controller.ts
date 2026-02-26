@@ -10,8 +10,24 @@ export const authController = {
      * Register a new reviewee.
      */
     register: catchAsync(async (req: Request, res: Response) => {
-        const user = await authService.register(req.body);
-        ApiResponse.created(res, user, 'Registration successful. Waiting for admin approval.');
+        const result = await authService.register(req.body);
+        ApiResponse.created(res, result, 'Registration successful. Your account is now active.');
+    }),
+
+    /**
+     * POST /api/v1/auth/verify-email
+     */
+    verifyEmail: catchAsync(async (req: Request, res: Response) => {
+        const user = await authService.verifyEmail(req.body.token);
+        ApiResponse.success(res, user, 'Email verified successfully. You can now log in.');
+    }),
+
+    /**
+     * POST /api/v1/auth/resend-verification
+     */
+    resendVerification: catchAsync(async (req: Request, res: Response) => {
+        const result = await authService.resendVerification(req.body.email);
+        ApiResponse.success(res, result, 'Verification email sent if your account exists.');
     }),
 
     /**

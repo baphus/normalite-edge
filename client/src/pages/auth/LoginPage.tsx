@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { isAxiosError } from 'axios';
 import { Mail, Lock, Eye, EyeOff, LogIn, School, ShieldCheck } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +17,10 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+type ApiErrorResponse = {
+    message?: string;
+};
 
 const LoginPage: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
@@ -36,16 +41,25 @@ const LoginPage: React.FC = () => {
     const onSubmit = async (data: LoginFormValues) => {
         setLoading(true);
         setError(null);
+
         try {
-            const response = await api.post('/auth/login', data);
+            const response = await api.post('/auth/login', {
+                email: data.email.trim().toLowerCase(),
+                password: data.password,
+            });
             const { accessToken, user } = response.data.data;
+
             login(accessToken, user);
             navigate('/dashboard');
         } catch (err: unknown) {
-            const errorMessage = err instanceof Error && 'response' in err
-                ? (err as { response: { data: { message: string } } }).response.data.message || err.message
-                : err instanceof Error ? err.message : 'Failed to login. Please try again.';
-            setError(errorMessage);
+            if (isAxiosError<ApiErrorResponse>(err)) {
+                const message = err.response?.data?.message ?? err.message;
+                setError(message);
+            } else if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError('Failed to login. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -84,7 +98,7 @@ const LoginPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-5">
                     <div className="space-y-1.5">
-                        <Label htmlFor="email">School Email</Label>
+                        <Label htmlFor="email">Email</Label>
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
                                 <Mail size={18} />
@@ -92,7 +106,7 @@ const LoginPage: React.FC = () => {
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="juan@cnu.edu.ph"
+                                placeholder="user@domain.com"
                                 className="pl-11 py-6 h-12 text-base ring-offset-primary/20 focus-visible:ring-primary"
                                 {...register('email')}
                             />

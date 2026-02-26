@@ -1,46 +1,57 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Mail, Lock, GraduationCap, ArrowRight, ShieldCheck } from 'lucide-react';
+import { isAxiosError } from 'axios';
+import { Mail, Lock, GraduationCap, ArrowRight, ShieldCheck, UserRound } from 'lucide-react';
 import api from '@/lib/axios';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const registerSchema = z.object({
-    firstName: z.string().min(2, 'First name is required'),
-    middleI: z.string().max(2).optional(),
-    lastName: z.string().min(2, 'Last name is required'),
-    suffix: z.string().optional(),
-    yearLevel: z.string().min(1, 'Year level is required'),
-    program: z.string().min(1, 'Program is required'),
-    section: z.string().min(1, 'Section is required'),
-    major: z.string().optional(),
+    firstName: z.string().trim().min(1, 'First name is required'),
+    lastName: z.string().trim().min(1, 'Last name is required'),
+    middleInitial: z
+        .string()
+        .trim()
+        .min(1, 'Middle initial is required')
+        .refine((value) => value.length === 1, { message: 'Middle initial must be 1 character' }),
+    suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
+    programTrack: z.string().trim().min(1, 'Program track is required'),
     email: z.string().email('Invalid school email address').refine(
         (email) => email.toLowerCase().endsWith('@cnu.edu.ph'),
         { message: 'Only @cnu.edu.ph emails are allowed' }
     ),
     password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(6, 'Confirm password is required'),
+}).refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-const majorsByProgram: Record<string, string[]> = {
-    "Bachelor of Secondary Education": [
-        "Mathematics", "Science", "English", "Filipino", "Social Studies", "Values Education"
-    ],
-    "Bachelor of Technology and Livelihood Education": [
-        "Home Economics"
-    ],
+type ApiErrorResponse = {
+    message?: string;
+};
+
+type TrackOption = {
+    id: string;
+    name: string;
+    code?: string | null;
 };
 
 const RegisterPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [tracks, setTracks] = useState<TrackOption[]>([]);
+    const [tracksLoading, setTracksLoading] = useState(true);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const {
         register,
@@ -50,45 +61,59 @@ const RegisterPage: React.FC = () => {
         formState: { errors },
     } = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
+        defaultValues: {
+            middleInitial: '',
+            suffix: '',
+            programTrack: '',
+        },
     });
 
-    const selectedProgram = watch('program');
-    const availableMajors = React.useMemo(() =>
-        selectedProgram ? (majorsByProgram[selectedProgram] || []) : [],
-        [selectedProgram]
-    );
-
     useEffect(() => {
-        if (availableMajors.length === 0) {
-            setValue('major', 'Not Applicable');
-        } else {
-            setValue('major', '');
-        }
-    }, [selectedProgram, availableMajors, setValue]);
+        const fetchTracks = async () => {
+            try {
+                const response = await api.get('/tracks');
+                setTracks(response.data?.data || []);
+            } catch (err) {
+                console.error('Failed to load tracks', err);
+                setError('Unable to load program tracks. Please refresh and try again.');
+            } finally {
+                setTracksLoading(false);
+            }
+        };
+
+        fetchTracks();
+    }, []);
 
     const onSubmit = async (data: RegisterFormValues) => {
         setLoading(true);
         setError(null);
-        try {
-            // Construct full name like prototype
-            const fullName = `${data.firstName} ${data.middleI ? data.middleI + ' ' : ''}${data.lastName}${data.suffix ? ' ' + data.suffix : ''}`;
 
+        try {
             await api.post('/auth/register', {
-                name: fullName,
-                email: data.email,
+                firstName: data.firstName.trim(),
+                lastName: data.lastName.trim(),
+                middleInitial: data.middleInitial?.trim() || undefined,
+                suffix: data.suffix?.trim() || undefined,
+                email: data.email.trim().toLowerCase(),
                 password: data.password,
-                program: data.program,
-                major: data.major,
-                yearLevel: data.yearLevel,
-                section: data.section
+                program_track: data.programTrack.trim(),
             });
 
-            navigate('/pending');
+            const loginResponse = await api.post('/auth/login', {
+                email: data.email.trim().toLowerCase(),
+                password: data.password,
+            });
+            const { accessToken, user } = loginResponse.data.data;
+            login(accessToken, user);
+            navigate('/dashboard');
         } catch (err: unknown) {
-            const errorMessage = err instanceof Error && 'response' in err
-                ? (err as { response: { data: { message: string } } }).response.data.message || err.message
-                : err instanceof Error ? err.message : 'Registration failed. Please try again.';
-            setError(errorMessage);
+            if (isAxiosError<ApiErrorResponse>(err)) {
+                setError(err.response?.data?.message ?? err.message);
+            } else if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError('Registration failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -126,10 +151,17 @@ const RegisterPage: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-4">
+                    <Input type="hidden" {...register('programTrack')} />
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <Label>First Name</Label>
-                            <Input {...register('firstName')} placeholder="Juan" />
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
+                                    <UserRound size={18} />
+                                </div>
+                                <Input {...register('firstName')} className="pl-11" placeholder="Juan" />
+                            </div>
                             {errors.firstName && <p className="text-xs text-red-500">{errors.firstName.message}</p>}
                         </div>
                         <div className="space-y-1.5">
@@ -139,54 +171,38 @@ const RegisterPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <Label>Year</Label>
-                            <Input {...register('yearLevel')} placeholder="4" />
+                            <Label>Middle Initial</Label>
+                            <Input {...register('middleInitial')} placeholder="M" maxLength={1} />
+                            {errors.middleInitial && <p className="text-xs text-red-500">{errors.middleInitial.message}</p>}
                         </div>
-                        <div className="col-span-2 space-y-1.5">
-                            <Label>Program</Label>
-                            <Select onValueChange={(value) => setValue('program', value)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select program" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Bachelor of Elementary Education">Elementary Education</SelectItem>
-                                    <SelectItem value="Bachelor of Secondary Education">Secondary Education</SelectItem>
-                                    <SelectItem value="Bachelor of Early Childhood Education">Early Childhood Education</SelectItem>
-                                    <SelectItem value="Bachelor of Special Needs Education">Special Needs Education</SelectItem>
-                                    <SelectItem value="Bachelor of Physical Education">Physical Education</SelectItem>
-                                    <SelectItem value="Bachelor of Culture & Arts Education">Culture & Arts Education</SelectItem>
-                                    <SelectItem value="Bachelor of Technology and Livelihood Education">BTLEd</SelectItem>
-                                    <SelectItem value="Diploma in Professional Education">DPE</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="space-y-1.5">
+                            <Label>Suffix (Optional)</Label>
+                            <Input {...register('suffix')} placeholder="Jr." />
+                            {errors.suffix && <p className="text-xs text-red-500">{errors.suffix.message}</p>}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <Label>Section</Label>
-                            <Input {...register('section')} placeholder="A" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>Majorship</Label>
-                            <Select
-                                disabled={availableMajors.length === 0}
-                                onValueChange={(value) => setValue('major', value)}
-                                value={watch('major')}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder={availableMajors.length === 0 ? "N/A" : "Select major"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableMajors.map(m => (
-                                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                                    ))}
-                                    {availableMajors.length === 0 && <SelectItem value="Not Applicable">Not Applicable</SelectItem>}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div className="space-y-1.5">
+                        <Label>Program Track</Label>
+                        <Select
+                            value={watch('programTrack')}
+                            onValueChange={(value) => setValue('programTrack', value, { shouldValidate: true })}
+                            disabled={tracksLoading || tracks.length === 0}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder={tracksLoading ? 'Loading tracks...' : 'Select program track'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {tracks.map((track) => (
+                                    <SelectItem key={track.id} value={track.name}>
+                                        {track.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {errors.programTrack && <p className="text-xs text-red-500">{errors.programTrack.message}</p>}
                     </div>
 
                     <div className="space-y-1.5">
@@ -219,6 +235,22 @@ const RegisterPage: React.FC = () => {
                             />
                         </div>
                         {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <Label>Confirm Password</Label>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
+                                <Lock size={18} />
+                            </div>
+                            <Input
+                                type="password"
+                                placeholder="••••••••"
+                                className="pl-11"
+                                {...register('confirmPassword')}
+                            />
+                        </div>
+                        {errors.confirmPassword && <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>}
                     </div>
 
                     <div className="pt-2">

@@ -1,11 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Send, Lock } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const forgotPasswordSchema = z.object({
+    email: z.string().email('Please enter a valid email').refine(
+        (email) => email.toLowerCase().endsWith('@cnu.edu.ph'),
+        { message: 'Only @cnu.edu.ph emails are allowed' }
+    ),
+});
+
+type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+
 const ForgotPasswordPage: React.FC = () => {
+    const [submitted, setSubmitted] = useState(false);
+
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<ForgotPasswordValues>({
+        resolver: zodResolver(forgotPasswordSchema),
+    });
+
+    const onSubmit = () => {
+        setSubmitted(true);
+    };
+
     return (
         <div className="min-h-screen font-lexend flex flex-col relative overflow-hidden bg-[#f8f5f5]">
             {/* Background Decorations */}
@@ -29,7 +55,7 @@ const ForgotPasswordPage: React.FC = () => {
                         </p>
                     </div>
 
-                    <form className="p-8 pt-6 space-y-6" onSubmit={(e) => e.preventDefault()}>
+                    <form className="p-8 pt-6 space-y-6" onSubmit={handleSubmit(onSubmit)}>
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">School Email</Label>
                             <div className="relative group">
@@ -40,12 +66,20 @@ const ForgotPasswordPage: React.FC = () => {
                                     className="w-full pl-12 pr-4 h-14 rounded-2xl border-gray-100 bg-gray-50/50 shadow-none focus:ring-primary/20 font-bold"
                                     placeholder="juan@cnu.edu.ph"
                                     type="email"
+                                    {...register('email')}
                                 />
                             </div>
+                            {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
                         </div>
 
+                        {submitted && (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 font-medium">
+                                Password reset is not available yet in the current backend. Please contact an administrator for account recovery.
+                            </div>
+                        )}
+
                         <div className="pt-2">
-                            <Button className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 gap-2 text-base transition-transform active:scale-[0.99]">
+                            <Button type="submit" className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 gap-2 text-base transition-transform active:scale-[0.99]">
                                 <span>Send Reset Link</span>
                                 <Send size={20} />
                             </Button>

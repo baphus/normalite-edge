@@ -13,18 +13,25 @@ const LandingPage: React.FC = () => {
         <div className="font-display bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white antialiased">
             <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
                 {/* Header */}
-                <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e5e7eb] bg-background-light/95 backdrop-blur-md px-10 py-3 dark:bg-background-dark/95 dark:border-b-gray-800">
-                    <div className="flex items-center gap-4">
-                        <div className="size-8 text-primary flex items-center justify-center">
-                            <span className="material-symbols-outlined text-3xl">school</span>
+                <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e5e7eb] bg-background-light px-3 py-2 md:px-8 dark:border-b-gray-800">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <div className="h-10 w-10 overflow-hidden rounded-sm md:h-12 md:w-12">
+                            <img
+                                src="/NormaliteEdgeLogo.png"
+                                alt="Normalite EDGE logo mark"
+                                className="h-full w-auto max-w-none object-cover object-left"
+                            />
                         </div>
-                        <h2 className="text-[#1d0c0c] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Normalite EDGE</h2>
+                        <div className="flex flex-col leading-tight">
+                            <h2 className="text-primary text-base font-extrabold tracking-tight md:text-2xl md:leading-none">Normalite EDGE</h2>
+                            <p className="text-primary/90 text-[10px] font-medium md:text-sm">Everyday Digital Guide to Excellence</p>
+                        </div>
                     </div>
-                    <div className="flex flex-1 justify-end gap-8 hidden md:flex">
+                    <div className="hidden flex-1 justify-end gap-8 md:flex">
                         <div className="flex items-center gap-9">
                             <a className="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Home</a>
                             <a className="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#features">Features</a>
-                            <a className="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#testimonials">Success Stories</a>
+                            <a className="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#testimonials">Reviewee Journey</a>
                         </div>
                         <button
                             className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-6 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#600000] transition-colors shadow-md shadow-primary/20"
@@ -45,8 +52,17 @@ const LandingPage: React.FC = () => {
                         <div className="flex flex-col gap-6">
                             <div className="flex justify-between items-center mb-4 border-b dark:border-gray-800 pb-4">
                                 <div className="flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary">school</span>
-                                    <span className="font-bold text-[#1d0c0c] dark:text-white">Menu</span>
+                                    <div className="h-8 w-8 overflow-hidden rounded-sm">
+                                        <img
+                                            src="/NormaliteEdgeLogo.png"
+                                            alt="Normalite EDGE logo mark"
+                                            className="h-full w-auto max-w-none object-cover object-left"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col leading-tight">
+                                        <span className="text-primary text-xs font-bold">Normalite EDGE</span>
+                                        <span className="text-primary/90 text-[9px]">Everyday Digital Guide to Excellence</span>
+                                    </div>
                                 </div>
                                 <button className="text-[#1d0c0c] dark:text-white" onClick={toggleMenu}>
                                     <span className="material-symbols-outlined">close</span>
@@ -55,7 +71,7 @@ const LandingPage: React.FC = () => {
                             <nav className="flex flex-col gap-4">
                                 <a className="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#" onClick={toggleMenu}>Home</a>
                                 <a className="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#features" onClick={toggleMenu}>Features</a>
-                                <a className="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#testimonials" onClick={toggleMenu}>Success Stories</a>
+                                <a className="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#testimonials" onClick={toggleMenu}>Reviewee Journey</a>
                                 <hr className="border-gray-200 dark:border-gray-800 my-2" />
                                 <button
                                     className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-primary text-white text-sm font-bold shadow-md"
@@ -83,13 +99,13 @@ const LandingPage: React.FC = () => {
                         <div className="flex max-w-[960px] flex-col items-center gap-8 text-center">
                             <div className="flex flex-col gap-4">
                                 <span className="mx-auto w-fit rounded-full bg-secondary/20 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-secondary ring-1 ring-secondary/50 backdrop-blur-sm">
-                                    Normalite EDGE
+                                    For CNU Reviewees
                                 </span>
                                 <h1 className="text-white text-4xl font-black leading-tight tracking-[-0.033em] md:text-6xl drop-shadow-sm">
-                                    Conquer the LET with the <span className="text-secondary">Normalite EDGE</span>
+                                    Prepare smarter for the LET with <span className="text-secondary">Normalite EDGE</span>
                                 </h1>
                                 <h2 className="text-gray-100 text-lg font-normal leading-relaxed md:text-xl max-w-2xl mx-auto">
-                                    The Everyday Digital Guide to Excellence for Cebu Normal University students. Access adaptive mock exams, smart flashcards, and track your progress towards that license.
+                                    Access study materials, take timed mock exams with rationalizations, resume auto-saved attempts, and join conferences based on your program track. Self-registration is for <span className="font-semibold">@cnu.edu.ph</span> accounts.
                                 </h2>
                             </div>
                             <div className="flex flex-wrap justify-center gap-4">
@@ -97,10 +113,13 @@ const LandingPage: React.FC = () => {
                                     className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-8 bg-secondary text-primary text-base font-bold leading-normal hover:bg-[#ffe033] transition-transform hover:-translate-y-0.5 shadow-lg shadow-secondary/20"
                                     onClick={() => navigate('/register')}
                                 >
-                                    <span className="truncate">Join the Review</span>
+                                    <span className="truncate">Get Started</span>
                                 </button>
-                                <button className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-8 bg-white/10 backdrop-blur-sm border border-white/30 text-white text-base font-bold leading-normal hover:bg-white/20 transition-colors">
-                                    <span className="truncate">Learn More</span>
+                                <button
+                                    className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-8 bg-white/10 backdrop-blur-sm border border-white/30 text-white text-base font-bold leading-normal hover:bg-white/20 transition-colors"
+                                    onClick={() => navigate('/login')}
+                                >
+                                    <span className="truncate">Login</span>
                                 </button>
                             </div>
                         </div>
@@ -111,9 +130,9 @@ const LandingPage: React.FC = () => {
                 <div className="flex flex-col items-center justify-center py-20 bg-background-light dark:bg-background-dark" id="features">
                     <div className="layout-content-container flex flex-col max-w-[960px] w-full px-6">
                         <div className="mb-16 flex flex-col gap-3 text-center">
-                            <h2 className="text-primary text-sm font-bold uppercase tracking-[0.2em]">Why Choose Normalite EDGE?</h2>
+                            <h2 className="text-primary text-sm font-bold uppercase tracking-[0.2em]">Built for Reviewees</h2>
                             <h3 className="text-[#1d0c0c] dark:text-white text-3xl font-extrabold leading-tight md:text-4xl">
-                                Simplified Excellence in Preparation
+                                Everything you need to prepare and pass
                             </h3>
                             <div className="h-1 w-20 bg-secondary mx-auto mt-2"></div>
                         </div>
@@ -123,9 +142,9 @@ const LandingPage: React.FC = () => {
                                     <span className="material-symbols-outlined text-3xl">edit_note</span>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Mock Exams</h4>
+                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Timed Mock Exams</h4>
                                     <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                                        Practice with high-fidelity simulations of the actual Licensure Examination for Teachers.
+                                        Take exams with multiple sections and clear rationalizations to strengthen your test strategy.
                                     </p>
                                 </div>
                             </div>
@@ -134,9 +153,9 @@ const LandingPage: React.FC = () => {
                                     <span className="material-symbols-outlined text-3xl">auto_stories</span>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Reviewer Material</h4>
+                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Autosave + Resume</h4>
                                     <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                                        Access curated, high-yield study resources specifically tailored for CNU academic standards.
+                                        Continue where you left off after interruptions with automatic saving and resume support.
                                     </p>
                                 </div>
                             </div>
@@ -145,9 +164,9 @@ const LandingPage: React.FC = () => {
                                     <span className="material-symbols-outlined text-3xl">insights</span>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Performance Analytics</h4>
+                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Materials, Conferences, Results</h4>
                                     <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                                        Monitor your strengths and address focus areas with detailed progress tracking tools.
+                                        Access program-track materials, join conference links, and view your own exam performance.
                                     </p>
                                 </div>
                             </div>
@@ -159,8 +178,8 @@ const LandingPage: React.FC = () => {
                 <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#1a0a0a]" id="testimonials">
                     <div className="layout-content-container flex flex-col max-w-[960px] w-full px-6">
                         <div className="mb-12 text-center">
-                            <h2 className="text-[#1d0c0c] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">Student Success Stories</h2>
-                            <p className="mt-4 text-gray-600 dark:text-gray-400">Join thousands of Normalites who aced the boards.</p>
+                            <h2 className="text-[#1d0c0c] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">Reviewee Success Stories</h2>
+                            <p className="mt-4 text-gray-600 dark:text-gray-400">See how fellow reviewees stayed consistent and exam-ready.</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div className="flex flex-col justify-between rounded-xl bg-background-light dark:bg-[#230f0f] p-6 border border-gray-100 dark:border-gray-800">
@@ -245,13 +264,13 @@ const LandingPage: React.FC = () => {
                 {/* CTA Section */}
                 <div className="bg-primary py-16 text-center">
                     <div className="layout-content-container mx-auto flex max-w-[960px] flex-col items-center gap-6 px-6">
-                        <h2 className="text-3xl font-bold text-white md:text-4xl">Ready to secure your license?</h2>
-                        <p className="max-w-xl text-lg text-white/90">Join the official reviewer community for Cebu Normal University today.</p>
+                        <h2 className="text-3xl font-bold text-white md:text-4xl">Ready to start your review journey?</h2>
+                        <p className="max-w-xl text-lg text-white/90">Register with your CNU account, access your track materials, and begin your LET preparation today.</p>
                         <button
                             className="mt-2 rounded-lg bg-secondary px-8 py-3 text-base font-bold text-primary shadow-lg hover:bg-[#ffe033] transition-colors"
                             onClick={() => navigate('/register')}
                         >
-                            Get Started Now
+                            I'm In!
                         </button>
                     </div>
                 </div>
@@ -273,8 +292,9 @@ const LandingPage: React.FC = () => {
                                 <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-secondary">Platform</h4>
                                 <ul className="flex flex-col gap-2 text-sm text-gray-400">
                                     <li><a className="hover:text-white transition-colors" href="#">Mock Exams</a></li>
-                                    <li><a className="hover:text-white transition-colors" href="#">Review Materials</a></li>
-                                    <li><a className="hover:text-white transition-colors" href="#">Analytics</a></li>
+                                    <li><a className="hover:text-white transition-colors" href="#">Study Materials</a></li>
+                                    <li><a className="hover:text-white transition-colors" href="#">Conferences</a></li>
+                                    <li><a className="hover:text-white transition-colors" href="#">My Results</a></li>
                                     <li><a className="hover:text-white transition-colors" href="/login">Login</a></li>
                                 </ul>
                             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Bell,
     CheckCircle2,
@@ -6,7 +6,6 @@ import {
     AlertCircle,
     Info,
     MoreHorizontal,
-    Trash2,
     Check,
     Clock,
     ArrowRight
@@ -20,12 +19,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import api from '@/lib/axios';
 
 interface Notification {
     id: string;
     title: string;
     message: string;
-    type: 'success' | 'warning' | 'info' | 'system';
+    type: string;
+    severity?: string;
+    entityType?: string;
+    link?: string | null;
     date: string;
     isRead: boolean;
     category: string;
@@ -33,13 +36,45 @@ interface Notification {
 
 const NotificationsPage: React.FC = () => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const markAllAsRead = () => {
+    const unreadCount = useMemo(() => notifications.filter((n) => !n.isRead).length, [notifications]);
+
+    const loadNotifications = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/notifications?page=1&limit=100');
+            const rows = (response.data?.data || []) as any[];
+            const mapped: Notification[] = rows.map((n) => ({
+                id: n.id,
+                title: n.title,
+                message: n.message,
+                type: String(n.type || 'INFO').toLowerCase(),
+                severity: n.severity,
+                entityType: n.entityType,
+                link: n.link,
+                date: n.createdAt,
+                isRead: Boolean(n.isRead),
+                category: n.entityType || n.type || 'system',
+            }));
+            setNotifications(mapped);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadNotifications();
+    }, []);
+
+    const markAllAsRead = async () => {
+        await api.patch('/notifications/read-all');
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     };
 
-    const deleteNotification = (id: string) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
+    const markAsRead = async (id: string) => {
+        await api.patch(`/notifications/${id}/read`);
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
     };
 
     const getIcon = (type: string) => {
@@ -56,20 +91,19 @@ const NotificationsPage: React.FC = () => {
             <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="space-y-1">
                     <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Notifications</h1>
-                    <p className="text-gray-500 font-medium tracking-tight">Stay updated with the latest progress, exams, and system alerts.</p>
+                    <p className="text-gray-500 font-medium tracking-tight">Stay updated with the latest progress, exams, and system alerts. {unreadCount > 0 ? `(${unreadCount} unread)` : ''}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Button variant="outline" className="h-11 rounded-xl border-gray-100 font-black text-[10px] uppercase tracking-widest gap-2" onClick={markAllAsRead}>
                         <Check size={14} /> Mark all as read
                     </Button>
-                    <Button variant="ghost" className="h-11 rounded-xl text-red-600 hover:bg-red-50 font-black text-[10px] uppercase tracking-widest gap-2" onClick={() => setNotifications([])}>
-                        <Trash2 size={14} /> Clear all
-                    </Button>
                 </div>
             </header>
 
             <div className="flex flex-col gap-4">
-                {notifications.length > 0 ? (
+                {loading ? (
+                    <div className="text-sm text-gray-500 font-medium">Loading notifications...</div>
+                ) : notifications.length > 0 ? (
                     notifications.map((notification) => (
                         <Card key={notification.id} className={`group border-gray-100 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 rounded-[2rem] overflow-hidden ${notification.isRead ? 'bg-white opacity-80' : 'bg-primary/5 border-primary/10 shadow-lg shadow-primary/5'}`}>
                             <CardContent className="p-6 sm:p-8">
@@ -115,11 +149,8 @@ const NotificationsPage: React.FC = () => {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="rounded-xl border-gray-100 shadow-xl w-40">
-                                                    <DropdownMenuItem className="gap-2 font-bold text-xs py-2.5" onClick={() => markAllAsRead()}>
+                                                    <DropdownMenuItem className="gap-2 font-bold text-xs py-2.5" onClick={() => markAsRead(notification.id)}>
                                                         <Check size={14} /> Mark as read
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem className="gap-2 font-bold text-xs py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => deleteNotification(notification.id)}>
-                                                        <Trash2 size={14} /> Delete
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>

@@ -5,10 +5,12 @@ interface User {
     id: string;
     email: string;
     name: string;
-    role: string;
-    status: string;
+    role: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
+    status: 'PENDING' | 'ACTIVE' | 'DISABLED';
     picture?: string;
     program?: string;
+    program_track?: string;
+    programTrack?: string;
     major?: string;
     yearLevel?: string;
     section?: string;
@@ -34,7 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (token && token !== 'undefined' && token !== 'null') {
                 try {
                     const response = await api.get('/auth/me');
-                    setUser(response.data.data);
+                    const userData = response.data.data as User;
+                    setUser(userData);
+                    localStorage.setItem('user', JSON.stringify(userData));
                 } catch (error) {
                     console.error('Failed to restore session', error);
                     localStorage.removeItem('accessToken');

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "exams" ALTER COLUMN "category" DROP NOT NULL,
+ALTER COLUMN "category" DROP DEFAULT;

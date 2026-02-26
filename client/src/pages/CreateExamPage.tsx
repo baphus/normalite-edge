@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
     ChevronRight,
@@ -7,14 +7,12 @@ import {
     X,
     Trash2,
     Copy,
-    ChevronUp,
     Library,
-    Bold,
-    Italic,
-    Underline,
-    Image as ImageIcon,
     Clock,
-    FileUp
+    FileUp,
+    Download,
+    FileJson,
+    FileSpreadsheet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +22,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import api from '@/lib/axios';
 
 interface Question {
     id: string;
@@ -34,6 +42,48 @@ interface Question {
     section: string;
 }
 
+interface TrackOption {
+    id: string;
+    name: string;
+    code?: string | null;
+}
+
+interface ExamQuestionApi {
+    id: string;
+    orderNo?: number;
+    questionText?: string;
+    choiceA?: string;
+    choiceB?: string;
+    choiceC?: string;
+    choiceD?: string;
+    correctChoice?: string;
+    rationalization?: string;
+}
+
+interface ExamApi {
+    id: string;
+    title: string;
+    subject?: string;
+    description?: string | null;
+    categoryCode?: 'GENERAL_EDUCATION' | 'PROFESSIONAL_EDUCATION' | 'SPECIALIZATION' | null;
+    program_track?: string | null;
+    trackIds?: string[];
+    tracks?: Array<{ id: string; name: string; code?: string | null }>;
+    timeLimit?: number;
+    timeLimitMinutes?: number;
+    maxAttempts?: number | null;
+    questions?: ExamQuestionApi[];
+}
+
+const categoryOptions = [
+    { value: 'NONE', label: 'No Category' },
+    { value: 'GENERAL_EDUCATION', label: 'General Education' },
+    { value: 'PROFESSIONAL_EDUCATION', label: 'Professional Education' },
+    { value: 'SPECIALIZATION', label: 'Specialization' },
+] as const;
+
+type CategoryValue = (typeof categoryOptions)[number]['value'];
+
 const CreateExamPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
@@ -41,44 +91,90 @@ const CreateExamPage: React.FC = () => {
 
     // Form State
     const [title, setTitle] = useState('');
-    const [duration, setDuration] = useState('120');
+    const [duration, setDuration] = useState('');
+    const [maxAttempts, setMaxAttempts] = useState('');
     const [description, setDescription] = useState('');
-    const [selectedPrograms, setSelectedPrograms] = useState<string[]>(['All Programs']);
-    const [sections, setSections] = useState<string[]>(['General Education', 'Professional Education']);
-    const [activeSection, setActiveSection] = useState('General Education');
-    const [questions, setQuestions] = useState<Question[]>([
-        {
-            id: '1',
-            text: 'Identify the learning theory that emphasizes the active role of the learner in building understanding and making sense of information.',
-            options: ['Behaviorism', 'Constructivism', 'Cognitivism', 'Humanism'],
-            correctOption: 1,
-            rationale: 'Constructivism posits that learners construct knowledge through their experiences and interactions with the environment.',
-            section: 'General Education'
-        }
-    ]);
-
-    const programs = [
-        'All Programs',
-        'BSEd - Mathematics',
-        'BSEd - Science',
-        'BSEd - English',
-        'BSEd - Filipino',
-        'BSEd - Social Studies',
-        'BSEd - Values Education',
-        'BTLEd - Home Economics',
-        'Bachelor of Physical Education',
-        'Bachelor of Culture & Arts Education',
-        'Bachelor of Elementary Education',
-        'Bachelor of Early Childhood Education',
-        'Bachelor of Special Needs Education',
-        'Diploma in Professional Education'
-    ];
+    const [category, setCategory] = useState<CategoryValue | ''>('');
+    const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
+    const [tracks, setTracks] = useState<TrackOption[]>([]);
+    const [sections, setSections] = useState<string[]>([]);
+    const [activeSection, setActiveSection] = useState('Uncategorized');
+    const [programs, setPrograms] = useState<string[]>(['All Programs']);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoadingExam, setIsLoadingExam] = useState(false);
+    const importFileRef = useRef<HTMLInputElement | null>(null);
+    const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
+    const [importPreviewQuestions, setImportPreviewQuestions] = useState<Question[]>([]);
+    const [questions, setQuestions] = useState<Question[]>([]);
 
     useEffect(() => {
-        if (isEditing) {
-            // Fetch real data logic here
-        }
-    }, [isEditing]);
+        const fetchTracks = async () => {
+            try {
+                const response = await api.get('/tracks');
+                const items = (response.data?.data || []) as TrackOption[];
+                setTracks(items);
+                setPrograms(['All Programs', ...items.map((track) => track.name)]);
+            } catch (error) {
+                console.error('Failed to load tracks', error);
+            }
+        };
+
+        fetchTracks();
+    }, []);
+
+    useEffect(() => {
+        if (!isEditing || !id) return;
+
+        const fetchExam = async () => {
+            setIsLoadingExam(true);
+            try {
+                const response = await api.get(`/exams/${id}?questions=true`);
+                const exam = response.data?.data as ExamApi;
+
+                setTitle(exam.title || '');
+                setDescription(exam.description || '');
+                setCategory((exam.categoryCode as CategoryValue) || '');
+                setDuration(String(exam.timeLimit || exam.timeLimitMinutes || 120));
+                setMaxAttempts(exam.maxAttempts ? String(exam.maxAttempts) : '');
+                if (exam.tracks && exam.tracks.length > 0) {
+                    setSelectedPrograms(exam.tracks.map((track) => track.name));
+                } else {
+                    setSelectedPrograms(exam.program_track ? [exam.program_track] : []);
+                }
+
+                const apiQuestions = exam.questions || [];
+                if (apiQuestions.length > 0) {
+                    const mapped = apiQuestions
+                        .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
+                        .map((q, index) => {
+                            const letters = ['A', 'B', 'C', 'D'];
+                            const correctIndex = letters.indexOf((q.correctChoice || 'A').toUpperCase());
+                            return {
+                                id: q.id || `${Date.now()}-${index}`,
+                                text: q.questionText || '',
+                                options: [q.choiceA || '', q.choiceB || '', q.choiceC || '', q.choiceD || ''],
+                                correctOption: correctIndex >= 0 ? correctIndex : 0,
+                                rationale: q.rationalization || '',
+                                section: 'General Education',
+                            };
+                        });
+                    setQuestions(mapped);
+                }
+
+                const inferredSection = (exam.subject || '').trim() || 'Uncategorized';
+                setSections([inferredSection]);
+                setActiveSection(inferredSection);
+            } catch (error) {
+                console.error('Failed to load exam for editing', error);
+                alert('Failed to load exam details.');
+                navigate('/manage-exams');
+            } finally {
+                setIsLoadingExam(false);
+            }
+        };
+
+        fetchExam();
+    }, [isEditing, id, navigate]);
 
     const handleProgramToggle = (program: string) => {
         if (program === 'All Programs') {
@@ -116,7 +212,7 @@ const CreateExamPage: React.FC = () => {
             options: ['', '', '', ''],
             correctOption: 0,
             rationale: '',
-            section: activeSection
+            section: activeSection || 'Uncategorized'
         };
         setQuestions([...questions, newQuestion]);
     };
@@ -136,26 +232,267 @@ const CreateExamPage: React.FC = () => {
         setQuestions([...questions, duplicate]);
     };
 
-    const handleSave = () => {
-        alert('Exam saved as draft!');
-        navigate('/manage-exams');
+    const normalizeCorrectOption = (correctAnswer: string) => {
+        const letters = ['A', 'B', 'C', 'D'];
+        const normalized = correctAnswer.trim().toUpperCase();
+        const letterIndex = letters.indexOf(normalized);
+        if (letterIndex >= 0) return letterIndex;
+
+        const numeric = Number(normalized);
+        if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= 4) {
+            return numeric - 1;
+        }
+
+        return 0;
     };
 
-    const handlePublish = () => {
-        if (!title) {
+    const triggerImport = () => {
+        importFileRef.current?.click();
+    };
+
+    const downloadTemplate = (format: 'csv' | 'json') => {
+        const csvTemplate = [
+            'questionText,choiceA,choiceB,choiceC,choiceD,correctAnswer,rationalization,section',
+            'What is 2 + 2?,2,3,4,5,C,4 is the correct sum,General Education',
+        ].join('\n');
+
+        const jsonTemplate = JSON.stringify([
+            {
+                questionText: 'What is 2 + 2?',
+                choiceA: '2',
+                choiceB: '3',
+                choiceC: '4',
+                choiceD: '5',
+                correctAnswer: 'C',
+                rationalization: '4 is the correct sum',
+                section: 'General Education',
+            },
+        ], null, 2);
+
+        const content = format === 'csv' ? csvTemplate : jsonTemplate;
+        const type = format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;';
+        const fileName = format === 'csv' ? 'exam-import-template.csv' : 'exam-import-template.json';
+
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const parseCsvLine = (line: string) => {
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let index = 0; index < line.length; index += 1) {
+            const char = line[index];
+
+            if (char === '"') {
+                if (inQuotes && line[index + 1] === '"') {
+                    current += '"';
+                    index += 1;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+                continue;
+            }
+
+            current += char;
+        }
+
+        values.push(current.trim());
+        return values;
+    };
+
+    const processImportedRecords = (records: Array<Record<string, any>>) => {
+        if (records.length === 0) {
+            alert('No valid question rows found in the import file.');
+            return;
+        }
+
+        const mappedQuestions: Question[] = records
+            .map((record, index) => {
+                const text = (record.questionText || record.text || '').trim();
+                if (!text) return null;
+
+                const options = [
+                    record.choiceA ?? record.optionA ?? '',
+                    record.choiceB ?? record.optionB ?? '',
+                    record.choiceC ?? record.optionC ?? '',
+                    record.choiceD ?? record.optionD ?? '',
+                ].map((option) => String(option).trim());
+
+                const correctOption = normalizeCorrectOption(String(record.correctAnswer || 'A'));
+                const section = String(record.section || activeSection || 'General Education').trim() || 'General Education';
+
+                return {
+                    id: `${Date.now()}-${index}`,
+                    text,
+                    options,
+                    correctOption,
+                    rationale: String(record.rationalization || record.explanation || '').trim(),
+                    section,
+                } as Question;
+            })
+            .filter((item): item is Question => !!item);
+
+        if (mappedQuestions.length === 0) {
+            alert('No valid questions were parsed from the import file.');
+            return;
+        }
+
+        setImportPreviewQuestions(mappedQuestions);
+        setIsImportPreviewOpen(true);
+    };
+
+    const applyImportedQuestions = () => {
+        if (importPreviewQuestions.length === 0) {
+            setIsImportPreviewOpen(false);
+            return;
+        }
+
+        const importedSections = Array.from(new Set(importPreviewQuestions.map((question) => question.section)));
+        setSections((prev) => Array.from(new Set([...prev, ...importedSections])));
+        setQuestions((prev) => [...prev, ...importPreviewQuestions]);
+        setIsImportPreviewOpen(false);
+        setImportPreviewQuestions([]);
+        alert('Imported questions added successfully.');
+    };
+
+    const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        const lowerName = file.name.toLowerCase();
+        if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.json')) {
+            alert('Unsupported file type. Please upload a CSV or JSON file.');
+            return;
+        }
+
+        try {
+            const content = await file.text();
+
+            if (lowerName.endsWith('.json')) {
+                const parsed = JSON.parse(content);
+                const rows = Array.isArray(parsed) ? parsed : [parsed];
+                processImportedRecords(rows as Array<Record<string, any>>);
+                return;
+            }
+
+            const lines = content
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0);
+
+            if (lines.length < 2) {
+                alert('CSV file has no data rows.');
+                return;
+            }
+
+            const headers = parseCsvLine(lines[0]);
+            const rows = lines.slice(1).map((line) => {
+                const values = parseCsvLine(line);
+                return headers.reduce<Record<string, string>>((acc, header, index) => {
+                    acc[header] = values[index] || '';
+                    return acc;
+                }, {});
+            });
+
+            processImportedRecords(rows);
+        } catch (error) {
+            console.error('Failed to import questions', error);
+            alert('Failed to import file. Please check the template and try again.');
+        }
+    };
+
+    const submitExam = async (publish: boolean) => {
+        if (!title.trim()) {
             alert('Please enter an exam title.');
             return;
         }
-        alert('Exam published successfully!');
-        navigate('/manage-exams');
+
+        if (!duration.trim()) {
+            alert('Please enter the exam duration in minutes.');
+            return;
+        }
+
+        const preparedQuestions = questions
+            .map((q) => ({
+                text: q.text.trim(),
+                choices: q.options.map((option) => option.trim()),
+                correctAnswer: ['A', 'B', 'C', 'D'][q.correctOption],
+                explanation: q.rationale.trim() || undefined,
+            }))
+            .filter((q) => q.text.length > 0);
+
+        if (preparedQuestions.length === 0) {
+            alert('Please add at least one question.');
+            return;
+        }
+
+        const hasInvalidQuestion = preparedQuestions.some((q) => q.choices.some((choice) => choice.length === 0));
+        if (hasInvalidQuestion) {
+            alert('Please complete all four options for each question.');
+            return;
+        }
+
+        const selectedProgramNames = selectedPrograms.filter((program) => program !== 'All Programs');
+        const selectedTrackIds = tracks
+            .filter((track) => selectedProgramNames.includes(track.name))
+            .map((track) => track.id);
+
+        const payload = {
+            title: title.trim(),
+            subject: sections[0] || 'General Education',
+            category: category === 'NONE' ? null : category,
+            trackIds: selectedTrackIds,
+            timeLimit: Number(duration),
+            maxAttempts: maxAttempts.trim() ? Number(maxAttempts) : null,
+            isPublished: publish,
+            questions: preparedQuestions,
+        };
+
+        setIsSubmitting(true);
+        try {
+            if (isEditing && id) {
+                await api.put(`/exams/${id}`, payload);
+                alert(publish ? 'Exam updated and published successfully!' : 'Exam draft updated successfully!');
+            } else {
+                await api.post('/exams', payload);
+                alert(publish ? 'Exam published successfully!' : 'Exam saved as draft!');
+            }
+            navigate('/manage-exams');
+        } catch (error: any) {
+            console.error('Failed to submit exam', error);
+            const message = error.response?.data?.message || 'Failed to save exam.';
+            alert(message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const filteredQuestions = questions.filter(q => q.section === activeSection);
 
+    if (isLoadingExam) {
+        return <div className="p-6 font-lexend">Loading exam details...</div>;
+    }
+
     return (
-        <div className="flex flex-col gap-8 font-lexend pb-20">
+        <div className="flex flex-col gap-6 font-lexend pb-10">
             {/* Header */}
-            <header className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-200/20">
+            <header className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
@@ -163,7 +500,7 @@ const CreateExamPage: React.FC = () => {
                             <ChevronRight size={12} />
                             <span className="text-primary">{isEditing ? 'Edit Exam' : 'Create New'}</span>
                         </div>
-                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">
                             {isEditing ? 'Edit Mock Exam' : 'Admin Mock Exam Creator'}
                         </h1>
                         <p className="text-gray-500 font-medium tracking-tight mt-1">
@@ -173,39 +510,41 @@ const CreateExamPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <Button
                             variant="outline"
-                            className="h-12 rounded-2xl px-6 font-black border-gray-100 hover:bg-gray-50"
+                            className="h-10 rounded-xl px-5 font-black border-gray-100 hover:bg-gray-50"
                             onClick={() => navigate('/manage-exams')}
                         >
                             Discard
                         </Button>
                         <Button
                             variant="outline"
-                            className="h-12 rounded-2xl px-6 font-black border-gray-100 bg-gray-50/50 hover:bg-gray-100"
-                            onClick={handleSave}
+                            className="h-10 rounded-xl px-5 font-black border-gray-100 bg-gray-50/50 hover:bg-gray-100"
+                            onClick={() => submitExam(false)}
+                            disabled={isSubmitting}
                         >
                             <Save size={18} className="mr-2" /> Save Draft
                         </Button>
                         <Button
-                            className="h-12 rounded-2xl px-8 bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20"
-                            onClick={handlePublish}
+                            className="h-10 rounded-xl px-6 bg-primary hover:bg-primary/95 text-white font-black"
+                            onClick={() => submitExam(true)}
+                            disabled={isSubmitting}
                         >
-                            Publish Exam
+                            {isSubmitting ? 'Saving...' : 'Publish Exam'}
                         </Button>
                     </div>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column - General Info */}
-                <div className="lg:col-span-1 space-y-8">
-                    <Card className="rounded-[2.5rem] border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden bg-white">
-                        <CardHeader className="p-8 pb-4">
+                <div className="lg:col-span-1 space-y-6">
+                    <Card className="rounded-2xl border-gray-100 shadow-sm overflow-hidden bg-white">
+                        <CardHeader className="p-5 pb-2">
                             <div className="flex items-center gap-3 text-primary mb-2">
                                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-[10px] font-black">1</span>
                                 <CardTitle className="text-sm font-black uppercase tracking-widest">General Information</CardTitle>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-8 pt-4 space-y-6">
+                        <CardContent className="p-5 pt-3 space-y-4">
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Exam Title</Label>
                                 <Input
@@ -224,19 +563,47 @@ const CreateExamPage: React.FC = () => {
                                         type="number"
                                         value={duration}
                                         onChange={(e) => setDuration(e.target.value)}
-                                        className="pl-12 h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold"
+                                        className="pl-12 h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] font-black uppercase">min</span>
                                 </div>
                             </div>
 
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Max Attempts</Label>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    placeholder="Unlimited"
+                                    value={maxAttempts}
+                                    onChange={(e) => setMaxAttempts(e.target.value)}
+                                    className="h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Category</Label>
+                                <Select value={category} onValueChange={(value) => setCategory(value as CategoryValue)}>
+                                    <SelectTrigger className="h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold">
+                                        <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categoryOptions.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Visible To</Label>
-                                <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
+                                <div className="grid grid-cols-1 gap-2 max-h-[240px] overflow-y-auto pr-2 scrollbar-hide">
                                     {programs.map((program) => (
                                         <div
                                             key={program}
-                                            className={`flex items-center space-x-3 p-3 rounded-2xl border transition-all cursor-pointer ${selectedPrograms.includes(program)
+                                            className={`flex items-center space-x-3 p-2.5 rounded-xl border transition-all cursor-pointer ${selectedPrograms.includes(program)
                                                 ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/10'
                                                 : 'bg-gray-50/50 border-transparent hover:bg-gray-100/50'
                                                 }`}
@@ -257,7 +624,7 @@ const CreateExamPage: React.FC = () => {
 
                             <div className="space-y-4">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Exam Sections</Label>
-                                <div className="flex flex-wrap gap-2 p-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/30">
+                                <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/30">
                                     {sections.map((section) => (
                                         <Badge
                                             key={section}
@@ -283,7 +650,7 @@ const CreateExamPage: React.FC = () => {
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="Provide instructions for the students..."
-                                    className="min-h-[120px] rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-medium text-sm leading-relaxed"
+                                    className="min-h-[96px] rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-medium text-sm leading-relaxed"
                                 />
                             </div>
                         </CardContent>
@@ -291,7 +658,7 @@ const CreateExamPage: React.FC = () => {
                 </div>
 
                 {/* Right Column - Question Management */}
-                <div className="lg:col-span-2 space-y-8">
+                <div className="lg:col-span-2 space-y-6">
                     <div className="flex flex-col gap-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="flex items-center gap-3 text-primary">
@@ -299,8 +666,33 @@ const CreateExamPage: React.FC = () => {
                                 <h3 className="text-sm font-black uppercase tracking-widest">Question Management</h3>
                             </div>
                             <div className="flex items-center gap-3">
-                                <Button variant="outline" className="h-10 rounded-xl border-gray-100 bg-white shadow-sm font-bold text-xs gap-2">
-                                    <FileUp size={16} /> Bulk Import
+                                <input
+                                    ref={importFileRef}
+                                    type="file"
+                                    accept=".csv,.json,application/json,text/csv"
+                                    onChange={handleFileImport}
+                                    className="hidden"
+                                />
+                                <Button variant="outline" className="h-9 rounded-lg border-gray-200 bg-white font-bold text-xs gap-2" onClick={triggerImport}>
+                                    <FileUp size={14} /> Import CSV/JSON
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-9 w-16 rounded-lg border-gray-200 bg-white font-bold text-xs gap-1 px-2"
+                                    onClick={() => downloadTemplate('csv')}
+                                    title="Download CSV template"
+                                >
+                                    <FileSpreadsheet size={14} />
+                                    <Download size={12} />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-9 w-16 rounded-lg border-gray-200 bg-white font-bold text-xs gap-1 px-2"
+                                    onClick={() => downloadTemplate('json')}
+                                    title="Download JSON template"
+                                >
+                                    <FileJson size={14} />
+                                    <Download size={12} />
                                 </Button>
                                 <Badge className="bg-gray-100 text-gray-500 border-none font-black text-[10px] px-3 py-1.5 rounded-lg">
                                     Total: {questions.length} Items
@@ -345,8 +737,8 @@ const CreateExamPage: React.FC = () => {
                                 </div>
                             ) : (
                                 filteredQuestions.map((q, index) => (
-                                    <Card key={q.id} className="rounded-[2.5rem] border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden bg-white">
-                                        <div className="bg-gray-50/50 px-8 py-4 border-b border-gray-50 flex justify-between items-center">
+                                    <Card key={q.id} className="rounded-2xl border-gray-100 shadow-sm overflow-hidden bg-white">
+                                        <div className="bg-gray-50/50 px-5 py-3 border-b border-gray-50 flex justify-between items-center">
                                             <div className="flex items-center gap-3">
                                                 <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] uppercase tracking-widest px-3 py-1">
                                                     Q#{index + 1}
@@ -368,28 +760,19 @@ const CreateExamPage: React.FC = () => {
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
-                                                <button className="p-2 text-gray-300 hover:text-gray-600 transition-colors hover:bg-white rounded-xl">
-                                                    <ChevronUp size={16} />
-                                                </button>
                                             </div>
                                         </div>
-                                        <CardContent className="p-8 space-y-8">
+                                        <CardContent className="p-5 space-y-5">
                                             {/* Question Text */}
                                             <div className="space-y-3">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center justify-between">
                                                     Question Text
-                                                    <div className="flex items-center gap-2">
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-primary"><Bold size={14} /></Button>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-primary"><Italic size={14} /></Button>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-primary"><Underline size={14} /></Button>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-primary"><ImageIcon size={14} /></Button>
-                                                    </div>
                                                 </Label>
                                                 <Textarea
                                                     value={q.text}
                                                     onChange={(e) => updateQuestion(q.id, { text: e.target.value })}
                                                     placeholder="Enter your question here..."
-                                                    className="min-h-[100px] rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold text-sm leading-relaxed"
+                                                    className="min-h-[84px] rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold text-sm leading-relaxed"
                                                 />
                                             </div>
 
@@ -407,7 +790,7 @@ const CreateExamPage: React.FC = () => {
                                                     {q.options.map((opt, optIdx) => (
                                                         <div
                                                             key={optIdx}
-                                                            className={`flex items-start gap-3 p-4 rounded-2xl border transition-all ${q.correctOption === optIdx
+                                                            className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${q.correctOption === optIdx
                                                                 ? 'bg-emerald-50/50 border-emerald-200 ring-1 ring-emerald-100'
                                                                 : 'bg-white border-gray-100 hover:border-primary/20 group'
                                                                 }`}
@@ -452,7 +835,7 @@ const CreateExamPage: React.FC = () => {
                                                     value={q.rationale}
                                                     onChange={(e) => updateQuestion(q.id, { rationale: e.target.value })}
                                                     placeholder="Explain why this is the correct answer..."
-                                                    className="min-h-[80px] rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-medium text-xs leading-relaxed bg-gray-50/30"
+                                                    className="min-h-[72px] rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-medium text-xs leading-relaxed bg-gray-50/30"
                                                 />
                                             </div>
                                         </CardContent>
@@ -460,29 +843,71 @@ const CreateExamPage: React.FC = () => {
                                 ))
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                            <div className="grid grid-cols-1 gap-4 mt-3">
                                 <button
                                     onClick={addQuestion}
-                                    className="py-10 border-2 border-dashed border-gray-100 rounded-[2.5rem] flex flex-col items-center justify-center text-gray-400 hover:text-primary hover:border-primary/30 hover:bg-primary/[0.01] transition-all group"
+                                    className="py-8 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:text-primary hover:border-primary/30 hover:bg-primary/[0.01] transition-all group"
                                 >
                                     <div className="bg-white p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
                                         <Plus size={24} className="text-primary" />
                                     </div>
                                     <span className="font-black text-xs uppercase tracking-widest">Add New Question</span>
                                 </button>
-                                <button
-                                    className="py-10 border-2 border-dashed border-primary/10 rounded-[2.5rem] flex flex-col items-center justify-center text-primary/40 hover:text-primary hover:border-primary/30 hover:bg-primary/[0.01] transition-all group"
-                                >
-                                    <div className="bg-primary/5 p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
-                                        <Library size={24} className="text-primary/70" />
-                                    </div>
-                                    <span className="font-black text-xs uppercase tracking-widest">Question Bank</span>
-                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <Dialog open={isImportPreviewOpen} onOpenChange={setIsImportPreviewOpen}>
+                <DialogContent className="max-w-4xl rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Review Imported Questions</DialogTitle>
+                        <DialogDescription>
+                            {importPreviewQuestions.length} parsed questions found. Review before adding to this exam.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+                        {importPreviewQuestions.map((question, index) => (
+                            <div key={question.id} className="border border-gray-100 rounded-xl p-3 space-y-2">
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-black text-gray-600 uppercase tracking-widest">Question {index + 1}</p>
+                                    <Badge variant="outline" className="text-[10px]">{question.section}</Badge>
+                                </div>
+                                <p className="text-sm font-semibold text-gray-900">{question.text}</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {question.options.map((option, optionIndex) => (
+                                        <div
+                                            key={`${question.id}-${optionIndex}`}
+                                            className={`text-xs rounded-lg px-2.5 py-2 border ${question.correctOption === optionIndex ? 'border-green-300 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}
+                                        >
+                                            <span className="font-black mr-1">{String.fromCharCode(65 + optionIndex)}.</span>
+                                            {option || '(empty)'}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setIsImportPreviewOpen(false);
+                                setImportPreviewQuestions([]);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={applyImportedQuestions}>
+                            Add Imported Questions
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

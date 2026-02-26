@@ -17,135 +17,380 @@ enum Role {
 
 enum UserStatus {
   PENDING
-  APPROVED
-  REJECTED
+  ACTIVE
+  DISABLED
+}
+
+enum Visibility {
+  DRAFT
+  PUBLISHED
 }
 
 enum AttemptStatus {
   IN_PROGRESS
+  SUBMITTED
+}
+
+enum SubmissionType {
+  MANUAL
+  AUTO
+}
+
+enum FeedbackMode {
+  IMMEDIATE
+  AFTER_SUBMIT
+}
+
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum ApplicableCategory {
+  GENERAL_EDUCATION
+  PROFESSIONAL_EDUCATION
+  SPECIALIZATION
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  ROLE_CHANGE
+  LOGIN
+}
+
+enum DeckSessionMode {
+  VIEW
+  FLASHCARDS
+  QUIZ
+}
+
+enum DeckSessionStatus {
+  IN_PROGRESS
   COMPLETED
-  AUTO_SUBMITTED
+  ENDED
 }
 
 // ─── Models ────────────────────────────────────────────────
 model User {
-  id            String     @id @default(cuid())
-  email         String     @unique
-  password      String
-  name          String
-  picture       String?
-  role          Role       @default(REVIEWEE)
-  status        UserStatus @default(PENDING)
-  program       String?
-  major         String?
-  yearLevel     String?
-  section       String?
-  refreshToken  String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id               String     @id @default(uuid()) @db.Uuid
+  firstName        String     @map("first_name")
+  lastName         String     @map("last_name")
+  middleInitial    String?    @map("middle_initial") @db.Char(1)
+  suffix           String?
+  email            String     @unique
+  passwordHash     String     @map("password_hash")
+  refreshTokenHash String?    @map("refresh_token_hash")
+  role             Role
+  status           UserStatus @default(PENDING)
+  trackId          String?    @map("track_id") @db.Uuid
+  programTrack     String?    @map("program_track")
+  createdByAdmin   Boolean    @default(false) @map("created_by_admin")
+  isExternalEmail  Boolean    @default(false) @map("is_external_email")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  examsCreated  Exam[]
-  attempts      Attempt[]
-  materials     Material[]
-  sessions      LiveSession[]
-  notifications Notification[]
+  examsCreated          Exam[]
+  attempts              Attempt[]
+  decksCreated          StudyDeck[]
+  deckSessions          DeckSession[]
+  sessions              Conference[]
+  auditLogs             AuditLog[]
+  receivedNotifications Notification[]
+  track                 Track?          @relation(fields: [trackId], references: [id], onDelete: SetNull)
 
+  @@index([trackId])
   @@map("users")
 }
 
-model Exam {
-  id            String     @id @default(cuid())
-  title         String
-  subject       String
-  program       String?
-  timeLimit     Int        // in minutes
-  totalItems    Int
-  scheduledDate DateTime?
-  isPublished   Boolean    @default(false)
-  createdBy     String
-  creator       User       @relation(fields: [createdBy], references: [id])
-  questions     Question[]
-  attempts      Attempt[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+model Notification {
+  id              String    @id @default(uuid()) @db.Uuid
+  recipientUserId String    @map("recipient_user_id") @db.Uuid
+  type            String
+  title           String
+  message         String
+  link            String?
+  entityType      String?   @map("entity_type")
+  entityId        String?   @map("entity_id") @db.Uuid
+  severity        String    @default("INFO")
+  isRead          Boolean   @default(false) @map("is_read")
+  readAt          DateTime? @map("read_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
+  recipient User @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, createdAt(sort: Desc)])
+  @@index([recipientUserId, isRead])
+  @@map("notifications")
+}
+
+model Exam {
+  id               String       @id @default(uuid()) @db.Uuid
+  title            String
+  description      String?
+  subject          String?
+  category         ApplicableCategory?
+  programTrack     String?      @map("program_track")
+  timeLimitMinutes Int          @map("time_limit_minutes")
+  maxAttempts      Int?         @map("max_attempts")
+  cooldownMinutes  Int          @default(0) @map("cooldown_minutes")
+  feedbackMode     FeedbackMode @default(AFTER_SUBMIT) @map("feedback_mode")
+  status           ExamStatus
+  scheduleStart    DateTime?    @map("schedule_start")
+  scheduleEnd      DateTime?    @map("schedule_end")
+  createdBy        String       @map("created_by") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  creator   User           @relation(fields: [createdBy], references: [id])
+  sections  ExamSection[]
+  questions ExamQuestion[]
+  attempts  Attempt[]
+  trackLinks ExamTrack[]
+
+  @@index([createdBy, createdAt(sort: Desc)])
   @@map("exams")
 }
 
-model Question {
-  id            String @id @default(cuid())
-  examId        String
-  exam          Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
-  text          String
-  choices       Json   // ["Option A", "Option B", "Option C", "Option D"]
-  correctAnswer String
-  explanation   String?
-  orderIndex    Int
+model ExamSection {
+  id                 String   @id @default(uuid()) @db.Uuid
+  examId             String   @map("exam_id") @db.Uuid
+  title              String
+  instructions       String?
+  orderNo            Int      @map("order_no")
+  sectionTimeMinutes Int?     @map("section_time_minutes")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  @@map("questions")
+  exam      Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions ExamQuestion[]
+
+  @@unique([examId, orderNo])
+  @@map("exam_sections")
+}
+
+model ExamQuestion {
+  id              String   @id @default(uuid()) @db.Uuid
+  examId          String   @map("exam_id") @db.Uuid
+  sectionId       String   @map("section_id") @db.Uuid
+  orderNo         Int      @map("order_no")
+  questionText    String   @map("question_text")
+  choiceA         String   @map("choice_a")
+  choiceB         String   @map("choice_b")
+  choiceC         String   @map("choice_c")
+  choiceD         String   @map("choice_d")
+  correctChoice   String   @map("correct_choice") @db.Char(1)
+  rationalization String?
+  points          Int      @default(1)
+  imageUrl        String?  @map("image_url")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  section ExamSection     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  answers AttemptAnswer[]
+
+  @@unique([sectionId, orderNo])
+  @@map("exam_questions")
 }
 
 model Attempt {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id])
-  examId      String
-  exam        Exam          @relation(fields: [examId], references: [id])
-  answers     Json          @default("{}")
-  score       Int?
-  percentage  Float?
-  timeSpent   Int?          // in seconds
-  status      AttemptStatus @default(IN_PROGRESS)
-  startedAt   DateTime      @default(now())
-  completedAt DateTime?
+  id               String         @id @default(uuid()) @db.Uuid
+  examId           String         @map("exam_id") @db.Uuid
+  userId           String         @map("user_id") @db.Uuid
+  attemptNo        Int            @map("attempt_no")
+  status           AttemptStatus  @default(IN_PROGRESS)
+  startedAt        DateTime       @default(now()) @map("started_at")
+  submittedAt      DateTime?      @map("submitted_at")
+  lastSavedAt      DateTime?      @map("last_saved_at")
+  remainingSeconds Int?           @map("remaining_seconds")
+  submissionType   SubmissionType @default(MANUAL) @map("submission_type")
+  timeSpentSeconds Int            @default(0) @map("time_spent_seconds")
+  score            Int            @default(0)
+  percentage       Decimal        @default(0) @db.Decimal(5, 2)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
 
-  @@map("attempts")
+  exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers AttemptAnswer[]
+
+  @@unique([examId, userId, attemptNo])
+  @@index([userId, examId, startedAt(sort: Desc)])
+  @@map("exam_attempts")
 }
 
-model Material {
-  id          String   @id @default(cuid())
+model AttemptAnswer {
+  id             String    @id @default(uuid()) @db.Uuid
+  attemptId      String    @map("attempt_id") @db.Uuid
+  questionId     String    @map("question_id") @db.Uuid
+  selectedChoice String    @map("selected_choice") @db.Char(1)
+  isCorrect      Boolean   @map("is_correct")
+  answeredAt     DateTime? @map("answered_at")
+
+  attempt  Attempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@map("attempt_answers")
+}
+
+model Track {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  code      String?  @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  deckLinks StudyDeckTrack[]
+  examLinks ExamTrack[]
+  users     User[]
+
+  @@map("tracks")
+}
+
+model ExamTrack {
+  id        String   @id @default(uuid()) @db.Uuid
+  examId    String   @map("exam_id") @db.Uuid
+  trackId   String   @map("track_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  exam  Exam  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, trackId])
+  @@index([trackId])
+  @@map("exam_tracks")
+}
+
+model StudyDeck {
+  id          String     @id @default(uuid()) @db.Uuid
   title       String
   description String?
-  type        String   // "pdf" | "link" | "note"
-  subject     String
-  program     String?
-  linkUrl     String?
-  content     String?  // rich text for notes
-  createdBy   String
-  creator     User     @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  subject     String?
+  category    ApplicableCategory @default(GENERAL_EDUCATION)
+  visibility  Visibility @default(DRAFT)
+  createdBy   String     @map("created_by") @db.Uuid
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  @@map("materials")
+  creator    User                @relation(fields: [createdBy], references: [id])
+  questions  StudyDeckQuestion[]
+  sessions   DeckSession[]
+  trackLinks StudyDeckTrack[]
+
+  @@index([createdBy, createdAt(sort: Desc)])
+  @@map("study_decks")
 }
 
-model LiveSession {
-  id            String   @id @default(cuid())
-  title         String
-  description   String?
-  meetingLink   String
-  platform      String   // "zoom" | "meet"
-  scheduledDate DateTime
-  startTime     String
-  endTime       String
-  createdBy     String
-  creator       User     @relation(fields: [createdBy], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model StudyDeckTrack {
+  id        String   @id @default(uuid()) @db.Uuid
+  deckId    String   @map("deck_id") @db.Uuid
+  trackId   String   @map("track_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("live_sessions")
+  deck  StudyDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  track Track     @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([deckId, trackId])
+  @@index([trackId])
+  @@map("study_deck_tracks")
 }
 
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  type      String
-  title     String
-  message   String
-  read      Boolean  @default(false)
-  link      String?
-  createdAt DateTime @default(now())
+model StudyDeckQuestion {
+  id              String  @id @default(uuid()) @db.Uuid
+  deckId          String  @map("deck_id") @db.Uuid
+  orderNo         Int     @map("order_no")
+  questionText    String  @map("question_text")
+  choiceA         String? @map("choice_a")
+  choiceB         String? @map("choice_b")
+  choiceC         String? @map("choice_c")
+  choiceD         String? @map("choice_d")
+  correctChoice   String? @map("correct_choice") @db.Char(1)
+  answerText      String? @map("answer_text")
+  rationalization String?
+  points          Int     @default(1)
 
-  @@map("notifications")
+  deck         StudyDeck         @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  sessionItems DeckSessionItem[]
+
+  @@unique([deckId, orderNo])
+  @@map("study_deck_questions")
+}
+
+model DeckSession {
+  id           String            @id @default(uuid()) @db.Uuid
+  deckId       String            @map("deck_id") @db.Uuid
+  userId       String            @map("user_id") @db.Uuid
+  mode         DeckSessionMode
+  status       DeckSessionStatus
+  startedAt    DateTime          @default(now()) @map("started_at")
+  endedAt      DateTime?         @map("ended_at")
+  lastSavedAt  DateTime?         @map("last_saved_at")
+  currentIndex Int               @default(0) @map("current_index")
+  score        Int               @default(0)
+  totalItems   Int               @default(0) @map("total_items")
+
+  deck  StudyDeck         @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items DeckSessionItem[]
+
+  @@index([userId, deckId, startedAt(sort: Desc)])
+  @@map("deck_sessions")
+}
+
+model DeckSessionItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  deckQuestionId String   @map("deck_question_id") @db.Uuid
+  wasViewed      Boolean  @default(false) @map("was_viewed")
+  selectedChoice String?  @map("selected_choice") @db.Char(1)
+  isCorrect      Boolean? @map("is_correct")
+  interactedAt   DateTime @default(now()) @map("interacted_at")
+
+  session      DeckSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  deckQuestion StudyDeckQuestion @relation(fields: [deckQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, deckQuestionId])
+  @@map("deck_session_items")
+}
+
+model Conference {
+  id           String   @id @default(uuid()) @db.Uuid
+  title        String
+  description  String?
+  startAt      DateTime @map("start_at")
+  endAt        DateTime @map("end_at")
+  meetingLink  String   @map("meeting_link")
+  hostId       String   @map("host_id") @db.Uuid
+  programTrack String?  @map("program_track")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  host User @relation(fields: [hostId], references: [id])
+
+  @@map("conferences")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  actorId    String      @map("actor_id") @db.Uuid
+  actorRole  Role        @map("actor_role")
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String?     @map("entity_id") @db.Uuid
+  summary    String?
+  metadata   Json?
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@index([entityType, createdAt(sort: Desc)])
+  @@map("audit_logs")
 }

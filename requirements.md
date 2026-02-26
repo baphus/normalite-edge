@@ -1,342 +1,529 @@
-## **Normalite EDGE – Everyday Digital Guide to Excellence**
+# requirements.md
 
-**Capstone Project – Team Datababes**
-Cebu Technological University – Main
-
----
-
-# 1. Project Overview
-
-Normalite EDGE is a web-based review management system designed for LET review centers.
-The platform helps instructors manage study materials, create mock exams, host live sessions, and track student performance in one organized system.
-
-The system will be built using the **MERN Stack**:
-
-* MongoDB – Database
-* Express.js – Backend framework
-* React – Frontend interface
-* Node.js – Server environment
-
-The system supports three user roles:
-
-* **Admin**
-* **Reviewer**
-* **Reviewee**
-
-Each role has different permissions to keep the system secure and organized.
+## Normalite EDGE – Everyday Digital Guide to Excellence
 
 ---
 
-# 2. Project Goals
+# 1. System Overview
 
-The system aims to:
+Normalite EDGE is a web-based Learning and Review Management System for LET review centers.
 
-* Help LET students study more effectively
-* Provide timed mock exams with explanations
-* Allow instructors to monitor student progress
-* Organize study materials in one place
-* Control user registration for security
+The system SHALL allow instructors to manage study content, create mock exams with multiple sections, schedule conferences, track student performance, generate reports, maintain audit logs, and send notifications.
 
----
+Technology Stack:
 
-# 3. Target Users
+* Frontend: React
+* Backend: Node.js + Express
+* Database: PostgreSQL
+* ORM: Prisma
 
-The system is intended for:
+Roles:
 
-* LET Review Centers
-* Review Instructors
-* LET Review Students
-* Non-education graduates taking the LET
+* ADMIN
+* REVIEWER
+* REVIEWEE
 
 ---
 
-# 4. User Roles
+# 2. Main Goals
 
-## 4.1 Admin
+The system SHALL:
 
-Admins manage the entire system.
-
-They can:
-
-* Approve or reject registrations
-* Add, edit, or remove users
-* Assign roles
-* View all dashboards and reports
-* Manage all study materials and exams
-* Monitor student performance
-* Manage live session schedules
+* Provide organized LET review resources (question decks and mock exams)
+* Provide timed mock exams with rationalizations
+* Support study modes (view, flashcards, quiz)
+* Save progress even after disconnect
+* Allow instructors to monitor student performance
+* Provide admin reports and audit logs
+* Notify users of important events
+* Enforce secure controlled registration
 
 ---
 
-## 4.2 Reviewer
+# 3. Security and Registration
 
-Reviewers are instructors.
-
-They can:
-
-* Create, edit, and delete study materials
-* Create, edit, schedule, and manage mock exams
-* Add explanations (rationalizations) to questions
-* View student scores and analytics
-* Schedule and host live sessions
-
-They cannot manage system users.
+REQ-AUTH-001 Self-registration SHALL accept only emails ending with `@cnu.edu.ph`.
+REQ-AUTH-002 ADMIN-created accounts MAY use any email domain.
+REQ-AUTH-003 Emails SHALL be normalized (trim + lowercase) and unique.
+REQ-AUTH-004 Passwords SHALL be bcrypt-hashed.
+REQ-AUTH-005 Users with status `PENDING` SHALL NOT log in.
+REQ-AUTH-006 JWT authentication SHALL be used.
 
 ---
 
-## 4.3 Reviewee
+# 4. Program Track
 
-Reviewees are student users.
+The system SHALL store one field `program_track` to represent program + major and use it for filtering content and analytics.
 
-They can:
+Examples:
 
-* Access study materials
-* Take timed mock exams
-* Receive real-time feedback
-* View explanations after answering
-* Join live sessions
-* View their own scores and progress
-
-They cannot create content or view other students’ results.
-
----
-
-# 5. Programs and Majors
-
-The system supports LET-related education programs so materials and exams can be filtered correctly.
-
-## Bachelor Programs
-
-* Bachelor of Physical Education
-* Bachelor of Culture & Arts Education
-* Bachelor of Technology and Livelihood Education
-
-  * Major: Home Economics
-* Bachelor of Elementary Education
-* Bachelor of Early Childhood Education
-* Bachelor of Special Needs Education
-
-### Bachelor of Secondary Education Majors
-
-* Mathematics
-* Science
-* English
-* Filipino
-* Social Studies
-* Values Education
-
-## Other Program
-
+* Bachelor of Secondary Education – Mathematics
+* Bachelor of Technology and Livelihood Education – Home Economics
 * Diploma in Professional Education
 
-These programs will be used to:
-
-* Filter study materials
-* Filter mock exams
-* Track performance by major
-* Personalize dashboards
+REQ-PROG-001 Materials, exams, conferences, analytics, reports, and notifications targeting SHALL support filtering by `program_track`.
 
 ---
 
-# 6. Functional Requirements
+# 5. Roles and Permissions
 
-## 6.1 User Registration and Login
+## 5.1 ADMIN
 
-* Users can register as Reviewer or Reviewee.
-* Admin approval is required before account activation.
-* Users log in using email and password.
-* Password reset is available.
-* Role-based access is enforced on every page.
+Admins SHALL:
 
----
+* approve registrations and manage users
+* CRUD all study decks, deck questions, mock exams, exam sections, exam questions, conferences
+* view all analytics
+* generate reports (CSV/PDF)
+* view full audit logs
+* configure system settings (optional)
 
-## 6.2 Study Materials
+## 5.2 REVIEWER
 
-Reviewers and Admins can:
+Reviewers SHALL:
 
-* Upload notes, PDFs, or links
-* Edit or delete materials
-* Categorize materials by subject or program
+* CRUD their own study decks and mock exams
+* create multi-section mock exams and add questions
+* view student profiles and performance
+* view other reviewers’ profiles
+* view other reviewers’ decks and mock exams (READ-ONLY)
+* view activity feed of newly created/updated content (decks/exams/conferences)
 
-Reviewees can:
+Reviewers SHALL NOT:
 
-* View and download available materials
-* Search by subject or topic
+* edit/delete other reviewers’ decks or mock exams
+* manage users
 
----
+**Ownership Rules**
+REQ-OWN-001 A reviewer SHALL CRUD resources they created.
+REQ-OWN-002 A reviewer SHALL have READ-ONLY access to resources created by other reviewers.
+REQ-OWN-003 Only ADMIN may edit/delete resources owned by another reviewer.
 
-## 6.3 Mock Exams
+## 5.3 REVIEWEE
 
-Reviewers and Admins can:
+Reviewees SHALL:
 
-* Create mock exams
-* Add multiple-choice questions
-* Add explanations for answers
-* Set exam timer
-* Schedule exam availability
+* access study decks on the Study page
+* use decks in view mode, flashcard mode, and quiz mode
+* take mock exams with autosave/resume
+* join conferences
+* view their own profile and performance
 
-Each exam includes:
+Reviewees SHALL NOT:
 
-* Title
-* Subject
-* Time limit
-* Questions and choices
-* Correct answer
-* Explanation
-
----
-
-## 6.4 Exam Experience
-
-Students can:
-
-* Take exams with a countdown timer
-* Submit answers
-* See feedback after answering
-* Read explanations
-
-The system will:
-
-* Auto-submit when time ends
-* Save exam attempts
-* Calculate scores automatically
+* create/edit/delete content
+* view other users’ performance
 
 ---
 
-## 6.5 Performance Monitoring
+# 6. Core Data Models (PostgreSQL)
 
-Reviewees can see:
-
-* Recent scores
-* Average performance
-* Progress over time
-
-Reviewers and Admins can:
-
-* View student results
-* Compare performance by subject or program
-* Identify students needing help
+All IDs SHALL be UUID.
 
 ---
 
-## 6.6 Live Sessions
+## 6.1 Users
 
-Reviewers and Admins can:
-
-* Schedule live review sessions
-* Add meeting links (Google Meet or Zoom)
-
-Students can:
-
-* View upcoming sessions
-* Join sessions from the dashboard
-
----
-
-## 6.7 Dashboard
-
-Each role has a different dashboard.
-
-Admin dashboard shows:
-
-* Total users
-* Pending registrations
-* System activity
-* Performance summary
-
-Reviewer dashboard shows:
-
-* Exams created
-* Student progress overview
-* Upcoming sessions
-
-Reviewee dashboard shows:
-
-* Available materials
-* Upcoming exams
-* Upcoming live sessions
-* Personal progress
+```sql
+users(
+ id PK,
+ first_name TEXT NOT NULL,
+ last_name TEXT NOT NULL,
+ middle_initial CHAR(1) NULL,
+ suffix TEXT NULL,
+ email TEXT UNIQUE NOT NULL,
+ password_hash TEXT NOT NULL,
+ role ENUM('ADMIN','REVIEWER','REVIEWEE') NOT NULL,
+ status ENUM('PENDING','ACTIVE','DISABLED') NOT NULL,
+ program_track TEXT NULL,
+ created_by_admin BOOLEAN DEFAULT FALSE,
+ is_external_email BOOLEAN DEFAULT FALSE,
+ created_at TIMESTAMP NOT NULL,
+ updated_at TIMESTAMP NOT NULL
+)
+```
 
 ---
 
-# 7. Non-Functional Requirements
+## 6.2 Study Materials = Study Decks (UPDATED)
 
-The system must be:
+Study materials are decks/sets of questions with correct answers and rationalizations.
 
-* Easy to use
-* Mobile-friendly
-* Secure
-* Fast to load
-* Reliable
-* Able to store data safely
+### 6.2.1 study_decks
 
-Security includes password hashing, secure login, and role-based access control.
+```sql
+study_decks(
+ id PK,
+ title TEXT NOT NULL,
+ description TEXT NULL,
+ subject TEXT NULL,
+ program_track TEXT NULL,
+ visibility ENUM('DRAFT','PUBLISHED') NOT NULL,
+ created_by UUID REFERENCES users(id) NOT NULL,
+ created_at TIMESTAMP NOT NULL,
+ updated_at TIMESTAMP NOT NULL
+)
+```
+
+### 6.2.2 study_deck_questions
+
+```sql
+study_deck_questions(
+ id PK,
+ deck_id UUID REFERENCES study_decks(id) ON DELETE CASCADE,
+ order_no INT NOT NULL,
+ question_text TEXT NOT NULL,
+ choice_a TEXT NULL,
+ choice_b TEXT NULL,
+ choice_c TEXT NULL,
+ choice_d TEXT NULL,
+ correct_choice CHAR(1) NULL,          -- required for quiz mode; optional for pure Q/A decks
+ answer_text TEXT NULL,                -- optional if not multiple-choice
+ rationalization TEXT NULL,
+ points INT DEFAULT 1,
+ UNIQUE(deck_id, order_no)
+)
+```
+
+Notes:
+
+* A deck MAY be multiple-choice (quiz-friendly) or Q/A-only (flashcards/view).
+* For Kahoot-style quiz mode, choices and correct_choice are required.
 
 ---
 
-# 8. Technical Requirements (MERN)
+## 6.3 Deck Study Sessions (NEW: Progress + Summary)
 
-Frontend:
+To support “end session” and “finish deck” summaries and to persist progress, store deck sessions.
 
-* React with responsive design
-* Protected routes based on role
+### 6.3.1 deck_sessions
 
-Backend:
+```sql
+deck_sessions(
+ id PK,
+ deck_id UUID REFERENCES study_decks(id) ON DELETE CASCADE,
+ user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+ mode ENUM('VIEW','FLASHCARDS','QUIZ') NOT NULL,
+ status ENUM('IN_PROGRESS','COMPLETED','ENDED') NOT NULL,
+ started_at TIMESTAMP NOT NULL,
+ ended_at TIMESTAMP NULL,
+ last_saved_at TIMESTAMP NULL,
+ current_index INT DEFAULT 0,          -- for resume (flashcards/view)
+ score INT DEFAULT 0,                  -- for quiz
+ total_items INT DEFAULT 0
+)
+```
 
-* Node.js and Express API
-* Authentication middleware
-* File upload support
+### 6.3.2 deck_session_items (optional but recommended)
 
-Database:
+Stores per-question interaction (viewed/answered) for accurate summaries.
 
-* MongoDB collections for users, materials, exams, attempts, and live sessions
+```sql
+deck_session_items(
+ id PK,
+ session_id UUID REFERENCES deck_sessions(id) ON DELETE CASCADE,
+ deck_question_id UUID REFERENCES study_deck_questions(id) ON DELETE CASCADE,
+ was_viewed BOOLEAN DEFAULT FALSE,
+ selected_choice CHAR(1) NULL,
+ is_correct BOOLEAN NULL,
+ interacted_at TIMESTAMP NOT NULL,
+ UNIQUE(session_id, deck_question_id)
+)
+```
 
-Example user fields:
+---
 
-program
-major
-role
-status
+## 6.4 Mock Exams
+
+### 6.4.1 exams
+
+```sql
+exams(
+ id PK,
+ title TEXT NOT NULL,
+ description TEXT NULL,
+ subject TEXT NULL,
+ program_track TEXT NULL,
+ time_limit_minutes INT NOT NULL,
+ max_attempts INT NULL,                    -- NULL = unlimited
+ cooldown_minutes INT DEFAULT 0,
+ feedback_mode ENUM('IMMEDIATE','AFTER_SUBMIT') DEFAULT 'AFTER_SUBMIT',
+ status ENUM('DRAFT','PUBLISHED','CLOSED') NOT NULL,
+ schedule_start TIMESTAMP NULL,
+ schedule_end TIMESTAMP NULL,
+ created_by UUID REFERENCES users(id) NOT NULL,
+ created_at TIMESTAMP NOT NULL,
+ updated_at TIMESTAMP NOT NULL
+)
+```
+
+### 6.4.2 exam_sections
+
+```sql
+exam_sections(
+ id PK,
+ exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
+ title TEXT NOT NULL,
+ instructions TEXT NULL,
+ order_no INT NOT NULL,
+ section_time_minutes INT NULL,
+ created_at TIMESTAMP NOT NULL,
+ updated_at TIMESTAMP NOT NULL,
+ UNIQUE(exam_id, order_no)
+)
+```
+
+### 6.4.3 exam_questions
+
+```sql
+exam_questions(
+ id PK,
+ exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
+ section_id UUID REFERENCES exam_sections(id) ON DELETE CASCADE,
+ order_no INT NOT NULL,
+ question_text TEXT NOT NULL,
+ choice_a TEXT NOT NULL,
+ choice_b TEXT NOT NULL,
+ choice_c TEXT NOT NULL,
+ choice_d TEXT NOT NULL,
+ correct_choice CHAR(1) NOT NULL,
+ rationalization TEXT NULL,
+ points INT DEFAULT 1,
+ UNIQUE(section_id, order_no)
+)
+```
+
+### 6.4.4 exam_attempts (Autosave + Resume)
+
+```sql
+exam_attempts(
+ id PK,
+ exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
+ user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+ attempt_no INT NOT NULL,
+ status ENUM('IN_PROGRESS','SUBMITTED') NOT NULL DEFAULT 'IN_PROGRESS',
+ started_at TIMESTAMP NOT NULL,
+ submitted_at TIMESTAMP NULL,
+ last_saved_at TIMESTAMP NULL,
+ remaining_seconds INT NULL,
+ submission_type ENUM('MANUAL','AUTO') NOT NULL,
+ time_spent_seconds INT NOT NULL DEFAULT 0,
+ score INT NOT NULL DEFAULT 0,
+ percentage NUMERIC(5,2) NOT NULL DEFAULT 0,
+ UNIQUE(exam_id,user_id,attempt_no)
+)
+```
+
+### 6.4.5 attempt_answers
+
+```sql
+attempt_answers(
+ id PK,
+ attempt_id UUID REFERENCES exam_attempts(id) ON DELETE CASCADE,
+ question_id UUID REFERENCES exam_questions(id) ON DELETE CASCADE,
+ selected_choice CHAR(1) NOT NULL,
+ is_correct BOOLEAN NOT NULL,
+ answered_at TIMESTAMP NULL,
+ UNIQUE(attempt_id,question_id)
+)
+```
+
+---
+
+## 6.5 Conferences
+
+```sql
+conferences(
+ id PK,
+ title TEXT NOT NULL,
+ description TEXT NULL,
+ start_at TIMESTAMP NOT NULL,
+ end_at TIMESTAMP NOT NULL,
+ meeting_link TEXT NOT NULL,
+ host_id UUID REFERENCES users(id) NOT NULL,
+ program_track TEXT NULL,
+ created_at TIMESTAMP NOT NULL,
+ updated_at TIMESTAMP NOT NULL
+)
+```
+
+---
+
+## 6.6 Audit Logs
+
+Admin-only audit logs; reviewers receive a limited “content activity feed”.
+
+```sql
+audit_logs(
+ id PK,
+ actor_id UUID REFERENCES users(id) NOT NULL,
+ actor_role ENUM('ADMIN','REVIEWER','REVIEWEE') NOT NULL,
+ action ENUM('CREATE','UPDATE','DELETE','APPROVE','REJECT','ROLE_CHANGE','LOGIN') NOT NULL,
+ entity_type TEXT NOT NULL,     -- e.g., "study_deck", "exam", "conference"
+ entity_id UUID NULL,
+ summary TEXT NULL,
+ metadata JSONB NULL,
+ created_at TIMESTAMP NOT NULL
+)
+```
+
+---
+
+## 6.7 Notifications
+
+```sql
+notifications(
+ id PK,
+ recipient_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+ type TEXT NOT NULL,                 -- e.g., "EXAM_PUBLISHED"
+ title TEXT NOT NULL,
+ message TEXT NOT NULL,
+ link TEXT NULL,                     -- e.g., "/exams/{id}"
+ entity_type TEXT NULL,
+ entity_id UUID NULL,
+ severity TEXT DEFAULT 'INFO',
+ is_read BOOLEAN DEFAULT FALSE,
+ read_at TIMESTAMP NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT NOW()
+)
+```
+
+Recommended indexes:
+
+* (recipient_user_id, created_at DESC)
+* (recipient_user_id, is_read)
+
+---
+
+# 7. Functional Requirements
+
+## 7.1 Study Page and Deck Modes (UPDATED)
+
+REQ-DECK-001
+The Study page SHALL list published study decks accessible to the user (filtered by program_track when applicable).
+
+REQ-DECK-002 (View Mode)
+Users SHALL be able to open a deck and view all questions with their answers and rationalizations.
+
+REQ-DECK-003 (Flashcard Mode)
+Users SHALL be able to start a flashcard session where:
+
+* the question appears on the front
+* the answer appears on the back with rationalization
+
+REQ-DECK-004 (Flashcard Completion)
+Users SHALL be able to:
+
+* end the flashcard session anytime OR
+* finish the entire deck
+
+REQ-DECK-005 (Flashcard Summary)
+When a flashcard session ends or completes, the system SHALL display a summary of the questions and answers with rationalizations that were viewed during the session.
+
+REQ-DECK-006 (Quiz Mode)
+Users SHALL be able to start a quiz session from a deck where:
+
+* one question is shown at a time
+* answers are displayed as selectable cards (Kahoot-style)
+* the system records correct/incorrect responses
+
+REQ-DECK-007 (Quiz Results + Summary)
+At the end of quiz mode, the system SHALL display:
+
+* the final score
+* a summary list of questions, correct answers, and rationalizations
+* which items the user got correct and wrong
+
+REQ-DECK-008 (Deck Session Persistence)
+Deck sessions SHALL be saved so progress is not lost if the user exits or disconnects.
+
+REQ-DECK-009 (Deck Resume)
+If a session is IN_PROGRESS, the system SHALL allow the user to resume where they left off.
+
+---
+
+## 7.2 Mock Exams (Sections + Attempts + Autosave)
+
+REQ-EXAM-001 Exams SHALL support 1..N sections.
+REQ-EXAM-002 Each section SHALL support 1..N questions.
+REQ-EXAM-003 Exams SHALL allow multiple attempts per reviewee.
+REQ-EXAM-004 Exams SHALL enforce max_attempts and cooldown_minutes when configured.
+REQ-EXAM-005 Exams SHALL display a countdown timer.
+REQ-EXAM-006 Exam progress SHALL autosave and resume after disconnect/exit.
+REQ-EXAM-007 Exams SHALL auto-submit when time expires.
+REQ-EXAM-008 System SHALL compute score/percentage and store attempt answers.
+REQ-EXAM-009 System SHALL display rationalizations based on feedback_mode.
+
+---
+
+## 7.3 Conferences
+
+REQ-CONF-001 REVIEWER/ADMIN SHALL schedule conferences.
+REQ-CONF-002 REVIEWEE SHALL join conferences via meeting link.
+REQ-CONF-003 Dashboard SHALL display upcoming conferences.
+
+---
+
+## 7.4 Profiles and Visibility
+
+REQ-PROF-001 REVIEWER/ADMIN SHALL view student profiles and performance history.
+REQ-PROF-002 REVIEWER SHALL view other reviewers’ profiles (read-only).
+REQ-PROF-003 REVIEWEE SHALL view only their own profile.
+
+---
+
+## 7.5 Reports (Admin)
+
+REQ-REPORT-001 ADMIN SHALL generate reports by exam and program_track.
+REQ-REPORT-002 Reports SHALL include attempt counts, average score, highest/lowest score, and pass rate.
+REQ-REPORT-003 Reports SHALL export to CSV and PDF.
+
+---
+
+## 7.6 Audit Logs and Activity Feed
+
+REQ-AUDIT-001 The system SHALL log create/update/delete actions for content and key admin actions.
+REQ-AUDIT-002 Only ADMIN SHALL view full audit logs.
+REQ-AUDIT-003 REVIEWER SHALL view a filtered content activity feed (new/updated decks, exams, conferences + creator).
+
+---
+
+## 7.7 Notifications
+
+REQ-NOTIF-001 The system SHALL generate notifications for key events:
+
+* registration approved/rejected
+* deck published
+* exam published
+* conference scheduled/updated/cancelled
+* exam auto-submitted
+
+REQ-NOTIF-002 Users SHALL view notifications, see unread count, and mark notifications as read.
+REQ-NOTIF-003 Only the notification recipient SHALL access their notifications.
+
+---
+
+# 8. Non-Functional Requirements
+
+REQ-NF-001 The UI SHALL be mobile responsive.
+REQ-NF-002 RBAC and ownership rules SHALL be enforced on all API endpoints.
+REQ-NF-003 Exam and deck progress SHALL autosave to prevent data loss.
+REQ-NF-004 Common dashboard actions SHOULD load within 3 seconds under normal conditions.
 
 ---
 
 # 9. Acceptance Criteria
 
-The system is complete when:
+System is complete when:
 
-* Admin can manage users
-* Reviewer can manage materials and exams
-* Reviewee can take exams
-* Timer works correctly
-* Feedback and explanations appear
-* Live sessions are accessible
-* Program filtering works
-
----
-
-# 10. Assumptions
-
-* The system is used by one review center.
-* Video meetings are link-based.
-* Exams are mainly multiple-choice.
-
----
-
-# 11. Future Improvements
-
-Possible future features include:
-
-* Leaderboards
-* Flashcards
-* AI study recommendations
-* Mobile app version
-
----
-
-# 12. Glossary
-
-RBAC – Role-Based Access Control
-CRUD – Create, Read, Update, Delete
-LET – Licensure Examination for Teachers
+* [non-@cnu.edu.ph](mailto:non-@cnu.edu.ph) emails cannot self-register
+* ADMIN can create external-email accounts
+* REVIEWER can CRUD only their own decks/exams and view others read-only
+* mock exams support sections, attempts, autosave, and resume
+* study decks support view mode, flashcards, and quiz mode with summaries
+* conferences are schedulable and joinable
+* admin can generate reports (CSV/PDF)
+* audit logs are recorded and admin-viewable
+* notifications are delivered and readable
 
 ---

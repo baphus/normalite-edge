@@ -1,22 +1,39 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Clock, ShieldCheck, LogOut, RefreshCw } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { Link, useLocation } from 'react-router-dom';
+import { MailCheck, ShieldCheck, RefreshCw, ExternalLink } from 'lucide-react';
+import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 
 const PendingApprovalPage: React.FC = () => {
-    const { user, logout } = useAuth();
-    const navigate = useNavigate();
+    const location = useLocation();
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
+    const [success, setSuccess] = React.useState<string | null>(null);
 
-    const handleRefresh = () => {
-        // Reload the page to trigger the AuthContext check for updated status
-        window.location.reload();
+    const state = location.state as { email?: string; verificationUrl?: string } | null;
+    const email = state?.email;
+    const verificationUrl = state?.verificationUrl;
+
+    const handleResend = async () => {
+        if (!email) {
+            setError('Email not found. Please register or login again.');
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+        setSuccess(null);
+
+        try {
+            const response = await api.post('/auth/resend-verification', { email });
+            const maybeLink = response.data?.data?.verificationUrl as string | undefined;
+            setSuccess(maybeLink ? 'Verification link resent. Use the provided link to verify.' : 'Verification email has been resent.');
+        } catch (err: any) {
+            setError(err?.response?.data?.message || 'Failed to resend verification email.');
+        } finally {
+            setLoading(false);
+        }
     };
-
-    if (user?.status === 'APPROVED') {
-        navigate('/dashboard');
-        return null;
-    }
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-4 relative font-lexend overflow-hidden">
@@ -31,15 +48,15 @@ const PendingApprovalPage: React.FC = () => {
 
             <div className="relative z-10 w-full max-w-[500px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 text-center space-y-6">
                 <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-50 text-yellow-500 mb-2 animate-pulse">
-                    <Clock size={48} />
+                    <MailCheck size={48} />
                 </div>
 
                 <div className="space-y-2">
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
-                        Registration Pending
+                        Verify Your Email
                     </h1>
                     <p className="text-gray-500">
-                        Thank you for joining Normalite EDGE, <span className="font-semibold text-primary">{user?.name}</span>.
+                        We sent a verification link to <span className="font-semibold text-primary">{email || 'your email'}</span>.
                     </p>
                 </div>
 
@@ -48,35 +65,41 @@ const PendingApprovalPage: React.FC = () => {
                         <ShieldCheck size={24} />
                     </div>
                     <div className="space-y-1">
-                        <h3 className="font-semibold text-blue-900 text-sm">Waiting for Administrator Approval</h3>
+                        <h3 className="font-semibold text-blue-900 text-sm">Email Confirmation Required</h3>
                         <p className="text-blue-700 text-xs leading-relaxed">
-                            To maintain the integrity of our LET preparation platform, all new accounts must be manually verified by our administration team.
+                            You must confirm your email before you can sign in and access the reviewee dashboard.
                         </p>
                     </div>
                 </div>
 
-                <div className="space-y-4 pt-4">
-                    <p className="text-sm text-gray-400">
-                        We'll notify you via your school email (<span className="text-gray-600 italic">{user?.email}</span>) once your account is ready.
-                    </p>
+                {verificationUrl && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-left text-xs text-amber-800">
+                        <p className="font-semibold mb-2">Development Link</p>
+                        <a href={verificationUrl} className="underline break-all inline-flex items-center gap-1">
+                            Open verification link <ExternalLink size={14} />
+                        </a>
+                    </div>
+                )}
 
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                {success && <p className="text-sm text-green-600">{success}</p>}
+
+                <div className="space-y-4 pt-4">
                     <div className="grid grid-cols-2 gap-4">
                         <Button
                             variant="outline"
-                            onClick={handleRefresh}
+                            onClick={handleResend}
+                            disabled={loading}
                             className="flex gap-2 py-6 border-gray-200 hover:bg-gray-50 text-gray-600"
                         >
                             <RefreshCw size={18} />
-                            Check Status
+                            {loading ? 'Sending...' : 'Resend Email'}
                         </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={logout}
-                            className="flex gap-2 py-6 text-red-600 hover:bg-red-50 hover:text-red-700"
-                        >
-                            <LogOut size={18} />
-                            Sign Out
-                        </Button>
+                        <Link to="/login">
+                            <Button variant="ghost" className="w-full flex gap-2 py-6 text-primary hover:bg-primary/10">
+                                Back to Login
+                            </Button>
+                        </Link>
                     </div>
                 </div>
             </div>

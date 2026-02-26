@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Search,
     Download,
@@ -10,7 +10,6 @@ import {
     MoreVertical,
     Edit,
     Trash2,
-    Eye,
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
@@ -34,7 +33,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
+    DialogTrigger
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -44,6 +43,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import api from '@/lib/axios';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -53,6 +53,9 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
+type UiStatus = 'active' | 'pending' | 'inactive';
+
 interface User {
     id: string;
     name: string;
@@ -60,82 +63,184 @@ interface User {
     program: string;
     major: string;
     yearSection: string;
-    role: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
-    status: 'active' | 'pending' | 'inactive';
+    role: UserRole;
+    status: UiStatus;
     dateJoined: string;
 }
 
-const UserManagementPage: React.FC = () => {
-    const [users] = useState<User[]>([
-        {
-            id: '1',
-            name: 'Juan Q. Dela Cruz',
-            email: 'juan.delacruz@cnu.edu.ph',
-            program: 'BSEd',
-            major: 'English',
-            yearSection: '4 - A',
-            role: 'REVIEWEE',
-            status: 'active',
-            dateJoined: '2023-10-26'
-        },
-        {
-            id: '2',
-            name: 'Maria C. Santos',
-            email: 'maria.santos@cnu.edu.ph',
-            program: 'BEEd',
-            major: 'N/A',
-            yearSection: '4 - B',
-            role: 'REVIEWER',
-            status: 'pending',
-            dateJoined: '2023-10-25'
-        },
-        {
-            id: '3',
-            name: 'Pedro A. Penduko',
-            email: 'pedro.penduko@cnu.edu.ph',
-            program: 'BSEd',
-            major: 'Mathematics',
-            yearSection: '3 - A',
-            role: 'REVIEWEE',
-            status: 'active',
-            dateJoined: '2023-10-25'
-        }
-    ]);
+interface UserApiItem {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    program?: string | null;
+    major?: string | null;
+    yearLevel?: string | null;
+    section?: string | null;
+    createdAt: string;
+}
 
+const statusFromApi = (status: UserApiItem['status']): UiStatus => {
+    if (status === 'APPROVED') return 'active';
+    if (status === 'REJECTED') return 'inactive';
+    return 'pending';
+};
+
+const statusToApi = (status: UiStatus): UserApiItem['status'] => {
+    if (status === 'active') return 'APPROVED';
+    if (status === 'inactive') return 'REJECTED';
+    return 'PENDING';
+};
+
+const toUiUser = (item: UserApiItem): User => ({
+    id: item.id,
+    name: item.name,
+    email: item.email,
+    program: item.program || 'N/A',
+    major: item.major || 'N/A',
+    yearSection: [item.yearLevel, item.section].filter(Boolean).join(' - ') || 'N/A',
+    role: item.role,
+    status: statusFromApi(item.status),
+    dateJoined: item.createdAt,
+});
+
+const UserManagementPage: React.FC = () => {
+    const [users, setUsers] = useState<User[]>([]);
+    const [totalUsers, setTotalUsers] = useState(0);
+    const [page, setPage] = useState(1);
+    const [limit] = useState(12);
+    const [loading, setLoading] = useState(false);
+    const [mutatingId, setMutatingId] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
+    const [statusFilter, setStatusFilter] = useState<'ALL' | UiStatus>('ALL');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [editRole, setEditRole] = useState<UserRole>('REVIEWEE');
+    const [editStatus, setEditStatus] = useState<UiStatus>('pending');
+
+    const fetchUsers = async () => {
+        setLoading(true);
+        setErrorMessage(null);
+        try {
+            const response = await api.get('/users', {
+                params: {
+                    page,
+                    limit,
+                    search: search || undefined,
+                    role: roleFilter === 'ALL' ? undefined : roleFilter,
+                    status: statusFilter === 'ALL' ? undefined : statusToApi(statusFilter),
+                },
+            });
+            const records = (response.data?.data || []) as UserApiItem[];
+            setUsers(records.map(toUiUser));
+            setTotalUsers(response.data?.meta?.total || records.length);
+        } catch (error: any) {
+            setErrorMessage(error?.response?.data?.message || 'Failed to load users');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUsers();
+    }, [page, roleFilter, statusFilter]);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            setPage(1);
+            fetchUsers();
+        }, 350);
+
+        return () => clearTimeout(timeout);
+    }, [search]);
 
     const handleEdit = (user: User) => {
         setSelectedUser(user);
+        setEditRole(user.role);
+        setEditStatus(user.status);
         setIsEditModalOpen(true);
     };
 
     const handleExport = () => {
-        console.log("Exporting users...");
-        alert("User data exported successfully!");
+        window.alert('Export is not yet implemented in this phase.');
     };
 
-    const handleResetPassword = (user: User) => {
-        alert(`Password reset link sent to ${user.email}`);
+    const handleStatusChange = async (user: User, newStatus: 'active' | 'inactive') => {
+        try {
+            setMutatingId(user.id);
+            await api.patch(`/users/${user.id}/status`, { status: statusToApi(newStatus) });
+            await fetchUsers();
+        } catch (error: any) {
+            window.alert(error?.response?.data?.message || 'Failed to update status');
+        } finally {
+            setMutatingId(null);
+        }
     };
 
-    const handleStatusChange = (user: User, newStatus: 'active' | 'inactive') => {
-        alert(`User ${user.name} is now ${newStatus}`);
+    const handleDelete = async (user: User) => {
+        const shouldDelete = window.confirm(`Delete ${user.name}? This action cannot be undone.`);
+        if (!shouldDelete) return;
+
+        try {
+            setMutatingId(user.id);
+            await api.delete(`/users/${user.id}`);
+            if (users.length === 1 && page > 1) {
+                setPage(prev => prev - 1);
+            } else {
+                await fetchUsers();
+            }
+        } catch (error: any) {
+            window.alert(error?.response?.data?.message || 'Failed to delete user');
+        } finally {
+            setMutatingId(null);
+        }
     };
+
+    const handleSaveEdit = async () => {
+        if (!selectedUser) return;
+
+        try {
+            setMutatingId(selectedUser.id);
+
+            if (editRole !== selectedUser.role) {
+                await api.patch(`/users/${selectedUser.id}/role`, { role: editRole });
+            }
+
+            if (editStatus !== selectedUser.status) {
+                await api.patch(`/users/${selectedUser.id}/status`, { status: statusToApi(editStatus) });
+            }
+
+            setIsEditModalOpen(false);
+            setSelectedUser(null);
+            await fetchUsers();
+        } catch (error: any) {
+            window.alert(error?.response?.data?.message || 'Failed to update user');
+        } finally {
+            setMutatingId(null);
+        }
+    };
+
+    const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
+    const summaryStats = useMemo(() => {
+        const active = users.filter((u) => u.status === 'active').length;
+        const pending = users.filter((u) => u.status === 'pending').length;
+        const inactive = users.filter((u) => u.status === 'inactive').length;
+        return { active, pending, inactive };
+    }, [users]);
 
     const stats = [
-        { label: 'Total Users', value: '156', icon: <Users size={24} className="text-blue-600" />, color: 'bg-blue-50' },
-        { label: 'Active', value: '142', icon: <CheckCircle2 size={24} className="text-green-600" />, color: 'bg-green-50' },
-        { label: 'Pending', value: '8', icon: <Clock size={24} className="text-amber-600" />, color: 'bg-amber-50' },
-        { label: 'Inactive', value: '6', icon: <UserX size={24} className="text-red-600" />, color: 'bg-red-50' },
+        { label: 'Total Users', value: String(totalUsers || 0), icon: <Users size={24} className="text-blue-600" />, color: 'bg-blue-50' },
+        { label: 'Active', value: String(summaryStats.active), icon: <CheckCircle2 size={24} className="text-green-600" />, color: 'bg-green-50' },
+        { label: 'Pending', value: String(summaryStats.pending), icon: <Clock size={24} className="text-amber-600" />, color: 'bg-amber-50' },
+        { label: 'Inactive', value: String(summaryStats.inactive), icon: <UserX size={24} className="text-red-600" />, color: 'bg-red-50' },
     ];
 
-    const filteredUsers = users.filter(user =>
-        user.name.toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase())
-    );
+    const fromCount = totalUsers === 0 ? 0 : (page - 1) * limit + 1;
+    const toCount = Math.min(page * limit, totalUsers);
 
     return (
         <div className="flex flex-col gap-8 font-lexend pb-10">
@@ -201,7 +306,7 @@ const UserManagementPage: React.FC = () => {
                             </div>
                             <DialogFooter className="gap-2 sm:gap-0">
                                 <Button variant="ghost" onClick={() => setIsAddModalOpen(false)} className="rounded-2xl font-black uppercase tracking-widest text-[10px]">Cancel</Button>
-                                <Button onClick={() => { setIsAddModalOpen(false); alert('User created successfully!'); }} className="rounded-2xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 h-12 px-8 uppercase tracking-widest text-[10px]">Create Account</Button>
+                                <Button onClick={() => { setIsAddModalOpen(false); window.alert('Admin create-user endpoint is pending implementation.'); }} className="rounded-2xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 h-12 px-8 uppercase tracking-widest text-[10px]">Create Account</Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
@@ -238,20 +343,40 @@ const UserManagementPage: React.FC = () => {
                         />
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto scrollbar-hide pb-2 md:pb-0">
-                        <select className="h-12 px-4 rounded-2xl border-gray-100 bg-gray-50/50 text-sm font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
-                            <option>All Roles</option>
-                            <option>Reviewee</option>
-                            <option>Reviewer</option>
-                            <option>Admin</option>
+                        <select
+                            value={roleFilter}
+                            onChange={(e) => {
+                                setPage(1);
+                                setRoleFilter(e.target.value as 'ALL' | UserRole);
+                            }}
+                            className="h-12 px-4 rounded-2xl border-gray-100 bg-gray-50/50 text-sm font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                            <option value="ALL">All Roles</option>
+                            <option value="REVIEWEE">Reviewee</option>
+                            <option value="REVIEWER">Reviewer</option>
+                            <option value="ADMIN">Admin</option>
                         </select>
-                        <select className="h-12 px-4 rounded-2xl border-gray-100 bg-gray-50/50 text-sm font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
-                            <option>All Status</option>
-                            <option>Active</option>
-                            <option>Pending</option>
-                            <option>Inactive</option>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => {
+                                setPage(1);
+                                setStatusFilter(e.target.value as 'ALL' | UiStatus);
+                            }}
+                            className="h-12 px-4 rounded-2xl border-gray-100 bg-gray-50/50 text-sm font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                            <option value="ALL">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="inactive">Inactive</option>
                         </select>
                     </div>
                 </div>
+
+                {errorMessage && (
+                    <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                        {errorMessage}
+                    </div>
+                )}
 
                 {/* Table Section */}
                 <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden">
@@ -259,7 +384,7 @@ const UserManagementPage: React.FC = () => {
                         <Table>
                             <TableHeader className="bg-gray-50/50">
                                 <TableRow className="hover:bg-transparent border-gray-50">
-                                    <TableHead className="w-[50px] px-6">
+                                    <TableHead className="w-12.5 px-6">
                                         <Checkbox className="rounded-md border-gray-300" />
                                     </TableHead>
                                     <TableHead className="px-6 font-black text-[10px] uppercase tracking-widest text-gray-400">User</TableHead>
@@ -272,7 +397,19 @@ const UserManagementPage: React.FC = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredUsers.map((user) => (
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="px-6 py-10 text-center text-sm font-bold text-gray-400 uppercase tracking-widest">
+                                            Loading users...
+                                        </TableCell>
+                                    </TableRow>
+                                ) : users.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="px-6 py-10 text-center text-sm font-bold text-gray-400 uppercase tracking-widest">
+                                            No users found
+                                        </TableCell>
+                                    </TableRow>
+                                ) : users.map((user) => (
                                     <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors border-gray-50 group">
                                         <TableCell className="px-6">
                                             <Checkbox className="rounded-md border-gray-300" />
@@ -319,59 +456,41 @@ const UserManagementPage: React.FC = () => {
                                             {new Date(user.dateJoined).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </TableCell>
                                         <TableCell className="px-6 text-right">
-                                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-gray-400 hover:text-primary hover:bg-primary/5">
-                                                    <Eye size={18} />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => handleEdit(user)}
-                                                    className="h-9 w-9 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                                >
-                                                    <Edit size={18} />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50">
-                                                    <Trash2 size={18} />
-                                                </Button>
-                                            </div>
-                                            <div className="group-hover:hidden">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-gray-400">
-                                                            <MoreVertical size={18} />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="rounded-2xl border-gray-100 shadow-xl font-lexend p-2 min-w-[180px]">
-                                                        <DropdownMenuLabel className="font-black text-[10px] uppercase tracking-widest text-gray-400 px-3 py-2">Quick Actions</DropdownMenuLabel>
-                                                        <DropdownMenuSeparator className="bg-gray-50" />
-                                                        <DropdownMenuItem onClick={() => handleEdit(user)} className="rounded-xl font-bold text-sm py-2 px-3 gap-2">
-                                                            <Edit size={16} className="text-blue-500" /> Edit User
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleResetPassword(user)} className="rounded-xl font-bold text-sm py-2 px-3 gap-2">
-                                                            <Clock size={16} className="text-amber-500" /> Reset Password
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleStatusChange(user, user.status === 'active' ? 'inactive' : 'active')}
-                                                            className="rounded-xl font-bold text-sm py-2 px-3 gap-2"
-                                                        >
-                                                            {user.status === 'active' ? (
-                                                                <>
-                                                                    <UserX size={16} className="text-red-500" /> Deactivate
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <CheckCircle2 size={16} className="text-green-500" /> Activate
-                                                                </>
-                                                            )}
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator className="bg-gray-50" />
-                                                        <DropdownMenuItem className="rounded-xl font-bold text-sm py-2 px-3 gap-2 text-red-600 focus:text-red-600 focus:bg-red-50">
-                                                            <Trash2 size={16} /> Delete Account
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-gray-400" disabled={mutatingId === user.id}>
+                                                        <MoreVertical size={18} />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="rounded-2xl border-gray-100 shadow-xl font-lexend p-2 min-w-45">
+                                                    <DropdownMenuLabel className="font-black text-[10px] uppercase tracking-widest text-gray-400 px-3 py-2">Quick Actions</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator className="bg-gray-50" />
+                                                    <DropdownMenuItem onClick={() => handleEdit(user)} className="rounded-xl font-bold text-sm py-2 px-3 gap-2">
+                                                        <Edit size={16} className="text-blue-500" /> Edit User
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleStatusChange(user, user.status === 'active' ? 'inactive' : 'active')}
+                                                        className="rounded-xl font-bold text-sm py-2 px-3 gap-2"
+                                                    >
+                                                        {user.status === 'active' ? (
+                                                            <>
+                                                                <UserX size={16} className="text-red-500" /> Deactivate
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <CheckCircle2 size={16} className="text-green-500" /> Activate
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator className="bg-gray-50" />
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleDelete(user)}
+                                                        className="rounded-xl font-bold text-sm py-2 px-3 gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                    >
+                                                        <Trash2 size={16} /> Delete Account
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -382,16 +501,26 @@ const UserManagementPage: React.FC = () => {
                     {/* Footer / Pagination */}
                     <div className="px-6 py-6 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                            Showing <span className="text-gray-900">1-12</span> of <span className="text-gray-900">156</span> users
+                            Showing <span className="text-gray-900">{fromCount}-{toCount}</span> of <span className="text-gray-900">{totalUsers}</span> users
                         </div>
                         <div className="flex items-center gap-1">
-                            <Button variant="outline" size="icon" disabled className="h-10 w-10 rounded-xl border-gray-100">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                disabled={page <= 1 || loading}
+                                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                                className="h-10 w-10 rounded-xl border-gray-100"
+                            >
                                 <ChevronLeft size={18} />
                             </Button>
-                            <Button className="h-10 w-10 rounded-xl bg-primary text-white font-black border-none">1</Button>
-                            <Button variant="ghost" className="h-10 w-10 rounded-xl font-bold text-gray-500">2</Button>
-                            <Button variant="ghost" className="h-10 w-10 rounded-xl font-bold text-gray-500">3</Button>
-                            <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-gray-100">
+                            <Button className="h-10 min-w-10 rounded-xl bg-primary text-white font-black border-none">{page}</Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                disabled={page >= totalPages || loading}
+                                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                                className="h-10 w-10 rounded-xl border-gray-100"
+                            >
                                 <ChevronRight size={18} />
                             </Button>
                         </div>
@@ -412,16 +541,16 @@ const UserManagementPage: React.FC = () => {
                         <div className="grid gap-6 py-6 font-lexend">
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Full Name</Label>
-                                <Input defaultValue={selectedUser.name} className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 shadow-none focus:ring-primary/20 font-bold" />
+                                <Input value={selectedUser.name} disabled className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 shadow-none font-bold" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">School Email</Label>
-                                <Input defaultValue={selectedUser.email} type="email" className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 shadow-none focus:ring-primary/20 font-bold" />
+                                <Input value={selectedUser.email} type="email" disabled className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 shadow-none font-bold" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Role</Label>
-                                    <Select defaultValue={selectedUser.role}>
+                                    <Select value={editRole} onValueChange={(value) => setEditRole(value as UserRole)}>
                                         <SelectTrigger className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 font-bold">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -434,7 +563,7 @@ const UserManagementPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Status</Label>
-                                    <Select defaultValue={selectedUser.status}>
+                                    <Select value={editStatus} onValueChange={(value) => setEditStatus(value as UiStatus)}>
                                         <SelectTrigger className="h-12 rounded-2xl border-gray-100 bg-gray-50/50 font-bold">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -450,7 +579,7 @@ const UserManagementPage: React.FC = () => {
                     )}
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-2xl font-black uppercase tracking-widest text-[10px]">Cancel</Button>
-                        <Button onClick={() => { setIsEditModalOpen(false); alert('User profile updated successfully!'); }} className="rounded-2xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 h-12 px-8 uppercase tracking-widest text-[10px]">Save Changes</Button>
+                        <Button onClick={handleSaveEdit} disabled={!!mutatingId} className="rounded-2xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 h-12 px-8 uppercase tracking-widest text-[10px]">Save Changes</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

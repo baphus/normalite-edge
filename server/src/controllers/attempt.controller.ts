@@ -11,11 +11,20 @@ export const attemptController = {
 
     submitAttempt: catchAsync(async (req: Request, res: Response) => {
         const attempt = await attemptService.submitAttempt(
-            req.params.id,
+            req.params.id as string,
             req.user!.userId,
             req.body
         );
         ApiResponse.success(res, attempt, 'Attempt submitted');
+    }),
+
+    saveAttempt: catchAsync(async (req: Request, res: Response) => {
+        const attempt = await attemptService.saveAttempt(
+            req.params.id as string,
+            req.user!.userId,
+            req.body
+        );
+        ApiResponse.success(res, attempt, 'Attempt progress saved');
     }),
 
     listAttempts: catchAsync(async (req: Request, res: Response) => {
@@ -39,7 +48,7 @@ export const attemptController = {
     getAttemptReview: catchAsync(async (req: Request, res: Response) => {
         const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'REVIEWER';
         const attempt = await attemptService.getAttemptReview(
-            req.params.id,
+            req.params.id as string,
             req.user!.userId,
             isAdmin
         );

@@ -1,10 +1,17 @@
 import { z } from 'zod';
 
+const categorySchema = z.enum(['GENERAL_EDUCATION', 'PROFESSIONAL_EDUCATION', 'SPECIALIZATION']);
+
 export const createExamSchema = z.object({
     title: z.string().min(1, 'Title is required'),
     subject: z.string().min(1, 'Subject is required'),
+    category: categorySchema.nullable().optional(),
     program: z.string().optional(),
+    program_track: z.string().optional(),
+    programTrack: z.string().optional(),
+    trackIds: z.array(z.string().uuid()).optional(),
     timeLimit: z.number().int().min(1, 'Time limit must be at least 1 minute'),
+    maxAttempts: z.number().int().min(1, 'Max attempts must be at least 1').nullable().optional(),
     scheduledDate: z.string().datetime().optional(),
     isPublished: z.boolean().optional(),
     questions: z.array(z.object({
@@ -18,8 +25,13 @@ export const createExamSchema = z.object({
 export const updateExamSchema = z.object({
     title: z.string().min(1).optional(),
     subject: z.string().min(1).optional(),
+    category: categorySchema.nullable().optional(),
     program: z.string().optional(),
+    program_track: z.string().optional(),
+    programTrack: z.string().optional(),
+    trackIds: z.array(z.string().uuid()).optional(),
     timeLimit: z.number().int().min(1).optional(),
+    maxAttempts: z.number().int().min(1).nullable().optional(),
     scheduledDate: z.string().datetime().optional(),
     isPublished: z.boolean().optional(),
     questions: z.array(z.object({
@@ -34,4 +46,10 @@ export const submitAttemptSchema = z.object({
     answers: z.record(z.string(), z.string()),
     timeSpent: z.number().int().optional(),
     autoSubmitted: z.boolean().optional(),
+});
+
+export const saveAttemptSchema = z.object({
+    answers: z.record(z.string(), z.string()).optional(),
+    timeSpent: z.number().int().optional(),
+    remainingSeconds: z.number().int().optional(),
 });

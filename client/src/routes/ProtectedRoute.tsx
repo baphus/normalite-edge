@@ -17,6 +17,12 @@ const ProtectedRoute: React.FC = () => {
         return <Navigate to="/pending" replace />;
     }
 
+    if (user.status === 'DISABLED') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        return <Navigate to="/login" replace />;
+    }
+
     return <Outlet />;
 };
 

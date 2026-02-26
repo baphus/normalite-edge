@@ -20,12 +20,17 @@ export const notificationController = {
     }),
 
     markAsRead: catchAsync(async (req: Request, res: Response) => {
-        await notificationService.markAsRead(req.params.id, req.user!.userId);
+        await notificationService.markAsRead(req.params.id as string, req.user!.userId);
         ApiResponse.success(res, null, 'Notification marked as read');
     }),
 
     markAllAsRead: catchAsync(async (req: Request, res: Response) => {
         await notificationService.markAllAsRead(req.user!.userId);
         ApiResponse.success(res, null, 'All notifications marked as read');
+    }),
+
+    getUnreadCount: catchAsync(async (req: Request, res: Response) => {
+        const unreadCount = await notificationService.getUnreadCount(req.user!.userId);
+        ApiResponse.success(res, { unreadCount });
     }),
 };

@@ -89,7 +89,7 @@ const ExamReviewPage: React.FC = () => {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-black text-gray-900 tracking-tight">Mistake Analysis</h1>
-                        <p className="text-sm text-gray-500 font-medium">Mock Exam Set A • Review Mode</p>
+                        <p className="text-sm text-gray-500 font-medium">Exam Review Mode</p>
                     </div>
                 </div>
 
@@ -133,7 +133,7 @@ const ExamReviewPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <span className="text-xs font-black text-gray-400 uppercase tracking-widest shrink-0">Filter Section:</span>
                     <Select value={filterSection} onValueChange={setFilterSection}>
-                        <SelectTrigger className="w-[200px] h-10 border-gray-200 rounded-xl font-bold bg-white">
+                        <SelectTrigger className="w-50 h-10 border-gray-200 rounded-xl font-bold bg-white">
                             <SelectValue placeholder="All Sections" />
                         </SelectTrigger>
                         <SelectContent className="font-lexend">

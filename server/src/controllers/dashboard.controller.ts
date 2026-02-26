@@ -24,4 +24,19 @@ export const dashboardController = {
 
         ApiResponse.success(res, stats);
     }),
+
+    getDailyQuestion: catchAsync(async (req: Request, res: Response) => {
+        const question = await dashboardService.getDailyQuestion(req.user!.userId);
+        ApiResponse.success(res, question);
+    }),
+
+    submitDailyQuestionAnswer: catchAsync(async (req: Request, res: Response) => {
+        const result = await dashboardService.checkDailyQuestionAnswer(
+            req.user!.userId,
+            req.body.questionId as string,
+            req.body.selectedChoice as string
+        );
+
+        ApiResponse.success(res, result);
+    }),
 };

@@ -13,24 +13,10 @@ interface BadgeItem {
 }
 
 const AchievementsPage: React.FC = () => {
-    const badges: BadgeItem[] = [
-        { id: '1', name: 'First Step', description: 'Take your first mock exam', icon: '🎓', isLocked: false, color: 'bg-blue-50' },
-        { id: '2', name: 'Speed Demon', description: 'Complete 5 exams in one week', icon: '⚡', isLocked: false, color: 'bg-amber-50' },
-        { id: '3', name: 'Accuracy Master', description: 'Score above 90% 3 times', icon: '🎯', isLocked: false, color: 'bg-red-50' },
-        { id: '4', name: 'Knowledge Keeper', description: 'Review 100 flashcards', icon: '📚', isLocked: false, color: 'bg-emerald-50' },
-        { id: '5', name: 'Champion', description: 'Get a perfect score', icon: '🏆', isLocked: false, color: 'bg-purple-50' },
-        { id: '6', name: 'On Fire', description: '10-day study streak', icon: '🔥', isLocked: false, color: 'bg-orange-50' },
-        { id: '7', name: 'Subject Expert', description: 'Master a full subject', icon: '📖', isLocked: false, color: 'bg-indigo-50' },
-        { id: '8', name: 'Session Pro', description: 'Join 5 live coaching calls', icon: '🎬', isLocked: false, color: 'bg-pink-50' },
-        { id: '9', name: 'Rising Star', description: 'Improve score by 50%', icon: '⭐', isLocked: false, color: 'bg-yellow-50' },
-        { id: '10', name: 'Diamond', description: 'Unlock 20 total badges', icon: '💎', isLocked: false, color: 'bg-cyan-50' },
-        { id: '11', name: 'Legend', description: 'Unlock all 25 badges', icon: '🌟', isLocked: true, color: 'bg-gray-50' },
-        { id: '12', name: 'Supreme', description: 'Top the monthly leaderboard', icon: '👑', isLocked: true, color: 'bg-gray-50' },
-        { id: '13', name: 'Brilliance', description: 'Create 10 custom decks', icon: '✨', isLocked: true, color: 'bg-gray-50' }
-    ];
+    const badges: BadgeItem[] = [];
 
     const unlockedCount = badges.filter(b => !b.isLocked).length;
-    const totalCount = 25;
+    const totalCount = badges.length;
 
     return (
         <div className="flex flex-col gap-8 font-lexend pb-10">
@@ -69,6 +55,13 @@ const AchievementsPage: React.FC = () => {
                             </CardContent>
                         </Card>
                     ))}
+                    {badges.length === 0 && (
+                        <Card className="border-gray-100 col-span-full">
+                            <CardContent className="p-10 text-center text-sm text-gray-500 font-medium">
+                                No achievements are available yet.
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
 
@@ -93,7 +86,7 @@ const AchievementsPage: React.FC = () => {
                                 </div>
                                 <span className="text-primary">{unlockedCount} / {totalCount}</span>
                             </div>
-                            <Progress value={(unlockedCount / totalCount) * 100} className="h-2.5" />
+                            <Progress value={totalCount > 0 ? (unlockedCount / totalCount) * 100 : 0} className="h-2.5" />
                         </div>
 
                         <div className="space-y-4 text-sm font-bold">
@@ -101,15 +94,15 @@ const AchievementsPage: React.FC = () => {
                                 <div className="flex items-center gap-3">
                                     <div className="text-2xl">🔥</div>
                                     <div>
-                                        <p>Master Streak</p>
+                                        <p>Study Streak</p>
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                            30 Day Study Streak
+                                            Track your current streak
                                         </p>
                                     </div>
                                 </div>
-                                <span className="text-primary">12 / 30</span>
+                                <span className="text-primary">0 / 0</span>
                             </div>
-                            <Progress value={40} className="h-2.5" />
+                            <Progress value={0} className="h-2.5" />
                         </div>
                     </CardContent>
                 </Card>

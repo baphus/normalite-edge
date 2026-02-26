@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import api from '@/lib/axios';
 
 interface StudyItem {
-    id: number;
+    id: string;
     question: string;
     options: string[];
     answer: number;
@@ -44,23 +44,27 @@ const StudySessionPage: React.FC = () => {
     useEffect(() => {
         const fetchDeck = async () => {
             try {
-                const deckId = id || 'exam-general-education';
-                const response = await api.get(`/exams/${deckId}?questions=true`);
-                const exam = response.data.data;
-                setExamTitle(exam.title);
+                if (!id) {
+                    setItems([]);
+                    return;
+                }
 
-                const questions = exam.questions || [];
-                questions.sort((a: any, b: any) => a.orderIndex - b.orderIndex);
+                const response = await api.get(`/decks/${id}?questions=true`);
+                const deck = response.data.data;
+                setExamTitle(deck.title);
+
+                const questions = deck.questions || [];
+                questions.sort((a: any, b: any) => a.orderNo - b.orderNo);
 
                 const formattedItems: StudyItem[] = questions.map((q: any) => {
-                    const options = q.choices || [];
-                    const answerIndex = options.indexOf(q.correctAnswer);
+                    const options = [q.choiceA, q.choiceB, q.choiceC, q.choiceD].filter(Boolean);
+                    const answerIndex = ['A', 'B', 'C', 'D'].indexOf(q.correctChoice);
                     return {
                         id: q.id,
-                        question: q.text,
+                        question: q.questionText,
                         options: options,
                         answer: answerIndex >= 0 ? answerIndex : 0,
-                        rationalization: q.explanation || "No explanation provided."
+                        rationalization: q.rationalization || 'No explanation provided.'
                     };
                 });
 

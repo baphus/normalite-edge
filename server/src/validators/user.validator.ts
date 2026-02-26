@@ -1,7 +1,19 @@
 import { z } from 'zod';
 
+export const createUserSchema = z.object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    role: z.enum(['ADMIN', 'REVIEWER', 'REVIEWEE']).default('REVIEWEE'),
+    status: z.enum(['PENDING', 'ACTIVE', 'DISABLED', 'APPROVED', 'REJECTED']).default('ACTIVE'),
+    program_track: z.string().optional(),
+    major: z.string().optional(),
+    yearLevel: z.string().optional(),
+    section: z.string().optional(),
+});
+
 export const updateUserStatusSchema = z.object({
-    status: z.enum(['APPROVED', 'REJECTED']),
+    status: z.enum(['PENDING', 'ACTIVE', 'DISABLED', 'APPROVED', 'REJECTED']),
 });
 
 export const updateUserRoleSchema = z.object({

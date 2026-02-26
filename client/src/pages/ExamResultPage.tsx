@@ -42,19 +42,19 @@ const ExamResultPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
-    // Empty state for demo if no state
     const results = {
-        totalQuestions: 1, // Prevent division by zero
+        totalQuestions: 0,
         correct: 0,
         incorrect: 0,
         skipped: 0,
         score: "0%",
-        date: "",
+        date: "N/A",
         timeSpent: "00:00:00",
         avgTime: "0s"
     };
 
     const sections: any[] = [];
+    const safeTotal = results.totalQuestions > 0 ? results.totalQuestions : 1;
 
     return (
         <div className="flex flex-col gap-6 font-lexend pb-10">
@@ -70,7 +70,7 @@ const ExamResultPage: React.FC = () => {
                         <ArrowLeft size={24} className="text-gray-500" />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Mock Exam Set A - Result</h1>
+                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Exam Result</h1>
                         <p className="text-sm text-gray-500 font-medium">Completed on {results.date}</p>
                     </div>
                 </div>
@@ -136,6 +136,13 @@ const ExamResultPage: React.FC = () => {
                                 </Card>
                             );
                         })}
+                        {sections.length === 0 && (
+                            <Card className="border-gray-100 shadow-sm rounded-2xl">
+                                <div className="p-8 text-center text-sm text-gray-500 font-medium">
+                                    No section performance data is available yet.
+                                </div>
+                            </Card>
+                        )}
                     </div>
 
                     <div className="mt-4">
@@ -161,8 +168,8 @@ const ExamResultPage: React.FC = () => {
                                 {/* SVG Pie Chart Placeholder */}
                                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                                     <circle cx="18" cy="18" r="16" fill="transparent" stroke="#F59E0B" strokeWidth="4" />
-                                    <circle cx="18" cy="18" r="16" fill="transparent" stroke="#EF4444" strokeWidth="4" strokeDasharray={`${(results.correct + results.incorrect) / results.totalQuestions * 100} 100`} />
-                                    <circle cx="18" cy="18" r="16" fill="transparent" stroke="#16A34A" strokeWidth="4" strokeDasharray={`${results.correct / results.totalQuestions * 100} 100`} />
+                                    <circle cx="18" cy="18" r="16" fill="transparent" stroke="#EF4444" strokeWidth="4" strokeDasharray={`${((results.correct + results.incorrect) / safeTotal) * 100} 100`} />
+                                    <circle cx="18" cy="18" r="16" fill="transparent" stroke="#16A34A" strokeWidth="4" strokeDasharray={`${(results.correct / safeTotal) * 100} 100`} />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                                     <span className="text-4xl font-black text-gray-900">{results.score}</span>
@@ -229,7 +236,7 @@ const ExamResultPage: React.FC = () => {
                             <div className="space-y-1">
                                 <h4 className="font-bold text-gray-900">Great job!</h4>
                                 <p className="text-sm text-gray-500 leading-relaxed font-medium">
-                                    You've exceeded the pass mark of 75%. Focus on 'Professional Education' to further improve your score.
+                                        Complete more exams to generate personalized performance insights.
                                 </p>
                             </div>
                         </div>

@@ -9,12 +9,12 @@
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;
 
-    --primary: 0 100% 25%;
-    /* Crimson (#800000) */
+    --primary: 358 61% 30%;
+    /* Brand Red (#7A1E1E) */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 45 100% 50%;
-    /* Gold (#FFD700) */
+    --secondary: 38 87% 61%;
+    /* Brand Gold (#F2B744) */
     --secondary-foreground: 0 0% 0%;
 
     --background-light: #f8f5f5;
@@ -86,9 +86,9 @@ body {
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #800000;
+  --primary: #7A1E1E;
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: #FFD700;
+  --secondary: #F2B744;
   --secondary-foreground: oklch(0.205 0 0);
   --background-light: #f8f5f5;
   --background-dark: #230f0f;
@@ -122,10 +122,10 @@ body {
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --primary: #7A1E1E;
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: #F2B744;
+  --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
