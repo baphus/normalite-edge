@@ -51,6 +51,7 @@ interface TrackOption {
 interface ExamQuestionApi {
     id: string;
     orderNo?: number;
+    sectionId?: string;
     questionText?: string;
     choiceA?: string;
     choiceB?: string;
@@ -71,9 +72,21 @@ interface ExamApi {
     tracks?: Array<{ id: string; name: string; code?: string | null }>;
     timeLimit?: number;
     timeLimitMinutes?: number;
-    maxAttempts?: number | null;
+    status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
+    deadline?: string | null;
+    closeOnDeadline?: boolean;
+    sections?: Array<{ id: string; title: string; orderNo?: number }>;
     questions?: ExamQuestionApi[];
 }
+
+type EditableExamStatus = 'LIVE' | 'DRAFT' | 'CLOSED' | 'ARCHIVED';
+
+const editableStatusOptions: Array<{ value: EditableExamStatus; label: string }> = [
+    { value: 'LIVE', label: 'Live' },
+    { value: 'DRAFT', label: 'Draft' },
+    { value: 'CLOSED', label: 'Closed' },
+    { value: 'ARCHIVED', label: 'Archived' },
+];
 
 const categoryOptions = [
     { value: 'NONE', label: 'No Category' },
@@ -92,13 +105,17 @@ const CreateExamPage: React.FC = () => {
     // Form State
     const [title, setTitle] = useState('');
     const [duration, setDuration] = useState('');
-    const [maxAttempts, setMaxAttempts] = useState('');
+    const [deadline, setDeadline] = useState('');
+    const [closeOnDeadline, setCloseOnDeadline] = useState(false);
+    const [examStatus, setExamStatus] = useState<EditableExamStatus>('DRAFT');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState<CategoryValue | ''>('');
+    const [category, setCategory] = useState<CategoryValue>('NONE');
     const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [sections, setSections] = useState<string[]>([]);
     const [activeSection, setActiveSection] = useState('Uncategorized');
+    const [isAddingSection, setIsAddingSection] = useState(false);
+    const [newSectionName, setNewSectionName] = useState('');
     const [programs, setPrograms] = useState<string[]>(['All Programs']);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingExam, setIsLoadingExam] = useState(false);
@@ -133,9 +150,21 @@ const CreateExamPage: React.FC = () => {
 
                 setTitle(exam.title || '');
                 setDescription(exam.description || '');
-                setCategory((exam.categoryCode as CategoryValue) || '');
+                setCategory((exam.categoryCode as CategoryValue) || 'NONE');
                 setDuration(String(exam.timeLimit || exam.timeLimitMinutes || 120));
-                setMaxAttempts(exam.maxAttempts ? String(exam.maxAttempts) : '');
+                setCloseOnDeadline(Boolean(exam.closeOnDeadline));
+                const loadedStatus = exam.status === 'PUBLISHED' ? 'LIVE' : exam.status;
+                if (loadedStatus && ['LIVE', 'DRAFT', 'CLOSED', 'ARCHIVED'].includes(loadedStatus)) {
+                    setExamStatus(loadedStatus as EditableExamStatus);
+                }
+                if (exam.deadline) {
+                    const deadlineDate = new Date(exam.deadline);
+                    const offset = deadlineDate.getTimezoneOffset();
+                    const localDate = new Date(deadlineDate.getTime() - offset * 60_000);
+                    setDeadline(localDate.toISOString().slice(0, 16));
+                } else {
+                    setDeadline('');
+                }
                 if (exam.tracks && exam.tracks.length > 0) {
                     setSelectedPrograms(exam.tracks.map((track) => track.name));
                 } else {
@@ -143,6 +172,7 @@ const CreateExamPage: React.FC = () => {
                 }
 
                 const apiQuestions = exam.questions || [];
+                const sectionMap = new Map((exam.sections || []).map((section) => [section.id, section.title]));
                 if (apiQuestions.length > 0) {
                     const mapped = apiQuestions
                         .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
@@ -155,15 +185,24 @@ const CreateExamPage: React.FC = () => {
                                 options: [q.choiceA || '', q.choiceB || '', q.choiceC || '', q.choiceD || ''],
                                 correctOption: correctIndex >= 0 ? correctIndex : 0,
                                 rationale: q.rationalization || '',
-                                section: 'General Education',
+                                section: sectionMap.get(q.sectionId || '') || 'General Section',
                             };
                         });
                     setQuestions(mapped);
                 }
 
-                const inferredSection = (exam.subject || '').trim() || 'Uncategorized';
-                setSections([inferredSection]);
-                setActiveSection(inferredSection);
+                const fetchedSections = (exam.sections || [])
+                    .slice()
+                    .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
+                    .map((section) => section.title?.trim())
+                    .filter((section): section is string => Boolean(section));
+                const inferredSection = (exam.subject || '').trim() || 'General Section';
+                const nextSections = fetchedSections.length > 0
+                    ? fetchedSections
+                    : Array.from(new Set(apiQuestions.map((q) => sectionMap.get(q.sectionId || '') || '').filter(Boolean)));
+                const safeSections = nextSections.length > 0 ? nextSections : [inferredSection];
+                setSections(safeSections);
+                setActiveSection(safeSections[0]);
             } catch (error) {
                 console.error('Failed to load exam for editing', error);
                 alert('Failed to load exam details.');
@@ -187,14 +226,34 @@ const CreateExamPage: React.FC = () => {
         }
     };
 
-    const addSection = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const confirmAddSection = () => {
+        const value = newSectionName.trim();
+        if (!value) return;
+        if (sections.includes(value)) {
+            setNewSectionName('');
+            setIsAddingSection(false);
+            return;
+        }
+
+        setSections([...sections, value]);
+        setActiveSection(value);
+        setNewSectionName('');
+        setIsAddingSection(false);
+    };
+
+    const cancelAddSection = () => {
+        setNewSectionName('');
+        setIsAddingSection(false);
+    };
+
+    const handleAddSectionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            const value = e.currentTarget.value.trim();
-            if (value && !sections.includes(value)) {
-                setSections([...sections, value]);
-                e.currentTarget.value = '';
-            }
+            confirmAddSection();
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelAddSection();
         }
     };
 
@@ -321,6 +380,32 @@ const CreateExamPage: React.FC = () => {
             return;
         }
 
+        const getSectionValue = (record: Record<string, any>) => {
+            const explicitSection =
+                record.section
+                ?? record.Section
+                ?? record.SECTION
+                ?? record.sectionName
+                ?? record.section_name
+                ?? record.sectionTitle
+                ?? record.section_title;
+
+            if (explicitSection !== undefined && explicitSection !== null && String(explicitSection).trim().length > 0) {
+                return String(explicitSection).trim();
+            }
+
+            const dynamicSectionEntry = Object.entries(record).find(([key, value]) => {
+                const normalizedKey = key.replace(/\s+/g, '').toLowerCase();
+                return normalizedKey.includes('section') && value !== undefined && value !== null && String(value).trim().length > 0;
+            });
+
+            if (dynamicSectionEntry) {
+                return String(dynamicSectionEntry[1]).trim();
+            }
+
+            return '';
+        };
+
         const mappedQuestions: Question[] = records
             .map((record, index) => {
                 const text = (record.questionText || record.text || '').trim();
@@ -334,7 +419,10 @@ const CreateExamPage: React.FC = () => {
                 ].map((option) => String(option).trim());
 
                 const correctOption = normalizeCorrectOption(String(record.correctAnswer || 'A'));
-                const section = String(record.section || activeSection || 'General Education').trim() || 'General Education';
+                const section = getSectionValue(record)
+                    || activeSection
+                    || sections[0]
+                    || 'General Section';
 
                 return {
                     id: `${Date.now()}-${index}`,
@@ -434,6 +522,7 @@ const CreateExamPage: React.FC = () => {
                 choices: q.options.map((option) => option.trim()),
                 correctAnswer: ['A', 'B', 'C', 'D'][q.correctOption],
                 explanation: q.rationale.trim() || undefined,
+                section: q.section?.trim() || activeSection || sections[0] || 'General Section',
             }))
             .filter((q) => q.text.length > 0);
 
@@ -448,19 +537,32 @@ const CreateExamPage: React.FC = () => {
             return;
         }
 
+        if (closeOnDeadline && !deadline) {
+            alert('Please set a deadline when enabling close on deadline.');
+            return;
+        }
+
         const selectedProgramNames = selectedPrograms.filter((program) => program !== 'All Programs');
         const selectedTrackIds = tracks
             .filter((track) => selectedProgramNames.includes(track.name))
             .map((track) => track.id);
 
+        const normalizedSectionList = Array.from(new Set([
+            ...sections.map((section) => section.trim()),
+            ...preparedQuestions.map((question) => question.section.trim()),
+        ].filter(Boolean)));
+
         const payload = {
             title: title.trim(),
-            subject: sections[0] || 'General Education',
+            subject: normalizedSectionList[0] || 'General Education',
             category: category === 'NONE' ? null : category,
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
-            maxAttempts: maxAttempts.trim() ? Number(maxAttempts) : null,
+            deadline: deadline ? new Date(deadline).toISOString() : undefined,
+            closeOnDeadline: closeOnDeadline && Boolean(deadline),
             isPublished: publish,
+            status: isEditing ? examStatus : undefined,
+            sections: normalizedSectionList,
             questions: preparedQuestions,
         };
 
@@ -490,20 +592,20 @@ const CreateExamPage: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col gap-6 font-lexend pb-10">
+        <div className="flex flex-col gap-8 font-lexend pb-10">
             {/* Header */}
-            <header className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+            <header className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200 shadow-sm">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 mb-2">
                             <Link to="/manage-exams" className="hover:text-primary transition-colors">Exams</Link>
                             <ChevronRight size={12} />
                             <span className="text-primary">{isEditing ? 'Edit Exam' : 'Create New'}</span>
                         </div>
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                             {isEditing ? 'Edit Mock Exam' : 'Admin Mock Exam Creator'}
                         </h1>
-                        <p className="text-gray-500 font-medium tracking-tight mt-1">
+                        <p className="text-sm text-slate-500 font-medium mt-1.5">
                             Design and publish comprehensive mock exams for students.
                         </p>
                     </div>
@@ -528,63 +630,73 @@ const CreateExamPage: React.FC = () => {
                             onClick={() => submitExam(true)}
                             disabled={isSubmitting}
                         >
-                            {isSubmitting ? 'Saving...' : 'Publish Exam'}
+                            {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Publish Exam'}
                         </Button>
                     </div>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Left Column - General Info */}
                 <div className="lg:col-span-1 space-y-6">
-                    <Card className="rounded-2xl border-gray-100 shadow-sm overflow-hidden bg-white">
-                        <CardHeader className="p-5 pb-2">
+                    <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
+                        <CardHeader className="p-5 pb-1">
                             <div className="flex items-center gap-3 text-primary mb-2">
                                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-[10px] font-black">1</span>
                                 <CardTitle className="text-sm font-black uppercase tracking-widest">General Information</CardTitle>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-5 pt-3 space-y-4">
+                        <CardContent className="p-5 pt-2 space-y-4">
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Exam Title</Label>
+                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Exam Title</Label>
                                 <Input
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="e.g., LET 2024 Comprehensive Mock"
-                                    className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold"
+                                    className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Duration (Minutes)</Label>
+                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Duration (Minutes)</Label>
                                 <div className="relative">
-                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                                    <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                                     <Input
                                         type="number"
+                                        min={1}
                                         value={duration}
                                         onChange={(e) => setDuration(e.target.value)}
-                                        className="pl-12 h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold"
+                                        className="pl-10 h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] font-black uppercase">min</span>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Max Attempts</Label>
+                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Deadline</Label>
                                 <Input
-                                    type="number"
-                                    min={1}
-                                    placeholder="Unlimited"
-                                    value={maxAttempts}
-                                    onChange={(e) => setMaxAttempts(e.target.value)}
-                                    className="h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold"
+                                    type="datetime-local"
+                                    value={deadline}
+                                    onChange={(e) => setDeadline(e.target.value)}
+                                    className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold"
                                 />
                             </div>
 
+                            <div className="flex items-center space-x-3 p-2.5 rounded-xl border bg-gray-50/50 border-transparent">
+                                <Checkbox
+                                    id="close-on-deadline"
+                                    checked={closeOnDeadline}
+                                    onCheckedChange={(checked) => setCloseOnDeadline(Boolean(checked))}
+                                    className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                />
+                                <Label htmlFor="close-on-deadline" className="text-xs font-bold leading-none cursor-pointer">
+                                    Automatically close exam on deadline
+                                </Label>
+                            </div>
+
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Category</Label>
+                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Category</Label>
                                 <Select value={category} onValueChange={(value) => setCategory(value as CategoryValue)}>
-                                    <SelectTrigger className="h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold">
+                                    <SelectTrigger className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold">
                                         <SelectValue placeholder="Select category" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -597,7 +709,25 @@ const CreateExamPage: React.FC = () => {
                                 </Select>
                             </div>
 
-                            <div className="space-y-3">
+                            {isEditing && (
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Status</Label>
+                                    <Select value={examStatus} onValueChange={(value) => setExamStatus(value as EditableExamStatus)}>
+                                        <SelectTrigger className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold">
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {editableStatusOptions.map((option) => (
+                                                <SelectItem key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Visible To</Label>
                                 <div className="grid grid-cols-1 gap-2 max-h-[240px] overflow-y-auto pr-2 scrollbar-hide">
                                     {programs.map((program) => (
@@ -622,9 +752,9 @@ const CreateExamPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Exam Sections</Label>
-                                <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/30">
+                                <div className="flex flex-wrap gap-2 p-2.5 rounded-xl border border-dashed border-gray-200 bg-gray-50/30">
                                     {sections.map((section) => (
                                         <Badge
                                             key={section}
@@ -636,11 +766,20 @@ const CreateExamPage: React.FC = () => {
                                             </button>
                                         </Badge>
                                     ))}
-                                    <Input
-                                        placeholder="Add section..."
-                                        onKeyDown={addSection}
-                                        className="h-8 w-32 border-none bg-transparent shadow-none focus:ring-0 p-0 text-xs font-bold placeholder:text-gray-400"
-                                    />
+                                    {!isAddingSection ? (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="h-8 rounded-lg border-gray-200 bg-white text-[10px] font-black uppercase tracking-wider px-2.5"
+                                            onClick={() => setIsAddingSection(true)}
+                                        >
+                                            <Plus size={12} className="mr-1" /> Add Section
+                                        </Button>
+                                    ) : (
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                                            Adding section in Question Management...
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -658,9 +797,9 @@ const CreateExamPage: React.FC = () => {
                 </div>
 
                 {/* Right Column - Question Management */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex flex-col gap-6">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="lg:col-span-2 space-y-5">
+                    <div className="flex flex-col gap-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-3 text-primary">
                                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-[10px] font-black">2</span>
                                 <h3 className="text-sm font-black uppercase tracking-widest">Question Management</h3>
@@ -701,26 +840,68 @@ const CreateExamPage: React.FC = () => {
                         </div>
 
                         {/* Section Tabs */}
-                        <div className="flex items-center gap-2 border-b border-gray-100 pb-px overflow-x-auto scrollbar-hide">
-                            {[...sections, 'Uncategorized'].map((section) => (
-                                <button
-                                    key={section}
-                                    onClick={() => setActiveSection(section)}
-                                    className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-2 ${activeSection === section
-                                        ? 'border-primary text-primary'
-                                        : 'border-transparent text-gray-400 hover:text-gray-600'
-                                        }`}
-                                >
-                                    {section}
-                                    <Badge className={`border-none ${activeSection === section ? 'bg-primary/10 text-primary' : 'bg-gray-50 text-gray-400'} text-[9px] px-1.5 py-0`}>
-                                        {questions.filter(q => q.section === section).length}
-                                    </Badge>
-                                </button>
-                            ))}
+                        <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-px">
+                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                                {[...sections, 'Uncategorized'].map((section) => (
+                                    <button
+                                        key={section}
+                                        onClick={() => setActiveSection(section)}
+                                        className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-2 ${activeSection === section
+                                            ? 'border-primary text-primary'
+                                            : 'border-transparent text-gray-400 hover:text-gray-600'
+                                            }`}
+                                    >
+                                        {section}
+                                        <Badge className={`border-none ${activeSection === section ? 'bg-primary/10 text-primary' : 'bg-gray-50 text-gray-400'} text-[9px] px-1.5 py-0`}>
+                                            {questions.filter(q => q.section === section).length}
+                                        </Badge>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="shrink-0">
+                                {!isAddingSection ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-8 rounded-lg border-gray-200 bg-white text-[10px] font-black uppercase tracking-wider px-2.5"
+                                        onClick={() => setIsAddingSection(true)}
+                                    >
+                                        <Plus size={12} className="mr-1" /> Add Section
+                                    </Button>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            autoFocus
+                                            value={newSectionName}
+                                            onChange={(e) => setNewSectionName(e.target.value)}
+                                            onKeyDown={handleAddSectionKeyDown}
+                                            placeholder="Section name"
+                                            className="h-8 w-36 rounded-lg border-gray-200 bg-white text-xs font-semibold"
+                                        />
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="h-8 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-wider"
+                                            onClick={confirmAddSection}
+                                        >
+                                            Add
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 rounded-lg px-2 text-[10px] font-black uppercase tracking-wider"
+                                            onClick={cancelAddSection}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Questions List */}
-                        <div className="space-y-6">
+                        <div className="space-y-5">
                             {filteredQuestions.length === 0 ? (
                                 <div className="py-20 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-[2.5rem] bg-gray-50/20">
                                     <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">

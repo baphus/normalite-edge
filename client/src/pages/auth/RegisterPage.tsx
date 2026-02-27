@@ -21,7 +21,7 @@ const registerSchema = z.object({
         .min(1, 'Middle initial is required')
         .refine((value) => value.length === 1, { message: 'Middle initial must be 1 character' }),
     suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
-    programTrack: z.string().trim().min(1, 'Program track is required'),
+    trackId: z.string().trim().min(1, 'Program track is required'),
     email: z.string().email('Invalid school email address').refine(
         (email) => email.toLowerCase().endsWith('@cnu.edu.ph'),
         { message: 'Only @cnu.edu.ph emails are allowed' }
@@ -64,7 +64,7 @@ const RegisterPage: React.FC = () => {
         defaultValues: {
             middleInitial: '',
             suffix: '',
-            programTrack: '',
+            trackId: '',
         },
     });
 
@@ -96,7 +96,7 @@ const RegisterPage: React.FC = () => {
                 suffix: data.suffix?.trim() || undefined,
                 email: data.email.trim().toLowerCase(),
                 password: data.password,
-                program_track: data.programTrack.trim(),
+                track_id: data.trackId.trim(),
             });
 
             const loginResponse = await api.post('/auth/login', {
@@ -151,7 +151,7 @@ const RegisterPage: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-4">
-                    <Input type="hidden" {...register('programTrack')} />
+                    <Input type="hidden" {...register('trackId')} />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -187,8 +187,8 @@ const RegisterPage: React.FC = () => {
                     <div className="space-y-1.5">
                         <Label>Program Track</Label>
                         <Select
-                            value={watch('programTrack')}
-                            onValueChange={(value) => setValue('programTrack', value, { shouldValidate: true })}
+                            value={watch('trackId')}
+                            onValueChange={(value) => setValue('trackId', value, { shouldValidate: true })}
                             disabled={tracksLoading || tracks.length === 0}
                         >
                             <SelectTrigger>
@@ -196,13 +196,13 @@ const RegisterPage: React.FC = () => {
                             </SelectTrigger>
                             <SelectContent>
                                 {tracks.map((track) => (
-                                    <SelectItem key={track.id} value={track.name}>
+                                    <SelectItem key={track.id} value={track.id}>
                                         {track.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        {errors.programTrack && <p className="text-xs text-red-500">{errors.programTrack.message}</p>}
+                        {errors.trackId && <p className="text-xs text-red-500">{errors.trackId.message}</p>}
                     </div>
 
                     <div className="space-y-1.5">

@@ -15,12 +15,25 @@ import { env } from '../config/env';
 const ALLOWED_DOMAIN = 'cnu.edu.ph';
 
 export class AuthService {
-    private async resolveActiveProgramTrack(rawTrack?: string) {
-        if (!rawTrack) {
+    private async resolveActiveTrack(input?: { track_id?: string; rawTrack?: string }) {
+        if (!input?.track_id && !input?.rawTrack) {
             return undefined;
         }
 
-        const normalized = rawTrack.trim();
+        if (input?.track_id) {
+            const track = await prisma.track.findFirst({
+                where: { id: input.track_id, isActive: true },
+                select: { id: true, name: true },
+            });
+
+            if (!track) {
+                throw ApiError.badRequest('Selected program track is invalid or inactive');
+            }
+
+            return track;
+        }
+
+        const normalized = input?.rawTrack?.trim();
         if (!normalized) {
             return undefined;
         }
@@ -33,14 +46,14 @@ export class AuthService {
                     { code: { equals: normalized, mode: 'insensitive' } },
                 ],
             },
-            select: { name: true },
+            select: { id: true, name: true },
         });
 
         if (!track) {
             throw ApiError.badRequest('Selected program track is invalid or inactive');
         }
 
-        return track.name;
+        return track;
     }
 
     private createVerificationLink(userId: string, email: string) {
@@ -74,13 +87,17 @@ export class AuthService {
         program?: string;
         program_track?: string;
         programTrack?: string;
+        track_id?: string;
         major?: string;
         yearLevel?: string;
         section?: string;
     }) {
         const { password } = data;
         const email = data.email.trim().toLowerCase();
-        const resolvedProgram = await this.resolveActiveProgramTrack(resolveProgramTrack(data));
+        const resolvedTrack = await this.resolveActiveTrack({
+            track_id: data.track_id,
+            rawTrack: resolveProgramTrack(data),
+        });
         const resolvedName = data.name
             ? this.splitName(data.name)
             : {
@@ -117,7 +134,13 @@ export class AuthService {
                 passwordHash: hashedPassword,
                 role: 'REVIEWEE',
                 status: 'ACTIVE',
-                programTrack: resolvedProgram,
+                trackId: resolvedTrack?.id,
+                programTrack: resolvedTrack?.name,
+            },
+            include: {
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
             },
         });
 
@@ -326,19 +349,34 @@ export class AuthService {
     /**
      * Update current user's profile (program, major, etc.).
      */
-    async updateProfile(userId: string, data: { name?: string; program?: string; program_track?: string; programTrack?: string }) {
+    async updateProfile(userId: string, data: { name?: string; program?: string; program_track?: string; programTrack?: string; track_id?: string }) {
         const nameParts = data.name ? this.splitName(data.name) : undefined;
-        const resolvedProgramTrack = await this.resolveActiveProgramTrack(resolveProgramTrack({
-            program: data.program,
-            program_track: data.program_track,
-            programTrack: data.programTrack,
-        }));
+        const hasTrackInput = data.track_id !== undefined
+            || data.program !== undefined
+            || data.program_track !== undefined
+            || data.programTrack !== undefined;
+        const resolvedTrack = hasTrackInput
+            ? await this.resolveActiveTrack({
+                track_id: data.track_id,
+                rawTrack: resolveProgramTrack({
+                    program: data.program,
+                    program_track: data.program_track,
+                    programTrack: data.programTrack,
+                }),
+            })
+            : undefined;
         const user = await prisma.user.update({
             where: { id: userId },
             data: {
                 firstName: nameParts?.firstName,
                 lastName: nameParts?.lastName,
-                programTrack: resolvedProgramTrack,
+                trackId: hasTrackInput ? resolvedTrack?.id || null : undefined,
+                programTrack: hasTrackInput ? resolvedTrack?.name || null : undefined,
+            },
+            include: {
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
             },
         });
 
@@ -350,11 +388,14 @@ export class AuthService {
      */
     private sanitizeUser(user: any) {
         const { passwordHash, refreshTokenHash, ...sanitized } = user;
+        const resolvedProgram = sanitized.track?.name || sanitized.programTrack || null;
         return {
             ...sanitized,
             name: `${sanitized.firstName} ${sanitized.lastName}`.trim(),
             status: fromDbUserStatus(sanitized.status),
-            program_track: sanitized.programTrack,
+            program: resolvedProgram,
+            program_track: resolvedProgram,
+            track_id: sanitized.trackId || sanitized.track?.id || null,
         };
     }
 }

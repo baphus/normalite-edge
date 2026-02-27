@@ -70,7 +70,7 @@ function App() {
                 <Route path="/manage-exams" element={<ManageExamsPage />} />
                 <Route path="/manage-exams/create" element={<CreateExamPage />} />
                 <Route path="/manage-exams/:id/edit" element={<CreateExamPage />} />
-                <Route path="/reports/exam-performance/:id" element={<ExamPerformancePage />} />
+                <Route path="/manage-exams/:id/analytics" element={<ExamPerformancePage />} />
               </Route>
 
               {/* Admin Only Routes */}

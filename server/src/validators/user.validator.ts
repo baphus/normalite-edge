@@ -6,6 +6,7 @@ export const createUserSchema = z.object({
     password: z.string().min(6, 'Password must be at least 6 characters'),
     role: z.enum(['ADMIN', 'REVIEWER', 'REVIEWEE']).default('REVIEWEE'),
     status: z.enum(['PENDING', 'ACTIVE', 'DISABLED', 'APPROVED', 'REJECTED']).default('ACTIVE'),
+    track_id: z.string().uuid('Invalid track id').optional(),
     program_track: z.string().optional(),
     major: z.string().optional(),
     yearLevel: z.string().optional(),

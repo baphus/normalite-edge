@@ -42,8 +42,9 @@ enum FeedbackMode {
 }
 
 enum ExamStatus {
+  LIVE
   DRAFT
-  PUBLISHED
+  ARCHIVED
   CLOSED
 }
 
@@ -101,7 +102,7 @@ model User {
   sessions              Conference[]
   auditLogs             AuditLog[]
   receivedNotifications Notification[]
-  track                 Track?          @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  track                 Track?         @relation(fields: [trackId], references: [id], onDelete: SetNull)
 
   @@index([trackId])
   @@map("users")
@@ -129,27 +130,28 @@ model Notification {
 }
 
 model Exam {
-  id               String       @id @default(uuid()) @db.Uuid
+  id               String              @id @default(uuid()) @db.Uuid
   title            String
   description      String?
   subject          String?
   category         ApplicableCategory?
-  programTrack     String?      @map("program_track")
-  timeLimitMinutes Int          @map("time_limit_minutes")
-  maxAttempts      Int?         @map("max_attempts")
-  cooldownMinutes  Int          @default(0) @map("cooldown_minutes")
-  feedbackMode     FeedbackMode @default(AFTER_SUBMIT) @map("feedback_mode")
+  programTrack     String?             @map("program_track")
+  timeLimitMinutes Int                 @map("time_limit_minutes")
+  maxAttempts      Int?                @map("max_attempts")
+  cooldownMinutes  Int                 @default(0) @map("cooldown_minutes")
+  feedbackMode     FeedbackMode        @default(AFTER_SUBMIT) @map("feedback_mode")
   status           ExamStatus
-  scheduleStart    DateTime?    @map("schedule_start")
-  scheduleEnd      DateTime?    @map("schedule_end")
-  createdBy        String       @map("created_by") @db.Uuid
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
+  scheduleStart    DateTime?           @map("schedule_start")
+  scheduleEnd      DateTime?           @map("schedule_end")
+  closeOnDeadline  Boolean             @default(false) @map("close_on_deadline")
+  createdBy        String              @map("created_by") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  creator   User           @relation(fields: [createdBy], references: [id])
-  sections  ExamSection[]
-  questions ExamQuestion[]
-  attempts  Attempt[]
+  creator    User           @relation(fields: [createdBy], references: [id])
+  sections   ExamSection[]
+  questions  ExamQuestion[]
+  attempts   Attempt[]
   trackLinks ExamTrack[]
 
   @@index([createdBy, createdAt(sort: Desc)])
@@ -269,15 +271,15 @@ model ExamTrack {
 }
 
 model StudyDeck {
-  id          String     @id @default(uuid()) @db.Uuid
+  id          String             @id @default(uuid()) @db.Uuid
   title       String
   description String?
   subject     String?
   category    ApplicableCategory @default(GENERAL_EDUCATION)
-  visibility  Visibility @default(DRAFT)
-  createdBy   String     @map("created_by") @db.Uuid
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  visibility  Visibility         @default(DRAFT)
+  createdBy   String             @map("created_by") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
 
   creator    User                @relation(fields: [createdBy], references: [id])
   questions  StudyDeckQuestion[]

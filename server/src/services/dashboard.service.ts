@@ -17,13 +17,13 @@ export class DashboardService {
 
         const where: any = {
             exam: {
-                status: 'PUBLISHED',
+                status: 'LIVE',
             },
         };
 
         if (user?.programTrack) {
             where.exam = {
-                status: 'PUBLISHED',
+                status: 'LIVE',
                 OR: [
                     { programTrack: user.programTrack },
                     { programTrack: null },
@@ -88,13 +88,13 @@ export class DashboardService {
         const where: any = {
             id: questionId,
             exam: {
-                status: 'PUBLISHED',
+                status: 'LIVE',
             },
         };
 
         if (user?.programTrack) {
             where.exam = {
-                status: 'PUBLISHED',
+                status: 'LIVE',
                 OR: [
                     { programTrack: user.programTrack },
                     { programTrack: null },
@@ -146,7 +146,7 @@ export class DashboardService {
                 where: { userId, status: { not: 'IN_PROGRESS' } },
                 select: { score: true, percentage: true, exam: { select: { subject: true } } },
             }),
-            prisma.exam.count({ where: { status: 'PUBLISHED' } }),
+            prisma.exam.count({ where: { status: 'LIVE' } }),
             prisma.studyDeck.count({ where: { visibility: 'PUBLISHED' } }),
             prisma.conference.findMany({
                 where: { startAt: { gte: new Date() } },

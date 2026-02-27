@@ -24,6 +24,24 @@ async function seed() {
 
     const passwordHash = await bcrypt.hash('password123', 10);
 
+    for (const track of TRACK_SEEDS) {
+        await prisma.track.upsert({
+            where: { code: track.code },
+            update: {
+                name: track.name,
+                isActive: true,
+            },
+            create: {
+                name: track.name,
+                code: track.code,
+                isActive: true,
+            },
+        });
+    }
+
+    const bsedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BSED' } });
+    const beedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BEED' } });
+
     const admin = await prisma.user.upsert({
         where: { email: 'admin@cnu.edu.ph' },
         update: {},
@@ -48,7 +66,8 @@ async function seed() {
             passwordHash,
             role: Role.REVIEWER,
             status: UserStatus.ACTIVE,
-            programTrack: 'BSED',
+            trackId: bsedTrack.id,
+            programTrack: bsedTrack.name,
             createdByAdmin: true,
         },
     });
@@ -63,27 +82,11 @@ async function seed() {
             passwordHash,
             role: Role.REVIEWEE,
             status: UserStatus.ACTIVE,
-            programTrack: 'BEED',
+            trackId: beedTrack.id,
+            programTrack: beedTrack.name,
             createdByAdmin: true,
         },
     });
-
-    for (const track of TRACK_SEEDS) {
-        await prisma.track.upsert({
-            where: { code: track.code },
-            update: {
-                name: track.name,
-                isActive: true,
-            },
-            create: {
-                name: track.name,
-                code: track.code,
-                isActive: true,
-            },
-        });
-    }
-
-    const beedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BEED' } });
 
     const exam = await prisma.exam.upsert({
         where: { id: '11111111-1111-1111-1111-111111111111' },
@@ -99,7 +102,7 @@ async function seed() {
             maxAttempts: 3,
             cooldownMinutes: 0,
             feedbackMode: FeedbackMode.AFTER_SUBMIT,
-            status: ExamStatus.PUBLISHED,
+            status: ExamStatus.LIVE,
             createdBy: reviewer.id,
         },
     });

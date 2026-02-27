@@ -16,6 +16,7 @@ export const registerSchema = z.object({
         { message: 'Only @cnu.edu.ph emails are allowed' }
     ),
     password: z.string().min(6, 'Password must be at least 6 characters'),
+    track_id: z.string().uuid('Invalid track id').optional(),
     program: z.string().min(1, 'Program is required').optional(),
     program_track: z.string().min(1, 'Program track is required').optional(),
     programTrack: z.string().min(1, 'Program track is required').optional(),
@@ -29,7 +30,7 @@ export const registerSchema = z.object({
         path: ['firstName'],
     }
 ).refine(
-    (data) => !!(data.program || data.program_track || data.programTrack),
+    (data) => !!(data.track_id || data.program || data.program_track || data.programTrack),
     {
         message: 'Program is required',
         path: ['program'],
@@ -54,6 +55,7 @@ export const resendVerificationSchema = z.object({
 
 export const updateProfileSchema = z.object({
     name: z.string().min(2).optional(),
+    track_id: z.string().uuid('Invalid track id').optional(),
     program: z.string().optional(),
     program_track: z.string().optional(),
     programTrack: z.string().optional(),

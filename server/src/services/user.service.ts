@@ -13,6 +13,47 @@ export class UserService {
         return { firstName, lastName };
     }
 
+    private async resolveActiveTrack(input?: { track_id?: string; program_track?: string }) {
+        if (!input?.track_id && !input?.program_track) {
+            return undefined;
+        }
+
+        if (input?.track_id) {
+            const byId = await prisma.track.findFirst({
+                where: { id: input.track_id, isActive: true },
+                select: { id: true, name: true },
+            });
+
+            if (!byId) {
+                throw ApiError.badRequest('Selected program track is invalid or inactive');
+            }
+
+            return byId;
+        }
+
+        const normalized = input.program_track?.trim();
+        if (!normalized) {
+            return undefined;
+        }
+
+        const byNameOrCode = await prisma.track.findFirst({
+            where: {
+                isActive: true,
+                OR: [
+                    { name: { equals: normalized, mode: 'insensitive' } },
+                    { code: { equals: normalized, mode: 'insensitive' } },
+                ],
+            },
+            select: { id: true, name: true },
+        });
+
+        if (!byNameOrCode) {
+            throw ApiError.badRequest('Selected program track is invalid or inactive');
+        }
+
+        return byNameOrCode;
+    }
+
     /**
      * List all users with pagination and optional filters.
      */
@@ -48,8 +89,12 @@ export class UserService {
                     lastName: true,
                     role: true,
                     status: true,
+                    trackId: true,
                     programTrack: true,
                     createdAt: true,
+                    track: {
+                        select: { id: true, name: true, code: true },
+                    },
                 },
                 skip,
                 take: limit,
@@ -62,7 +107,9 @@ export class UserService {
             ...user,
             name: `${user.firstName} ${user.lastName}`.trim(),
             status: fromDbUserStatus(user.status as string),
-            program_track: user.programTrack,
+            program: user.track?.name || user.programTrack || null,
+            program_track: user.track?.name || user.programTrack || null,
+            track_id: user.trackId || user.track?.id || null,
         }));
 
         return { users: normalized, total, page, limit };
@@ -75,6 +122,7 @@ export class UserService {
         role: Role;
         status?: string;
         program_track?: string;
+        track_id?: string;
         major?: string;
         yearLevel?: string;
         section?: string;
@@ -86,6 +134,10 @@ export class UserService {
         if (existing) throw ApiError.conflict('User with this email already exists');
 
         const passwordHash = await bcrypt.hash(data.password, 10);
+        const resolvedTrack = await this.resolveActiveTrack({
+            track_id: data.track_id,
+            program_track: resolveProgramTrack({ program_track: data.program_track }),
+        });
 
         const user = await prisma.user.create({
             data: {
@@ -95,7 +147,8 @@ export class UserService {
                 passwordHash,
                 role: data.role,
                 status: toDbUserStatus(data.status || 'ACTIVE') as any,
-                programTrack: resolveProgramTrack({ program_track: data.program_track }),
+                trackId: resolvedTrack?.id,
+                programTrack: resolvedTrack?.name,
                 createdByAdmin: true,
             },
             select: {
@@ -105,8 +158,12 @@ export class UserService {
                 lastName: true,
                 role: true,
                 status: true,
+                trackId: true,
                 programTrack: true,
                 createdAt: true,
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
             },
         });
 
@@ -114,7 +171,9 @@ export class UserService {
             ...user,
             name: `${user.firstName} ${user.lastName}`.trim(),
             status: fromDbUserStatus(user.status as string),
-            program_track: user.programTrack,
+            program: user.track?.name || user.programTrack || null,
+            program_track: user.track?.name || user.programTrack || null,
+            track_id: user.trackId || user.track?.id || null,
         };
     }
 
