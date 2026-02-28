@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
     Download,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import api from '@/lib/axios';
 
 const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, bgColor: string, borderColor: string }> = {
     'Professional Education': {
@@ -41,20 +42,109 @@ const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, b
 const ExamResultPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
+    const [result, setResult] = useState<any | null>(null);
 
-    const results = {
-        totalQuestions: 0,
-        correct: 0,
-        incorrect: 0,
-        skipped: 0,
-        score: "0%",
-        date: "N/A",
-        timeSpent: "00:00:00",
-        avgTime: "0s"
-    };
+    useEffect(() => {
+        const loadResult = async () => {
+            if (!id) {
+                setError('Missing exam id.');
+                setLoading(false);
+                return;
+            }
 
-    const sections: any[] = [];
+            try {
+                setLoading(true);
+                setError(null);
+
+                let resolvedAttemptId = searchParams.get('attemptId');
+
+                if (!resolvedAttemptId) {
+                    const attemptsResponse = await api.get('/attempts', {
+                        params: {
+                            examId: id,
+                            page: 1,
+                            limit: 50,
+                        },
+                    });
+
+                    const attempts = (attemptsResponse.data.data || []) as any[];
+                    const submittedAttempts = attempts.filter((attempt) => attempt.status === 'SUBMITTED');
+
+                    if (submittedAttempts.length === 0) {
+                        throw new Error('No submitted result found for this exam yet.');
+                    }
+
+                    resolvedAttemptId = submittedAttempts[0].id;
+                }
+
+                const resultResponse = await api.get(`/attempts/${resolvedAttemptId}/result`);
+                setAttemptId(resolvedAttemptId);
+                setResult(resultResponse.data.data);
+            } catch (requestError: any) {
+                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load exam result.';
+                setError(message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadResult();
+    }, [id, searchParams]);
+
+    const results = useMemo(() => {
+        if (!result) {
+            return {
+                totalQuestions: 0,
+                correct: 0,
+                incorrect: 0,
+                skipped: 0,
+                score: '0%',
+                date: 'N/A',
+                timeSpent: '00:00:00',
+                avgTime: '0s',
+            };
+        }
+
+        const timeSpentSeconds = result.timeSpentSeconds || 0;
+        const h = Math.floor(timeSpentSeconds / 3600);
+        const m = Math.floor((timeSpentSeconds % 3600) / 60);
+        const s = Math.floor(timeSpentSeconds % 60);
+        const avgPerQuestion = result.stats.totalQuestions > 0
+            ? Math.round(timeSpentSeconds / result.stats.totalQuestions)
+            : 0;
+
+        return {
+            totalQuestions: result.stats.totalQuestions,
+            correct: result.stats.correct,
+            incorrect: result.stats.incorrect,
+            skipped: result.stats.skipped,
+            score: `${Number(result.percentage || result.stats.accuracy || 0).toFixed(2)}%`,
+            date: result.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A',
+            timeSpent: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`,
+            avgTime: `${avgPerQuestion}s`,
+        };
+    }, [result]);
+
+    const sections: any[] = result?.sections || [];
+    const questionDetails: any[] = result?.questionDetails || [];
     const safeTotal = results.totalQuestions > 0 ? results.totalQuestions : 1;
+
+    if (loading) {
+        return <div className="p-6 text-sm text-gray-500">Loading exam result...</div>;
+    }
+
+    if (error || !result) {
+        return (
+            <div className="p-6 space-y-4">
+                <p className="text-sm text-red-600 font-semibold">{error || 'Unable to load result.'}</p>
+                <Button variant="outline" onClick={() => navigate('/exams')}>Back to Exams</Button>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col gap-6 font-lexend pb-10">
@@ -112,7 +202,7 @@ const ExamResultPage: React.FC = () => {
                                                 <div>
                                                     <h4 className="font-bold text-gray-900">{sec.name}</h4>
                                                     <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                                                        {sec.total} Questions &bull; <span className="text-red-500">{sec.wrong} mistakes</span>
+                                                        {sec.total} Questions &bull; <span className="text-red-500">{sec.incorrect} mistakes</span>
                                                     </p>
                                                 </div>
                                             </div>
@@ -127,7 +217,7 @@ const ExamResultPage: React.FC = () => {
                                                         style={{ width: `${sec.score}%` }}
                                                     />
                                                 </div>
-                                                <Button size="icon" variant="ghost" className="rounded-full text-gray-300" onClick={() => navigate(`/exams/${id}/review`)}>
+                                                <Button size="icon" variant="ghost" className="rounded-full text-gray-300" onClick={() => navigate(`/exams/${id}/review?attemptId=${attemptId}`)}>
                                                     <ChevronRight size={20} />
                                                 </Button>
                                             </div>
@@ -145,9 +235,47 @@ const ExamResultPage: React.FC = () => {
                         )}
                     </div>
 
+                    <div className="mt-2 space-y-3">
+                        <h3 className="text-lg font-black text-gray-900">Question Review Snapshot</h3>
+                        {questionDetails.length === 0 ? (
+                            <Card className="border-gray-100 shadow-sm rounded-2xl">
+                                <div className="p-6 text-sm text-gray-500 font-medium">
+                                    No question-level review data available.
+                                </div>
+                            </Card>
+                        ) : (
+                            questionDetails.map((question) => (
+                                <Card key={question.id} className="border-gray-100 shadow-sm rounded-2xl overflow-hidden">
+                                    <div className="p-5 space-y-3">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                Question #{question.orderNo} • {question.section || 'General Section'}
+                                            </p>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${question.isCorrect ? 'bg-green-50 text-green-700' : question.userChoice ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+                                                {question.isCorrect ? 'Correct' : question.userChoice ? 'Incorrect' : 'Skipped'}
+                                            </span>
+                                        </div>
+
+                                        <p className="text-sm font-bold text-gray-900">{question.questionText}</p>
+
+                                        {question.imageUrl && (
+                                            <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
+                                                <img
+                                                    src={question.imageUrl}
+                                                    alt="Question attachment"
+                                                    className="max-h-80 w-auto max-w-full rounded-lg border border-gray-100 object-contain bg-white"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </Card>
+                            ))
+                        )}
+                    </div>
+
                     <div className="mt-4">
                         <Button
-                            onClick={() => navigate(`/exams/${id}/review`)}
+                            onClick={() => navigate(`/exams/${id}/review?attemptId=${attemptId}`)}
                             className="w-full h-14 bg-primary hover:bg-primary/95 text-white font-black rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
                         >
                             <Search size={20} />

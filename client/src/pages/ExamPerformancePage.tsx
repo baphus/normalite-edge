@@ -90,13 +90,14 @@ interface AttemptQuestion {
     id: string;
     orderNo?: number;
     questionText?: string;
+    imageUrl?: string | null;
     choiceA?: string;
     choiceB?: string;
     choiceC?: string;
     choiceD?: string;
     correctChoice?: string;
     rationalization?: string | null;
-    section?: string | null;
+    section?: string | { id?: string; title?: string } | null;
 }
 
 interface AttemptReview {
@@ -311,8 +312,12 @@ const ExamPerformancePage: React.FC = () => {
                 return {
                     id: question.id,
                     orderNo: asNumber(question.orderNo),
-                    section: question.section?.trim() || 'General Section',
+                    section: (typeof question.section === 'string'
+                        ? question.section
+                        : (question.section as any)?.title || ''
+                    ).trim() || 'General Section',
                     questionText: question.questionText?.trim() || 'No question text available.',
+                    imageUrl: question.imageUrl || null,
                     selectedChoice: toChoiceLabel(selectedChoice),
                     correctChoice: toChoiceLabel(correctChoice),
                     isCorrect,
@@ -474,6 +479,8 @@ const ExamPerformancePage: React.FC = () => {
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">Track</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">Year</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">Section</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">Started</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">Submitted</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">School Email</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center h-12">Score</TableHead>
                                     <TableHead className="pr-4 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right h-12">Action</TableHead>
@@ -482,7 +489,7 @@ const ExamPerformancePage: React.FC = () => {
                             <TableBody>
                                 {filteredAttempts.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="py-10 text-center text-sm text-gray-500 font-medium">
+                                        <TableCell colSpan={9} className="py-10 text-center text-sm text-gray-500 font-medium">
                                             No attempt records found for this exam.
                                         </TableCell>
                                     </TableRow>
@@ -505,6 +512,8 @@ const ExamPerformancePage: React.FC = () => {
                                                 <TableCell className="text-xs font-semibold text-gray-700">{studentTrack}</TableCell>
                                                 <TableCell className="text-xs font-semibold text-gray-700">{studentYear}</TableCell>
                                                 <TableCell className="text-xs font-semibold text-gray-700">{studentSection}</TableCell>
+                                                <TableCell className="text-xs font-semibold text-gray-700">{formatDate(attempt.startedAt)}</TableCell>
+                                                <TableCell className="text-xs font-semibold text-gray-700">{formatDate(attempt.submittedAt)}</TableCell>
                                                 <TableCell className="text-xs font-semibold text-gray-700">{studentEmail}</TableCell>
                                                 <TableCell className="text-center font-black text-sm text-gray-700">
                                                     {formatPercent(scorePercent)}
@@ -604,7 +613,7 @@ const ExamPerformancePage: React.FC = () => {
                         <div className="p-8 text-sm text-gray-500 font-semibold">No attempt review data found.</div>
                     ) : (
                         <div className="p-8 space-y-6 max-h-[72vh] overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                 <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Student</p>
                                     <p className="text-sm font-bold text-gray-900 mt-1">{attemptReview.user?.name || 'Unknown User'}</p>
@@ -618,8 +627,12 @@ const ExamPerformancePage: React.FC = () => {
                                     <p className="text-sm font-bold text-gray-900 mt-1">{incorrectCount}</p>
                                 </div>
                                 <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Started</p>
+                                    <p className="text-sm font-bold text-gray-900 mt-1">{formatDate(selectedAttempt?.startedAt)}</p>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Submitted</p>
-                                    <p className="text-sm font-bold text-gray-900 mt-1">{formatDate(attemptReview.submittedAt)}</p>
+                                    <p className="text-sm font-bold text-gray-900 mt-1">{formatDate(attemptReview.submittedAt || selectedAttempt?.submittedAt || null)}</p>
                                 </div>
                             </div>
 
@@ -635,6 +648,15 @@ const ExamPerformancePage: React.FC = () => {
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Question #{entry.orderNo || '—'} • {entry.section}</p>
                                                     <p className="text-sm font-bold text-gray-900 mt-1">{entry.questionText}</p>
+                                                    {entry.imageUrl && (
+                                                        <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50/30 p-3">
+                                                            <img
+                                                                src={entry.imageUrl}
+                                                                alt="Question attachment"
+                                                                className="max-h-72 w-auto max-w-full rounded-lg border border-gray-100 object-contain bg-white"
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <Badge className={`rounded-xl text-[9px] font-black px-3 py-1 uppercase tracking-widest border-none ${entry.isCorrect ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                                                     {entry.isCorrect ? <CheckCircle2 size={12} className="mr-1" /> : <XCircle size={12} className="mr-1" />}

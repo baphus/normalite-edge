@@ -184,6 +184,7 @@ const ExamsPage: React.FC = () => {
                     {filteredExams.map((exam) => {
                         const attemptsRemaining = exam.attempts_remaining ?? 0;
                         const hasSubmitted = Boolean(exam.hasSubmitted || exam.userAttemptStatus === 'SUBMITTED' || attemptsRemaining === 0);
+                        const hasInProgress = exam.userAttemptStatus === 'IN_PROGRESS';
                         const isLive = exam.status === 'LIVE';
                         const canTake = isLive && !hasSubmitted;
                         const sectionTitles = (exam.sections || [])
@@ -227,6 +228,12 @@ const ExamsPage: React.FC = () => {
                                                 </span>
                                             </div>
                                         </div>
+                                        {hasInProgress && canTake && (
+                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 uppercase tracking-widest">
+                                                <Clock size={12} className="text-amber-500" />
+                                                In Progress: Resume from last saved point
+                                            </div>
+                                        )}
                                         {exam.deadline && (
                                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                 <Calendar size={12} className="text-gray-300" />
@@ -255,7 +262,7 @@ const ExamsPage: React.FC = () => {
                                             }`}
                                     >
                                         {canTake ? (
-                                            <>Take Exam <Play size={18} fill="currentColor" /></>
+                                            <>{hasInProgress ? 'Resume Exam' : 'Take Exam'} <Play size={18} fill="currentColor" /></>
                                         ) : (
                                             <>No Attempts Left <Lock size={18} /></>
                                         )}
@@ -323,7 +330,7 @@ const ExamsPage: React.FC = () => {
                             onClick={() => viewingExam && navigate(`/exams/${viewingExam.id}/take`)}
                             disabled={!(viewingExam && viewingExam.status === 'LIVE' && !Boolean(viewingExam.hasSubmitted || viewingExam.userAttemptStatus === 'SUBMITTED' || (viewingExam.attempts_remaining ?? 0) === 0))}
                         >
-                            Take Exam
+                            {viewingExam?.userAttemptStatus === 'IN_PROGRESS' ? 'Resume Exam' : 'Take Exam'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

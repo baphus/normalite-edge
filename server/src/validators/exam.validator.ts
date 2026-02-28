@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
 const categorySchema = z.enum(['GENERAL_EDUCATION', 'PROFESSIONAL_EDUCATION', 'SPECIALIZATION']);
+const imageUrlSchema = z
+    .string()
+    .trim()
+    .refine((value) => /^(https?:\/\/|data:image\/)/i.test(value), {
+        message: 'Image must be an http(s) URL or data:image value',
+    });
 
 export const createExamSchema = z.object({
     title: z.string().min(1, 'Title is required'),
@@ -23,6 +29,7 @@ export const createExamSchema = z.object({
         correctAnswer: z.string().min(1, 'Correct answer is required'),
         explanation: z.string().optional(),
         section: z.string().min(1).optional(),
+        imageUrl: imageUrlSchema.optional(),
     })).min(1, 'At least 1 question is required'),
 });
 
@@ -48,6 +55,7 @@ export const updateExamSchema = z.object({
         correctAnswer: z.string().min(1),
         explanation: z.string().optional(),
         section: z.string().min(1).optional(),
+        imageUrl: imageUrlSchema.optional(),
     })).optional(),
 });
 
@@ -55,6 +63,7 @@ export const submitAttemptSchema = z.object({
     answers: z.record(z.string(), z.string()),
     timeSpent: z.number().int().optional(),
     autoSubmitted: z.boolean().optional(),
+    remainingSeconds: z.number().int().optional(),
 });
 
 export const saveAttemptSchema = z.object({

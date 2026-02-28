@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -21,13 +21,16 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
+import api from '@/lib/axios';
 
 interface QuestionReview {
-    id: number;
+    id: string;
+    orderNo: number;
     text: string;
+    imageUrl?: string | null;
     options: string[];
-    userAnswer: number | null;
-    correctAnswer: number;
+    userAnswer: string | null;
+    correctAnswer: string;
     section: string;
     rationalization: string;
 }
@@ -56,11 +59,96 @@ const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, b
 const ExamReviewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
+    const [questions, setQuestions] = useState<QuestionReview[]>([]);
     const [filterStatus, setFilterStatus] = useState<'all' | 'correct' | 'incorrect'>('all');
     const [filterSection, setFilterSection] = useState<string>('all');
-    const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
+    const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
-    const questions: QuestionReview[] = [];
+    useEffect(() => {
+        const fetchReview = async () => {
+            if (!id) {
+                setError('Missing exam id.');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                setError(null);
+
+                let resolvedAttemptId = searchParams.get('attemptId');
+
+                if (!resolvedAttemptId) {
+                    const attemptsResponse = await api.get('/attempts', {
+                        params: {
+                            examId: id,
+                            page: 1,
+                            limit: 50,
+                        },
+                    });
+
+                    const attempts = (attemptsResponse.data.data || []) as any[];
+                    const submittedAttempts = attempts.filter((attempt) => attempt.status === 'SUBMITTED');
+                    if (submittedAttempts.length === 0) {
+                        throw new Error('No submitted attempt available for review.');
+                    }
+
+                    resolvedAttemptId = submittedAttempts[0].id;
+                }
+
+                const reviewResponse = await api.get(`/attempts/${resolvedAttemptId}`);
+                const review = reviewResponse.data.data;
+                const answerMap = (review.answers || {}) as Record<string, string>;
+
+                const parsedQuestions: QuestionReview[] = (review.exam?.questions || []).map((question: any) => {
+                    const rawSection = question.section;
+                    const sectionName = typeof rawSection === 'string'
+                        ? rawSection
+                        : rawSection?.title || '';
+
+                    return {
+                        id: question.id,
+                        orderNo: question.orderNo,
+                        text: question.questionText,
+                        imageUrl: question.imageUrl || null,
+                        options: [question.choiceA, question.choiceB, question.choiceC, question.choiceD],
+                        userAnswer: answerMap[question.id] || null,
+                        correctAnswer: question.correctChoice,
+                        section: sectionName.trim() || 'General Section',
+                        rationalization: question.rationalization || 'No explanation provided.',
+                    };
+                });
+
+                setAttemptId(resolvedAttemptId);
+                setQuestions(parsedQuestions);
+            } catch (requestError: any) {
+                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load review data.';
+                setError(message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchReview();
+    }, [id, searchParams]);
+
+    const sectionOptions = useMemo(() => {
+        return Array.from(new Set(questions.map((question) => question.section))).sort();
+    }, [questions]);
+
+    const metrics = useMemo(() => {
+        const total = questions.length;
+        const correct = questions.filter((question) => question.userAnswer === question.correctAnswer).length;
+        const answered = questions.filter((question) => Boolean(question.userAnswer)).length;
+        const incorrect = answered - correct;
+        const accuracy = total > 0 ? Math.round((correct / total) * 10000) / 100 : 0;
+
+        return { total, correct, incorrect, accuracy };
+    }, [questions]);
 
     const filteredQuestions = questions.filter(q => {
         const matchesStatus = filterStatus === 'all' ||
@@ -70,9 +158,22 @@ const ExamReviewPage: React.FC = () => {
         return matchesStatus && matchesSection;
     });
 
-    const toggleExpand = (id: number) => {
-        setExpandedQuestion(expandedQuestion === id ? null : id);
+    const toggleExpand = (questionId: string) => {
+        setExpandedQuestion(expandedQuestion === questionId ? null : questionId);
     };
+
+    if (loading) {
+        return <div className="p-6 text-sm text-gray-500">Loading exam review...</div>;
+    }
+
+    if (error) {
+        return (
+            <div className="p-6 space-y-4">
+                <p className="text-sm text-red-600 font-semibold">{error}</p>
+                <Button variant="outline" onClick={() => navigate('/exams')}>Back to Exams</Button>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col gap-6 font-lexend pb-10">
@@ -82,7 +183,7 @@ const ExamReviewPage: React.FC = () => {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => navigate(`/exams/${id}/result`)}
+                        onClick={() => navigate(`/exams/${id}/result${attemptId ? `?attemptId=${attemptId}` : ''}`)}
                         className="rounded-full hover:bg-gray-100"
                     >
                         <ArrowLeft size={24} className="text-gray-500" />
@@ -95,17 +196,17 @@ const ExamReviewPage: React.FC = () => {
 
                 <div className="flex items-center gap-6 bg-gray-50 px-6 py-3 rounded-2xl border border-gray-100">
                     <div className="text-center">
-                        <div className="text-red-500 font-black text-xl leading-none">0</div>
+                        <div className="text-red-500 font-black text-xl leading-none">{metrics.incorrect}</div>
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Mistakes</div>
                     </div>
                     <div className="h-8 w-px bg-gray-200" />
                     <div className="text-center">
-                        <div className="text-gray-900 font-black text-xl leading-none">0<span className="text-xs font-normal text-gray-400">/0</span></div>
+                        <div className="text-gray-900 font-black text-xl leading-none">{metrics.correct}<span className="text-xs font-normal text-gray-400">/{metrics.total}</span></div>
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Total Score</div>
                     </div>
                     <div className="h-8 w-px bg-gray-200" />
                     <div className="text-center">
-                        <div className="text-green-600 font-black text-xl leading-none">0%</div>
+                        <div className="text-green-600 font-black text-xl leading-none">{metrics.accuracy}%</div>
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Accuracy</div>
                     </div>
                 </div>
@@ -138,9 +239,9 @@ const ExamReviewPage: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent className="font-lexend">
                             <SelectItem value="all">All Sections</SelectItem>
-                            <SelectItem value="General Education">General Education</SelectItem>
-                            <SelectItem value="Professional Education">Professional Education</SelectItem>
-                            <SelectItem value="Major Subject">Major Subject</SelectItem>
+                            {sectionOptions.map((sectionName) => (
+                                <SelectItem key={sectionName} value={sectionName}>{sectionName}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>
@@ -165,7 +266,7 @@ const ExamReviewPage: React.FC = () => {
                                 <div className="flex items-center gap-4 min-w-0">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isCorrect ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
                                         }`}>
-                                        {q.id}
+                                        {q.orderNo}
                                     </div>
                                     <div className="flex flex-col min-w-0">
                                         <div className="flex items-center gap-2 mb-0.5">
@@ -192,6 +293,15 @@ const ExamReviewPage: React.FC = () => {
                                     <div className="space-y-2">
                                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Question</h4>
                                         <p className="text-gray-900 font-semibold leading-relaxed">{q.text}</p>
+                                        {q.imageUrl && (
+                                            <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3">
+                                                <img
+                                                    src={q.imageUrl}
+                                                    alt="Question attachment"
+                                                    className="max-h-80 w-auto max-w-full rounded-xl border border-gray-100 object-contain bg-white"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -207,7 +317,9 @@ const ExamReviewPage: React.FC = () => {
                                                 </span>
                                             </div>
                                             <p className="text-sm font-bold text-gray-900">
-                                                {q.userAnswer !== null ? `${String.fromCharCode(65 + q.userAnswer)}. ${q.options[q.userAnswer]}` : 'Skipped'}
+                                                {q.userAnswer !== null
+                                                    ? `${q.userAnswer}. ${q.options[(q.userAnswer.charCodeAt(0) - 65)] || ''}`
+                                                    : 'Skipped'}
                                             </p>
                                         </div>
 
@@ -221,7 +333,7 @@ const ExamReviewPage: React.FC = () => {
                                                     </span>
                                                 </div>
                                                 <p className="text-sm font-bold text-gray-900">
-                                                    {String.fromCharCode(65 + q.correctAnswer)}. {q.options[q.correctAnswer]}
+                                                    {q.correctAnswer}. {q.options[(q.correctAnswer.charCodeAt(0) - 65)] || ''}
                                                 </p>
                                             </div>
                                         )}
@@ -260,7 +372,7 @@ const ExamReviewPage: React.FC = () => {
             <div className="mt-8 pt-8 border-t border-gray-100 flex items-center justify-between">
                 <Button
                     variant="ghost"
-                    onClick={() => navigate(`/exams/${id}/result`)}
+                    onClick={() => navigate(`/exams/${id}/result${attemptId ? `?attemptId=${attemptId}` : ''}`)}
                     className="font-bold text-gray-500 gap-2 px-0 hover:bg-transparent hover:text-primary"
                 >
                     <ArrowLeft size={20} /> Back to Summary

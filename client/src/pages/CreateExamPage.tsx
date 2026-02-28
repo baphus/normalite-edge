@@ -13,6 +13,7 @@ import {
     Download,
     FileJson,
     FileSpreadsheet,
+    ImagePlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ import api from '@/lib/axios';
 interface Question {
     id: string;
     text: string;
+    imageUrl?: string;
     options: string[];
     correctOption: number;
     rationale: string;
@@ -52,7 +54,12 @@ interface ExamQuestionApi {
     id: string;
     orderNo?: number;
     sectionId?: string;
+    section?: {
+        id?: string;
+        title?: string;
+    };
     questionText?: string;
+    imageUrl?: string;
     choiceA?: string;
     choiceB?: string;
     choiceC?: string;
@@ -113,7 +120,7 @@ const CreateExamPage: React.FC = () => {
     const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [sections, setSections] = useState<string[]>([]);
-    const [activeSection, setActiveSection] = useState('Uncategorized');
+    const [activeSection, setActiveSection] = useState('General Section');
     const [isAddingSection, setIsAddingSection] = useState(false);
     const [newSectionName, setNewSectionName] = useState('');
     const [programs, setPrograms] = useState<string[]>(['All Programs']);
@@ -179,13 +186,16 @@ const CreateExamPage: React.FC = () => {
                         .map((q, index) => {
                             const letters = ['A', 'B', 'C', 'D'];
                             const correctIndex = letters.indexOf((q.correctChoice || 'A').toUpperCase());
+                            const resolvedSectionId = q.sectionId || q.section?.id || '';
+                            const resolvedSectionTitle = q.section?.title || sectionMap.get(resolvedSectionId) || '';
                             return {
                                 id: q.id || `${Date.now()}-${index}`,
                                 text: q.questionText || '',
+                                imageUrl: q.imageUrl || '',
                                 options: [q.choiceA || '', q.choiceB || '', q.choiceC || '', q.choiceD || ''],
                                 correctOption: correctIndex >= 0 ? correctIndex : 0,
                                 rationale: q.rationalization || '',
-                                section: sectionMap.get(q.sectionId || '') || 'General Section',
+                                section: resolvedSectionTitle || 'General Section',
                             };
                         });
                     setQuestions(mapped);
@@ -199,7 +209,11 @@ const CreateExamPage: React.FC = () => {
                 const inferredSection = (exam.subject || '').trim() || 'General Section';
                 const nextSections = fetchedSections.length > 0
                     ? fetchedSections
-                    : Array.from(new Set(apiQuestions.map((q) => sectionMap.get(q.sectionId || '') || '').filter(Boolean)));
+                    : Array.from(new Set(
+                        apiQuestions
+                            .map((q) => q.section?.title || sectionMap.get(q.sectionId || q.section?.id || '') || '')
+                            .filter(Boolean)
+                    ));
                 const safeSections = nextSections.length > 0 ? nextSections : [inferredSection];
                 setSections(safeSections);
                 setActiveSection(safeSections[0]);
@@ -258,9 +272,10 @@ const CreateExamPage: React.FC = () => {
     };
 
     const removeSection = (section: string) => {
-        setSections(sections.filter(s => s !== section));
+        const remainingSections = sections.filter((s) => s !== section);
+        setSections(remainingSections);
         if (activeSection === section) {
-            setActiveSection(sections[0] || 'Uncategorized');
+            setActiveSection(remainingSections[0] || 'General Section');
         }
     };
 
@@ -268,10 +283,11 @@ const CreateExamPage: React.FC = () => {
         const newQuestion: Question = {
             id: Date.now().toString(),
             text: '',
+            imageUrl: '',
             options: ['', '', '', ''],
             correctOption: 0,
             rationale: '',
-            section: activeSection || 'Uncategorized'
+            section: activeSection || sections[0] || 'General Section'
         };
         setQuestions([...questions, newQuestion]);
     };
@@ -289,6 +305,38 @@ const CreateExamPage: React.FC = () => {
     const duplicateQuestion = (q: Question) => {
         const duplicate = { ...q, id: Date.now().toString() };
         setQuestions([...questions, duplicate]);
+    };
+
+    const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Failed to read selected image file'));
+        reader.readAsDataURL(file);
+    });
+
+    const handleQuestionImageUpload = async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select a valid image file.');
+            return;
+        }
+
+        const maxFileSizeInBytes = 3 * 1024 * 1024;
+        if (file.size > maxFileSizeInBytes) {
+            alert('Image must be 3MB or smaller.');
+            return;
+        }
+
+        try {
+            const imageDataUrl = await readFileAsDataUrl(file);
+            updateQuestion(questionId, { imageUrl: imageDataUrl });
+        } catch (error) {
+            console.error('Failed to attach question image', error);
+            alert('Failed to attach image. Please try again.');
+        }
     };
 
     const normalizeCorrectOption = (correctAnswer: string) => {
@@ -311,13 +359,14 @@ const CreateExamPage: React.FC = () => {
 
     const downloadTemplate = (format: 'csv' | 'json') => {
         const csvTemplate = [
-            'questionText,choiceA,choiceB,choiceC,choiceD,correctAnswer,rationalization,section',
-            'What is 2 + 2?,2,3,4,5,C,4 is the correct sum,General Education',
+            'questionText,imageUrl,choiceA,choiceB,choiceC,choiceD,correctAnswer,rationalization,section',
+            'What is 2 + 2?,https://example.com/question-image.png,2,3,4,5,C,4 is the correct sum,General Education',
         ].join('\n');
 
         const jsonTemplate = JSON.stringify([
             {
                 questionText: 'What is 2 + 2?',
+                imageUrl: 'https://example.com/question-image.png',
                 choiceA: '2',
                 choiceB: '3',
                 choiceC: '4',
@@ -427,6 +476,7 @@ const CreateExamPage: React.FC = () => {
                 return {
                     id: `${Date.now()}-${index}`,
                     text,
+                    imageUrl: String(record.imageUrl || record.image_url || record.image || '').trim(),
                     options,
                     correctOption,
                     rationale: String(record.rationalization || record.explanation || '').trim(),
@@ -519,10 +569,11 @@ const CreateExamPage: React.FC = () => {
         const preparedQuestions = questions
             .map((q) => ({
                 text: q.text.trim(),
+                imageUrl: q.imageUrl?.trim() || undefined,
                 choices: q.options.map((option) => option.trim()),
                 correctAnswer: ['A', 'B', 'C', 'D'][q.correctOption],
                 explanation: q.rationale.trim() || undefined,
-                section: q.section?.trim() || activeSection || sections[0] || 'General Section',
+                section: q.section?.trim() || 'General Section',
             }))
             .filter((q) => q.text.length > 0);
 
@@ -955,6 +1006,44 @@ const CreateExamPage: React.FC = () => {
                                                     placeholder="Enter your question here..."
                                                     className="min-h-[84px] rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold text-sm leading-relaxed"
                                                 />
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                                    Question Image (Optional)
+                                                </Label>
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                                    <Input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={(event) => {
+                                                            void handleQuestionImageUpload(q.id, event);
+                                                        }}
+                                                        className="h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 text-xs font-semibold file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:text-primary"
+                                                    />
+                                                    {q.imageUrl && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            className="h-10 rounded-xl border-gray-200 text-xs font-black uppercase tracking-widest"
+                                                            onClick={() => updateQuestion(q.id, { imageUrl: '' })}
+                                                        >
+                                                            Remove Image
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                {q.imageUrl && (
+                                                    <div className="rounded-2xl border border-gray-100 bg-gray-50/30 p-3">
+                                                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                                            <ImagePlus size={12} /> Image Preview
+                                                        </div>
+                                                        <img
+                                                            src={q.imageUrl}
+                                                            alt="Question attachment preview"
+                                                            className="max-h-72 w-auto max-w-full rounded-xl border border-gray-100 object-contain bg-white"
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Options */}

@@ -29,6 +29,7 @@ import LogsPage from './pages/LogsPage';
 import CreateExamPage from './pages/CreateExamPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ZoomMeetingPage from './pages/ZoomMeetingPage';
+import StudentManagementPage from './pages/StudentManagementPage';
 
 import LandingPage from './pages/LandingPage';
 
@@ -71,6 +72,9 @@ function App() {
                 <Route path="/manage-exams/create" element={<CreateExamPage />} />
                 <Route path="/manage-exams/:id/edit" element={<CreateExamPage />} />
                 <Route path="/manage-exams/:id/analytics" element={<ExamPerformancePage />} />
+                <Route path="/students" element={<StudentManagementPage />} />
+                <Route path="/reviewer/students" element={<Navigate to="/students" replace />} />
+                <Route path="/admin/students" element={<Navigate to="/students" replace />} />
               </Route>
 
               {/* Admin Only Routes */}

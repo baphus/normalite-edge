@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
     // Reviewer/Admin specific
     { name: 'Manage Materials', href: '/materials', icon: BookOpen, roles: ['ADMIN', 'REVIEWER'] },
     { name: 'Manage Exams', href: '/manage-exams', icon: FileText, roles: ['ADMIN', 'REVIEWER'] },
+    { name: 'Student Management', href: '/students', icon: Users, roles: ['ADMIN', 'REVIEWER'] },
 
     // Admin specific
     { name: 'User Management', href: '/admin/users', icon: Users, roles: ['ADMIN'] },

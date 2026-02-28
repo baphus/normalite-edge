@@ -87,12 +87,15 @@ interface ManagedExamApi {
     categoryCode?: 'GENERAL_EDUCATION' | 'PROFESSIONAL_EDUCATION' | 'SPECIALIZATION';
     questions?: Array<{
         questionText?: string;
+        imageUrl?: string;
         choiceA?: string;
         choiceB?: string;
         choiceC?: string;
         choiceD?: string;
         correctChoice?: string;
         rationalization?: string;
+        sectionId?: string;
+        section?: { id?: string; title?: string } | null;
     }>;
     tracks?: Array<{ id: string; name: string; code?: string | null }>;
     sections?: Array<{ id?: string; title?: string; orderNo?: number }>;
@@ -435,6 +438,16 @@ const ManageExamsPage: React.FC = () => {
             const exam = detailResponse.data?.data as ManagedExamApi;
             const questions = exam.questions || [];
 
+            const sectionMap = new Map(
+                (exam.sections || []).map((s) => [s.id, s.title?.trim() || 'General Section'])
+            );
+
+            const sectionTitles = (exam.sections || [])
+                .slice()
+                .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
+                .map((s) => s.title?.trim())
+                .filter((t): t is string => Boolean(t));
+
             const payload = {
                 title: `${exam.title} (Copy)`,
                 subject: exam.subject || 'General Education',
@@ -442,17 +455,27 @@ const ManageExamsPage: React.FC = () => {
                 trackIds: exam.tracks?.map((track) => track.id) || [],
                 timeLimit: exam.timeLimit || 60,
                 isPublished: false,
-                questions: questions.map((question) => ({
-                    text: question.questionText || 'Untitled question',
-                    choices: [
-                        question.choiceA || '',
-                        question.choiceB || '',
-                        question.choiceC || '',
-                        question.choiceD || '',
-                    ],
-                    correctAnswer: (question.correctChoice || 'A').toUpperCase(),
-                    explanation: question.rationalization || undefined,
-                })),
+                sections: sectionTitles.length > 0 ? sectionTitles : undefined,
+                questions: questions.map((question) => {
+                    const resolvedSection =
+                        question.section?.title?.trim()
+                        || sectionMap.get(question.sectionId || '')
+                        || undefined;
+
+                    return {
+                        text: question.questionText || 'Untitled question',
+                        imageUrl: question.imageUrl || undefined,
+                        choices: [
+                            question.choiceA || '',
+                            question.choiceB || '',
+                            question.choiceC || '',
+                            question.choiceD || '',
+                        ],
+                        correctAnswer: (question.correctChoice || 'A').toUpperCase(),
+                        explanation: question.rationalization || undefined,
+                        section: resolvedSection,
+                    };
+                }),
             };
 
             const createResponse = await api.post('/exams', payload);

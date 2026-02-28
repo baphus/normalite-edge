@@ -70,13 +70,17 @@ export class ExamService {
         correctAnswer: string;
         explanation?: string;
         section?: string;
+        imageUrl?: string;
     }) {
+        const normalizedImageUrl = (data.imageUrl || '').trim();
+
         return {
             text: this.toEncodingSafeText(data.text) || '',
             choices: (data.choices || []).map((choice) => this.toEncodingSafeText(choice) || ''),
             correctAnswer: data.correctAnswer,
             explanation: this.toEncodingSafeText(data.explanation),
             section: this.toEncodingSafeText(data.section)?.trim() || 'General Section',
+            imageUrl: normalizedImageUrl || undefined,
         };
     }
 
@@ -253,7 +257,14 @@ export class ExamService {
         const exam = await prisma.exam.findUnique({
             where: { id: examId },
             include: {
-                questions: includeQuestions ? { orderBy: { orderNo: 'asc' } } : false,
+                questions: includeQuestions
+                    ? {
+                        orderBy: { orderNo: 'asc' },
+                        include: {
+                            section: { select: { id: true, title: true } },
+                        },
+                    }
+                    : false,
                 creator: { select: { id: true, firstName: true, lastName: true } },
                 trackLinks: { include: { track: true } },
                 sections: { select: { id: true, title: true, orderNo: true } },
@@ -280,10 +291,12 @@ export class ExamService {
                         id: true,
                         orderNo: true,
                         questionText: true,
+                        imageUrl: true,
                         choiceA: true,
                         choiceB: true,
                         choiceC: true,
                         choiceD: true,
+                        section: { select: { id: true, title: true } },
                     },
                 },
             },
@@ -294,11 +307,13 @@ export class ExamService {
 
         return {
             ...this.normalizeExam(exam),
-            questions: exam.questions.map((q) => ({
+            questions: exam.questions.map((q: any) => ({
                 id: q.id,
                 text: q.questionText,
+                imageUrl: q.imageUrl || null,
                 choices: [q.choiceA, q.choiceB, q.choiceC, q.choiceD],
                 orderIndex: q.orderNo,
+                section: q.section?.title || null,
             })),
         };
     }
@@ -324,6 +339,7 @@ export class ExamService {
             correctAnswer: string;
             explanation?: string;
             section?: string;
+            imageUrl?: string;
         }[];
         createdBy: string;
     }) {
@@ -400,6 +416,7 @@ export class ExamService {
                         choiceD: q.choices[3] || '',
                         correctChoice: q.correctAnswer,
                         rationalization: q.explanation,
+                        imageUrl: q.imageUrl,
                     })),
                 });
             }
@@ -457,6 +474,7 @@ export class ExamService {
             correctAnswer: string;
             explanation?: string;
             section?: string;
+            imageUrl?: string;
         }[];
     }) {
         const normalizedQuestions = data.questions?.map((q) => this.normalizeQuestionPayload(q));
@@ -553,6 +571,7 @@ export class ExamService {
                             choiceD: q.choices[3] || '',
                             correctChoice: q.correctAnswer,
                             rationalization: q.explanation,
+                            imageUrl: q.imageUrl,
                         })),
                     });
                 }

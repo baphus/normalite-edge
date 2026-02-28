@@ -54,4 +54,14 @@ export const attemptController = {
         );
         ApiResponse.success(res, attempt);
     }),
+
+    getAttemptResult: catchAsync(async (req: Request, res: Response) => {
+        const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'REVIEWER';
+        const attempt = await attemptService.getAttemptResult(
+            req.params.id as string,
+            req.user!.userId,
+            isAdmin
+        );
+        ApiResponse.success(res, attempt);
+    }),
 };
