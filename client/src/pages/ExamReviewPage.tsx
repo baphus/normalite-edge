@@ -35,6 +35,12 @@ interface QuestionReview {
     rationalization: string;
 }
 
+interface AttemptOption {
+    id: string;
+    attemptNo?: number;
+    submittedAt?: string | null;
+}
+
 const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, bgColor: string, dotColor: string }> = {
     'Professional Education': {
         color: 'text-purple-600',
@@ -59,17 +65,18 @@ const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, b
 const ExamReviewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
+    const [submittedAttempts, setSubmittedAttempts] = useState<AttemptOption[]>([]);
     const [questions, setQuestions] = useState<QuestionReview[]>([]);
     const [filterStatus, setFilterStatus] = useState<'all' | 'correct' | 'incorrect'>('all');
     const [filterSection, setFilterSection] = useState<string>('all');
     const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchReview = async () => {
+        const loadAttemptOptions = async () => {
             if (!id) {
                 setError('Missing exam id.');
                 setLoading(false);
@@ -80,27 +87,49 @@ const ExamReviewPage: React.FC = () => {
                 setLoading(true);
                 setError(null);
 
-                let resolvedAttemptId = searchParams.get('attemptId');
+                const attemptsResponse = await api.get('/attempts', {
+                    params: {
+                        examId: id,
+                        page: 1,
+                        limit: 200,
+                    },
+                });
 
-                if (!resolvedAttemptId) {
-                    const attemptsResponse = await api.get('/attempts', {
-                        params: {
-                            examId: id,
-                            page: 1,
-                            limit: 50,
-                        },
-                    });
-
-                    const attempts = (attemptsResponse.data.data || []) as any[];
-                    const submittedAttempts = attempts.filter((attempt) => attempt.status === 'SUBMITTED');
-                    if (submittedAttempts.length === 0) {
-                        throw new Error('No submitted attempt available for review.');
-                    }
-
-                    resolvedAttemptId = submittedAttempts[0].id;
+                const attempts = (attemptsResponse.data.data || []) as any[];
+                const submitted = attempts.filter((attempt) => attempt.status === 'SUBMITTED') as AttemptOption[];
+                if (submitted.length === 0) {
+                    throw new Error('No submitted attempt available for review.');
                 }
 
-                const reviewResponse = await api.get(`/attempts/${resolvedAttemptId}`);
+                setSubmittedAttempts(submitted);
+
+                const queryAttemptId = searchParams.get('attemptId');
+                const selected = queryAttemptId && submitted.some((attempt) => attempt.id === queryAttemptId)
+                    ? queryAttemptId
+                    : submitted[0].id;
+
+                setAttemptId(selected);
+                setSearchParams({ attemptId: selected }, { replace: true });
+            } catch (requestError: any) {
+                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load review data.';
+                setError(message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadAttemptOptions();
+    }, [id, setSearchParams]);
+
+    useEffect(() => {
+        const fetchReview = async () => {
+            if (!attemptId) return;
+
+            try {
+                setLoading(true);
+                setError(null);
+
+                const reviewResponse = await api.get(`/attempts/${attemptId}`);
                 const review = reviewResponse.data.data;
                 const answerMap = (review.answers || {}) as Record<string, string>;
 
@@ -123,7 +152,6 @@ const ExamReviewPage: React.FC = () => {
                     };
                 });
 
-                setAttemptId(resolvedAttemptId);
                 setQuestions(parsedQuestions);
             } catch (requestError: any) {
                 const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load review data.';
@@ -134,7 +162,12 @@ const ExamReviewPage: React.FC = () => {
         };
 
         fetchReview();
-    }, [id, searchParams]);
+    }, [attemptId]);
+
+    const handleAttemptChange = (nextAttemptId: string) => {
+        setAttemptId(nextAttemptId);
+        setSearchParams({ attemptId: nextAttemptId }, { replace: true });
+    };
 
     const sectionOptions = useMemo(() => {
         return Array.from(new Set(questions.map((question) => question.section))).sort();
@@ -195,6 +228,18 @@ const ExamReviewPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-6 bg-gray-50 px-6 py-3 rounded-2xl border border-gray-100">
+                    <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
+                        <SelectTrigger className="w-57.5 h-10 border-gray-200 rounded-xl font-bold bg-white">
+                            <SelectValue placeholder="Select attempt" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {submittedAttempts.map((attempt, index) => (
+                                <SelectItem key={attempt.id} value={attempt.id}>
+                                    Attempt {attempt.attemptNo || submittedAttempts.length - index} • {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : 'No date'}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <div className="text-center">
                         <div className="text-red-500 font-black text-xl leading-none">{metrics.incorrect}</div>
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Mistakes</div>

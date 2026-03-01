@@ -91,6 +91,8 @@ export class UserService {
                     status: true,
                     trackId: true,
                     programTrack: true,
+                    yearLevel: true,
+                    section: true,
                     createdAt: true,
                     track: {
                         select: { id: true, name: true, code: true },
@@ -149,6 +151,8 @@ export class UserService {
                 status: toDbUserStatus(data.status || 'ACTIVE') as any,
                 trackId: resolvedTrack?.id,
                 programTrack: resolvedTrack?.name,
+                yearLevel: data.yearLevel?.trim() || null,
+                section: data.section?.trim() || null,
                 createdByAdmin: true,
             },
             select: {
@@ -160,6 +164,8 @@ export class UserService {
                 status: true,
                 trackId: true,
                 programTrack: true,
+                yearLevel: true,
+                section: true,
                 createdAt: true,
                 track: {
                     select: { id: true, name: true, code: true },

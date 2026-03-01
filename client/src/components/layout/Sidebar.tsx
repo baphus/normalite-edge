@@ -49,6 +49,7 @@ const Sidebar: React.FC = () => {
     const { user, logout } = useAuth();
     const location = useLocation();
     const [unreadCount, setUnreadCount] = useState(0);
+    const [imgError, setImgError] = useState(false);
 
     const filteredNavItems = useMemo(() => navItems.filter(item =>
         user && item.roles.includes(user.role)
@@ -86,9 +87,7 @@ const Sidebar: React.FC = () => {
                         <p className="text-primary/90 text-[10px] font-medium">Everyday Digital Guide to Excellence</p>
                     </div>
                 </div>
-                <p className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wider px-1">
-                    {user?.role === 'REVIEWEE' ? 'Reviewee Portal' : user?.role === 'REVIEWER' ? 'Reviewer Portal' : 'Admin Portal'}
-                </p>
+                {/* Removed portal role text as requested */}
             </div>
 
             <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">
@@ -117,15 +116,45 @@ const Sidebar: React.FC = () => {
             </nav>
 
             <div className="p-4 border-t border-slate-100 mt-auto">
-                <div className="bg-slate-50 p-4 rounded-xl flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-                        {user?.name.charAt(0)}
-                    </div>
+                <NavLink
+                    to="/profile"
+                    className={({ isActive }) =>
+                        cn(
+                            "bg-slate-50 p-4 rounded-xl flex items-center gap-3 mb-3 transition-colors cursor-pointer group border border-transparent",
+                            isActive ? "border-primary/60 ring-2 ring-primary/10" : "hover:border-primary/20"
+                        )
+                    }
+                >
+                    {user?.picture && !imgError ? (
+                        <img
+                            src={user.picture}
+                            alt="Profile"
+                            className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                            onError={() => setImgError(true)}
+                        />
+                    ) : (
+                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                            {user?.name?.charAt(0)}
+                        </div>
+                    )}
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
-                        <p className="text-[10px] font-medium text-slate-500 truncate capitalize">{user?.role.toLowerCase()}</p>
+                        {user?.role === 'REVIEWEE' && (
+                            <>
+                                {user.program && (
+                                    <p className="text-[10px] text-primary font-semibold truncate">{user.program}</p>
+                                )}
+                                {(user.yearLevel || user.section) && (
+                                    <p className="text-[10px] text-slate-400 font-medium truncate">
+                                        {user.yearLevel ? user.yearLevel : ''}
+                                        {user.yearLevel && user.section ? ' • ' : ''}
+                                        {user.section ? `Section ${user.section}` : ''}
+                                    </p>
+                                )}
+                            </>
+                        )}
                     </div>
-                </div>
+                </NavLink>
                 <button
                     onClick={logout}
                     className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-red-600 hover:bg-slate-50 rounded-lg transition-colors"

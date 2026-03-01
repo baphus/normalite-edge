@@ -90,6 +90,9 @@ model User {
   status           UserStatus @default(PENDING)
   trackId          String?    @map("track_id") @db.Uuid
   programTrack     String?    @map("program_track")
+  yearLevel        String?    @map("year_level")
+  section          String?
+  profilePicture   String?    @map("profile_picture")
   createdByAdmin   Boolean    @default(false) @map("created_by_admin")
   isExternalEmail  Boolean    @default(false) @map("is_external_email")
   createdAt        DateTime   @default(now()) @map("created_at")

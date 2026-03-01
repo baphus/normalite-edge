@@ -33,6 +33,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import api from '@/lib/axios';
+import { uploadImageToCloudinary } from '@/lib/upload';
 
 interface Question {
     id: string;
@@ -307,13 +308,6 @@ const CreateExamPage: React.FC = () => {
         setQuestions([...questions, duplicate]);
     };
 
-    const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Failed to read selected image file'));
-        reader.readAsDataURL(file);
-    });
-
     const handleQuestionImageUpload = async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = '';
@@ -331,23 +325,37 @@ const CreateExamPage: React.FC = () => {
         }
 
         try {
-            const imageDataUrl = await readFileAsDataUrl(file);
-            updateQuestion(questionId, { imageUrl: imageDataUrl });
+            const secureUrl = await uploadImageToCloudinary(file, 'question-images');
+            updateQuestion(questionId, { imageUrl: secureUrl });
         } catch (error) {
             console.error('Failed to attach question image', error);
             alert('Failed to attach image. Please try again.');
         }
     };
 
-    const normalizeCorrectOption = (correctAnswer: string) => {
+    const normalizeCorrectOption = (correctAnswer: unknown, choices: string[] = []) => {
         const letters = ['A', 'B', 'C', 'D'];
-        const normalized = correctAnswer.trim().toUpperCase();
-        const letterIndex = letters.indexOf(normalized);
+        const normalized = String(correctAnswer ?? '').trim();
+        const normalizedUpper = normalized.toUpperCase();
+        const letterIndex = letters.indexOf(normalizedUpper);
         if (letterIndex >= 0) return letterIndex;
 
         const numeric = Number(normalized);
         if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= 4) {
             return numeric - 1;
+        }
+
+        if (!Number.isNaN(numeric) && numeric >= 0 && numeric <= 3) {
+            return numeric;
+        }
+
+        if (normalized) {
+            const matchedChoiceIndex = choices.findIndex(
+                (choice) => choice.trim().toLowerCase() === normalized.toLowerCase()
+            );
+            if (matchedChoiceIndex >= 0) {
+                return matchedChoiceIndex;
+            }
         }
 
         return 0;
@@ -359,23 +367,27 @@ const CreateExamPage: React.FC = () => {
 
     const downloadTemplate = (format: 'csv' | 'json') => {
         const csvTemplate = [
+            '# correctAnswer supports A/B/C/D, 1/2/3/4, 0/1/2/3, or exact option text',
             'questionText,imageUrl,choiceA,choiceB,choiceC,choiceD,correctAnswer,rationalization,section',
             'What is 2 + 2?,https://example.com/question-image.png,2,3,4,5,C,4 is the correct sum,General Education',
         ].join('\n');
 
-        const jsonTemplate = JSON.stringify([
-            {
-                questionText: 'What is 2 + 2?',
-                imageUrl: 'https://example.com/question-image.png',
-                choiceA: '2',
-                choiceB: '3',
-                choiceC: '4',
-                choiceD: '5',
-                correctAnswer: 'C',
-                rationalization: '4 is the correct sum',
-                section: 'General Education',
-            },
-        ], null, 2);
+        const jsonTemplate = JSON.stringify({
+            _comment: 'correctAnswer supports A/B/C/D, 1/2/3/4, 0/1/2/3, or exact option text',
+            questions: [
+                {
+                    questionText: 'What is 2 + 2?',
+                    imageUrl: 'https://example.com/question-image.png',
+                    choiceA: '2',
+                    choiceB: '3',
+                    choiceC: '4',
+                    choiceD: '5',
+                    correctAnswer: 'C',
+                    rationalization: '4 is the correct sum',
+                    section: 'General Education',
+                },
+            ],
+        }, null, 2);
 
         const content = format === 'csv' ? csvTemplate : jsonTemplate;
         const type = format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;';
@@ -423,6 +435,29 @@ const CreateExamPage: React.FC = () => {
         return values;
     };
 
+    const normalizeImportKey = (key: string) =>
+        key.replace(/^\uFEFF/, '').replace(/[\s_-]+/g, '').toLowerCase();
+
+    const toNormalizedRecord = (record: Record<string, any>) => {
+        return Object.entries(record).reduce<Record<string, any>>((acc, [key, value]) => {
+            acc[normalizeImportKey(key)] = value;
+            return acc;
+        }, {});
+    };
+
+    const pickImportValue = (record: Record<string, any>, aliases: string[]) => {
+        const normalizedRecord = toNormalizedRecord(record);
+
+        for (const alias of aliases) {
+            const value = normalizedRecord[normalizeImportKey(alias)];
+            if (value !== undefined && value !== null && String(value).trim().length > 0) {
+                return value;
+            }
+        }
+
+        return undefined;
+    };
+
     const processImportedRecords = (records: Array<Record<string, any>>) => {
         if (records.length === 0) {
             alert('No valid question rows found in the import file.');
@@ -430,20 +465,19 @@ const CreateExamPage: React.FC = () => {
         }
 
         const getSectionValue = (record: Record<string, any>) => {
-            const explicitSection =
-                record.section
-                ?? record.Section
-                ?? record.SECTION
-                ?? record.sectionName
-                ?? record.section_name
-                ?? record.sectionTitle
-                ?? record.section_title;
+            const explicitSection = pickImportValue(record, [
+                'section',
+                'sectionName',
+                'section_name',
+                'sectionTitle',
+                'section_title',
+            ]);
 
             if (explicitSection !== undefined && explicitSection !== null && String(explicitSection).trim().length > 0) {
                 return String(explicitSection).trim();
             }
 
-            const dynamicSectionEntry = Object.entries(record).find(([key, value]) => {
+            const dynamicSectionEntry = Object.entries(toNormalizedRecord(record)).find(([key, value]) => {
                 const normalizedKey = key.replace(/\s+/g, '').toLowerCase();
                 return normalizedKey.includes('section') && value !== undefined && value !== null && String(value).trim().length > 0;
             });
@@ -457,17 +491,30 @@ const CreateExamPage: React.FC = () => {
 
         const mappedQuestions: Question[] = records
             .map((record, index) => {
-                const text = (record.questionText || record.text || '').trim();
+                const text = String(
+                    pickImportValue(record, ['questionText', 'question', 'text', 'prompt']) ?? ''
+                ).trim();
                 if (!text) return null;
 
                 const options = [
-                    record.choiceA ?? record.optionA ?? '',
-                    record.choiceB ?? record.optionB ?? '',
-                    record.choiceC ?? record.optionC ?? '',
-                    record.choiceD ?? record.optionD ?? '',
+                    pickImportValue(record, ['choiceA', 'optionA', 'option1', 'a']) ?? '',
+                    pickImportValue(record, ['choiceB', 'optionB', 'option2', 'b']) ?? '',
+                    pickImportValue(record, ['choiceC', 'optionC', 'option3', 'c']) ?? '',
+                    pickImportValue(record, ['choiceD', 'optionD', 'option4', 'd']) ?? '',
                 ].map((option) => String(option).trim());
 
-                const correctOption = normalizeCorrectOption(String(record.correctAnswer || 'A'));
+                const correctAnswerValue =
+                    pickImportValue(record, [
+                        'correctAnswer',
+                        'correct_answer',
+                        'correctOption',
+                        'correct_choice',
+                        'correct_answer_index',
+                        'answer',
+                    ])
+                    ?? 'A';
+
+                const correctOption = normalizeCorrectOption(correctAnswerValue, options);
                 const section = getSectionValue(record)
                     || activeSection
                     || sections[0]
@@ -476,10 +523,14 @@ const CreateExamPage: React.FC = () => {
                 return {
                     id: `${Date.now()}-${index}`,
                     text,
-                    imageUrl: String(record.imageUrl || record.image_url || record.image || '').trim(),
+                    imageUrl: String(
+                        pickImportValue(record, ['imageUrl', 'image_url', 'image', 'questionImage']) ?? ''
+                    ).trim(),
                     options,
                     correctOption,
-                    rationale: String(record.rationalization || record.explanation || '').trim(),
+                    rationale: String(
+                        pickImportValue(record, ['rationalization', 'explanation', 'rationale']) ?? ''
+                    ).trim(),
                     section,
                 } as Question;
             })
@@ -520,11 +571,17 @@ const CreateExamPage: React.FC = () => {
         }
 
         try {
-            const content = await file.text();
+            const content = (await file.text()).replace(/^\uFEFF/, '');
 
             if (lowerName.endsWith('.json')) {
                 const parsed = JSON.parse(content);
-                const rows = Array.isArray(parsed) ? parsed : [parsed];
+                const rows = Array.isArray(parsed)
+                    ? parsed
+                    : Array.isArray(parsed?.questions)
+                        ? parsed.questions
+                        : Array.isArray(parsed?.items)
+                            ? parsed.items
+                            : [parsed];
                 processImportedRecords(rows as Array<Record<string, any>>);
                 return;
             }
@@ -532,14 +589,14 @@ const CreateExamPage: React.FC = () => {
             const lines = content
                 .split(/\r?\n/)
                 .map((line) => line.trim())
-                .filter((line) => line.length > 0);
+                .filter((line) => line.length > 0 && !line.startsWith('#'));
 
             if (lines.length < 2) {
                 alert('CSV file has no data rows.');
                 return;
             }
 
-            const headers = parseCsvLine(lines[0]);
+            const headers = parseCsvLine(lines[0]).map((header) => header.replace(/^\uFEFF/, '').trim());
             const rows = lines.slice(1).map((line) => {
                 const values = parseCsvLine(line);
                 return headers.reduce<Record<string, string>>((acc, header, index) => {
@@ -888,6 +945,18 @@ const CreateExamPage: React.FC = () => {
                                     Total: {questions.length} Items
                                 </Badge>
                             </div>
+                        </div>
+
+                        <p className="text-[11px] font-medium text-gray-500">
+                            Import tip: <span className="font-bold">correctAnswer</span> can be <span className="font-bold">A/B/C/D</span>, <span className="font-bold">1/2/3/4</span>, <span className="font-bold">0/1/2/3</span>, or the exact option text.
+                        </p>
+
+                        <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-1.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-700">Import Instructions</p>
+                            <p className="text-[11px] text-gray-700 font-medium">1) One row/object = one question.</p>
+                            <p className="text-[11px] text-gray-700 font-medium">2) Required fields: questionText, choiceA, choiceB, choiceC, choiceD, correctAnswer.</p>
+                            <p className="text-[11px] text-gray-700 font-medium">3) Optional fields: imageUrl, rationalization, section.</p>
+                            <p className="text-[11px] text-gray-500 font-medium">Edited headers still work (for example: "Correct Answer" or "choice a").</p>
                         </div>
 
                         {/* Section Tabs */}

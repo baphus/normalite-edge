@@ -98,8 +98,10 @@ export class ExamService {
     }
 
     private normalizeExam(exam: any) {
-        const latestUserAttempt = (exam.attempts || [])[0];
-        const hasSubmitted = latestUserAttempt?.status === 'SUBMITTED';
+        const attempts = exam.attempts || [];
+        const latestUserAttempt = attempts[0];
+        const latestSubmittedAttempt = attempts.find((attempt: any) => attempt.status === 'SUBMITTED');
+        const hasSubmitted = Boolean(latestSubmittedAttempt);
 
         return {
             ...exam,
@@ -122,6 +124,8 @@ export class ExamService {
             hasSubmitted,
             userAttemptStatus: latestUserAttempt?.status,
             attempts_remaining: hasSubmitted ? 0 : 1,
+            latestSubmittedAttemptId: latestSubmittedAttempt?.id || null,
+            latestSubmittedScore: latestSubmittedAttempt?.percentage ?? null,
             sections: (exam.sections || [])
                 .slice()
                 .sort((a: any, b: any) => (a.orderNo || 0) - (b.orderNo || 0))
@@ -230,9 +234,9 @@ export class ExamService {
                     attempts: params.publishedOrMine
                         ? {
                             where: { userId: params.publishedOrMine },
-                            select: { id: true, status: true, submittedAt: true },
+                            select: { id: true, status: true, submittedAt: true, percentage: true },
                             orderBy: { createdAt: 'desc' },
-                            take: 1,
+                            take: 5,
                         }
                         : false,
                     sections: { select: { id: true, title: true, orderNo: true } },

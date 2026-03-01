@@ -46,6 +46,8 @@ interface Exam {
     attempts_remaining?: number;
     hasSubmitted?: boolean;
     userAttemptStatus?: 'IN_PROGRESS' | 'SUBMITTED' | string;
+    latestSubmittedAttemptId?: string | null;
+    latestSubmittedScore?: number | null;
     deadline?: string;
     lastScore?: number;
     sections?: Array<{ id?: string; title?: string; orderNo?: number }>;
@@ -187,6 +189,7 @@ const ExamsPage: React.FC = () => {
                         const hasInProgress = exam.userAttemptStatus === 'IN_PROGRESS';
                         const isLive = exam.status === 'LIVE';
                         const canTake = isLive && !hasSubmitted;
+                        const resultLink = `/exams/${exam.id}/result${exam.latestSubmittedAttemptId ? `?attemptId=${exam.latestSubmittedAttemptId}` : ''}`;
                         const sectionTitles = (exam.sections || [])
                             .map((section) => section.title?.trim())
                             .filter((title): title is string => Boolean(title));
@@ -254,14 +257,16 @@ const ExamsPage: React.FC = () => {
                                         <Eye size={16} /> View Exam
                                     </Button>
                                     <Button
-                                        onClick={() => navigate(`/exams/${exam.id}/take`)}
-                                        disabled={!canTake}
-                                        className={`w-full h-11 font-bold flex gap-2 shadow-md ${canTake
+                                        onClick={() => hasSubmitted ? navigate(resultLink) : navigate(`/exams/${exam.id}/take`)}
+                                        disabled={!hasSubmitted && !canTake}
+                                        className={`w-full h-11 font-bold flex gap-2 shadow-md ${(hasSubmitted || canTake)
                                             ? 'bg-primary hover:bg-primary/95 text-white shadow-primary/20'
                                             : 'bg-gray-200 text-gray-400 border-none'
                                             }`}
                                     >
-                                        {canTake ? (
+                                        {hasSubmitted ? (
+                                            <>View Result <TrendingUp size={18} /></>
+                                        ) : canTake ? (
                                             <>{hasInProgress ? 'Resume Exam' : 'Take Exam'} <Play size={18} fill="currentColor" /></>
                                         ) : (
                                             <>No Attempts Left <Lock size={18} /></>
@@ -327,10 +332,24 @@ const ExamsPage: React.FC = () => {
                         </Button>
                         <Button
                             className="h-11 font-bold"
-                            onClick={() => viewingExam && navigate(`/exams/${viewingExam.id}/take`)}
-                            disabled={!(viewingExam && viewingExam.status === 'LIVE' && !Boolean(viewingExam.hasSubmitted || viewingExam.userAttemptStatus === 'SUBMITTED' || (viewingExam.attempts_remaining ?? 0) === 0))}
+                            onClick={() => {
+                                if (!viewingExam) return;
+                                const attemptsRemaining = viewingExam.attempts_remaining ?? 0;
+                                const hasSubmitted = Boolean(viewingExam.hasSubmitted || viewingExam.userAttemptStatus === 'SUBMITTED' || attemptsRemaining === 0);
+                                if (hasSubmitted) {
+                                    const resultLink = `/exams/${viewingExam.id}/result${viewingExam.latestSubmittedAttemptId ? `?attemptId=${viewingExam.latestSubmittedAttemptId}` : ''}`;
+                                    navigate(resultLink);
+                                    return;
+                                }
+                                navigate(`/exams/${viewingExam.id}/take`);
+                            }}
+                            disabled={!viewingExam || (!Boolean(viewingExam.hasSubmitted || viewingExam.userAttemptStatus === 'SUBMITTED' || (viewingExam.attempts_remaining ?? 0) === 0) && viewingExam.status !== 'LIVE')}
                         >
-                            {viewingExam?.userAttemptStatus === 'IN_PROGRESS' ? 'Resume Exam' : 'Take Exam'}
+                            {Boolean(viewingExam?.hasSubmitted || viewingExam?.userAttemptStatus === 'SUBMITTED' || (viewingExam?.attempts_remaining ?? 0) === 0)
+                                ? 'View Result'
+                                : viewingExam?.userAttemptStatus === 'IN_PROGRESS'
+                                    ? 'Resume Exam'
+                                    : 'Take Exam'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

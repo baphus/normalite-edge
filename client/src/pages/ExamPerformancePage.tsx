@@ -120,8 +120,6 @@ interface AttemptReview {
     answers?: Record<string, string | undefined>;
 }
 
-const PASSING_SCORE = 75;
-
 const asNumber = (value: unknown) => {
     const numericValue = Number(value);
     return Number.isFinite(numericValue) ? numericValue : 0;
@@ -182,8 +180,6 @@ const ExamPerformancePage: React.FC = () => {
     const totalAttempts = attempts.length;
     const totalSubmitted = submittedAttempts.length;
     const inProgressCount = attempts.filter((attempt) => attempt.status === 'IN_PROGRESS').length;
-    const passedCount = submittedAttempts.filter((attempt) => asNumber(attempt.percentage) >= PASSING_SCORE).length;
-    const belowTargetCount = Math.max(totalSubmitted - passedCount, 0);
 
     const completionRate = totalAttempts > 0 ? (totalSubmitted / totalAttempts) * 100 : 0;
 
@@ -556,8 +552,8 @@ const ExamPerformancePage: React.FC = () => {
                                     <p className="text-base font-black text-gray-900 mt-1">{inProgressCount}</p>
                                 </div>
                                 <div className="rounded-lg border border-gray-100 p-3 bg-gray-50/40">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pass / Below</p>
-                                    <p className="text-base font-black text-gray-900 mt-1">{passedCount} / {belowTargetCount}</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Completion</p>
+                                    <p className="text-base font-black text-gray-900 mt-1">{formatPercent(completionRate)}</p>
                                 </div>
                                 <div className="rounded-lg border border-gray-100 p-3 bg-gray-50/40">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Highest</p>

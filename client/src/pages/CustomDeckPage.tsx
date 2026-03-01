@@ -37,6 +37,7 @@ interface TrackOption {
 }
 
 const categoryOptions = [
+    { value: 'NONE', label: 'No Category' },
     { value: 'GENERAL_EDUCATION', label: 'General Education' },
     { value: 'PROFESSIONAL_EDUCATION', label: 'Professional Education' },
     { value: 'SPECIALIZATION', label: 'Specialization' },
@@ -49,7 +50,7 @@ const CustomDeckPage: React.FC = () => {
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState<(typeof categoryOptions)[number]['value']>('GENERAL_EDUCATION');
+    const [category, setCategory] = useState<(typeof categoryOptions)[number]['value']>('NONE');
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
     const [tracks, setTracks] = useState<TrackOption[]>([]);
@@ -80,39 +81,208 @@ const CustomDeckPage: React.FC = () => {
         );
     };
 
-    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const parseCsvLine = (line: string) => {
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let index = 0; index < line.length; index += 1) {
+            const char = line[index];
+
+            if (char === '"') {
+                if (inQuotes && line[index + 1] === '"') {
+                    current += '"';
+                    index += 1;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+                continue;
+            }
+
+            current += char;
+        }
+
+        values.push(current.trim());
+        return values;
+    };
+
+    const normalizeImportKey = (key: string) =>
+        key.replace(/^\uFEFF/, '').replace(/[\s_-]+/g, '').toLowerCase();
+
+    const toNormalizedRecord = (record: Record<string, any>) => {
+        return Object.entries(record).reduce<Record<string, any>>((acc, [key, value]) => {
+            acc[normalizeImportKey(key)] = value;
+            return acc;
+        }, {});
+    };
+
+    const pickImportValue = (record: Record<string, any>, aliases: string[]) => {
+        const normalizedRecord = toNormalizedRecord(record);
+
+        for (const alias of aliases) {
+            const value = normalizedRecord[normalizeImportKey(alias)];
+            if (value !== undefined && value !== null && String(value).trim().length > 0) {
+                return value;
+            }
+        }
+
+        return undefined;
+    };
+
+    const resolveCorrectIndex = (rawValue: unknown, options: string[]) => {
+        if (rawValue === null || rawValue === undefined) return 0;
+
+        const normalized = String(rawValue).trim();
+        if (!normalized) return 0;
+
+        const upper = normalized.toUpperCase();
+
+        if (['A', 'B', 'C', 'D'].includes(upper)) {
+            return ['A', 'B', 'C', 'D'].indexOf(upper);
+        }
+
+        const asNumber = Number(normalized);
+        if (!Number.isNaN(asNumber)) {
+            if (asNumber >= 1 && asNumber <= 4) return asNumber - 1;
+            if (asNumber >= 0 && asNumber <= 3) return asNumber;
+        }
+
+        const matchedIndex = options.findIndex(
+            (option) => option.trim().toLowerCase() === normalized.toLowerCase()
+        );
+
+        return matchedIndex >= 0 ? matchedIndex : 0;
+    };
+
+    const mapRecordToCard = (record: Record<string, any>, index: number): CardItem | null => {
+        const question = String(
+            pickImportValue(record, ['question', 'questionText', 'front', 'prompt']) ?? ''
+        ).trim();
+
+        if (!question) return null;
+
+        const optionsValue = pickImportValue(record, ['options']);
+        const mappedOptions = Array.isArray(optionsValue)
+            ? optionsValue
+            : typeof optionsValue === 'string' && optionsValue.includes('|')
+                ? optionsValue.split('|').map((item) => item.trim())
+            : [
+                pickImportValue(record, ['option1', 'choiceA', 'optionA', 'a']) ?? '',
+                pickImportValue(record, ['option2', 'choiceB', 'optionB', 'b']) ?? '',
+                pickImportValue(record, ['option3', 'choiceC', 'optionC', 'c']) ?? '',
+                pickImportValue(record, ['option4', 'choiceD', 'optionD', 'd']) ?? '',
+            ];
+
+        const options = [0, 1, 2, 3].map((optionIndex) =>
+            String(mappedOptions[optionIndex] ?? '').trim()
+        );
+
+        const correctValue =
+            pickImportValue(record, [
+                'correctAnswer',
+                'correct_answer',
+                'correctOption',
+                'correct_choice',
+                'correct_answer_index',
+                'answer',
+            ]);
+
+        const correctIndex = resolveCorrectIndex(correctValue, options);
+
+        return {
+            id: `${Date.now()}-${index}-${Math.random()}`,
+            question,
+            options,
+            correctIndex,
+            explanation: String(
+                pickImportValue(record, ['explanation', 'rationalization', 'rationale']) ?? ''
+            ).trim(),
+        };
+    };
+
+    const parseCsvRecords = (content: string) => {
+        const rows = content
+            .replace(/^\uFEFF/, '')
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0 && !line.startsWith('#'));
+
+        if (rows.length < 2) return [] as Array<Record<string, string>>;
+
+        const headers = parseCsvLine(rows[0]);
+        return rows.slice(1).map((line) => {
+            const values = parseCsvLine(line);
+            return headers.reduce<Record<string, string>>((acc, header, idx) => {
+                acc[header] = values[idx] || '';
+                return acc;
+            }, {});
+        });
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const content = event.target?.result as string;
-                if (file.name.endsWith('.json')) {
-                    const data = JSON.parse(content);
-                    const importedCards = (Array.isArray(data) ? data : data.cards || []).map((c: any) => ({
-                        id: Date.now().toString() + Math.random(),
-                        question: c.question || c.front || '',
-                        options: c.options || ['', '', '', ''],
-                        correctIndex: c.correct_answer_index ?? c.answer ?? 0,
-                        explanation: c.explanation || c.rationalization || ''
-                    }));
-                    setCards([...cards, ...importedCards]);
-                } else {
-                    console.log("CSV parsing not implemented");
-                }
-                alert(`Successfully imported ${file.name}`);
-            } catch (err) {
-                alert("Error parsing file.");
+        try {
+            const content = await file.text();
+            const lowerFileName = file.name.toLowerCase();
+
+            let records: Array<Record<string, any>> = [];
+            if (lowerFileName.endsWith('.json')) {
+                const parsed = JSON.parse(content);
+                records = Array.isArray(parsed)
+                    ? parsed
+                    : Array.isArray(parsed?.cards)
+                        ? parsed.cards
+                        : [];
+            } else if (lowerFileName.endsWith('.csv')) {
+                records = parseCsvRecords(content);
+            } else {
+                alert('Unsupported file type. Please upload a JSON or CSV file.');
+                return;
             }
-        };
-        reader.readAsText(file);
+
+            const importedCards = records
+                .map((record, idx) => mapRecordToCard(record, idx))
+                .filter((item): item is CardItem => !!item);
+
+            if (importedCards.length === 0) {
+                alert('No valid questions found in the uploaded file. Please use the template.');
+                return;
+            }
+
+            setCards((prev) => [...prev, ...importedCards]);
+            alert(`Successfully imported ${importedCards.length} question(s) from ${file.name}.`);
+        } catch (err) {
+            console.error('Failed to parse import file', err);
+            alert('Error parsing file. Please check the template format and try again.');
+        }
     };
 
     const downloadTemplate = (type: 'json' | 'csv') => {
-        const content = type === 'json' ?
-            JSON.stringify([{ question: 'Sample?', options: ['A', 'B', 'C', 'D'], correct_answer_index: 0, explanation: 'Why' }], null, 2) :
-            'question,option1,option2,option3,option4,correct_answer_index,explanation\n"Sample?","A","B","C","D",0,"Why"';
+        const content = type === 'json'
+            ? JSON.stringify({
+                _comment: 'Use correctAnswer as A/B/C/D, 1/2/3/4, 0/1/2/3, or the exact option text.',
+                cards: [
+                    {
+                        question: 'What is 2 + 2?',
+                        option1: '1',
+                        option2: '2',
+                        option3: '3',
+                        option4: '4',
+                        correctAnswer: 'D',
+                        explanation: '4 is the correct sum.',
+                    },
+                ],
+            }, null, 2)
+            : '# correctAnswer accepts A/B/C/D, 1/2/3/4, 0/1/2/3, or exact option text\nquestion,option1,option2,option3,option4,correctAnswer,explanation\n"What is 2 + 2?","1","2","3","4","D","4 is the correct sum."';
 
         const blob = new Blob([content], { type: type === 'json' ? 'application/json' : 'text/csv' });
         const url = URL.createObjectURL(blob);
@@ -175,7 +345,7 @@ const CustomDeckPage: React.FC = () => {
                 title,
                 description: description || undefined,
                 subject: tags[0] || 'General',
-                category,
+                category: category === 'NONE' ? 'GENERAL_EDUCATION' : category,
                 visibility: isAdminOrReviewer ? 'PUBLISHED' : 'DRAFT',
                 trackIds: selectedTrackIds,
                 questions: cards.map(c => {
@@ -273,6 +443,11 @@ const CustomDeckPage: React.FC = () => {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {category === 'NONE' ? (
+                                    <p className="text-[11px] text-gray-500 font-medium">
+                                        No Category selected. This will be saved as General Education.
+                                    </p>
+                                ) : null}
                             </div>
 
                             <div className="space-y-3">
@@ -313,7 +488,10 @@ const CustomDeckPage: React.FC = () => {
                                             {tracks.map(track => (
                                                 <div key={track.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => toggleTrack(track.id)}>
                                                     <Checkbox checked={selectedTrackIds.includes(track.id)} onCheckedChange={() => toggleTrack(track.id)} />
-                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">{track.code || track.name}</span>
+                                                    <span className="text-[11px] font-semibold text-gray-700 tracking-tight">
+                                                        {track.name}
+                                                        {track.code ? <span className="text-gray-400 ml-1">({track.code})</span> : null}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>
@@ -327,6 +505,16 @@ const CustomDeckPage: React.FC = () => {
                         <CardContent className="p-8 space-y-4">
                             <h3 className="font-black text-primary text-sm uppercase tracking-widest">Import Data</h3>
                             <p className="text-xs font-medium text-gray-600 italic leading-relaxed">Want to speed things up? Import your questions from a JSON or CSV file using our templates.</p>
+                            <p className="text-[11px] text-gray-600 font-medium leading-relaxed">
+                                For <span className="font-bold">correctAnswer</span>, users may type <span className="font-bold">A/B/C/D</span>, <span className="font-bold">1/2/3/4</span>, <span className="font-bold">0/1/2/3</span>, or the exact option text.
+                            </p>
+                            <div className="rounded-xl border border-primary/20 bg-white/80 p-3 space-y-1.5">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-primary">How to fill the file</p>
+                                <p className="text-[11px] text-gray-700 font-medium">1) One row/object = one question.</p>
+                                <p className="text-[11px] text-gray-700 font-medium">2) Required: question, option1, option2, option3, option4, correctAnswer.</p>
+                                <p className="text-[11px] text-gray-700 font-medium">3) Optional: explanation.</p>
+                                <p className="text-[11px] text-gray-500 font-medium">You can rename headers (ex: "Correct Answer"), and upload still works.</p>
+                            </div>
                             <div className="flex flex-col gap-2 pt-2">
                                 <div className="relative">
                                     <Input

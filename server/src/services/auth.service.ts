@@ -108,6 +108,8 @@ export class AuthService {
             ? data.middleInitial.trim()[0].toUpperCase()
             : undefined;
         const suffix = data.suffix?.trim() || undefined;
+        const yearLevel = data.yearLevel?.trim() || undefined;
+        const section = data.section?.trim() || undefined;
 
         // Enforce cnu.edu.ph domain
         if (!email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
@@ -136,6 +138,8 @@ export class AuthService {
                 status: 'ACTIVE',
                 trackId: resolvedTrack?.id,
                 programTrack: resolvedTrack?.name,
+                yearLevel,
+                section,
             },
             include: {
                 track: {
@@ -349,8 +353,27 @@ export class AuthService {
     /**
      * Update current user's profile (program, major, etc.).
      */
-    async updateProfile(userId: string, data: { name?: string; program?: string; program_track?: string; programTrack?: string; track_id?: string }) {
+    async updateProfile(userId: string, data: {
+        name?: string;
+        firstName?: string;
+        lastName?: string;
+        middleInitial?: string;
+        suffix?: string;
+        picture?: string;
+        program?: string;
+        program_track?: string;
+        programTrack?: string;
+        track_id?: string;
+        yearLevel?: string;
+        section?: string;
+    }) {
         const nameParts = data.name ? this.splitName(data.name) : undefined;
+        const firstName = nameParts?.firstName ?? (data.firstName !== undefined ? data.firstName.trim() : undefined);
+        const lastName = nameParts?.lastName ?? (data.lastName !== undefined ? data.lastName.trim() : undefined);
+        const middleInitial = data.middleInitial !== undefined
+            ? (data.middleInitial.trim() ? data.middleInitial.trim()[0].toUpperCase() : null)
+            : undefined;
+        const suffix = data.suffix !== undefined ? (data.suffix.trim() || null) : undefined;
         const hasTrackInput = data.track_id !== undefined
             || data.program !== undefined
             || data.program_track !== undefined
@@ -368,10 +391,15 @@ export class AuthService {
         const user = await prisma.user.update({
             where: { id: userId },
             data: {
-                firstName: nameParts?.firstName,
-                lastName: nameParts?.lastName,
+                firstName,
+                lastName,
+                middleInitial,
+                suffix,
+                profilePicture: data.picture,
                 trackId: hasTrackInput ? resolvedTrack?.id || null : undefined,
                 programTrack: hasTrackInput ? resolvedTrack?.name || null : undefined,
+                yearLevel: data.yearLevel !== undefined ? (data.yearLevel?.trim() || null) : undefined,
+                section: data.section !== undefined ? (data.section?.trim() || null) : undefined,
             },
             include: {
                 track: {
@@ -392,6 +420,7 @@ export class AuthService {
         return {
             ...sanitized,
             name: `${sanitized.firstName} ${sanitized.lastName}`.trim(),
+            picture: sanitized.profilePicture || null,
             status: fromDbUserStatus(sanitized.status),
             program: resolvedProgram,
             program_track: resolvedProgram,

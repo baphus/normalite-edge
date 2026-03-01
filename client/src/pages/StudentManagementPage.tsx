@@ -43,6 +43,8 @@ interface AttemptUser {
     name: string;
     email: string;
     programTrack: string | null;
+    yearLevel?: string | null;
+    section?: string | null;
 }
 
 interface AttemptItem {
@@ -68,6 +70,8 @@ interface StudentSummary {
     name: string;
     email: string;
     programTrack: string;
+    yearLevel?: string;
+    section?: string;
     attempts: number;
     completedAttempts: number;
     inProgressAttempts: number;
@@ -147,6 +151,8 @@ const StudentManagementPage: React.FC = () => {
                 name: first.user?.name || 'Unknown Student',
                 email: first.user?.email || 'N/A',
                 programTrack: first.user?.programTrack || 'Unassigned',
+                yearLevel: first.user?.yearLevel || '',
+                section: first.user?.section || '',
                 attempts: studentAttempts.length,
                 completedAttempts: submitted.length,
                 inProgressAttempts: inProgress.length,
@@ -331,7 +337,14 @@ const StudentManagementPage: React.FC = () => {
                                         <TableCell className="px-4 py-3 min-w-60">
                                             <div>
                                                 <p className="text-sm font-bold text-gray-900">{student.name}</p>
-                                                <p className="text-xs text-gray-500">{student.email}</p>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <p className="text-xs text-gray-500 font-medium truncate max-w-40">{student.email}</p>
+                                                    {(student.yearLevel || student.section) && (
+                                                        <Badge variant="outline" className="text-[10px] py-0 px-1 font-bold border-gray-200 text-gray-400">
+                                                            {student.yearLevel} {student.section}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-xs font-semibold text-gray-700 min-w-42.5">

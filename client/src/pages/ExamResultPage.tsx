@@ -16,6 +16,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import api from '@/lib/axios';
 
 const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, bgColor: string, borderColor: string }> = {
@@ -39,17 +46,25 @@ const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, b
     }
 };
 
+interface AttemptOption {
+    id: string;
+    attemptNo?: number;
+    submittedAt?: string | null;
+    percentage?: number | null;
+}
+
 const ExamResultPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
+    const [submittedAttempts, setSubmittedAttempts] = useState<AttemptOption[]>([]);
     const [result, setResult] = useState<any | null>(null);
 
     useEffect(() => {
-        const loadResult = async () => {
+        const loadAttemptOptions = async () => {
             if (!id) {
                 setError('Missing exam id.');
                 setLoading(false);
@@ -60,29 +75,49 @@ const ExamResultPage: React.FC = () => {
                 setLoading(true);
                 setError(null);
 
-                let resolvedAttemptId = searchParams.get('attemptId');
+                const attemptsResponse = await api.get('/attempts', {
+                    params: {
+                        examId: id,
+                        page: 1,
+                        limit: 200,
+                    },
+                });
 
-                if (!resolvedAttemptId) {
-                    const attemptsResponse = await api.get('/attempts', {
-                        params: {
-                            examId: id,
-                            page: 1,
-                            limit: 50,
-                        },
-                    });
+                const attempts = (attemptsResponse.data.data || []) as any[];
+                const submitted = attempts.filter((attempt) => attempt.status === 'SUBMITTED') as AttemptOption[];
 
-                    const attempts = (attemptsResponse.data.data || []) as any[];
-                    const submittedAttempts = attempts.filter((attempt) => attempt.status === 'SUBMITTED');
-
-                    if (submittedAttempts.length === 0) {
-                        throw new Error('No submitted result found for this exam yet.');
-                    }
-
-                    resolvedAttemptId = submittedAttempts[0].id;
+                if (submitted.length === 0) {
+                    throw new Error('No submitted result found for this exam yet.');
                 }
 
-                const resultResponse = await api.get(`/attempts/${resolvedAttemptId}/result`);
-                setAttemptId(resolvedAttemptId);
+                setSubmittedAttempts(submitted);
+
+                const queryAttemptId = searchParams.get('attemptId');
+                const selected = queryAttemptId && submitted.some((attempt) => attempt.id === queryAttemptId)
+                    ? queryAttemptId
+                    : submitted[0].id;
+
+                setAttemptId(selected);
+                setSearchParams({ attemptId: selected }, { replace: true });
+            } catch (requestError: any) {
+                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load exam result.';
+                setError(message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadAttemptOptions();
+    }, [id, setSearchParams]);
+
+    useEffect(() => {
+        const fetchResult = async () => {
+            if (!attemptId) return;
+
+            try {
+                setLoading(true);
+                setError(null);
+                const resultResponse = await api.get(`/attempts/${attemptId}/result`);
                 setResult(resultResponse.data.data);
             } catch (requestError: any) {
                 const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load exam result.';
@@ -92,8 +127,18 @@ const ExamResultPage: React.FC = () => {
             }
         };
 
-        loadResult();
-    }, [id, searchParams]);
+        fetchResult();
+    }, [attemptId]);
+
+    const selectedAttemptMeta = useMemo(
+        () => submittedAttempts.find((attempt) => attempt.id === attemptId) || null,
+        [submittedAttempts, attemptId]
+    );
+
+    const handleAttemptChange = (nextAttemptId: string) => {
+        setAttemptId(nextAttemptId);
+        setSearchParams({ attemptId: nextAttemptId }, { replace: true });
+    };
 
     const results = useMemo(() => {
         if (!result) {
@@ -161,10 +206,25 @@ const ExamResultPage: React.FC = () => {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-black text-gray-900 tracking-tight">Exam Result</h1>
-                        <p className="text-sm text-gray-500 font-medium">Completed on {results.date}</p>
+                        <p className="text-sm text-gray-500 font-medium">
+                            Completed on {results.date}
+                            {selectedAttemptMeta?.attemptNo ? ` • Attempt ${selectedAttemptMeta.attemptNo}` : ''}
+                        </p>
                     </div>
                 </div>
                 <div className="flex gap-3">
+                    <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
+                        <SelectTrigger className="w-55 rounded-xl border-gray-200 font-bold">
+                            <SelectValue placeholder="Select attempt" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {submittedAttempts.map((attempt, index) => (
+                                <SelectItem key={attempt.id} value={attempt.id}>
+                                    Attempt {attempt.attemptNo || submittedAttempts.length - index} • {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : 'No date'}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <Button variant="outline" className="font-bold border-gray-200 rounded-xl gap-2">
                         <Download size={18} /> Download PDF
                     </Button>

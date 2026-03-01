@@ -5,12 +5,17 @@ interface User {
     id: string;
     email: string;
     name: string;
+    firstName?: string;
+    lastName?: string;
+    middleInitial?: string;
+    suffix?: string;
     role: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
     status: 'PENDING' | 'ACTIVE' | 'DISABLED';
     picture?: string;
     program?: string;
     program_track?: string;
     programTrack?: string;
+    track_id?: string;
     major?: string;
     yearLevel?: string;
     section?: string;

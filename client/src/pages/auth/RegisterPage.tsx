@@ -22,6 +22,8 @@ const registerSchema = z.object({
         .refine((value) => value.length === 1, { message: 'Middle initial must be 1 character' }),
     suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
     trackId: z.string().trim().min(1, 'Program track is required'),
+    yearLevel: z.string().trim().min(1, 'Year is required'),
+    section: z.string().trim().min(1, 'Section is required'),
     email: z.string().email('Invalid school email address').refine(
         (email) => email.toLowerCase().endsWith('@cnu.edu.ph'),
         { message: 'Only @cnu.edu.ph emails are allowed' }
@@ -65,6 +67,8 @@ const RegisterPage: React.FC = () => {
             middleInitial: '',
             suffix: '',
             trackId: '',
+            yearLevel: '',
+            section: '',
         },
     });
 
@@ -97,6 +101,8 @@ const RegisterPage: React.FC = () => {
                 email: data.email.trim().toLowerCase(),
                 password: data.password,
                 track_id: data.trackId.trim(),
+                yearLevel: data.yearLevel.trim(),
+                section: data.section.trim(),
             });
 
             const loginResponse = await api.post('/auth/login', {
@@ -203,6 +209,31 @@ const RegisterPage: React.FC = () => {
                             </SelectContent>
                         </Select>
                         {errors.trackId && <p className="text-xs text-red-500">{errors.trackId.message}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label>Year</Label>
+                            <Select
+                                value={watch('yearLevel')}
+                                onValueChange={(value) => setValue('yearLevel', value, { shouldValidate: true })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select year level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="3rd Year">3rd Year</SelectItem>
+                                    <SelectItem value="4th Year">4th Year</SelectItem>
+                                    <SelectItem value="Alumni">Alumni</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {errors.yearLevel && <p className="text-xs text-red-500">{errors.yearLevel.message}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label>Section</Label>
+                            <Input {...register('section')} placeholder="A" />
+                            {errors.section && <p className="text-xs text-red-500">{errors.section.message}</p>}
+                        </div>
                     </div>
 
                     <div className="space-y-1.5">

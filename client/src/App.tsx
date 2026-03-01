@@ -22,6 +22,7 @@ import ManageMaterialsPage from './pages/ManageMaterialsPage';
 import AchievementsPage from './pages/AchievementsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
+import ProfilePage from './pages/ProfilePage';
 import VideoConferencePage from './pages/VideoConferencePage';
 import CustomDeckPage from './pages/CustomDeckPage';
 import ExamPerformancePage from './pages/ExamPerformancePage';
@@ -88,6 +89,7 @@ function App() {
               <Route path="/zoom-meeting" element={<ZoomMeetingPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>
 

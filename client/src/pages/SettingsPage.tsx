@@ -1,13 +1,9 @@
 import React from 'react';
 import {
-    User,
     Bell,
     Lock,
     Globe,
     Shield,
-    Mail,
-    Smartphone,
-    Save,
     Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,17 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/AuthContext';
 
 const SettingsPage: React.FC = () => {
-    const { user } = useAuth();
-    const userInitials = (user?.name || 'User')
-        .split(' ')
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase())
-        .join('')
-        .slice(0, 2);
-
     const activeSessions: Array<{ device: string; location: string; time: string; icon: React.ReactNode; isCurrent?: boolean }> = [];
 
     return (
@@ -39,9 +26,6 @@ const SettingsPage: React.FC = () => {
 
             <Tabs defaultValue="profile" className="w-full">
                 <TabsList className="bg-gray-50/50 p-1.5 rounded-2xl mb-8 flex w-fit overflow-x-auto">
-                    <TabsTrigger value="profile" className="rounded-xl px-6 py-2.5 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">
-                        <User size={14} className="mr-2" /> Profile
-                    </TabsTrigger>
                     <TabsTrigger value="notifications" className="rounded-xl px-6 py-2.5 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">
                         <Bell size={14} className="mr-2" /> Notifications
                     </TabsTrigger>
@@ -53,66 +37,7 @@ const SettingsPage: React.FC = () => {
                     </TabsTrigger>
                 </TabsList>
 
-                {/* Profile Tab */}
-                <TabsContent value="profile" className="space-y-6 animate-in fade-in-50 duration-500">
-                    <Card className="rounded-[2.5rem] border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden bg-white">
-                        <CardHeader className="p-8 pb-4">
-                            <CardTitle className="text-xl font-black">Personal Information</CardTitle>
-                            <CardDescription className="font-medium italic">Update your personal details and how others see you.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-8 space-y-8">
-                            <div className="flex items-center gap-6">
-                                <div className="relative group">
-                                    <div className="w-24 h-24 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary text-3xl font-black ring-4 ring-white shadow-lg">
-                                        {userInitials}
-                                    </div>
-                                    <button className="absolute -bottom-2 -right-2 bg-white p-2 rounded-xl shadow-md border border-gray-100 text-gray-400 group-hover:text-primary transition-colors">
-                                        <Smartphone size={16} />
-                                    </button>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="font-black text-gray-900 uppercase tracking-tight">{user?.name || 'User'}</p>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                        {user?.role || 'Role'}{user?.program ? ` • ${user.program}` : ''}{user?.major ? ` ${user.major}` : ''}
-                                    </p>
-                                    <Button variant="link" className="p-0 h-auto text-primary text-xs font-black uppercase tracking-widest">Change Photo</Button>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</Label>
-                                    <Input defaultValue={user?.name || ''} className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Email Address</Label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                                        <Input defaultValue={user?.email || ''} className="pl-12 h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Phone Number</Label>
-                                    <Input placeholder="+63 9XX XXX XXXX" className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Language</Label>
-                                    <select className="flex h-12 w-full items-center justify-between rounded-2xl border border-gray-100 bg-white px-3 py-2 text-sm font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
-                                        <option>English (US)</option>
-                                        <option>Filipino</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <div className="flex justify-end gap-3">
-                        <Button variant="outline" className="h-12 rounded-2xl px-8 font-black border-gray-100">Cancel</Button>
-                        <Button className="h-12 rounded-2xl px-8 bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 gap-2">
-                            <Save size={18} /> Save Profile
-                        </Button>
-                    </div>
-                </TabsContent>
+                {/* Profile tab removed. Profile is now a separate page. */}
 
                 {/* Notifications Tab */}
                 <TabsContent value="notifications" className="space-y-6 animate-in fade-in-50 duration-500">
