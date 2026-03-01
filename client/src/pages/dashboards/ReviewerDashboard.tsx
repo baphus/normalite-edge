@@ -2,217 +2,291 @@ import React from 'react';
 import {
     FileText,
     Users,
-    Clock,
-    TrendingUp,
-    Plus,
     BarChart3,
-    Calendar,
-    History,
-    Edit,
-    Download
+    PlusCircle,
+    Clock3,
+    Layers,
+    ChevronRight,
+    BookOpen,
+    ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import ConferencesWidget from './ConferencesWidget';
 
 interface ReviewerDashboardProps {
     stats: {
-        totalExams?: number;
-        pendingExams?: number;
-        activeUsers?: number;
+        examsCreated?: number;
+        decksCreated?: number;
+        totalAttempts?: number;
+        upcomingSessions?: { id: string; title: string; startAt: string }[];
+        recentAttempts?: {
+            id: string;
+            score: number;
+            percentage: number;
+            status: string;
+            submittedAt: string | null;
+            user?: { id: string; firstName: string; lastName: string; email: string };
+            exam?: { id: string; title: string; subject: string | null };
+        }[];
+        recentExams?: {
+            id: string;
+            title: string;
+            subject: string | null;
+            status: string;
+            createdAt: string;
+            updatedAt: string;
+            _count?: { attempts: number };
+        }[];
+        activityFeed?: {
+            id: string;
+            title: string;
+            subject: string | null;
+            status: string;
+            createdAt: string;
+            creator?: { firstName: string; lastName: string };
+        }[];
     } | null;
 }
 
 const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
-    // Auth context used for future protected actions
-    useAuth();
+    const { user } = useAuth();
+    const firstName = user?.name?.split(' ')[0] || 'Reviewer';
 
     const reviewerStats = [
-        { label: 'Total Mock Exams', value: stats?.totalExams || 0, icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50', status: 'Active' },
-        { label: 'Exams for Review', value: stats?.pendingExams || 0, icon: Clock, color: 'text-primary', bg: 'bg-primary/5', status: 'Pending' },
-        { label: 'Active Students', value: stats?.activeUsers || 0, icon: Users, color: 'text-secondary', bg: 'bg-secondary/10', trend: '' },
+        { label: 'My Exams', value: stats?.examsCreated ?? 0, icon: FileText, color: 'text-primary', bg: 'bg-primary/10' },
+        { label: 'My Study Decks', value: stats?.decksCreated ?? 0, icon: BookOpen, color: 'text-violet-600', bg: 'bg-violet-50' },
+        { label: 'Total Attempts', value: stats?.totalAttempts ?? 0, icon: BarChart3, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { label: 'Upcoming Conferences', value: stats?.upcomingSessions?.length ?? 0, icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
     ];
 
-    const recentExams: any[] = [];
+    const formatRelativeTime = (dateValue?: string | null) => {
+        if (!dateValue) return 'Recently';
+        const date = new Date(dateValue);
+        if (Number.isNaN(date.getTime())) return 'Recently';
+        const diffMs = Date.now() - date.getTime();
+        const minute = 60_000;
+        const hour = 60 * minute;
+        const day = 24 * hour;
+        if (diffMs < minute) return 'Just now';
+        if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
+        if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+        return `${Math.floor(diffMs / day)}d ago`;
+    };
 
-    const performanceTable: any[] = [];
+    const toLabelCase = (value: string) =>
+        value.toLowerCase().split('_').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+
+    const normalizeStatus = (status: string) => {
+        if (status === 'LIVE') return 'Published';
+        return toLabelCase(status);
+    };
+
+    const statusBadgeClass = (status: string) => {
+        if (['Published', 'Active', 'Live'].includes(status)) return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+        if (['Pending', 'Draft'].includes(status)) return 'bg-amber-50 text-amber-700 border-amber-100';
+        if (['Disabled', 'Archived', 'Closed'].includes(status)) return 'bg-red-50 text-red-600 border-red-100';
+        return 'bg-gray-100 text-gray-600 border-gray-200';
+    };
+
+    const initialsFromName = (first?: string, last?: string) => {
+        const f = first?.charAt(0)?.toUpperCase() || '';
+        const l = last?.charAt(0)?.toUpperCase() || '';
+        return `${f}${l}` || 'U';
+    };
+
+    const EmptyState: React.FC<{ message: string }> = ({ message }) => (
+        <p className="text-xs text-gray-400 py-2">{message}</p>
+    );
+
+    const recentExams = stats?.recentExams ?? [];
+    const recentAttempts = stats?.recentAttempts ?? [];
+    const activityFeed = stats?.activityFeed ?? [];
 
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="bg-white border border-gray-100 px-5 py-6 rounded-2xl shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-secondary/5 rounded-full blur-3xl" />
-
-                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="space-y-2">
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Welcome back, Reviewer!</h1>
-                        <p className="text-gray-500 flex items-center gap-2 text-sm font-medium">
-                            <Calendar size={16} />
-                            <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                            <span className="text-gray-300">|</span>
-                            <span className="text-primary font-bold">{stats?.totalExams || 12} Published Exams</span>
-                        </p>
-                    </div>
+        <div className="flex flex-col gap-3 pb-6">
+            {/* Page header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Dashboard</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Welcome back, {firstName}. Here's your overview.</p>
+                </div>
+                <div className="flex items-center gap-2">
                     <Link to="/manage-exams/create">
-                        <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-4 flex gap-2 text-sm">
-                            <Plus size={20} />
-                            Create New Exam
+                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-white font-semibold h-8 text-xs px-3 gap-1.5">
+                            <PlusCircle size={12} />
+                            New Exam
+                        </Button>
+                    </Link>
+                    <Link to="/study">
+                        <Button size="sm" variant="outline" className="h-8 text-xs font-semibold px-3 gap-1.5 bg-white">
+                            <BookOpen size={12} />
+                            My Decks
                         </Button>
                     </Link>
                 </div>
-            </header>
+            </div>
 
-            {/* Stats Grid */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Stat strip */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                 {reviewerStats.map((stat, i) => (
-                    <Card key={i} className="border-gray-100 shadow-sm">
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={`p-2 rounded-lg ${stat.bg} ${stat.color}`}>
-                                    <stat.icon size={24} />
-                                </div>
-                                {stat.status ? (
-                                    <Badge variant="outline" className={`${stat.bg} ${stat.color} border-none font-bold text-[10px]`}>
-                                        {stat.status}
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-none font-bold text-[10px] flex gap-1">
-                                        <TrendingUp size={10} /> {stat.trend}
-                                    </Badge>
-                                )}
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
-                                <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div key={i} className="bg-white rounded-lg border border-gray-100 px-4 py-3 flex items-center gap-3 shadow-sm">
+                        <div className={`p-2 rounded-md ${stat.bg} ${stat.color} shrink-0`}>
+                            <stat.icon size={15} />
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-gray-900 leading-none">{stat.value}</p>
+                            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">{stat.label}</p>
+                        </div>
+                    </div>
                 ))}
-            </section>
+            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 flex flex-col gap-8">
-                    {/* Recent Exams */}
-                    <Card className="border-gray-100 shadow-sm">
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="text-xl font-bold">Recent Mock Exams</CardTitle>
-                            <Link to="/manage-exams">
-                                <Button variant="link" className="text-primary font-bold">View Library</Button>
-                            </Link>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {recentExams.map((exam, i) => (
-                                <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md transition-all cursor-pointer group">
-                                    <div className={`p-3 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors ${i % 2 === 0 ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary-foreground'}`}>
-                                        <FileText size={24} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <h3 className="font-bold text-gray-900">{exam.title}</h3>
-                                                <p className="text-xs text-gray-500 mt-1 font-medium">{exam.meta}</p>
-                                            </div>
-                                            <Badge className={exam.status === 'Published' ? 'bg-green-100 text-green-700 font-bold' : 'bg-orange-100 text-orange-700 font-bold'}>
-                                                {exam.status}
-                                            </Badge>
-                                        </div>
-                                        <div className="flex items-center gap-4 mt-4 text-[11px] text-gray-400 font-bold">
-                                            <span className="flex items-center gap-1.5 uppercase tracking-wider">
-                                                <Calendar size={12} /> {exam.date}
-                                            </span>
-                                            <span className="flex items-center gap-1.5 uppercase tracking-wider">
-                                                <Users size={12} /> {exam.students} Students
-                                            </span>
-                                            <span className="flex items-center gap-1.5 uppercase tracking-wider text-primary">
-                                                <BarChart3 size={12} /> {exam.avg} Avg Score
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    {/* Performance Table */}
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-bold text-gray-900">Performance Overview</h2>
-                        <Card className="border-gray-100 shadow-sm overflow-hidden">
-                            <Table>
-                                <TableHeader className="bg-gray-50">
-                                    <TableRow>
-                                        <TableHead className="font-bold text-xs uppercase text-gray-400 py-4">Exam Title</TableHead>
-                                        <TableHead className="font-bold text-xs uppercase text-gray-400 py-4">Attempts</TableHead>
-                                        <TableHead className="font-bold text-xs uppercase text-gray-400 py-4">Avg Score</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {performanceTable.map((row, i) => (
-                                        <TableRow key={i} className="hover:bg-gray-50/50">
-                                            <TableCell className="font-bold text-gray-900">{row.title}</TableCell>
-                                            <TableCell className="text-gray-500">{row.attempts}</TableCell>
-                                            <TableCell className="text-gray-500 font-medium">{row.avg}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </Card>
-                    </section>
-                </div>
-
-                {/* Right Column */}
-                <div className="flex flex-col gap-6">
-                    {/* Conferences */}
-                    <ConferencesWidget compact={false} />
-
-                    {/* Recent Activity */}
-                    <Card className="border-gray-100 shadow-sm">
-                        <CardHeader>
-                            <CardTitle className="text-lg font-bold">Recent Activity</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {[
-                                { title: 'New Mock Exam', sub: "Created 'Prof Ed: Final Drill'.", time: '2 hours ago', icon: FileText },
-                                { title: 'Exam Published', sub: "Published 'Gen Ed: Comprehensive Review'.", time: '1 day ago', icon: History },
-                                { title: 'Exam Updated', sub: "Modified 'English Language Skills' questions.", time: '2 days ago', icon: Edit },
-                            ].map((activity, i) => (
-                                <div key={i} className="flex gap-4 group">
-                                    <div className="bg-gray-50 rounded-lg h-10 w-10 flex items-center justify-center shrink-0 group-hover:bg-primary/5 transition-colors">
-                                        <activity.icon size={18} className="text-gray-400 group-hover:text-primary transition-colors" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h4 className="font-bold text-sm text-gray-900 leading-none">{activity.title}</h4>
-                                        <p className="text-xs text-gray-500 leading-snug">{activity.sub}</p>
-                                        <span className="text-[10px] text-gray-400 font-bold block pt-1 uppercase tracking-wider">{activity.time}</span>
-                                    </div>
-                                </div>
-                            ))}
-                            <Button variant="outline" onClick={() => alert('Full activity log filtered for reviewer!')} className="w-full mt-4 h-10 border-dashed text-gray-400 hover:text-gray-600 font-bold text-xs">
-                                View All Activities
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    {/* Quick Actions */}
-                    <Card className="bg-secondary/5 border-secondary/20 shadow-none">
-                        <CardContent className="p-6 space-y-4">
-                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest opacity-70">Quick Actions</h3>
-                            <div className="flex flex-col gap-3">
+            {/* Main content grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                {/* Left 2/3 */}
+                <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* My Exams */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <FileText size={12} /> My Exams
+                                </CardTitle>
                                 <Link to="/manage-exams">
-                                    <Button variant="link" className="justify-start p-0 h-auto text-sm font-bold text-gray-600 hover:text-primary flex gap-2">
-                                        <Edit size={16} /> Manage Exams
+                                    <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">
+                                        View all
                                     </Button>
                                 </Link>
-                                <Button variant="link" onClick={() => alert('Exam analytics and student performance data exported!')} className="justify-start p-0 h-auto text-sm font-bold text-gray-600 hover:text-primary flex gap-2">
-                                    <Download size={16} /> Export Exam Data
-                                </Button>
                             </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
+                            {recentExams.length === 0 ? (
+                                <EmptyState message="No exams created yet." />
+                            ) : (
+                                recentExams.map((exam, index) => {
+                                    const displayStatus = normalizeStatus(exam.status);
+                                    return (
+                                        <div key={index} className="py-2 border-b border-gray-50 last:border-0">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <p className="text-[12px] font-semibold text-gray-800 leading-tight flex-1 truncate">{exam.title}</p>
+                                                <Badge className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 border ${statusBadgeClass(displayStatus)}`}>
+                                                    {displayStatus}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 mt-0.5 truncate">{exam.subject || 'General'}</p>
+                                            <div className="flex items-center justify-between mt-1">
+                                                <span className="text-[10px] text-gray-400">{exam._count?.attempts ?? 0} attempts</span>
+                                                <span className="text-[10px] text-gray-300 flex items-center gap-0.5">
+                                                    <Clock3 size={9} />{formatRelativeTime(exam.updatedAt)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
                         </CardContent>
                     </Card>
+
+                    {/* Recent Student Attempts */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <ClipboardList size={12} /> Student Attempts
+                                </CardTitle>
+                                <Link to="/exam-performance">
+                                    <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">
+                                        View all
+                                    </Button>
+                                </Link>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
+                            {recentAttempts.length === 0 ? (
+                                <EmptyState message="No student attempts yet." />
+                            ) : (
+                                recentAttempts.slice(0, 6).map((attempt, index) => (
+                                    <div key={index} className="py-2 border-b border-gray-50 last:border-0">
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="h-5 w-5 shrink-0">
+                                                <AvatarFallback className="text-[9px]">
+                                                    {initialsFromName(attempt.user?.firstName, attempt.user?.lastName)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <p className="text-[12px] font-semibold text-gray-800 truncate flex-1">
+                                                {attempt.user ? `${attempt.user.firstName} ${attempt.user.lastName}` : 'Unknown'}
+                                            </p>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{attempt.exam?.title || 'N/A'}</p>
+                                        <div className="flex items-center justify-between mt-1">
+                                            <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold px-1.5 py-0">
+                                                {Math.round(attempt.percentage ?? 0)}%
+                                            </Badge>
+                                            <span className="text-[10px] text-gray-300">{formatRelativeTime(attempt.submittedAt)}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Right 1/3 */}
+                <div className="flex flex-col gap-3">
+                    {/* Activity Feed */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
+                            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                <Layers size={12} /> Activity Feed
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
+                            {activityFeed.length === 0 ? (
+                                <EmptyState message="No recent activity." />
+                            ) : (
+                                activityFeed.map((item, index) => (
+                                    <div key={index} className="border-l-2 border-primary/20 pl-2.5 py-0.5">
+                                        <p className="text-[12px] font-semibold text-gray-800 leading-tight truncate">{item.title}</p>
+                                        <p className="text-[10px] text-gray-400 truncate">
+                                            {item.creator ? `${item.creator.firstName} ${item.creator.lastName}` : 'System'}
+                                            {item.subject ? ` · ${item.subject}` : ''}
+                                        </p>
+                                        <p className="text-[10px] text-gray-300 mt-0.5">{formatRelativeTime(item.createdAt)}</p>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Conferences */}
+                    <ConferencesWidget />
+
+                    {/* Quick Access */}
+                    <div className="bg-white rounded-lg border border-dashed border-gray-200 p-3">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-2">Quick Access</p>
+                        <div className="space-y-1.5">
+                            <Link to="/manage-exams">
+                                <Button variant="ghost" size="sm" className="w-full justify-between h-8 text-xs font-medium text-gray-600 hover:text-primary hover:bg-primary/5 px-2">
+                                    My Mock Exams <ChevronRight size={12} />
+                                </Button>
+                            </Link>
+                            <Link to="/study">
+                                <Button variant="ghost" size="sm" className="w-full justify-between h-8 text-xs font-medium text-gray-600 hover:text-primary hover:bg-primary/5 px-2">
+                                    My Study Decks <ChevronRight size={12} />
+                                </Button>
+                            </Link>
+                            <Link to="/exam-performance">
+                                <Button variant="ghost" size="sm" className="w-full justify-between h-8 text-xs font-medium text-gray-600 hover:text-primary hover:bg-primary/5 px-2">
+                                    Student Performance <ChevronRight size={12} />
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

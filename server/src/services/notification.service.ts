@@ -1,4 +1,5 @@
 import prisma from '../config/db';
+import { notificationRealtimeService } from './notificationRealtime.service';
 
 export class NotificationService {
     async listNotifications(userId: string, params: { page?: number; limit?: number; unreadOnly?: boolean }) {
@@ -23,17 +24,31 @@ export class NotificationService {
     }
 
     async markAsRead(notificationId: string, userId: string) {
-        return prisma.notification.updateMany({
+        const result = await prisma.notification.updateMany({
             where: { id: notificationId, recipientUserId: userId },
             data: { isRead: true, readAt: new Date() },
         });
+
+        if (result.count > 0) {
+            notificationRealtimeService.emitToUser(userId, 'notification:read', { notificationId });
+        }
+
+        return result;
     }
 
     async markAllAsRead(userId: string) {
-        return prisma.notification.updateMany({
+        const result = await prisma.notification.updateMany({
             where: { recipientUserId: userId, isRead: false },
             data: { isRead: true, readAt: new Date() },
         });
+
+        if (result.count > 0) {
+            notificationRealtimeService.emitToUser(userId, 'notification:read-all', {
+                at: new Date().toISOString(),
+            });
+        }
+
+        return result;
     }
 
     async getUnreadCount(userId: string) {
@@ -52,7 +67,9 @@ export class NotificationService {
         entityId?: string;
         severity?: string;
     }) {
-        return prisma.notification.create({ data });
+        const created = await prisma.notification.create({ data });
+        notificationRealtimeService.emitToUser(data.recipientUserId, 'notification:new', created);
+        return created;
     }
 
     async createNotifications(data: {
@@ -68,7 +85,7 @@ export class NotificationService {
         const recipientUserIds = Array.from(new Set(data.recipientUserIds.filter(Boolean)));
         if (recipientUserIds.length === 0) return { count: 0 };
 
-        return prisma.notification.createMany({
+        const result = await prisma.notification.createMany({
             data: recipientUserIds.map((recipientUserId) => ({
                 recipientUserId,
                 type: data.type,
@@ -80,6 +97,15 @@ export class NotificationService {
                 severity: data.severity || 'INFO',
             })),
         });
+
+        for (const userId of recipientUserIds) {
+            notificationRealtimeService.emitToUser(userId, 'notification:sync', {
+                reason: 'bulk-create',
+                at: new Date().toISOString(),
+            });
+        }
+
+        return result;
     }
 
     async getActiveRevieweeIds(programTrack?: string, excludeUserId?: string) {

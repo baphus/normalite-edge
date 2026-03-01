@@ -367,8 +367,8 @@
         if (deck === 'custom') {
             const urlParams = new URLSearchParams(window.location.search);
             const deckId = urlParams.get('id');
-            const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
-            const foundDeck = customDecks.find(d => d.id == deckId);
+            const studyMaterials = JSON.parse(localStorage.getItem('studyMaterials') || '[]');
+            const foundDeck = studyMaterials.find(d => d.id == deckId);
             
             if (foundDeck) {
                 questions = foundDeck.cards.map((c, i) => ({
@@ -498,8 +498,8 @@
         // Update Deck Content based on params
         if (deckParam === 'custom') {
             const deckId = urlParams.get('id');
-            const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
-            const foundDeck = customDecks.find(d => d.id == deckId);
+            const studyMaterials = JSON.parse(localStorage.getItem('studyMaterials') || '[]');
+            const foundDeck = studyMaterials.find(d => d.id == deckId);
             if (foundDeck) {
                 document.getElementById('breadcrumb-category').textContent = foundDeck.category;
                 document.getElementById('breadcrumb-deck').textContent = foundDeck.title;

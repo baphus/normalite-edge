@@ -150,10 +150,10 @@ const ManageMaterialsPage: React.FC = () => {
             <header className="flex items-center justify-between gap-4">
                 <div>
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Material Library</h1>
-                    <p className="text-[11px] text-gray-400 mt-0.5">Manage and organize custom review decks for each program track.</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Manage and organize review materials for each program track.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative w-full sm:w-52 group">
+                    <div className="relative w-56 group">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={13} />
                         <Input
                             placeholder="Search materials..."
@@ -269,10 +269,10 @@ const ManageMaterialsPage: React.FC = () => {
                     <Card className="border-gray-100 rounded-lg bg-white">
                         <CardContent className="p-6 text-center space-y-1.5">
                             <p className="text-sm font-bold text-gray-800">No materials found</p>
-                            <p className="text-xs text-gray-500 font-medium">Adjust your filters or create a new custom deck.</p>
+                            <p className="text-xs text-gray-500 font-medium">Adjust your filters or create a new study material.</p>
                             <Link to="/materials/create" className="inline-flex mt-2">
                                 <Button className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white font-semibold gap-1.5 text-xs">
-                                    <Plus size={13} /> Create Custom Deck
+                                    <Plus size={13} /> Create Study Material
                                 </Button>
                             </Link>
                         </CardContent>
@@ -397,7 +397,7 @@ const ManageMaterialsPage: React.FC = () => {
                         </div>
                         <div className="text-center">
                             <p className="font-semibold text-xs text-gray-900">Create New Material</p>
-                            <p className="text-[10px] text-gray-400 font-medium mt-0.5 max-w-[180px]">Start a new custom flashcard deck for your reviewees</p>
+                            <p className="text-[10px] text-gray-400 font-medium mt-0.5 max-w-[180px]">Start a new study material for your reviewees</p>
                         </div>
                     </Link>
                 )}

@@ -50,7 +50,7 @@
         'mock-exam.html': 'exams.html',
         'mock-exam-result.html': 'exams.html',
         'mock-exam-review.html': 'exams.html',
-        'custom-deck.html': 'study.html',
+        'study-material-editor.html': 'study.html',
         'study-session.html': 'study.html',
         'security.html': 'settings.html',
         // Admin & Reviewer

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
     LayoutDashboard,
     BookOpen,
@@ -13,8 +13,8 @@ import {
     CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { cn } from '@/lib/utils';
-import api from '@/lib/axios';
 
 interface NavItem {
     name: string;
@@ -78,8 +78,7 @@ const navGroups: NavGroup[] = [
 
 const Sidebar: React.FC = () => {
     const { user, logout } = useAuth();
-    const location = useLocation();
-    const [unreadCount, setUnreadCount] = useState(0);
+    const { unreadCount } = useNotifications();
     const [imgError, setImgError] = useState(false);
     const normalizedRole = (user?.role || '').trim().toUpperCase();
 
@@ -93,19 +92,6 @@ const Sidebar: React.FC = () => {
             }))
             .filter(group => group.items.length > 0);
     }, [user, normalizedRole]);
-
-    useEffect(() => {
-        const loadUnreadCount = async () => {
-            try {
-                const response = await api.get('/notifications/unread-count');
-                const count = Number(response.data?.data?.unreadCount || 0);
-                setUnreadCount(count);
-            } catch {
-                setUnreadCount(0);
-            }
-        };
-        if (user) loadUnreadCount();
-    }, [user, location.pathname]);
 
     const userInitials = user?.name
         ? user.name.trim().split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()

@@ -43,7 +43,7 @@ const categoryOptions = [
     { value: 'SPECIALIZATION', label: 'Specialization' },
 ] as const;
 
-const CustomDeckPage: React.FC = () => {
+const StudyMaterialEditorPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const isAdminOrReviewer = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
@@ -637,4 +637,4 @@ const CustomDeckPage: React.FC = () => {
     );
 };
 
-export default CustomDeckPage;
+export default StudyMaterialEditorPage;

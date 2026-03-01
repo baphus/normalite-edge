@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Bookmark, BookOpen, Layers, Plus } from 'lucide-react';
+import { Search, Bookmark, BookOpen, Layers } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -193,18 +193,6 @@ const StudyHubPage: React.FC = () => {
                         </Card>
                     ))}
 
-                    <Link
-                        to="/study/custom-deck"
-                        className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 hover:bg-primary/[0.02] hover:border-primary/50 transition-all group"
-                    >
-                        <div className="bg-white p-4 rounded-full shadow-sm group-hover:scale-110 transition-transform">
-                            <Plus size={32} className="text-primary" />
-                        </div>
-                        <div className="text-center">
-                            <p className="font-bold text-sm text-gray-900 uppercase tracking-tight">Create Custom Deck</p>
-                            <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-widest">Personalize your review</p>
-                        </div>
-                    </Link>
                 </div>
             )}
 

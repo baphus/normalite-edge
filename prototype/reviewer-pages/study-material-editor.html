@@ -262,8 +262,8 @@
     });
 
     function loadDeckForEdit(id) {
-        const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
-        const deck = customDecks.find(d => d.id == id);
+        const studyMaterials = JSON.parse(localStorage.getItem('studyMaterials') || '[]');
+        const deck = studyMaterials.find(d => d.id == id);
 
         if (deck) {
             editMode = true;
@@ -493,13 +493,13 @@
             return;
         }
 
-        const customDecks = JSON.parse(localStorage.getItem('customDecks') || '[]');
+        const studyMaterials = JSON.parse(localStorage.getItem('studyMaterials') || '[]');
 
         if (editMode) {
-            const index = customDecks.findIndex(d => d.id == editId);
+            const index = studyMaterials.findIndex(d => d.id == editId);
             if (index !== -1) {
-                customDecks[index] = {
-                    ...customDecks[index],
+                studyMaterials[index] = {
+                    ...studyMaterials[index],
                     title, category, description,
                     cardCount: cards.length,
                     cards: cards,
@@ -507,7 +507,7 @@
                 };
             }
         } else {
-            customDecks.push({
+            studyMaterials.push({
                 id: Date.now(),
                 title,
                 category,
@@ -520,7 +520,7 @@
             });
         }
 
-        localStorage.setItem('customDecks', JSON.stringify(customDecks));
+        localStorage.setItem('studyMaterials', JSON.stringify(studyMaterials));
         alert(editMode ? 'Deck updated successfully!' : 'Deck created successfully!');
         window.location.href = 'study.html';
     }

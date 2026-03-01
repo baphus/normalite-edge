@@ -22,7 +22,7 @@ router.post('/:id/sessions/start', authorize('REVIEWEE'), validate(startDeckSess
 router.patch('/sessions/:sessionId/save', authorize('REVIEWEE'), validate(saveDeckSessionSchema), deckController.saveDeckSession);
 router.patch('/sessions/:sessionId/end', authorize('REVIEWEE'), validate(endDeckSessionSchema), deckController.endDeckSession);
 router.get('/:id', deckController.getDeck);
-router.post('/', authorize('ADMIN', 'REVIEWER', 'REVIEWEE'), validate(createDeckSchema), deckController.createDeck);
+router.post('/', authorize('ADMIN', 'REVIEWER'), validate(createDeckSchema), deckController.createDeck);
 router.put('/:id', authorize('ADMIN', 'REVIEWER'), validate(updateDeckSchema), deckController.updateDeck);
 router.delete('/:id', authorize('ADMIN', 'REVIEWER'), deckController.deleteDeck);
 

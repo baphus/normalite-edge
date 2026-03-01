@@ -196,8 +196,17 @@ export class DashboardService {
      * Get dashboard stats for a reviewer.
      */
     async getReviewerStats(userId: string) {
-        const [examsCreated, totalAttempts, upcomingSessions, recentAttempts] = await Promise.all([
+        const [
+            examsCreated,
+            decksCreated,
+            totalAttempts,
+            upcomingSessions,
+            recentAttempts,
+            recentExams,
+            activityFeed,
+        ] = await Promise.all([
             prisma.exam.count({ where: { createdBy: userId } }),
+            prisma.studyDeck.count({ where: { createdBy: userId } }),
             prisma.attempt.count({
                 where: { exam: { createdBy: userId }, status: { not: 'IN_PROGRESS' } },
             }),
@@ -213,15 +222,46 @@ export class DashboardService {
                     exam: { select: { id: true, title: true, subject: true } },
                 },
                 orderBy: { submittedAt: 'desc' },
-                take: 10,
+                take: 8,
+            }),
+            prisma.exam.findMany({
+                where: { createdBy: userId },
+                select: {
+                    id: true,
+                    title: true,
+                    subject: true,
+                    status: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    _count: { select: { attempts: true } },
+                },
+                orderBy: { updatedAt: 'desc' },
+                take: 6,
+            }),
+            prisma.exam.findMany({
+                select: {
+                    id: true,
+                    title: true,
+                    subject: true,
+                    status: true,
+                    createdAt: true,
+                    creator: {
+                        select: { firstName: true, lastName: true },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 6,
             }),
         ]);
 
         return {
             examsCreated,
+            decksCreated,
             totalAttempts,
             upcomingSessions,
             recentAttempts,
+            recentExams,
+            activityFeed,
         };
     }
 

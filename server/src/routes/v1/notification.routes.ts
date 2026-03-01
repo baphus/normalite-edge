@@ -4,6 +4,8 @@ import { authenticate } from '../../middleware/authenticate';
 
 const router = Router();
 
+router.get('/stream', notificationController.streamNotifications);
+
 router.use(authenticate);
 
 router.get('/', notificationController.listNotifications);
