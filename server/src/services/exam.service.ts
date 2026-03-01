@@ -4,6 +4,34 @@ import { ApplicableCategory, Role } from '@prisma/client';
 import { notificationService } from './notification.service';
 
 export class ExamService {
+    private readonly defaultMultipleAttemptsLimit = 3;
+
+    private async getAllowMultipleAttempts() {
+        try {
+            const rows = await prisma.$queryRaw<Array<{ allow_multiple_attempts: boolean }>>`
+                SELECT allow_multiple_attempts
+                FROM system_settings
+                WHERE id = 1
+                LIMIT 1
+            `;
+
+            if (rows.length > 0) {
+                return Boolean(rows[0].allow_multiple_attempts);
+            }
+
+            await prisma.$executeRaw`
+                INSERT INTO system_settings (id, allow_multiple_attempts)
+                VALUES (1, false)
+                ON CONFLICT (id) DO NOTHING
+            `;
+
+            return false;
+        } catch (error) {
+            console.error('Failed to read system settings, defaulting allowMultipleAttempts=false', error);
+            return false;
+        }
+    }
+
     private toSectionKey(value?: string | null) {
         return (this.toEncodingSafeText(value)?.trim().toLowerCase() || 'general section')
             .replace(/\s+/g, ' ');
@@ -97,11 +125,17 @@ export class ExamService {
         }
     }
 
-    private normalizeExam(exam: any) {
+    private normalizeExam(exam: any, options?: { allowMultipleAttempts?: boolean }) {
+        const allowMultipleAttempts = Boolean(options?.allowMultipleAttempts);
         const attempts = exam.attempts || [];
         const latestUserAttempt = attempts[0];
         const latestSubmittedAttempt = attempts.find((attempt: any) => attempt.status === 'SUBMITTED');
-        const hasSubmitted = Boolean(latestSubmittedAttempt);
+        const submittedAttemptsCount = attempts.filter((attempt: any) => attempt.status === 'SUBMITTED').length;
+        const effectiveMaxAttempts = allowMultipleAttempts
+            ? (exam.maxAttempts ?? this.defaultMultipleAttemptsLimit)
+            : 1;
+        const attemptsRemaining = Math.max(effectiveMaxAttempts - submittedAttemptsCount, 0);
+        const hasSubmitted = attemptsRemaining === 0;
 
         return {
             ...exam,
@@ -123,7 +157,7 @@ export class ExamService {
             duration: exam.timeLimitMinutes,
             hasSubmitted,
             userAttemptStatus: latestUserAttempt?.status,
-            attempts_remaining: hasSubmitted ? 0 : 1,
+            attempts_remaining: attemptsRemaining,
             latestSubmittedAttemptId: latestSubmittedAttempt?.id || null,
             latestSubmittedScore: latestSubmittedAttempt?.percentage ?? null,
             sections: (exam.sections || [])
@@ -158,6 +192,7 @@ export class ExamService {
         publishedOrMine?: string;
     }) {
         await this.closeExpiredLiveExams();
+        const allowMultipleAttempts = await this.getAllowMultipleAttempts();
 
         const page = params.page || 1;
         const limit = params.limit || 20;
@@ -249,7 +284,12 @@ export class ExamService {
             prisma.exam.count({ where }),
         ]);
 
-        return { exams: exams.map((exam) => this.normalizeExam(exam)), total, page, limit };
+        return {
+            exams: exams.map((exam) => this.normalizeExam(exam, { allowMultipleAttempts })),
+            total,
+            page,
+            limit,
+        };
     }
 
     /**
@@ -332,6 +372,7 @@ export class ExamService {
         program?: string;
         trackIds?: string[];
         timeLimit: number;
+        maxAttempts?: number | null;
         scheduledDate?: Date;
         deadline?: Date;
         closeOnDeadline?: boolean;
@@ -365,7 +406,7 @@ export class ExamService {
                     category: data.category ?? null,
                     programTrack: this.toEncodingSafeText(data.program) || undefined,
                     timeLimitMinutes: data.timeLimit,
-                    maxAttempts: 1,
+                    maxAttempts: data.maxAttempts ?? null,
                     scheduleStart: data.scheduledDate,
                     scheduleEnd: data.deadline,
                     closeOnDeadline: Boolean(data.closeOnDeadline && data.deadline),
@@ -466,6 +507,7 @@ export class ExamService {
         program?: string;
         trackIds?: string[];
         timeLimit?: number;
+        maxAttempts?: number | null;
         scheduledDate?: Date;
         deadline?: Date;
         closeOnDeadline?: boolean;
@@ -509,7 +551,7 @@ export class ExamService {
                 scheduleStart: data.scheduledDate,
                 scheduleEnd: data.deadline,
                 closeOnDeadline: data.closeOnDeadline,
-                maxAttempts: 1,
+                maxAttempts: data.maxAttempts,
             };
 
             if (typeof data.isPublished === 'boolean') {

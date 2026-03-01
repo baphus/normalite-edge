@@ -32,11 +32,9 @@ export const examController = {
 
     listManagedExams: catchAsync(async (req: Request, res: Response) => {
         const { page, limit } = req.query;
-        const isAdmin = req.user!.role === 'ADMIN';
         const result = await examService.listExams({
             page: page ? parseInt(page as string) : undefined,
             limit: limit ? parseInt(limit as string) : undefined,
-            createdBy: isAdmin ? undefined : req.user!.userId,
         });
 
         ApiResponse.paginated(res, result.exams, {

@@ -5,14 +5,18 @@ import {
     ArrowLeft,
     ArrowRight,
     Send,
-    School,
-    BookOpen,
-    Brain
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import api from '@/lib/axios';
 
 interface Question {
@@ -74,24 +78,6 @@ interface LocalDraft {
 
 const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
 
-const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, banner: string }> = {
-    'Professional Education': {
-        color: 'text-amber-700',
-        icon: School,
-        banner: 'bg-amber-50 border-amber-100 text-amber-700'
-    },
-    'General Education': {
-        color: 'text-blue-700',
-        icon: BookOpen,
-        banner: 'bg-blue-50 border-blue-100 text-blue-700'
-    },
-    'Major Subject': {
-        color: 'text-purple-700',
-        icon: Brain,
-        banner: 'bg-purple-50 border-purple-100 text-purple-700'
-    }
-};
-
 const TakeExamPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -104,6 +90,7 @@ const TakeExamPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'pending' | 'error'>('idle');
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const answersRef = useRef<Record<string, string>>({});
     const timeLeftRef = useRef(0);
@@ -452,9 +439,14 @@ const TakeExamPage: React.FC = () => {
     }
 
     const currentQuestion = exam.questions[currentIndex] || { id: '', orderNo: 0, text: '', choices: [], section: '' };
-    const section = SECTION_CONFIG[exam.subject] || SECTION_CONFIG['Professional Education'];
-    const SectionIcon = section.icon;
-    const sectionLabel = currentQuestion.section?.trim() || exam.subject || 'Exam';
+
+    const skippedQuestions = exam.questions
+        .map((q, idx) => ({ q, idx }))
+        .filter(({ q }) => !answers[q.id]);
+
+    const handleSubmitClick = () => {
+        setShowConfirm(true);
+    };
 
     const handleOptionSelect = (optionIndex: number) => {
         const selectedChoice = CHOICE_LABELS[optionIndex] || 'A';
@@ -478,28 +470,27 @@ const TakeExamPage: React.FC = () => {
                     ? 'Save failed'
                     : 'Idle';
 
+    const currentSection = currentQuestion.section?.trim() || 'General Section';
+
     return (
-        <div className="flex flex-col h-screen -m-6 md:-m-8 md:p-0 overflow-hidden bg-white">
+        <div className="fixed inset-y-0 right-0 left-[218px] z-50 flex flex-col overflow-hidden bg-gray-50">
             {/* Header */}
-            <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-                <div className="flex flex-col">
-                    <h2 className="text-lg font-bold text-gray-900 leading-tight">{exam.title}</h2>
-                    <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider text-primary border-primary/20 bg-primary/5">
-                            Standard Mode
-                        </Badge>
+            <header className="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                        <h2 className="text-sm font-bold text-gray-900 truncate leading-tight">{exam.title}</h2>
+                        <p className="text-xs text-gray-400 font-medium">{exam.subject}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <Badge variant="outline" className={isOffline ? 'text-amber-700 border-amber-200 bg-amber-50' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}>
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border ${isOffline ? 'text-amber-700 border-amber-200 bg-amber-50' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                         {isOffline ? 'Offline' : 'Online'}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                        {saveLabel}
-                    </Badge>
-                    <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
-                        <Timer size={20} className="text-gray-400" />
-                        <span className="font-mono font-black text-primary text-xl">
+                    </span>
+                    <span className="text-[10px] font-semibold text-gray-400 hidden sm:block">{saveLabel}</span>
+                    <div className="flex items-center gap-1.5 bg-gray-900 text-white px-3 py-1.5 rounded-lg">
+                        <Timer size={13} className="opacity-70" />
+                        <span className="font-mono font-bold text-sm tracking-tight">
                             {formatTime(timeLeft)}
                         </span>
                     </div>
@@ -508,36 +499,36 @@ const TakeExamPage: React.FC = () => {
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Main Question Area */}
-                <main className="flex-1 overflow-y-auto bg-gray-50/50 p-6 md:p-10">
-                    <div className="max-w-4xl mx-auto space-y-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">
-                                Question {currentIndex + 1} of {exam.questions.length}
+                <main className="flex-1 overflow-y-auto p-4 md:p-6">
+                    <div className="max-w-3xl mx-auto space-y-4">
+                        {/* Progress bar row */}
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold text-gray-400 shrink-0">
+                                {currentIndex + 1} / {exam.questions.length}
                             </span>
-                            <Progress value={((currentIndex + 1) / exam.questions.length) * 100} className="w-32 h-2" />
+                            <Progress value={((currentIndex + 1) / exam.questions.length) * 100} className="flex-1 h-1.5" />
+                            <span className="text-xs font-semibold text-gray-400 shrink-0">
+                                {answeredCount} answered
+                            </span>
                         </div>
 
-                        <Card className="border-none shadow-xl shadow-gray-200/50 overflow-hidden rounded-3xl">
-                            <div className={`px-8 py-4 flex items-center gap-3 border-b ${section.banner}`}>
-                                <SectionIcon size={20} />
-                                <span className="text-xs font-black uppercase tracking-[0.2em]">{sectionLabel}</span>
-                            </div>
-                            <CardContent className="p-8 md:p-12">
-                                <h3 className="text-xl md:text-2xl font-semibold text-gray-900 leading-relaxed mb-10">
+                        <Card className="border border-gray-200 shadow-sm overflow-hidden rounded-xl bg-white">
+                            <CardContent className="p-5">
+                                <p className="text-sm md:text-base font-medium text-gray-900 leading-relaxed mb-5">
                                     {currentQuestion.text}
-                                </h3>
+                                </p>
 
                                 {currentQuestion.imageUrl && (
-                                    <div className="mb-8 rounded-2xl border border-gray-100 bg-gray-50/30 p-3">
+                                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 p-2">
                                         <img
                                             src={currentQuestion.imageUrl}
                                             alt="Question attachment"
-                                            className="max-h-80 w-auto max-w-full rounded-xl border border-gray-100 object-contain bg-white"
+                                            className="max-h-52 w-auto max-w-full rounded-md border border-gray-100 object-contain bg-white"
                                         />
                                     </div>
                                 )}
 
-                                <div className="grid gap-4">
+                                <div className="grid gap-2">
                                     {(currentQuestion.choices || []).map((option, idx) => {
                                         const optionLabel = CHOICE_LABELS[idx] || 'A';
                                         const isSelected = answers[currentQuestion.id] === optionLabel;
@@ -546,16 +537,22 @@ const TakeExamPage: React.FC = () => {
                                             <button
                                                 key={idx}
                                                 onClick={() => handleOptionSelect(idx)}
-                                                className={`group flex items-center gap-5 p-5 rounded-2xl border-2 text-left transition-all duration-200 ${isSelected
-                                                    ? 'border-primary bg-primary/5 ring-4 ring-primary/5'
-                                                    : 'border-gray-100 bg-white hover:border-primary/20 hover:bg-gray-50'
-                                                    }`}
+                                                className={`group flex items-center gap-3 px-3.5 py-2.5 rounded-lg border text-left transition-all duration-150 ${
+                                                    isSelected
+                                                        ? 'border-primary bg-primary/5 ring-2 ring-primary/10'
+                                                        : 'border-gray-200 bg-white hover:border-primary/30 hover:bg-gray-50/80'
+                                                }`}
                                             >
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${isSelected ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary'
-                                                    }`}>
+                                                <div className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
+                                                    isSelected
+                                                        ? 'bg-primary text-white'
+                                                        : 'bg-gray-100 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary'
+                                                }`}>
                                                     {label}
                                                 </div>
-                                                <span className={`text-base font-medium ${isSelected ? 'text-gray-900 font-bold' : 'text-gray-600'}`}>
+                                                <span className={`text-sm leading-snug ${
+                                                    isSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-medium'
+                                                }`}>
                                                     {option}
                                                 </span>
                                             </button>
@@ -563,32 +560,40 @@ const TakeExamPage: React.FC = () => {
                                     })}
                                 </div>
 
-                                <div className="flex items-center justify-between mt-12 pt-8 border-t border-gray-100">
+                                <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
                                     <Button
                                         variant="ghost"
+                                        size="sm"
                                         onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                                         disabled={currentIndex === 0}
-                                        className="h-12 px-6 rounded-xl font-bold text-gray-500 gap-2"
+                                        className="h-8 px-3 text-xs font-semibold text-gray-500 gap-1.5 rounded-lg"
                                     >
-                                        <ArrowLeft size={18} /> Previous
+                                        <ArrowLeft size={13} /> Previous
                                     </Button>
 
-                                    {currentIndex === exam.questions.length - 1 ? (
-                                        <Button
-                                            onClick={() => handleFinish(false)}
-                                            disabled={isSubmitting}
-                                            className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/25 gap-2"
-                                        >
-                                            Submit Exam <Send size={18} />
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            onClick={() => setCurrentIndex(prev => Math.min(exam.questions.length - 1, prev + 1))}
-                                            className="h-12 px-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/25 gap-2"
-                                        >
-                                            Next Question <ArrowRight size={18} />
-                                        </Button>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {!answers[currentQuestion.id] && (
+                                            <span className="text-[10px] text-gray-400 font-medium">Not answered</span>
+                                        )}
+                                        {currentIndex === exam.questions.length - 1 ? (
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSubmitClick}
+                                                disabled={isSubmitting}
+                                                className="h-8 px-4 text-xs font-bold rounded-lg bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5"
+                                            >
+                                                Submit Exam <Send size={12} />
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                onClick={() => setCurrentIndex(prev => Math.min(exam.questions.length - 1, prev + 1))}
+                                                className="h-8 px-4 text-xs font-bold rounded-lg bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5"
+                                            >
+                                                Next <ArrowRight size={12} />
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -596,79 +601,154 @@ const TakeExamPage: React.FC = () => {
                 </main>
 
                 {/* Right Sidebar - Navigator */}
-                <aside className="w-80 border-l border-gray-100 bg-white flex-col shrink-0 hidden lg:flex">
-                    <div className="p-6 flex-1 overflow-y-auto space-y-8">
-                        <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-black text-gray-900 uppercase tracking-wider text-xs">Question Navigator</h3>
-                                <Badge variant="secondary" className="bg-gray-100 text-gray-500 font-bold">
-                                    {answeredCount} / {exam.questions.length}
-                                </Badge>
-                            </div>
-                            <div className="grid grid-cols-5 gap-2">
-                                {exam.questions.map((_, idx) => {
-                                    const isCurrent = currentIndex === idx;
-                                    const isAnswered = Boolean(answers[exam.questions[idx].id]);
-                                    return (
-                                        <button
-                                            key={idx}
-                                            onClick={() => setCurrentIndex(idx)}
-                                            className={`h-10 rounded-xl text-xs font-black transition-all duration-200 ${isCurrent
-                                                ? 'bg-primary text-white shadow-lg shadow-primary/25 ring-4 ring-primary/10 scale-110 z-10'
+                <aside className="w-64 border-l border-gray-200 bg-white flex-col shrink-0 hidden lg:flex">
+                    <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em]">Navigator</span>
+                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                {answeredCount}/{exam.questions.length}
+                            </span>
+                        </div>
+                        <div className="mt-1.5">
+                            <Progress value={(answeredCount / exam.questions.length) * 100} className="h-1" />
+                        </div>
+                    </div>
+
+                    <div className="p-4 flex-1 overflow-y-auto space-y-5">
+                        <div className="grid grid-cols-6 gap-1.5">
+                            {exam.questions.map((_, idx) => {
+                                const isCurrent = currentIndex === idx;
+                                const isAnswered = Boolean(answers[exam.questions[idx].id]);
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setCurrentIndex(idx)}
+                                        title={`Question ${idx + 1}`}
+                                        className={`h-8 rounded-md text-[11px] font-bold transition-all duration-150 ${
+                                            isCurrent
+                                                ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
                                                 : isAnswered
-                                                    ? 'bg-green-100 text-green-700 border border-green-200'
-                                                    : 'bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            {idx + 1}
-                                        </button>
+                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                    : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100 hover:text-gray-600'
+                                        }`}
+                                    >
+                                        {idx + 1}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10px] font-semibold text-gray-400">
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-100 border border-gray-200 inline-block" />Skip</span>
+                        </div>
+
+                        {sectionProgress.length > 0 && (
+                            <div className="pt-3 border-t border-gray-100 space-y-1.5">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block mb-2">By Section</span>
+                                {sectionProgress.map((sectionItem) => {
+                                    const isActive = sectionItem.name === currentSection;
+                                    return (
+                                        <div key={sectionItem.name} className={`rounded-lg px-2.5 py-2 transition-colors ${isActive ? 'bg-primary/5 border border-primary/15' : 'border border-transparent'}`}>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                                                    <span className={`text-[11px] font-semibold truncate ${isActive ? 'text-primary' : 'text-gray-600'}`}>{sectionItem.name}</span>
+                                                </div>
+                                                <span className={`text-[10px] font-bold shrink-0 ml-1 ${isActive ? 'text-primary' : 'text-gray-400'}`}>{sectionItem.answered}/{sectionItem.total}</span>
+                                            </div>
+                                            <Progress value={(sectionItem.answered / sectionItem.total) * 100} className="h-1" />
+                                        </div>
                                     );
                                 })}
                             </div>
+                        )}
+                    </div>
 
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">Section Indicator</h4>
-                                <div className="space-y-2">
-                                    {sectionProgress.map((sectionItem) => (
-                                        <div key={sectionItem.name} className="flex items-center justify-between text-xs">
-                                            <span className="font-bold text-gray-600 truncate pr-2">{sectionItem.name}</span>
-                                            <Badge variant="outline" className="text-[10px] font-bold">
-                                                {sectionItem.answered}/{sectionItem.total}
-                                            </Badge>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 pt-6 border-t border-gray-100">
-                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Legend</h4>
-                            <div className="grid grid-cols-1 gap-3">
-                                <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
-                                    <div className="w-3 h-3 rounded-full bg-primary" /> Current
-                                </div>
-                                <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
-                                    <div className="w-3 h-3 rounded-full bg-green-100 border border-green-200" /> Answered
-                                </div>
-                                <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
-                                    <div className="w-3 h-3 rounded-full bg-gray-50 border border-gray-100" /> Unanswered
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="pt-8 mt-auto">
-                            <Button
-                                onClick={() => handleFinish(false)}
-                                disabled={isSubmitting}
-                                className="w-full h-12 bg-primary hover:bg-primary/95 text-white font-black rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
-                            >
-                                <Send size={18} />
-                                Submit Final Exam
-                            </Button>
-                        </div>
+                    <div className="p-4 border-t border-gray-100">
+                        <Button
+                            onClick={handleSubmitClick}
+                            disabled={isSubmitting}
+                            size="sm"
+                            className="w-full h-8 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                            <Send size={12} />
+                            Submit Exam
+                        </Button>
                     </div>
                 </aside>
             </div>
+
+            {/* Submit Confirmation Dialog */}
+            <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+                <DialogContent className="max-w-sm rounded-xl p-0 overflow-hidden gap-0">
+                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-gray-100">
+                        <DialogTitle className="text-sm font-bold text-gray-900">Submit Exam?</DialogTitle>
+                        <DialogDescription className="text-xs text-gray-500 mt-1">
+                            {answeredCount} of {exam.questions.length} questions answered.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="px-5 py-4 space-y-3">
+                        {/* Stats row */}
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-center">
+                                <p className="text-lg font-black text-emerald-700">{answeredCount}</p>
+                                <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wide">Answered</p>
+                            </div>
+                            <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-center">
+                                <p className="text-lg font-black text-amber-700">{skippedQuestions.length}</p>
+                                <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Skipped</p>
+                            </div>
+                            <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-center">
+                                <p className="text-lg font-black text-gray-700">{exam.questions.length}</p>
+                                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Total</p>
+                            </div>
+                        </div>
+
+                        {skippedQuestions.length > 0 && (
+                            <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
+                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-2">Unanswered Questions</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {skippedQuestions.map(({ idx }) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => {
+                                                setShowConfirm(false);
+                                                setCurrentIndex(idx);
+                                            }}
+                                            className="w-7 h-7 rounded-md bg-white border border-amber-200 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+                                        >
+                                            {idx + 1}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-amber-600 mt-2 font-medium">Click a number to go back to that question.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="px-5 pb-5 flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowConfirm(false)}
+                            className="flex-1 h-8 text-xs font-semibold rounded-lg border-gray-200"
+                        >
+                            Go Back
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={() => { setShowConfirm(false); handleFinish(false); }}
+                            disabled={isSubmitting}
+                            className="flex-1 h-8 text-xs font-bold rounded-lg bg-primary hover:bg-primary/90 text-white gap-1.5"
+                        >
+                            <Send size={11} /> Confirm Submit
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

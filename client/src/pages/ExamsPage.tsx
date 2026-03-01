@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -9,13 +9,21 @@ import {
     Calendar,
     AlertCircle,
     TrendingUp,
-    Eye
+    Eye,
+    LayoutGrid,
+    List,
+    SlidersHorizontal,
+    CheckCircle2,
+    RotateCcw,
+    BookOpen,
 } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
     Dialog,
     DialogContent,
@@ -25,11 +33,16 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
-    SelectValue
+    SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -59,8 +72,9 @@ const ExamsPage: React.FC = () => {
     const [exams, setExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [category, setCategory] = useState('All');
-    const [status, setStatus] = useState('all');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [viewingExam, setViewingExam] = useState<Exam | null>(null);
 
     useEffect(() => {
@@ -85,294 +99,575 @@ const ExamsPage: React.FC = () => {
         const hasTrackLinks = examTracks.length > 0;
         const legacyProgramTrack = (exam.program_track || '').trim();
         const isPublic = !hasTrackLinks && !legacyProgramTrack;
-
         if (isPublic) return true;
         if (!revieweeTrack) return false;
-
         const matchesTrackLink = examTracks.some((track) =>
             [track.name, track.code]
                 .filter((value): value is string => Boolean(value && value.trim()))
                 .some((value) => value.trim().toLowerCase() === revieweeTrack)
         );
-
         const matchesLegacyProgram = !hasTrackLinks && legacyProgramTrack.toLowerCase() === revieweeTrack;
-
         return matchesTrackLink || matchesLegacyProgram;
     });
 
-    const filteredExams = visibleExams.filter(exam => {
-        const matchesSearch = exam.title.toLowerCase().includes(search.toLowerCase()) ||
-            (exam.description || '').toLowerCase().includes(search.toLowerCase());
-        const matchesCategory = category === 'All' || exam.category === category;
+    const categoryOptions = useMemo(() => {
+        return Array.from(new Set(visibleExams.map((e) => e.category))).sort((a, b) => a.localeCompare(b));
+    }, [visibleExams]);
+
+    const getExamState = (exam: Exam) => {
         const attemptsRemaining = exam.attempts_remaining ?? 0;
         const hasSubmitted = Boolean(exam.hasSubmitted || exam.userAttemptStatus === 'SUBMITTED' || attemptsRemaining === 0);
-        const matchesStatus = status === 'all' ||
-            (status === 'published' && exam.status === 'LIVE' && !hasSubmitted) ||
-            (status === 'submitted' && hasSubmitted) ||
-            (status === 'locked' && !hasSubmitted && exam.status !== 'LIVE');
+        const hasInProgress = exam.userAttemptStatus === 'IN_PROGRESS';
+        const isLive = exam.status === 'LIVE';
+        const canTake = isLive && !hasSubmitted;
+        return { attemptsRemaining, hasSubmitted, hasInProgress, isLive, canTake };
+    };
 
+    const activeFilterCount = useMemo(() => {
+        let count = 0;
+        if (statusFilter !== 'all') count++;
+        if (categoryFilter !== 'all') count++;
+        if (search.trim().length > 0) count++;
+        return count;
+    }, [statusFilter, categoryFilter, search]);
+
+    const filteredExams = visibleExams.filter((exam) => {
+        const matchesSearch =
+            exam.title.toLowerCase().includes(search.toLowerCase()) ||
+            (exam.description || '').toLowerCase().includes(search.toLowerCase());
+        const matchesCategory = categoryFilter === 'all' || exam.category === categoryFilter;
+        const { hasSubmitted, canTake } = getExamState(exam);
+        const matchesStatus =
+            statusFilter === 'all' ||
+            (statusFilter === 'available' && canTake) ||
+            (statusFilter === 'submitted' && hasSubmitted) ||
+            (statusFilter === 'in_progress' && exam.userAttemptStatus === 'IN_PROGRESS') ||
+            (statusFilter === 'locked' && !hasSubmitted && exam.status !== 'LIVE');
         return matchesSearch && matchesCategory && matchesStatus;
     });
 
-    const categories = ['All', 'Professional Education', 'General Education', 'Specialization'];
+    const isDeadlineSoon = (deadline?: string) => {
+        if (!deadline) return false;
+        const diff = new Date(deadline).getTime() - Date.now();
+        return diff > 0 && diff < 1000 * 60 * 60 * 48;
+    };
+
+    const formatDeadline = (deadline: string) =>
+        new Date(deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const getScoreColor = (score: number) => {
+        if (score >= 75) return 'text-green-600';
+        if (score >= 50) return 'text-amber-600';
+        return 'text-red-500';
+    };
+
+    const handleAction = (exam: Exam) => {
+        const { hasSubmitted, canTake } = getExamState(exam);
+        if (hasSubmitted) {
+            const resultLink = `/exams/${exam.id}/result${exam.latestSubmittedAttemptId ? `?attemptId=${exam.latestSubmittedAttemptId}` : ''}`;
+            navigate(resultLink);
+        } else if (canTake) {
+            navigate(`/exams/${exam.id}/take`);
+        }
+    };
+
+    const renderExamCard = (exam: Exam) => {
+        const { attemptsRemaining, hasSubmitted, hasInProgress, canTake } = getExamState(exam);
+        const score = exam.latestSubmittedScore ?? exam.lastScore;
+        const sectionTitles = (exam.sections || [])
+            .map((s) => s.title?.trim())
+            .filter((t): t is string => Boolean(t));
+        const deadlineSoon = isDeadlineSoon(exam.deadline);
+
+        if (viewMode === 'list') {
+            return (
+                <Card
+                    key={exam.id}
+                    className="group border-gray-100 hover:border-primary/20 hover:shadow-md transition-all duration-200 bg-white rounded-md"
+                >
+                    <CardContent className="p-3 flex items-center gap-4">
+                        <div className="shrink-0">
+                            {hasSubmitted ? (
+                                <div className="h-8 w-8 rounded-full bg-green-50 flex items-center justify-center">
+                                    <CheckCircle2 size={16} className="text-green-600" />
+                                </div>
+                            ) : hasInProgress ? (
+                                <div className="h-8 w-8 rounded-full bg-amber-50 flex items-center justify-center">
+                                    <RotateCcw size={16} className="text-amber-500" />
+                                </div>
+                            ) : canTake ? (
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <Play size={15} className="text-primary fill-primary" />
+                                </div>
+                            ) : (
+                                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                    <Lock size={15} className="text-gray-400" />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors truncate leading-tight">
+                                {exam.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                <span className="text-[10px] text-gray-400 font-medium">{exam.category}</span>
+                                {sectionTitles.length > 0 && (
+                                    <span className="text-[10px] text-gray-400 font-medium">
+                                        &middot; {sectionTitles.slice(0, 2).join(', ')}{sectionTitles.length > 2 ? ` +${sectionTitles.length - 2}` : ''}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="hidden sm:flex items-center gap-4 shrink-0">
+                            <div className="text-center">
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Items</p>
+                                <p className="text-xs font-bold text-gray-700">{exam.questionCount}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Time</p>
+                                <p className="text-xs font-bold text-gray-700">{exam.duration}m</p>
+                            </div>
+                            {hasSubmitted && score != null ? (
+                                <div className="text-center">
+                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Score</p>
+                                    <p className={`text-xs font-bold ${getScoreColor(score)}`}>{score}%</p>
+                                </div>
+                            ) : (
+                                <div className="text-center">
+                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Left</p>
+                                    <p className={`text-xs font-bold ${attemptsRemaining > 0 ? 'text-primary' : 'text-red-500'}`}>{attemptsRemaining}</p>
+                                </div>
+                            )}
+                            {exam.deadline && (
+                                <div className="text-center">
+                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Deadline</p>
+                                    <p className={`text-xs font-bold ${deadlineSoon ? 'text-red-500' : 'text-gray-700'}`}>{formatDeadline(exam.deadline)}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-xs rounded-md border-gray-200 font-semibold gap-1"
+                                onClick={() => setViewingExam(exam)}
+                            >
+                                <Eye size={11} /> Info
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => handleAction(exam)}
+                                disabled={!hasSubmitted && !canTake}
+                                className={`h-7 px-2.5 text-xs rounded-md font-semibold gap-1 ${
+                                    hasSubmitted
+                                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                                        : canTake
+                                        ? 'bg-primary hover:bg-primary/90 text-white'
+                                        : 'bg-gray-100 text-gray-400 border-none'
+                                }`}
+                            >
+                                {hasSubmitted ? (
+                                    <><TrendingUp size={11} /> Result</>
+                                ) : canTake ? (
+                                    hasInProgress ? <><RotateCcw size={11} /> Resume</> : <><Play size={11} fill="currentColor" /> Take</>
+                                ) : (
+                                    <><Lock size={11} /> Locked</>
+                                )}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            );
+        }
+
+        return (
+            <Card
+                key={exam.id}
+                className={`group border-gray-100 hover:border-primary/20 hover:shadow-md transition-all duration-200 bg-white rounded-lg overflow-hidden flex flex-col ${hasSubmitted ? 'opacity-90' : ''}`}
+            >
+                <CardContent className="p-3 flex flex-col h-full">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                        <Badge
+                            variant="outline"
+                            className="text-[9px] font-semibold uppercase tracking-wider text-primary border-primary/20 bg-primary/5 rounded px-1.5 max-w-[65%] truncate"
+                        >
+                            {exam.category}
+                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                            {hasSubmitted ? (
+                                <Badge className="font-semibold text-[9px] uppercase tracking-wider bg-green-50 text-green-600 border-none">
+                                    <span className="w-1.5 h-1.5 rounded-full mr-1 bg-green-600" />
+                                    Submitted
+                                </Badge>
+                            ) : hasInProgress ? (
+                                <Badge className="font-semibold text-[9px] uppercase tracking-wider bg-amber-50 text-amber-600 border-none">
+                                    <span className="w-1.5 h-1.5 rounded-full mr-1 bg-amber-500" />
+                                    In Progress
+                                </Badge>
+                            ) : canTake ? (
+                                <Badge className="font-semibold text-[9px] uppercase tracking-wider bg-blue-50 text-blue-600 border-none">
+                                    <span className="w-1.5 h-1.5 rounded-full mr-1 bg-blue-500" />
+                                    Available
+                                </Badge>
+                            ) : (
+                                <Badge className="font-semibold text-[9px] uppercase tracking-wider bg-gray-50 text-gray-500 border-none">
+                                    <span className="w-1.5 h-1.5 rounded-full mr-1 bg-gray-400" />
+                                    {exam.status === 'LIVE' ? 'No Attempts' : 'Closed'}
+                                </Badge>
+                            )}
+                        </div>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors leading-tight mb-1 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
+                        {exam.title}
+                    </h3>
+
+                    <p className="text-[10px] text-gray-500 font-medium mb-2 truncate">
+                        {sectionTitles.length > 0
+                            ? sectionTitles.slice(0, 3).join(' · ') + (sectionTitles.length > 3 ? ` +${sectionTitles.length - 3}` : '')
+                            : 'General Section'}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 py-2 border-y border-gray-100 mb-2">
+                        <div className="space-y-0.5">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                <FileText size={10} /> Questions
+                            </p>
+                            <p className="text-xs font-semibold text-gray-700">{exam.questionCount} Items</p>
+                        </div>
+                        <div className="space-y-0.5">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                <Clock size={10} /> Duration
+                            </p>
+                            <p className="text-xs font-semibold text-gray-700">{exam.duration} Min</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5 mb-2">
+                        {hasSubmitted && score != null ? (
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                    <TrendingUp size={10} className="text-green-500" /> Score
+                                </span>
+                                <span className={`text-[11px] font-bold ${getScoreColor(score)}`}>{score}%</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                    <RotateCcw size={10} className="text-primary" /> Attempts Left
+                                </span>
+                                <span className={`text-[11px] font-semibold ${attemptsRemaining > 0 ? 'text-primary' : 'text-red-500'}`}>
+                                    {attemptsRemaining}
+                                </span>
+                            </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                <Calendar size={10} className={deadlineSoon ? 'text-red-500' : 'text-gray-400'} /> Deadline
+                            </span>
+                            <span className={`text-[11px] font-semibold ${deadlineSoon ? 'text-red-500' : 'text-gray-700'}`}>
+                                {exam.deadline ? formatDeadline(exam.deadline) : 'None'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {hasInProgress && canTake && (
+                        <div className="flex items-center gap-1.5 bg-amber-50 rounded px-2 py-1 mb-2">
+                            <RotateCcw size={10} className="text-amber-500 shrink-0" />
+                            <span className="text-[10px] font-semibold text-amber-600">In Progress &mdash; resume from last saved point</span>
+                        </div>
+                    )}
+
+                    {deadlineSoon && !hasSubmitted && (
+                        <div className="flex items-center gap-1.5 bg-red-50 rounded px-2 py-1 mb-2">
+                            <AlertCircle size={10} className="text-red-500 shrink-0" />
+                            <span className="text-[10px] font-semibold text-red-600">Deadline approaching</span>
+                        </div>
+                    )}
+
+                    <div className="mt-auto grid grid-cols-2 gap-2">
+                        <Button
+                            variant="outline"
+                            className="h-8 rounded-md border-gray-200 font-semibold text-xs gap-1.5"
+                            onClick={() => setViewingExam(exam)}
+                        >
+                            <Eye size={12} /> View Info
+                        </Button>
+                        <Button
+                            className={`h-8 rounded-md font-semibold text-xs gap-1.5 ${
+                                hasSubmitted
+                                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                                    : canTake
+                                    ? 'bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20'
+                                    : 'bg-gray-100 text-gray-400 border-none'
+                            }`}
+                            disabled={!hasSubmitted && !canTake}
+                            onClick={() => handleAction(exam)}
+                        >
+                            {hasSubmitted ? (
+                                <><TrendingUp size={12} /> Result</>
+                            ) : canTake ? (
+                                hasInProgress ? <><RotateCcw size={12} /> Resume</> : <><Play size={12} fill="currentColor" /> Take</>
+                            ) : (
+                                <><Lock size={12} /> Locked</>
+                            )}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    };
 
     return (
-        <div className="flex flex-col gap-6 font-lexend pb-10">
-            <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Mock Exams</h1>
-                    <p className="text-gray-500 text-sm font-medium">Select a practice exam to begin your preparation.</p>
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Mock Exams</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Browse and take practice exams for your LET preparation.</p>
                 </div>
-                <div className="relative w-full lg:w-96 group">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
-                    <Input
-                        placeholder="Search exams, categories, or topics..."
-                        className="pl-11 h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary shadow-sm"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative w-full sm:w-52 group">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={13} />
+                        <Input
+                            placeholder="Search exams..."
+                            className="pl-8 h-8 rounded-md border-gray-200 text-xs"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className="h-8 rounded-md border-gray-200 font-semibold gap-1.5 text-xs bg-white"
+                            >
+                                <SlidersHorizontal size={13} /> Filters
+                                {activeFilterCount > 0 && (
+                                    <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full bg-primary/10 text-primary text-[9px] font-semibold">
+                                        {activeFilterCount}
+                                    </span>
+                                )}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-70 rounded-xl p-4 space-y-3">
+                            <div className="space-y-2">
+                                <Label className="text-xs">Status</Label>
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="All Statuses" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="available">Available</SelectItem>
+                                        <SelectItem value="in_progress">In Progress</SelectItem>
+                                        <SelectItem value="submitted">Submitted</SelectItem>
+                                        <SelectItem value="locked">Locked / Closed</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs">Category</Label>
+                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="All Categories" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Categories</SelectItem>
+                                        {categoryOptions.map((cat) => (
+                                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="pt-2 flex justify-end">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs font-semibold"
+                                    onClick={() => {
+                                        setStatusFilter('all');
+                                        setCategoryFilter('all');
+                                        setSearch('');
+                                    }}
+                                >
+                                    Clear Filters
+                                </Button>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <div className="flex items-center gap-0.5 rounded-md border border-gray-200 p-0.5 bg-white">
+                        <Button
+                            type="button"
+                            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                            className="h-7 px-2.5 rounded text-xs"
+                            onClick={() => setViewMode('grid')}
+                        >
+                            <LayoutGrid size={12} className="mr-1" /> Grid
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={viewMode === 'list' ? 'default' : 'ghost'}
+                            className="h-7 px-2.5 rounded text-xs"
+                            onClick={() => setViewMode('list')}
+                        >
+                            <List size={12} className="mr-1" /> List
+                        </Button>
+                    </div>
                 </div>
             </header>
 
-            {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-100">
-                <div className="flex gap-2 overflow-x-auto w-full sm:w-auto pb-0.5">
-                    {categories.map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setCategory(cat)}
-                            className={`py-3 px-4 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${category === cat ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}
-                        >
-                            {cat === 'All' ? 'All Exams' : cat}
-                            <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full ${category === cat ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'}`}>
-                                {cat === 'All' ? visibleExams.length : visibleExams.filter(e => e.category === cat).length}
-                            </span>
-                        </button>
-                    ))}
-                </div>
-                <div className="flex items-center gap-2 py-2 shrink-0">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status:</span>
-                    <Select value={status} onValueChange={setStatus}>
-                        <SelectTrigger className="w-[140px] h-9 text-xs border-none bg-gray-50 font-bold focus:ring-0">
-                            <SelectValue placeholder="All" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="published">Published</SelectItem>
-                            <SelectItem value="submitted">Submitted</SelectItem>
-                            <SelectItem value="locked">Locked</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-
             {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                    {[1, 2, 3, 4, 5, 6].map(i => (
-                        <Card key={i} className="border-gray-100 h-64 shadow-sm overflow-hidden">
-                            <CardContent className="p-6 space-y-4">
-                                <Skeleton className="h-6 w-24 rounded-full" />
-                                <Skeleton className="h-12 w-full" />
-                                <div className="flex gap-4">
-                                    <Skeleton className="h-4 w-1/3" />
-                                    <Skeleton className="h-4 w-1/3" />
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1' : 'flex flex-col gap-2 mt-1'}>
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <Card key={i} className="border-gray-100 bg-white rounded-lg">
+                            <CardContent className="p-3 space-y-3">
+                                <div className="flex justify-between">
+                                    <Skeleton className="h-4 w-24 rounded" />
+                                    <Skeleton className="h-4 w-16 rounded" />
+                                </div>
+                                <Skeleton className="h-8 w-full rounded" />
+                                <Skeleton className="h-3 w-3/4 rounded" />
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50">
+                                    <Skeleton className="h-8 rounded" />
+                                    <Skeleton className="h-8 rounded" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Skeleton className="h-7 rounded" />
+                                    <Skeleton className="h-7 rounded" />
                                 </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
+            ) : filteredExams.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-3 mt-1">
+                    <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+                        <BookOpen size={24} />
+                    </div>
+                    <div className="space-y-1">
+                        <h3 className="text-sm font-bold text-gray-900">No exams found</h3>
+                        <p className="text-xs text-gray-500 font-medium">
+                            {activeFilterCount > 0
+                                ? 'Try adjusting your filters or search query.'
+                                : 'No exams are assigned to your program yet.'}
+                        </p>
+                    </div>
+                    {activeFilterCount > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs font-semibold border-gray-200"
+                            onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); }}
+                        >
+                            Clear All Filters
+                        </Button>
+                    )}
+                </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                    {filteredExams.map((exam) => {
-                        const attemptsRemaining = exam.attempts_remaining ?? 0;
-                        const hasSubmitted = Boolean(exam.hasSubmitted || exam.userAttemptStatus === 'SUBMITTED' || attemptsRemaining === 0);
-                        const hasInProgress = exam.userAttemptStatus === 'IN_PROGRESS';
-                        const isLive = exam.status === 'LIVE';
-                        const canTake = isLive && !hasSubmitted;
-                        const resultLink = `/exams/${exam.id}/result${exam.latestSubmittedAttemptId ? `?attemptId=${exam.latestSubmittedAttemptId}` : ''}`;
-                        const sectionTitles = (exam.sections || [])
-                            .map((section) => section.title?.trim())
-                            .filter((title): title is string => Boolean(title));
-                        return (
-                            <Card
-                                key={exam.id}
-                                className={`group border-gray-100 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col ${hasSubmitted ? 'opacity-80' : ''}`}
-                            >
-                                <CardContent className="p-6 flex-1 flex flex-col">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-primary transition-colors leading-snug">
-                                        {exam.title}
-                                    </h3>
-                                    <p className="text-sm text-gray-500 mb-4 font-medium whitespace-pre-wrap break-words">
-                                        {exam.description?.trim() || 'No description provided.'}
-                                    </p>
-
-                                    <p className="text-[11px] text-gray-600 font-semibold mb-4 whitespace-pre-wrap break-words">
-                                        Sections: {sectionTitles.length > 0 ? sectionTitles.join(', ') : 'General Section'}
-                                    </p>
-
-                                    <div className="grid grid-cols-2 gap-4 mt-auto">
-                                        <div className="flex items-center gap-2 text-xs text-gray-500 font-bold uppercase tracking-wider">
-                                            <FileText size={14} className="text-primary" />
-                                            {exam.questionCount} Questions
-                                        </div>
-                                        <div className="flex items-center gap-2 text-xs text-gray-500 font-bold uppercase tracking-wider">
-                                            <Clock size={14} className="text-primary" />
-                                            {exam.duration} Minutes
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-4 mt-4 border-t border-gray-100 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                <TrendingUp size={12} className="text-gray-300" />
-                                                Attempts:
-                                                <span className={`ml-1 ${canTake ? 'text-primary' : 'text-red-500'}`}>
-                                                    {attemptsRemaining} remaining
-                                                </span>
-                                            </div>
-                                        </div>
-                                        {hasInProgress && canTake && (
-                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 uppercase tracking-widest">
-                                                <Clock size={12} className="text-amber-500" />
-                                                In Progress: Resume from last saved point
-                                            </div>
-                                        )}
-                                        {exam.deadline && (
-                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                <Calendar size={12} className="text-gray-300" />
-                                                Deadline:
-                                                <span className="ml-1 text-gray-600">
-                                                    {new Date(exam.deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                                <div className="p-4 bg-gray-50/50 border-t border-gray-100 mt-auto grid grid-cols-2 gap-2">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full h-11 border-gray-200 font-bold flex gap-2"
-                                        onClick={() => setViewingExam(exam)}
-                                    >
-                                        <Eye size={16} /> View Exam
-                                    </Button>
-                                    <Button
-                                        onClick={() => hasSubmitted ? navigate(resultLink) : navigate(`/exams/${exam.id}/take`)}
-                                        disabled={!hasSubmitted && !canTake}
-                                        className={`w-full h-11 font-bold flex gap-2 shadow-md ${(hasSubmitted || canTake)
-                                            ? 'bg-primary hover:bg-primary/95 text-white shadow-primary/20'
-                                            : 'bg-gray-200 text-gray-400 border-none'
-                                            }`}
-                                    >
-                                        {hasSubmitted ? (
-                                            <>View Result <TrendingUp size={18} /></>
-                                        ) : canTake ? (
-                                            <>{hasInProgress ? 'Resume Exam' : 'Take Exam'} <Play size={18} fill="currentColor" /></>
-                                        ) : (
-                                            <>No Attempts Left <Lock size={18} /></>
-                                        )}
-                                    </Button>
-                                </div>
-                            </Card>
-                        );
-                    })}
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1' : 'flex flex-col gap-2 mt-1'}>
+                    {filteredExams.map((exam) => renderExamCard(exam))}
                 </div>
             )}
 
             <Dialog open={Boolean(viewingExam)} onOpenChange={(open) => !open && setViewingExam(null)}>
-                <DialogContent className="rounded-2xl max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black tracking-tight">{viewingExam?.title}</DialogTitle>
-                        <DialogDescription className="text-sm text-gray-500 whitespace-pre-wrap break-words">
+                <DialogContent className="rounded-xl max-w-md border-none shadow-xl">
+                    <DialogHeader className="space-y-1">
+                        <DialogTitle className="text-base font-bold tracking-tight leading-snug">
+                            {viewingExam?.title}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-gray-500 whitespace-pre-wrap wrap-break-word leading-relaxed">
                             {viewingExam?.description?.trim() || 'No description provided.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                        <div className="space-y-1">
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-0.5">
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Category</p>
-                            <p className="font-semibold text-gray-800">{viewingExam?.category || 'No Category'}</p>
+                            <p className="text-xs font-semibold text-gray-800">{viewingExam?.category || 'No Category'}</p>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Deadline</p>
-                            <p className="font-semibold text-gray-800">
-                                {viewingExam?.deadline
-                                    ? new Date(viewingExam.deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                                    : 'No deadline'}
+                            <p className={`text-xs font-semibold ${viewingExam?.deadline && isDeadlineSoon(viewingExam.deadline) ? 'text-red-500' : 'text-gray-800'}`}>
+                                {viewingExam?.deadline ? formatDeadline(viewingExam.deadline) : 'No deadline'}
                             </p>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Questions</p>
+                            <p className="text-xs font-semibold text-gray-800">{viewingExam?.questionCount || 0} Items</p>
+                        </div>
+                        <div className="space-y-0.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Duration</p>
+                            <p className="text-xs font-semibold text-gray-800">{viewingExam?.duration || 0} Minutes</p>
+                        </div>
+                        <div className="space-y-0.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Attempts Left</p>
+                            <p className={`text-xs font-semibold ${(viewingExam?.attempts_remaining ?? 0) > 0 ? 'text-primary' : 'text-red-500'}`}>
+                                {viewingExam?.attempts_remaining ?? 0}
+                            </p>
+                        </div>
+                        <div className="space-y-0.5">
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Sections</p>
-                            <p className="font-semibold text-gray-800 whitespace-pre-wrap break-words">
+                            <p className="text-xs font-semibold text-gray-800 leading-snug">
                                 {(viewingExam?.sections || [])
-                                    .map((section) => section.title?.trim())
-                                    .filter((title): title is string => Boolean(title))
+                                    .map((s) => s.title?.trim())
+                                    .filter((t): t is string => Boolean(t))
                                     .join(', ') || 'General Section'}
                             </p>
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Attempts Remaining</p>
-                            <p className="font-semibold text-gray-800">{viewingExam?.attempts_remaining ?? 0}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Questions</p>
-                            <p className="font-semibold text-gray-800">{viewingExam?.questionCount || 0}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Duration</p>
-                            <p className="font-semibold text-gray-800">{viewingExam?.duration || 0} Minutes</p>
-                        </div>
+                        {(() => {
+                            if (!viewingExam) return null;
+                            const score = viewingExam.latestSubmittedScore ?? viewingExam.lastScore;
+                            if (score == null) return null;
+                            return (
+                                <div className="col-span-2 space-y-0.5 pt-2 border-t border-gray-100">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Your Score</p>
+                                    <p className={`text-base font-black ${getScoreColor(score)}`}>{score}%</p>
+                                </div>
+                            );
+                        })()}
                     </div>
-                    <DialogFooter className="grid grid-cols-2 gap-2">
-                                        <Button
+
+                    <DialogFooter className="grid grid-cols-2 gap-2 mt-2">
+                        <Button
                             variant="outline"
-                            className="h-11 font-bold"
+                            className="h-9 rounded-md font-semibold text-xs border-gray-200"
                             onClick={() => setViewingExam(null)}
                         >
                             Close
                         </Button>
                         <Button
-                            className="h-11 font-bold"
+                            className={`h-9 rounded-md font-semibold text-xs gap-1.5 ${
+                                viewingExam && getExamState(viewingExam).hasSubmitted
+                                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                                    : 'bg-primary hover:bg-primary/90 text-white'
+                            }`}
+                            disabled={Boolean(
+                                viewingExam &&
+                                    !getExamState(viewingExam).hasSubmitted &&
+                                    !getExamState(viewingExam).canTake
+                            )}
                             onClick={() => {
                                 if (!viewingExam) return;
-                                const attemptsRemaining = viewingExam.attempts_remaining ?? 0;
-                                const hasSubmitted = Boolean(viewingExam.hasSubmitted || viewingExam.userAttemptStatus === 'SUBMITTED' || attemptsRemaining === 0);
-                                if (hasSubmitted) {
-                                    const resultLink = `/exams/${viewingExam.id}/result${viewingExam.latestSubmittedAttemptId ? `?attemptId=${viewingExam.latestSubmittedAttemptId}` : ''}`;
-                                    navigate(resultLink);
-                                    return;
-                                }
-                                navigate(`/exams/${viewingExam.id}/take`);
+                                setViewingExam(null);
+                                handleAction(viewingExam);
                             }}
-                            disabled={!viewingExam || (!Boolean(viewingExam.hasSubmitted || viewingExam.userAttemptStatus === 'SUBMITTED' || (viewingExam.attempts_remaining ?? 0) === 0) && viewingExam.status !== 'LIVE')}
                         >
-                            {Boolean(viewingExam?.hasSubmitted || viewingExam?.userAttemptStatus === 'SUBMITTED' || (viewingExam?.attempts_remaining ?? 0) === 0)
-                                ? 'View Result'
-                                : viewingExam?.userAttemptStatus === 'IN_PROGRESS'
-                                    ? 'Resume Exam'
-                                    : 'Take Exam'}
+                            {viewingExam && getExamState(viewingExam).hasSubmitted ? (
+                                <><TrendingUp size={13} /> View Result</>
+                            ) : viewingExam && getExamState(viewingExam).hasInProgress ? (
+                                <><RotateCcw size={13} /> Resume Exam</>
+                            ) : (
+                                <><Play size={13} fill="currentColor" /> Take Exam</>
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            {filteredExams.length === 0 && !loading && (
-                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                    <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
-                        <AlertCircle size={32} />
-                    </div>
-                    <div className="space-y-1">
-                        <h3 className="text-lg font-bold text-gray-900">No exams found</h3>
-                        <p className="text-sm text-gray-500 font-medium">Try adjusting your filters or search query.</p>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => { setSearch(''); setCategory('All'); setStatus('all'); }}
-                        className="font-bold border-gray-200"
-                    >
-                        Clear All Filters
-                    </Button>
-                </div>
-            )}
         </div>
     );
 };

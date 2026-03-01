@@ -72,7 +72,6 @@ const ConferencesWidget: React.FC<ConferencesWidgetProps> = ({ compact = true })
 
                 const now = new Date();
                 const todayStr = now.toISOString().split('T')[0];
-                const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
                 const mapped: ConferenceItem[] = list
                     .map((s) => {

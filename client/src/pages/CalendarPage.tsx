@@ -131,6 +131,18 @@ const formatTime = (t: string) => {
     return `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
 };
 
+const formatSubmissionTime = (value?: string) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+};
+
 const calcDuration = (start: string, end: string) => {
     if (!start || !end) return '';
     const [sh, sm] = start.split(':').map(Number);
@@ -1131,6 +1143,10 @@ const EventCard: React.FC<EventCardProps> = ({
     const submissions = event.type === 'submission'
         ? (event.meta?.submissions as SubmissionEntry[] ?? [])
         : [];
+    const submitterNames = submissions
+        .map((sub) => sub.studentName)
+        .filter(Boolean);
+    const submitterPreview = submitterNames.slice(0, 3).join(', ');
 
     return (
         <div className={cn(
@@ -1237,6 +1253,14 @@ const EventCard: React.FC<EventCardProps> = ({
                 </p>
             ) : null}
 
+            {/* Submission preview */}
+            {event.type === 'submission' && submitterNames.length > 0 && (
+                <p className="text-[10px] text-gray-500 leading-relaxed">
+                    Submitted by {submitterPreview}
+                    {submitterNames.length > 3 ? ` +${submitterNames.length - 3} more` : ''}
+                </p>
+            )}
+
             {/* Submission list */}
             {event.type === 'submission' && isExpanded && submissions.length > 0 && (
                 <div className="mt-2 space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
@@ -1246,7 +1270,12 @@ const EventCard: React.FC<EventCardProps> = ({
                             className="flex items-center justify-between rounded-lg bg-white border border-gray-100 shadow-sm px-2.5 py-1.5"
                         >
                             <div className="min-w-0">
-                                <p className="text-[11px] font-semibold text-gray-800 truncate">{sub.studentName}</p>
+                                <p className="text-[11px] font-semibold text-gray-800 truncate flex items-center gap-1.5">
+                                    <span className="truncate">{sub.studentName}</span>
+                                    {sub.submittedAt ? (
+                                        <span className="text-[10px] font-medium text-gray-400 shrink-0">• {formatSubmissionTime(sub.submittedAt)}</span>
+                                    ) : null}
+                                </p>
                                 <p className="text-[10px] text-gray-400 truncate">{sub.examTitle}</p>
                             </div>
                             <div className="shrink-0 text-right ml-3">

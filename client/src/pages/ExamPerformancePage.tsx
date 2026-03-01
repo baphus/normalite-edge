@@ -345,75 +345,75 @@ const ExamPerformancePage: React.FC = () => {
     }, [exam]);
     if (loading) {
         return (
-            <div className="flex flex-col gap-6 font-lexend pb-10">
+            <div className="flex flex-col gap-3 font-lexend pb-6">
                 <div className="flex items-center justify-between">
-                    <Skeleton className="h-10 w-72" />
-                    <Skeleton className="h-10 w-48" />
+                    <Skeleton className="h-8 w-64 rounded-md" />
+                    <Skeleton className="h-8 w-44 rounded-md" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    {[1, 2, 3, 4, 5].map((item) => (
-                        <Skeleton key={item} className="h-28 rounded-2xl" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[1, 2, 3, 4].map((item) => (
+                        <Skeleton key={item} className="h-24 rounded-lg" />
                     ))}
                 </div>
-                <Skeleton className="h-[460px] rounded-2xl" />
+                <Skeleton className="h-96 rounded-lg" />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5">
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => navigate('/manage-exams')}
-                        className="rounded-full hover:bg-white hover:shadow-md transition-all"
+                        className="h-8 w-8 rounded-md"
                     >
-                        <ArrowLeft size={20} />
+                        <ArrowLeft size={15} />
                     </Button>
-                    <div className="space-y-1">
-                        <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Exam Performance</h1>
-                        <p className="text-sm text-gray-500 font-medium tracking-tight">
-                            {exam?.title?.trim() || reportItem?.examTitle || 'Unknown Exam'} {id ? `(Exam ID: ${id})` : ''}
+                    <div>
+                        <h1 className="text-base font-bold text-gray-900 tracking-tight">Exam Performance</h1>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                            {exam?.title?.trim() || reportItem?.examTitle || 'Unknown Exam'}
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
-                                className="h-10 rounded-xl px-4 font-black border-gray-100 gap-2 uppercase tracking-widest text-[10px]"
+                                className="h-8 rounded-md text-xs font-semibold border-gray-200 gap-1.5"
                                 disabled={!id}
                             >
-                                <Download size={16} /> Export As
+                                <Download size={13} /> Export
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => handleExport('csv')} className="font-bold text-xs">
+                        <DropdownMenuContent align="end" className="w-36 rounded-lg">
+                            <DropdownMenuItem onClick={() => handleExport('csv')} className="font-semibold text-xs">
                                 Export CSV
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport('pdf')} className="font-bold text-xs">
-                                <FileBarChart2 size={14} className="mr-2" /> Export PDF
+                            <DropdownMenuItem onClick={() => handleExport('pdf')} className="font-semibold text-xs">
+                                <FileBarChart2 size={13} className="mr-1.5" /> Export PDF
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                     <Button
-                        className="h-10 rounded-xl px-4 bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 gap-2 uppercase tracking-widest text-[10px]"
+                        className="h-8 rounded-md text-xs font-semibold bg-primary hover:bg-primary/95 text-white gap-1.5"
                         onClick={() => loadData(true)}
                         disabled={refreshing}
                     >
-                        <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> Refresh
+                        <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} /> Refresh
                     </Button>
                 </div>
             </header>
 
             {loadError ? (
-                <Card className="rounded-2xl border-red-100 bg-red-50/40">
-                    <CardContent className="p-6 text-sm font-semibold text-red-700 flex items-center justify-between gap-4">
+                <Card className="rounded-lg border-red-100 bg-red-50/40">
+                    <CardContent className="p-4 text-xs font-semibold text-red-700 flex items-center justify-between gap-4">
                         <span>{loadError}</span>
-                        <Button variant="outline" onClick={() => loadData(true)} className="border-red-200 text-red-700 hover:bg-red-50">
+                        <Button variant="outline" size="sm" onClick={() => loadData(true)} className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50">
                             Retry
                         </Button>
                     </CardContent>
@@ -450,17 +450,17 @@ const ExamPerformancePage: React.FC = () => {
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <Card className="lg:col-span-2 rounded-xl border-gray-100 shadow-sm bg-white overflow-hidden">
-                    <CardHeader className="p-4 pb-3 flex flex-row items-center justify-between space-y-0 gap-4">
-                        <CardTitle className="text-lg font-black text-gray-900">
-                            Student Results <span className="text-gray-400 font-bold text-xs ml-2">({filteredAttempts.length} shown)</span>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <Card className="lg:col-span-2 rounded-lg border-gray-100 shadow-sm bg-white overflow-hidden">
+                    <CardHeader className="p-3 pb-2.5 flex flex-row items-center justify-between space-y-0 gap-4">
+                        <CardTitle className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                            Student Results <span className="text-gray-400 font-semibold normal-case tracking-normal ml-1">({filteredAttempts.length} shown)</span>
                         </CardTitle>
-                        <div className="relative group w-60 max-w-full">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-primary transition-colors" size={16} />
+                        <div className="relative group w-52 max-w-full">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-primary transition-colors" size={13} />
                             <Input
                                 placeholder="Search student..."
-                                className="pl-9 h-10 rounded-xl border-gray-100 bg-gray-50/50 shadow-none focus:ring-primary/20 text-xs font-bold"
+                                className="pl-8 h-8 rounded-md border-gray-200 text-xs"
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
                             />
@@ -533,8 +533,8 @@ const ExamPerformancePage: React.FC = () => {
 
                 <div className="space-y-4">
                     <Card className="rounded-xl border-gray-100 shadow-sm bg-white overflow-hidden">
-                        <CardHeader className="p-4 pb-3">
-                            <CardTitle className="text-lg font-black text-gray-900">Report Snapshot</CardTitle>
+                        <CardHeader className="p-3 pb-2.5">
+                            <CardTitle className="text-xs font-bold text-gray-900 uppercase tracking-wider">Report Snapshot</CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
                             <div className="grid grid-cols-2 gap-2">
@@ -578,7 +578,7 @@ const ExamPerformancePage: React.FC = () => {
                                 </div>
                                 <div className="rounded-lg border border-gray-100 p-3 bg-gray-50/40 col-span-2">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Visible To (Tracks/Programs)</p>
-                                    <p className="text-xs font-bold text-gray-900 mt-1 whitespace-pre-wrap break-words">{visibleToLabel}</p>
+                                    <p className="text-xs font-bold text-gray-900 mt-1 whitespace-pre-wrap wrap-break-word">{visibleToLabel}</p>
                                 </div>
                                 <div className="rounded-lg border border-gray-100 p-3 bg-gray-50/40 col-span-2">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Closed On</p>
@@ -591,24 +591,24 @@ const ExamPerformancePage: React.FC = () => {
             </div>
 
             <Dialog open={Boolean(selectedAttempt)} onOpenChange={(open) => !open && closeAnalysis()}>
-                <DialogContent className="max-w-5xl p-0 rounded-3xl overflow-hidden border-none shadow-2xl bg-white">
-                    <DialogHeader className="px-8 pt-8 pb-4 border-b border-gray-100">
-                        <DialogTitle className="text-xl font-black text-gray-900">Student Analysis</DialogTitle>
+                <DialogContent className="max-w-4xl p-0 rounded-xl overflow-hidden border-none shadow-xl bg-white">
+                    <DialogHeader className="px-5 pt-5 pb-3 border-b border-gray-100">
+                        <DialogTitle className="text-sm font-bold text-gray-900">Student Analysis</DialogTitle>
                     </DialogHeader>
 
                     {reviewLoading ? (
-                        <div className="p-8 space-y-4">
-                            <Skeleton className="h-16 rounded-xl" />
-                            <Skeleton className="h-16 rounded-xl" />
-                            <Skeleton className="h-56 rounded-xl" />
+                        <div className="p-5 space-y-3">
+                            <Skeleton className="h-14 rounded-lg" />
+                            <Skeleton className="h-14 rounded-lg" />
+                            <Skeleton className="h-44 rounded-lg" />
                         </div>
                     ) : reviewError ? (
-                        <div className="p-8 text-sm text-red-600 font-semibold">{reviewError}</div>
+                        <div className="p-5 text-xs text-red-600 font-semibold">{reviewError}</div>
                     ) : !attemptReview ? (
-                        <div className="p-8 text-sm text-gray-500 font-semibold">No attempt review data found.</div>
+                        <div className="p-5 text-xs text-gray-500 font-semibold">No attempt review data found.</div>
                     ) : (
-                        <div className="p-8 space-y-6 max-h-[72vh] overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                                 <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Student</p>
                                     <p className="text-sm font-bold text-gray-900 mt-1">{attemptReview.user?.name || 'Unknown User'}</p>
@@ -681,8 +681,8 @@ const ExamPerformancePage: React.FC = () => {
                         </div>
                     )}
 
-                    <DialogFooter className="p-6 bg-white border-t border-gray-100">
-                        <Button onClick={closeAnalysis} className="h-10 rounded-xl px-6 bg-primary hover:bg-primary/95 text-white font-black">
+                    <DialogFooter className="p-4 bg-white border-t border-gray-100">
+                        <Button onClick={closeAnalysis} className="h-8 rounded-md text-xs font-semibold bg-primary hover:bg-primary/95 text-white">
                             Close
                         </Button>
                     </DialogFooter>

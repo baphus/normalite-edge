@@ -13,6 +13,7 @@ import {
     Calendar,
     CheckCircle2,
     AlertCircle,
+    Lock,
     Grid,
     LayoutGrid,
     List,
@@ -47,6 +48,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import api from '@/lib/axios';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Exam {
     id: string;
@@ -60,6 +62,7 @@ interface Exam {
     maxAttempts: number;
     deadline?: string;
     closeOnDeadline: boolean;
+    authorId: string;
     authorName: string;
     authorAvatar: string;
     sectionTitles: string[];
@@ -124,6 +127,7 @@ const STATUS_TO_API: Record<Exam['status'], 'LIVE' | 'DRAFT' | 'CLOSED' | 'ARCHI
 };
 
 const ManageExamsPage: React.FC = () => {
+    const { user } = useAuth();
     const ALL_PROGRAMS_FILTER = '__all_programs__';
     const LEGACY_PROGRAM_PREFIX = '__legacy__:';
 
@@ -137,6 +141,7 @@ const ManageExamsPage: React.FC = () => {
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [programFilter, setProgramFilter] = useState('all');
     const [authorFilter, setAuthorFilter] = useState('all');
+    const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'mine' | 'others'>('all');
     const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'with-deadline' | 'without-deadline'>('all');
     const [autoCloseFilter, setAutoCloseFilter] = useState<'all' | 'on' | 'off'>('all');
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -208,6 +213,7 @@ const ManageExamsPage: React.FC = () => {
                     deadline: exam.deadline || exam.scheduledDate || undefined,
                     closeOnDeadline: Boolean(exam.closeOnDeadline),
                     tracks: exam.tracks || [],
+                    authorId: exam.creator?.id || '',
                     authorName,
                     authorAvatar: getAuthorAvatar(authorName, exam.creator),
                     sectionTitles: (exam.sections || [])
@@ -269,6 +275,11 @@ const ManageExamsPage: React.FC = () => {
     }, [exams]);
 
     const filteredExams = exams.filter(exam => {
+        const isReviewer = user?.role === 'REVIEWER';
+        const matchesOwnership = !isReviewer
+            || ownershipFilter === 'all'
+            || (ownershipFilter === 'mine' && exam.authorId === user?.id)
+            || (ownershipFilter === 'others' && exam.authorId !== user?.id);
         const matchesStatus = statusFilter === 'all' || exam.status === statusFilter;
         const matchesSearch = exam.title.toLowerCase().includes(search.toLowerCase());
         const matchesCategory = categoryFilter === 'all' || exam.category === categoryFilter;
@@ -284,7 +295,7 @@ const ManageExamsPage: React.FC = () => {
             || (autoCloseFilter === 'on' && exam.closeOnDeadline)
             || (autoCloseFilter === 'off' && !exam.closeOnDeadline);
 
-        return matchesStatus && matchesSearch && matchesCategory && matchesProgram && matchesAuthor && matchesDeadline && matchesAutoClose;
+        return matchesOwnership && matchesStatus && matchesSearch && matchesCategory && matchesProgram && matchesAuthor && matchesDeadline && matchesAutoClose;
     });
 
     const activeFilterCount = useMemo(() => {
@@ -293,11 +304,12 @@ const ManageExamsPage: React.FC = () => {
         if (categoryFilter !== 'all') count += 1;
         if (programFilter !== 'all') count += 1;
         if (authorFilter !== 'all') count += 1;
+        if (user?.role === 'REVIEWER' && ownershipFilter !== 'all') count += 1;
         if (deadlineFilter !== 'all') count += 1;
         if (autoCloseFilter !== 'all') count += 1;
         if (search.trim().length > 0) count += 1;
         return count;
-    }, [statusFilter, categoryFilter, programFilter, authorFilter, deadlineFilter, autoCloseFilter, search]);
+    }, [statusFilter, categoryFilter, programFilter, authorFilter, ownershipFilter, deadlineFilter, autoCloseFilter, search, user?.role]);
 
     const handleDelete = async () => {
         if (examToDelete) {
@@ -523,6 +535,11 @@ const ManageExamsPage: React.FC = () => {
         }
     };
 
+    const canManageExam = (exam: Exam) => {
+        if (user?.role === 'ADMIN') return true;
+        return exam.authorId === user?.id;
+    };
+
     return (
         <div className="flex flex-col gap-3 font-lexend pb-6">
             <header className="flex items-center justify-between gap-4">
@@ -618,6 +635,21 @@ const ManageExamsPage: React.FC = () => {
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {user?.role === 'REVIEWER' && (
+                                <div className="space-y-2">
+                                    <Label>Ownership</Label>
+                                    <Select value={ownershipFilter} onValueChange={(value) => setOwnershipFilter(value as typeof ownershipFilter)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Ownership" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Exams</SelectItem>
+                                            <SelectItem value="mine">My Exams</SelectItem>
+                                            <SelectItem value="others">Other Reviewers</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                             <div className="space-y-2">
                                 <Label>Deadline</Label>
                                 <Select value={deadlineFilter} onValueChange={(value) => setDeadlineFilter(value as typeof deadlineFilter)}>
@@ -653,6 +685,7 @@ const ManageExamsPage: React.FC = () => {
                                         setCategoryFilter('all');
                                         setProgramFilter('all');
                                         setAuthorFilter('all');
+                                        setOwnershipFilter('all');
                                         setDeadlineFilter('all');
                                         setAutoCloseFilter('all');
                                         setSearch('');
@@ -698,6 +731,11 @@ const ManageExamsPage: React.FC = () => {
                 {filteredExams.map((exam) => (
                     <Card key={exam.id} className={`group border-gray-100 hover:border-primary/20 hover:shadow-md transition-all duration-200 overflow-hidden bg-white h-full ${viewMode === 'grid' ? 'rounded-lg' : 'rounded-md'}`}>
                         <CardContent className="p-3 flex flex-col h-full">
+                            {(() => {
+                                const isManageable = canManageExam(exam);
+
+                                return (
+                                    <>
                             <div className="flex justify-between items-start mb-2 gap-2">
                                 <Badge variant="outline" className="text-[9px] font-semibold uppercase tracking-wider text-primary border-primary/20 bg-primary/5 rounded px-1.5 max-w-[75%] truncate">
                                     Show to: {exam.program}
@@ -716,31 +754,58 @@ const ManageExamsPage: React.FC = () => {
                                         {exam.status}
                                     </Badge>
 
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-400">
-                                                <MoreHorizontal size={18} />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="rounded-xl border-gray-100 shadow-xl w-48">
-                                        <DropdownMenuItem
-                                            className="gap-2 font-bold text-xs py-2.5"
-                                            onClick={() => handleDuplicate(exam.id)}
-                                            disabled={actionExamId === exam.id}
-                                        >
-                                            <Copy size={14} /> Duplicate
-                                        </DropdownMenuItem>
-                                        {exam.status === 'draft' && (
+                                    {isManageable ? (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-400">
+                                                    <MoreHorizontal size={18} />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="rounded-xl border-gray-100 shadow-xl w-48">
                                             <DropdownMenuItem
                                                 className="gap-2 font-bold text-xs py-2.5"
-                                                onClick={() => handleSetActive(exam.id)}
+                                                onClick={() => handleDuplicate(exam.id)}
                                                 disabled={actionExamId === exam.id}
                                             >
-                                                <CheckCircle2 size={14} /> Publish
+                                                <Copy size={14} /> Duplicate
                                             </DropdownMenuItem>
-                                        )}
-                                        {exam.status === 'live' && (
-                                            <>
+                                            {exam.status === 'draft' && (
+                                                <DropdownMenuItem
+                                                    className="gap-2 font-bold text-xs py-2.5"
+                                                    onClick={() => handleSetActive(exam.id)}
+                                                    disabled={actionExamId === exam.id}
+                                                >
+                                                    <CheckCircle2 size={14} /> Publish
+                                                </DropdownMenuItem>
+                                            )}
+                                            {exam.status === 'live' && (
+                                                <>
+                                                    <DropdownMenuItem
+                                                        className="gap-2 font-bold text-xs py-2.5"
+                                                        onClick={() => handleMoveToDraft(exam.id)}
+                                                        disabled={actionExamId === exam.id}
+                                                    >
+                                                        <Edit size={14} /> Move to Draft
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        className="gap-2 font-bold text-xs py-2.5"
+                                                        onClick={() => handleCloseExam(exam.id)}
+                                                        disabled={actionExamId === exam.id}
+                                                    >
+                                                        <Clock size={14} /> Close Exam
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                            {(exam.status === 'closed' || exam.status === 'archived') && (
+                                                <DropdownMenuItem
+                                                    className="gap-2 font-bold text-xs py-2.5"
+                                                    onClick={() => handleSetActive(exam.id)}
+                                                    disabled={actionExamId === exam.id}
+                                                >
+                                                    <CheckCircle2 size={14} /> Publish
+                                                </DropdownMenuItem>
+                                            )}
+                                            {(exam.status === 'closed' || exam.status === 'archived') && (
                                                 <DropdownMenuItem
                                                     className="gap-2 font-bold text-xs py-2.5"
                                                     onClick={() => handleMoveToDraft(exam.id)}
@@ -748,68 +813,47 @@ const ManageExamsPage: React.FC = () => {
                                                 >
                                                     <Edit size={14} /> Move to Draft
                                                 </DropdownMenuItem>
+                                            )}
+                                            {exam.status !== 'archived' && (
                                                 <DropdownMenuItem
                                                     className="gap-2 font-bold text-xs py-2.5"
-                                                    onClick={() => handleCloseExam(exam.id)}
+                                                    onClick={() => handleArchive(exam.id)}
                                                     disabled={actionExamId === exam.id}
                                                 >
-                                                    <Clock size={14} /> Close Exam
+                                                    <Archive size={14} /> Archive
                                                 </DropdownMenuItem>
-                                            </>
-                                        )}
-                                        {(exam.status === 'closed' || exam.status === 'archived') && (
+                                            )}
                                             <DropdownMenuItem
                                                 className="gap-2 font-bold text-xs py-2.5"
-                                                onClick={() => handleSetActive(exam.id)}
+                                                onClick={() => handleToggleCloseOnDeadline(exam)}
                                                 disabled={actionExamId === exam.id}
                                             >
-                                                <CheckCircle2 size={14} /> Publish
+                                                <Calendar size={14} /> {exam.closeOnDeadline ? 'Disable Auto Close' : 'Enable Auto Close'}
                                             </DropdownMenuItem>
-                                        )}
-                                        {(exam.status === 'closed' || exam.status === 'archived') && (
                                             <DropdownMenuItem
                                                 className="gap-2 font-bold text-xs py-2.5"
-                                                onClick={() => handleMoveToDraft(exam.id)}
+                                                onClick={() => openStatusDialog(exam)}
                                                 disabled={actionExamId === exam.id}
                                             >
-                                                <Edit size={14} /> Move to Draft
+                                                <SlidersHorizontal size={14} /> Change Status
                                             </DropdownMenuItem>
-                                        )}
-                                        {exam.status !== 'archived' && (
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem
-                                                className="gap-2 font-bold text-xs py-2.5"
-                                                onClick={() => handleArchive(exam.id)}
-                                                disabled={actionExamId === exam.id}
+                                                className="gap-2 font-bold text-xs py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                onClick={() => {
+                                                    setExamToDelete(exam.id);
+                                                    setIsDeleteDialogOpen(true);
+                                                }}
                                             >
-                                                <Archive size={14} /> Archive
+                                                <Trash2 size={14} /> Delete
                                             </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuItem
-                                            className="gap-2 font-bold text-xs py-2.5"
-                                            onClick={() => handleToggleCloseOnDeadline(exam)}
-                                            disabled={actionExamId === exam.id}
-                                        >
-                                            <Calendar size={14} /> {exam.closeOnDeadline ? 'Disable Auto Close' : 'Enable Auto Close'}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            className="gap-2 font-bold text-xs py-2.5"
-                                            onClick={() => openStatusDialog(exam)}
-                                            disabled={actionExamId === exam.id}
-                                        >
-                                            <SlidersHorizontal size={14} /> Change Status
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            className="gap-2 font-bold text-xs py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
-                                            onClick={() => {
-                                                setExamToDelete(exam.id);
-                                                setIsDeleteDialogOpen(true);
-                                            }}
-                                        >
-                                            <Trash2 size={14} /> Delete
-                                        </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    ) : (
+                                        <Badge variant="outline" className="text-[9px] font-semibold rounded px-1.5 py-0 h-5 border-gray-200 text-gray-500">
+                                            Read-only
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
 
@@ -823,6 +867,11 @@ const ManageExamsPage: React.FC = () => {
                                         <AvatarFallback className="text-[9px] font-semibold">{exam.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
                                     </Avatar>
                                     <p className="text-[10px] text-gray-500 font-medium truncate">Author: {exam.authorName}</p>
+                                    {user?.role === 'REVIEWER' && (
+                                        <Badge variant="outline" className="text-[9px] font-semibold rounded px-1.5 py-0 h-4.5">
+                                            {exam.authorId === user.id ? 'My Exam' : 'Other Reviewer'}
+                                        </Badge>
+                                    )}
                                 </div>
                                 <p className="text-[10px] text-gray-500 font-medium truncate">
                                     Sections: {exam.sectionTitles.length > 0 ? exam.sectionTitles.join(', ') : 'General Section'}
@@ -879,12 +928,21 @@ const ManageExamsPage: React.FC = () => {
                                         <Eye size={13} /> View Details
                                     </Button>
                                 </Link>
-                                <Link to={`/manage-exams/${exam.id}/edit`} className={viewMode === 'grid' ? 'w-full' : ''}>
-                                    <Button className={`h-8 rounded-md bg-primary/5 hover:bg-primary/10 text-primary border-none font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
-                                        <Edit size={13} /> Edit Exam
+                                {isManageable ? (
+                                    <Link to={`/manage-exams/${exam.id}/edit`} className={viewMode === 'grid' ? 'w-full' : ''}>
+                                        <Button className={`h-8 rounded-md bg-primary/5 hover:bg-primary/10 text-primary border-none font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
+                                            <Edit size={13} /> Edit Exam
+                                        </Button>
+                                    </Link>
+                                ) : (
+                                    <Button disabled className={`h-8 rounded-md border-gray-200 bg-gray-100 text-gray-500 font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
+                                        <Lock size={13} /> Read Only
                                     </Button>
-                                </Link>
+                                )}
                             </div>
+                                    </>
+                                );
+                            })()}
                         </CardContent>
                     </Card>
                 ))}

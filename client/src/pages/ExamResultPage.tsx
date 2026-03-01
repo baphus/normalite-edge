@@ -2,20 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
-    Download,
     CheckCircle2,
     XCircle,
     MinusCircle,
     Clock,
     TrendingUp,
-    ChevronRight,
-    Search,
-    BookOpen,
-    Brain,
-    School
+    RotateCcw,
+    FileSearch,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import {
     Select,
     SelectContent,
@@ -25,25 +22,10 @@ import {
 } from '@/components/ui/select';
 import api from '@/lib/axios';
 
-const SECTION_CONFIG: Record<string, { color: string, icon: React.ElementType, bgColor: string, borderColor: string }> = {
-    'Professional Education': {
-        color: 'text-purple-600',
-        icon: School,
-        bgColor: 'bg-purple-50',
-        borderColor: 'border-purple-100'
-    },
-    'General Education': {
-        color: 'text-blue-600',
-        icon: BookOpen,
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-100'
-    },
-    'Major Subject': {
-        color: 'text-orange-600',
-        icon: Brain,
-        bgColor: 'bg-orange-50',
-        borderColor: 'border-orange-100'
-    }
+const SECTION_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
+    'Professional Education': { dot: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700' },
+    'General Education':      { dot: 'bg-blue-500',   bg: 'bg-blue-50',   text: 'text-blue-700' },
+    'Major Subject':          { dot: 'bg-orange-500', bg: 'bg-orange-50',  text: 'text-orange-700' },
 };
 
 interface AttemptOption {
@@ -192,240 +174,218 @@ const ExamResultPage: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col gap-6 font-lexend pb-10">
+        <div className="flex flex-col gap-5 pb-10 max-w-6xl">
             {/* Header */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/exams')}
-                        className="rounded-full hover:bg-gray-100"
-                    >
-                        <ArrowLeft size={24} className="text-gray-500" />
+            <header className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/exams')} className="h-8 w-8 rounded-lg shrink-0">
+                        <ArrowLeft size={16} className="text-gray-500" />
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Exam Result</h1>
-                        <p className="text-sm text-gray-500 font-medium">
-                            Completed on {results.date}
-                            {selectedAttemptMeta?.attemptNo ? ` • Attempt ${selectedAttemptMeta.attemptNo}` : ''}
+                    <div className="min-w-0">
+                        <h1 className="text-sm font-bold text-gray-900 truncate">{result.exam?.title || 'Exam Result'}</h1>
+                        <p className="text-xs text-gray-400 font-medium">
+                            Submitted {results.date}
+                            {selectedAttemptMeta?.attemptNo ? ` · Attempt ${selectedAttemptMeta.attemptNo}` : ''}
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-3">
-                    <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
-                        <SelectTrigger className="w-55 rounded-xl border-gray-200 font-bold">
-                            <SelectValue placeholder="Select attempt" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {submittedAttempts.map((attempt, index) => (
-                                <SelectItem key={attempt.id} value={attempt.id}>
-                                    Attempt {attempt.attemptNo || submittedAttempts.length - index} • {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : 'No date'}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Button variant="outline" className="font-bold border-gray-200 rounded-xl gap-2">
-                        <Download size={18} /> Download PDF
+                <div className="flex items-center gap-2 shrink-0">
+                    {submittedAttempts.length > 1 && (
+                        <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
+                            <SelectTrigger className="h-8 text-xs font-semibold rounded-lg border-gray-200 w-44">
+                                <SelectValue placeholder="Select attempt" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {submittedAttempts.map((attempt, index) => (
+                                    <SelectItem key={attempt.id} value={attempt.id} className="text-xs">
+                                        Attempt {attempt.attemptNo || submittedAttempts.length - index} · {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : '—'}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/exams/${id}/take`)}
+                        className="h-8 px-3 text-xs font-semibold rounded-lg border-gray-200 gap-1.5"
+                    >
+                        <RotateCcw size={12} /> Retake
                     </Button>
                     <Button
-                        onClick={() => navigate(`/exams/${id}/take`)}
-                        className="bg-primary hover:bg-primary/95 text-white font-bold rounded-xl shadow-lg shadow-primary/20"
+                        size="sm"
+                        onClick={() => navigate(`/exams/${id}/review?attemptId=${attemptId}`)}
+                        className="h-8 px-3 text-xs font-bold rounded-lg bg-primary text-white gap-1.5"
                     >
-                        Retake Exam
+                        <FileSearch size={12} /> Review Answers
                     </Button>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Side - Performance Breakdown */}
-                <div className="lg:col-span-8 flex flex-col gap-6">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
-                            <TrendingUp size={20} className="text-primary" />
-                            Sub-Category Performance
-                        </h3>
+            {/* Score Hero */}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="text-5xl font-black leading-none text-gray-900">
+                        {results.score}
                     </div>
+                    <div>
+                        <p className="text-xs text-gray-500 font-medium">{results.correct} correct out of {results.totalQuestions} questions</p>
+                    </div>
+                </div>
+                <div className="sm:ml-auto flex flex-wrap gap-4 text-xs font-semibold text-gray-600">
+                    <span className="flex items-center gap-1.5"><CheckCircle2 size={13} className="text-emerald-600" /> {results.correct} Correct</span>
+                    <span className="flex items-center gap-1.5"><XCircle size={13} className="text-red-500" /> {results.incorrect} Incorrect</span>
+                    <span className="flex items-center gap-1.5"><MinusCircle size={13} className="text-amber-500" /> {results.skipped} Skipped</span>
+                    <span className="flex items-center gap-1.5"><Clock size={13} className="text-gray-400" /> {results.timeSpent}</span>
+                    <span className="flex items-center gap-1.5"><TrendingUp size={13} className="text-gray-400" /> {results.avgTime}/q</span>
+                </div>
+            </div>
 
-                    <div className="grid gap-4">
-                        {sections.map((sec, idx) => {
-                            const config = SECTION_CONFIG[sec.name] || SECTION_CONFIG['General Education'];
-                            const Icon = config.icon;
-                            return (
-                                <Card key={idx} className="border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow rounded-2xl">
-                                    <div className="p-6">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`h-12 w-12 rounded-2xl ${config.bgColor} flex items-center justify-center ${config.color} shrink-0`}>
-                                                    <Icon size={24} />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                {/* Left: Section Breakdown + Questions */}
+                <div className="lg:col-span-8 flex flex-col gap-5">
+
+                    {/* Section Breakdown */}
+                    {sections.length > 0 && (
+                        <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
+                            <div className="px-4 py-3 border-b border-gray-100">
+                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Section Breakdown</h3>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {sections.map((sec, idx) => {
+                                    const colors = SECTION_COLORS[sec.name] || { dot: 'bg-gray-400', bg: 'bg-gray-50', text: 'text-gray-700' };
+                                    const pct = Number(sec.score || 0);
+                                    return (
+                                        <div key={idx} className="px-4 py-3 flex items-center gap-4">
+                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${colors.dot}`} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs font-semibold text-gray-800 truncate pr-3">{sec.name}</span>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <span className="text-[10px] font-semibold text-gray-400">{sec.correct}/{sec.total}</span>
+                                                        <span className="text-xs font-black text-gray-700">{pct.toFixed(1)}%</span>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h4 className="font-bold text-gray-900">{sec.name}</h4>
-                                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                                                        {sec.total} Questions &bull; <span className="text-red-500">{sec.incorrect} mistakes</span>
+                                                <Progress value={pct} className="h-1.5" />
+                                            </div>
+                                            {sec.incorrect > 0 && (
+                                                <span className="shrink-0 text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{sec.incorrect} wrong</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+                    )}
+
+                    {/* Question Snapshot */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2.5">
+                            <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Question Snapshot</h3>
+                            <span className="text-[10px] text-gray-400 font-medium">{questionDetails.length} questions</span>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            {questionDetails.length === 0 ? (
+                                <Card className="border-gray-100 shadow-sm rounded-xl">
+                                    <div className="p-5 text-xs text-gray-400 font-medium text-center">No question data available.</div>
+                                </Card>
+                            ) : (
+                                questionDetails.map((q) => {
+                                    const state = q.isCorrect ? 'correct' : q.userChoice ? 'incorrect' : 'skipped';
+                                    const stateStyle = {
+                                        correct:   { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', label: 'Correct' },
+                                        incorrect: { dot: 'bg-red-500',     badge: 'bg-red-50 text-red-600 border-red-100',             label: 'Wrong' },
+                                        skipped:   { dot: 'bg-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-100',       label: 'Skipped' },
+                                    }[state];
+                                    return (
+                                        <Card key={q.id} className="border-gray-200 shadow-none rounded-lg overflow-hidden">
+                                            <div className="flex items-start gap-3 px-4 py-3">
+                                                <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${stateStyle.dot}`} />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-2 mb-1">
+                                                        <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2">{q.questionText}</p>
+                                                        <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${stateStyle.badge}`}>{stateStyle.label}</span>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-400 font-medium">
+                                                        Q{q.orderNo} · {q.section || 'General Section'}
+                                                        {!q.isCorrect && q.userChoice && (
+                                                            <> · You chose <span className="font-bold text-red-500">{q.userChoice}</span> · Correct: <span className="font-bold text-emerald-600">{q.correctChoice}</span></>
+                                                        )}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-6">
-                                                <div className="text-right">
-                                                    <span className="text-2xl font-black text-gray-900">{sec.score}%</span>
-                                                    <div className="text-[10px] font-bold text-gray-400 uppercase">{sec.correct}/{sec.total}</div>
-                                                </div>
-                                                <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden hidden sm:block">
-                                                    <div
-                                                        className="bg-green-500 h-full rounded-full"
-                                                        style={{ width: `${sec.score}%` }}
-                                                    />
-                                                </div>
-                                                <Button size="icon" variant="ghost" className="rounded-full text-gray-300" onClick={() => navigate(`/exams/${id}/review?attemptId=${attemptId}`)}>
-                                                    <ChevronRight size={20} />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Card>
-                            );
-                        })}
-                        {sections.length === 0 && (
-                            <Card className="border-gray-100 shadow-sm rounded-2xl">
-                                <div className="p-8 text-center text-sm text-gray-500 font-medium">
-                                    No section performance data is available yet.
-                                </div>
-                            </Card>
-                        )}
-                    </div>
-
-                    <div className="mt-2 space-y-3">
-                        <h3 className="text-lg font-black text-gray-900">Question Review Snapshot</h3>
-                        {questionDetails.length === 0 ? (
-                            <Card className="border-gray-100 shadow-sm rounded-2xl">
-                                <div className="p-6 text-sm text-gray-500 font-medium">
-                                    No question-level review data available.
-                                </div>
-                            </Card>
-                        ) : (
-                            questionDetails.map((question) => (
-                                <Card key={question.id} className="border-gray-100 shadow-sm rounded-2xl overflow-hidden">
-                                    <div className="p-5 space-y-3">
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                Question #{question.orderNo} • {question.section || 'General Section'}
-                                            </p>
-                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${question.isCorrect ? 'bg-green-50 text-green-700' : question.userChoice ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
-                                                {question.isCorrect ? 'Correct' : question.userChoice ? 'Incorrect' : 'Skipped'}
-                                            </span>
-                                        </div>
-
-                                        <p className="text-sm font-bold text-gray-900">{question.questionText}</p>
-
-                                        {question.imageUrl && (
-                                            <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
-                                                <img
-                                                    src={question.imageUrl}
-                                                    alt="Question attachment"
-                                                    className="max-h-80 w-auto max-w-full rounded-lg border border-gray-100 object-contain bg-white"
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                </Card>
-                            ))
-                        )}
-                    </div>
-
-                    <div className="mt-4">
-                        <Button
-                            onClick={() => navigate(`/exams/${id}/review?attemptId=${attemptId}`)}
-                            className="w-full h-14 bg-primary hover:bg-primary/95 text-white font-black rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
-                        >
-                            <Search size={20} />
-                            See Detailed Question Analysis
-                        </Button>
+                                        </Card>
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Right Side - Summary Stats */}
-                <div className="lg:col-span-4 flex flex-col gap-6">
-                    <Card className="border-gray-100 shadow-sm rounded-3xl p-6 overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16" />
-
-                        <h3 className="font-black text-gray-900 mb-6 relative">Overall Performance</h3>
-
-                        <div className="flex flex-col items-center mb-8">
-                            <div className="relative w-48 h-48 flex items-center justify-center shrink-0">
-                                {/* SVG Pie Chart Placeholder */}
-                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                    <circle cx="18" cy="18" r="16" fill="transparent" stroke="#F59E0B" strokeWidth="4" />
-                                    <circle cx="18" cy="18" r="16" fill="transparent" stroke="#EF4444" strokeWidth="4" strokeDasharray={`${((results.correct + results.incorrect) / safeTotal) * 100} 100`} />
-                                    <circle cx="18" cy="18" r="16" fill="transparent" stroke="#16A34A" strokeWidth="4" strokeDasharray={`${(results.correct / safeTotal) * 100} 100`} />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-4xl font-black text-gray-900">{results.score}</span>
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Accuracy</span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-center gap-4 mt-6 text-[10px] font-black uppercase tracking-widest">
-                                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500" /> Correct</div>
-                                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500" /> Incorrect</div>
-                                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-500" /> Skipped</div>
-                            </div>
+                {/* Right: Stat Cards */}
+                <div className="lg:col-span-4 flex flex-col gap-3">
+                    <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-100">
+                            <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Summary</h3>
                         </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-green-50/50 border border-green-100">
-                                <div className="flex items-center gap-3">
-                                    <CheckCircle2 size={18} className="text-green-600" />
-                                    <span className="text-sm font-bold text-gray-700">Correct Answers</span>
+                        <div className="divide-y divide-gray-100">
+                            <div className="flex items-center justify-between px-4 py-2.5">
+                                <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                    <CheckCircle2 size={14} className="text-emerald-600" /> Correct
                                 </div>
-                                <span className="text-lg font-black text-green-700">{results.correct}</span>
+                                <span className="text-sm font-black text-emerald-700">{results.correct}</span>
                             </div>
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-red-50/50 border border-red-100">
-                                <div className="flex items-center gap-3">
-                                    <XCircle size={18} className="text-red-600" />
-                                    <span className="text-sm font-bold text-gray-700">Incorrect Answers</span>
+                            <div className="flex items-center justify-between px-4 py-2.5">
+                                <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                    <XCircle size={14} className="text-red-500" /> Incorrect
                                 </div>
-                                <span className="text-lg font-black text-red-700">{results.incorrect}</span>
+                                <span className="text-sm font-black text-red-600">{results.incorrect}</span>
                             </div>
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
-                                <div className="flex items-center gap-3">
-                                    <MinusCircle size={18} className="text-amber-600" />
-                                    <span className="text-sm font-bold text-gray-700">Skipped Questions</span>
+                            <div className="flex items-center justify-between px-4 py-2.5">
+                                <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                    <MinusCircle size={14} className="text-amber-500" /> Skipped
                                 </div>
-                                <span className="text-lg font-black text-amber-700">{results.skipped}</span>
+                                <span className="text-sm font-black text-amber-600">{results.skipped}</span>
                             </div>
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-2 gap-6">
-                            <div>
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Time Elapsed</p>
-                                <div className="flex items-center gap-2 text-gray-900 font-black">
-                                    <Clock size={16} className="text-primary" />
-                                    {results.timeSpent}
+                            <div className="flex items-center justify-between px-4 py-2.5">
+                                <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                    <Clock size={14} className="text-gray-400" /> Time Spent
                                 </div>
+                                <span className="text-sm font-black text-gray-700 font-mono">{results.timeSpent}</span>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Avg. Time/Q</p>
-                                <div className="flex items-center gap-2 text-gray-900 font-black">
-                                    <TrendingUp size={16} className="text-primary" />
-                                    {results.avgTime}
+                            <div className="flex items-center justify-between px-4 py-2.5">
+                                <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                    <TrendingUp size={14} className="text-gray-400" /> Avg / Question
                                 </div>
+                                <span className="text-sm font-black text-gray-700">{results.avgTime}</span>
                             </div>
                         </div>
                     </Card>
 
-                    <Card className="bg-primary/5 border-primary/10 shadow-none rounded-3xl p-6">
-                        <div className="flex gap-4">
-                            <div className="shrink-0">
-                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                    <CheckCircle2 size={24} />
+                    {/* Accuracy bar */}
+                    <Card className="border-gray-200 shadow-sm rounded-xl p-4 space-y-3">
+                        <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Answer Breakdown</h3>
+                        <div className="space-y-2">
+                            <div>
+                                <div className="flex justify-between text-[11px] font-semibold mb-1">
+                                    <span className="text-emerald-700">Correct</span>
+                                    <span className="text-emerald-700">{((results.correct / safeTotal) * 100).toFixed(0)}%</span>
                                 </div>
+                                <Progress value={(results.correct / safeTotal) * 100} className="h-2" />
                             </div>
-                            <div className="space-y-1">
-                                <h4 className="font-bold text-gray-900">Great job!</h4>
-                                <p className="text-sm text-gray-500 leading-relaxed font-medium">
-                                        Complete more exams to generate personalized performance insights.
-                                </p>
+                            <div>
+                                <div className="flex justify-between text-[11px] font-semibold mb-1">
+                                    <span className="text-red-600">Incorrect</span>
+                                    <span className="text-red-600">{((results.incorrect / safeTotal) * 100).toFixed(0)}%</span>
+                                </div>
+                                <Progress value={(results.incorrect / safeTotal) * 100} className="h-2 [&>div]:bg-red-500" />
+                            </div>
+                            <div>
+                                <div className="flex justify-between text-[11px] font-semibold mb-1">
+                                    <span className="text-amber-600">Skipped</span>
+                                    <span className="text-amber-600">{((results.skipped / safeTotal) * 100).toFixed(0)}%</span>
+                                </div>
+                                <Progress value={(results.skipped / safeTotal) * 100} className="h-2 [&>div]:bg-amber-400" />
                             </div>
                         </div>
                     </Card>

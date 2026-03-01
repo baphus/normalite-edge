@@ -4,6 +4,33 @@ import { notificationService } from './notification.service';
 
 export class AttemptService {
     private readonly validChoices = new Set(['A', 'B', 'C', 'D']);
+    private readonly defaultMultipleAttemptsLimit = 3;
+
+    private async getAllowMultipleAttempts() {
+        try {
+            const rows = await prisma.$queryRaw<Array<{ allow_multiple_attempts: boolean }>>`
+                SELECT allow_multiple_attempts
+                FROM system_settings
+                WHERE id = 1
+                LIMIT 1
+            `;
+
+            if (rows.length > 0) {
+                return Boolean(rows[0].allow_multiple_attempts);
+            }
+
+            await prisma.$executeRaw`
+                INSERT INTO system_settings (id, allow_multiple_attempts)
+                VALUES (1, false)
+                ON CONFLICT (id) DO NOTHING
+            `;
+
+            return false;
+        } catch (error) {
+            console.error('Failed to read system settings, defaulting allowMultipleAttempts=false', error);
+            return false;
+        }
+    }
 
     private async closeExamIfExpired(examId: string) {
         await prisma.exam.updateMany({
@@ -93,6 +120,7 @@ export class AttemptService {
      */
     async startAttempt(userId: string, examId: string) {
         await this.closeExamIfExpired(examId);
+        const allowMultipleAttempts = await this.getAllowMultipleAttempts();
 
         const exam = await prisma.exam.findUnique({
             where: { id: examId },
@@ -130,7 +158,7 @@ export class AttemptService {
                 select: { id: true },
             });
 
-            if (submittedAttempt) {
+            if (!allowMultipleAttempts && submittedAttempt) {
                 throw ApiError.forbidden('You can only submit this mock exam once');
             }
 
@@ -165,10 +193,12 @@ export class AttemptService {
                 orderBy: { attemptNo: 'desc' },
             });
 
-            const effectiveMaxAttempts = exam.maxAttempts ?? 1;
+            const effectiveMaxAttempts = allowMultipleAttempts
+                ? (exam.maxAttempts ?? this.defaultMultipleAttemptsLimit)
+                : 1;
             const nextAttemptNo = (latestAttempt?.attemptNo || 0) + 1;
 
-            if (nextAttemptNo > effectiveMaxAttempts) {
+            if (effectiveMaxAttempts && nextAttemptNo > effectiveMaxAttempts) {
                 throw ApiError.forbidden(`Maximum attempts reached (${effectiveMaxAttempts})`);
             }
 
@@ -340,6 +370,51 @@ export class AttemptService {
                 severity: 'WARNING',
             });
         }
+
+        const [submitter, adminUsers] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: { firstName: true, lastName: true },
+            }),
+            prisma.user.findMany({
+                where: {
+                    role: 'ADMIN',
+                    status: 'ACTIVE',
+                },
+                select: { id: true },
+            }),
+        ]);
+
+        const submitterName = `${submitter?.firstName || ''} ${submitter?.lastName || ''}`.trim() || 'A reviewee';
+        const ownerUserId = refreshedAttempt.exam.createdBy;
+        const adminRecipientUserIds = Array.from(new Set(
+            adminUsers
+                .map((admin) => admin.id)
+                .filter((adminId) => adminId !== ownerUserId)
+        ));
+
+        await Promise.all([
+            notificationService.createNotification({
+                recipientUserId: ownerUserId,
+                type: 'EXAM_SUBMISSION_RECEIVED',
+                title: 'New Submission on Your Mock Exam',
+                message: `${submitterName} submitted an attempt to your mock exam "${refreshedAttempt.exam.title}".`,
+                link: `/manage-exams/${refreshedAttempt.examId}/submissions`,
+                entityType: 'exam',
+                entityId: refreshedAttempt.examId,
+                severity: 'INFO',
+            }),
+            notificationService.createNotifications({
+                recipientUserIds: adminRecipientUserIds,
+                type: 'EXAM_SUBMISSION_RECEIVED',
+                title: 'New Mock Exam Submission',
+                message: `${submitterName} submitted an attempt for "${refreshedAttempt.exam.title}".`,
+                link: `/manage-exams/${refreshedAttempt.examId}/submissions`,
+                entityType: 'exam',
+                entityId: refreshedAttempt.examId,
+                severity: 'INFO',
+            }),
+        ]);
 
         const submittedAttempt = await prisma.attempt.findUnique({
             where: { id: attemptId },

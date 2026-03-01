@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ExamDetails {
     id: string;
@@ -21,6 +22,12 @@ interface ExamDetails {
     duration?: number;
     timeLimit?: number;
     status?: string;
+    creator?: {
+        id?: string;
+        firstName?: string;
+        lastName?: string;
+        name?: string;
+    };
 }
 
 interface AttemptItem {
@@ -76,6 +83,7 @@ const getAvatarUrl = (name?: string, explicit?: string | null) => {
 const ManageExamSubmissionsPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { user } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -229,47 +237,64 @@ const ManageExamSubmissionsPage: React.FC = () => {
         }));
     }, [submittedAttempts]);
 
+    const canManageSubmissions = useMemo(() => {
+        if (!exam) return false;
+        if (user?.role === 'ADMIN') return true;
+        return Boolean(exam.creator?.id && exam.creator.id === user?.id);
+    }, [exam, user?.id, user?.role]);
+
     if (loading) {
         return (
-            <div className="flex flex-col gap-5 font-lexend pb-8">
-                <Card className="rounded-2xl border-gray-100 bg-white">
-                    <CardContent className="p-6 text-sm font-semibold text-gray-500">Loading submissions...</CardContent>
+            <div className="flex flex-col gap-3 font-lexend pb-6">
+                <Card className="rounded-lg border-gray-100 bg-white">
+                    <CardContent className="p-4 text-xs font-semibold text-gray-500">Loading submissions...</CardContent>
                 </Card>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="rounded-full"
+                        className="h-8 w-8 rounded-md"
                         onClick={() => navigate(`/manage-exams/${id}/view`)}
                     >
-                        <ArrowLeft size={18} />
+                        <ArrowLeft size={15} />
                     </Button>
-                    <div className="space-y-1">
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">All Submissions</h1>
-                        <p className="text-sm text-gray-500 font-medium tracking-tight">
-                            {exam?.title || 'Mock Exam'} • Students, scores, and analytics overview.
+                    <div>
+                        <h1 className="text-base font-bold text-gray-900 tracking-tight">All Submissions</h1>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                            {exam?.title || 'Mock Exam'} &middot; Students, scores, and analytics.
                         </p>
                     </div>
                 </div>
                 <Link to={`/manage-exams/${id}/view`}>
-                    <Button variant="outline" className="h-10 rounded-xl border-gray-200 font-black">
+                    <Button variant="outline" className="h-8 rounded-md border-gray-200 text-xs font-semibold">
                         Back to Exam Details
                     </Button>
                 </Link>
             </header>
 
+            {user?.role === 'REVIEWER' && !canManageSubmissions && (
+                <Card className="rounded-lg border-gray-100 bg-white">
+                    <CardContent className="p-3 flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold text-gray-600">Read-only view for submissions from another reviewer&apos;s exam.</p>
+                        <Badge variant="outline" className="font-semibold text-[9px] uppercase tracking-widest border-gray-200 text-gray-500">
+                            Read-only
+                        </Badge>
+                    </CardContent>
+                </Card>
+            )}
+
             {error ? (
-                <Card className="rounded-2xl border-red-100 bg-red-50/40">
-                    <CardContent className="p-6 flex items-center justify-between gap-4">
-                        <p className="text-sm font-semibold text-red-700">{error}</p>
-                        <Button variant="outline" onClick={() => navigate('/manage-exams')} className="border-red-200 text-red-700 hover:bg-red-50">
+                <Card className="rounded-lg border-red-100 bg-red-50/40">
+                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                        <p className="text-xs font-semibold text-red-700">{error}</p>
+                        <Button variant="outline" size="sm" onClick={() => navigate('/manage-exams')} className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50">
                             Back to Exams
                         </Button>
                     </CardContent>
@@ -279,18 +304,18 @@ const ManageExamSubmissionsPage: React.FC = () => {
             {!error && (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <Card className="rounded-2xl border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Attempts</p><p className="text-2xl font-black text-gray-900 mt-1">{analytics.total}</p></CardContent></Card>
-                        <Card className="rounded-2xl border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Submitted</p><p className="text-2xl font-black text-gray-900 mt-1">{analytics.submitted}</p></CardContent></Card>
-                        <Card className="rounded-2xl border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Students</p><p className="text-2xl font-black text-gray-900 mt-1">{analytics.uniqueStudents}</p></CardContent></Card>
-                        <Card className="rounded-2xl border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Average Score</p><p className="text-2xl font-black text-gray-900 mt-1">{formatPercent(analytics.averageScore)}</p></CardContent></Card>
+                        <Card className="rounded-lg border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Attempts</p><p className="text-2xl font-black text-gray-900 mt-1">{analytics.total}</p></CardContent></Card>
+                        <Card className="rounded-lg border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Submitted</p><p className="text-2xl font-black text-gray-900 mt-1">{analytics.submitted}</p></CardContent></Card>
+                        <Card className="rounded-lg border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Students</p><p className="text-2xl font-black text-gray-900 mt-1">{analytics.uniqueStudents}</p></CardContent></Card>
+                        <Card className="rounded-lg border-gray-100 bg-white"><CardContent className="p-4"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Average Score</p><p className="text-2xl font-black text-gray-900 mt-1">{formatPercent(analytics.averageScore)}</p></CardContent></Card>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card className="rounded-2xl border-gray-100 bg-white">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <Card className="rounded-lg border-gray-100 bg-white">
                             <CardContent className="p-5 space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
-                                        <BarChart3 size={14} /> Score Distribution
+                                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                                        <BarChart3 size={13} /> Score Distribution
                                     </h3>
                                     <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">Submitted Only</Badge>
                                 </div>
@@ -310,11 +335,11 @@ const ManageExamSubmissionsPage: React.FC = () => {
                             </CardContent>
                         </Card>
 
-                        <Card className="rounded-2xl border-gray-100 bg-white">
+                        <Card className="rounded-lg border-gray-100 bg-white">
                             <CardContent className="p-5 space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
-                                        <Calendar size={14} /> Submissions (Last 7 Days)
+                                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                                        <Calendar size={13} /> Submissions (Last 7 Days)
                                     </h3>
                                     <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">Trend</Badge>
                                 </div>
@@ -338,17 +363,17 @@ const ManageExamSubmissionsPage: React.FC = () => {
                         </Card>
                     </div>
 
-                    <Card className="rounded-2xl border-gray-100 bg-white">
-                        <CardContent className="p-5">
+                    <Card className="rounded-lg border-gray-100 bg-white">
+                        <CardContent className="p-4">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                                <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight">Student Submission Details</h3>
-                                <div className="relative w-full md:w-72">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Student Submission Details</h3>
+                                <div className="relative w-full md:w-64">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
                                     <Input
                                         value={search}
                                         onChange={(event) => setSearch(event.target.value)}
                                         placeholder="Search student, email, track"
-                                        className="h-9 rounded-xl pl-9 border-gray-200"
+                                        className="h-8 rounded-md pl-8 border-gray-200 text-xs"
                                     />
                                 </div>
                             </div>

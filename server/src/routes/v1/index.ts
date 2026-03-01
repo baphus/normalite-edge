@@ -12,6 +12,7 @@ import auditRoutes from './audit.routes';
 import reportRoutes from './report.routes';
 import uploadRoutes from './upload.routes';
 import calendarRoutes from './calendar.routes';
+import systemSettingRoutes from './system-setting.routes';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/audit', auditRoutes);
 router.use('/reports', reportRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/calendar', calendarRoutes);
+router.use('/settings', systemSettingRoutes);
 
 export default router;

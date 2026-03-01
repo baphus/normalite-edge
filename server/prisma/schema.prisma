@@ -402,3 +402,12 @@ model AuditLog {
   @@index([entityType, createdAt(sort: Desc)])
   @@map("audit_logs")
 }
+
+model SystemSetting {
+  id                   Int      @id @default(1)
+  allowMultipleAttempts Boolean  @default(false) @map("allow_multiple_attempts")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

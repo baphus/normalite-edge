@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ExamTrack {
     id?: string;
@@ -115,6 +116,7 @@ const getAvatarUrl = (name?: string, explicit?: string | null) => {
 const ManageExamViewPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { user } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -184,6 +186,12 @@ const ManageExamViewPage: React.FC = () => {
             || 'Unknown author';
     }, [exam]);
 
+    const canEditExam = useMemo(() => {
+        if (!exam) return false;
+        if (user?.role === 'ADMIN') return true;
+        return Boolean(exam.creator?.id && exam.creator.id === user?.id);
+    }, [exam, user?.id, user?.role]);
+
     const submittedAttempts = useMemo(() => {
         return attempts
             .filter((attempt) => attempt.status === 'SUBMITTED')
@@ -224,34 +232,34 @@ const ManageExamViewPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex flex-col gap-5 font-lexend pb-8">
-                <Card className="rounded-2xl border-gray-100 bg-white">
-                    <CardContent className="p-6 text-sm font-semibold text-gray-500">Loading exam details...</CardContent>
+            <div className="flex flex-col gap-3 font-lexend pb-6">
+                <Card className="rounded-lg border-gray-100 bg-white">
+                    <CardContent className="p-4 text-xs font-semibold text-gray-500">Loading exam details...</CardContent>
                 </Card>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="rounded-full"
+                        className="h-8 w-8 rounded-md"
                         onClick={() => navigate('/manage-exams')}
                     >
-                        <ArrowLeft size={18} />
+                        <ArrowLeft size={15} />
                     </Button>
-                    <div className="space-y-1">
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Mock Exam Details</h1>
-                        <p className="text-sm text-gray-500 font-medium tracking-tight">Full exam setup and recent submissions.</p>
+                    <div>
+                        <h1 className="text-base font-bold text-gray-900 tracking-tight">Exam Details</h1>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Full exam setup and recent submissions.</p>
                     </div>
                 </div>
-                {exam ? (
+                {exam && canEditExam ? (
                     <Link to={`/manage-exams/${exam.id}/edit`}>
-                        <Button className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2">
+                        <Button className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white font-semibold text-xs gap-1.5">
                             Edit Exam
                         </Button>
                     </Link>
@@ -259,21 +267,21 @@ const ManageExamViewPage: React.FC = () => {
             </header>
 
             {error ? (
-                <Card className="rounded-2xl border-red-100 bg-red-50/40">
-                    <CardContent className="p-6 flex items-center justify-between gap-4">
-                        <p className="text-sm font-semibold text-red-700">{error}</p>
-                        <Button variant="outline" onClick={() => navigate('/manage-exams')} className="border-red-200 text-red-700 hover:bg-red-50">
+                <Card className="rounded-lg border-red-100 bg-red-50/40">
+                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                        <p className="text-xs font-semibold text-red-700">{error}</p>
+                        <Button variant="outline" size="sm" onClick={() => navigate('/manage-exams')} className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50">
                             Back to Exams
                         </Button>
                     </CardContent>
                 </Card>
             ) : !exam ? (
-                <Card className="rounded-2xl border-gray-100 bg-white">
-                    <CardContent className="p-6 text-sm font-semibold text-gray-500">Exam not found.</CardContent>
+                <Card className="rounded-lg border-gray-100 bg-white">
+                    <CardContent className="p-4 text-xs font-semibold text-gray-500">Exam not found.</CardContent>
                 </Card>
             ) : (
                 <>
-                    <Card className="rounded-2xl border-gray-100 bg-white">
+                    <Card className="rounded-lg border-gray-100 bg-white">
                         <CardContent className="p-5 space-y-4">
                             <div className="flex flex-wrap items-center gap-2">
                                 <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] uppercase tracking-widest">
@@ -296,8 +304,8 @@ const ManageExamViewPage: React.FC = () => {
                             </div>
 
                             <div>
-                                <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">{exam.title || 'Untitled Exam'}</h2>
-                                <p className="text-sm text-gray-600 font-medium mt-1">{exam.description || 'No description provided.'}</p>
+                                <h2 className="text-sm font-bold text-gray-900 tracking-tight">{exam.title || 'Untitled Exam'}</h2>
+                                <p className="text-xs text-gray-500 font-medium mt-0.5">{exam.description || 'No description provided.'}</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
@@ -350,10 +358,10 @@ const ManageExamViewPage: React.FC = () => {
                         </CardContent>
                     </Card>
 
-                    <Card className="rounded-2xl border-gray-100 bg-white">
-                        <CardContent className="p-5 space-y-4">
+                    <Card className="rounded-lg border-gray-100 bg-white">
+                        <CardContent className="p-4 space-y-3">
                             <div className="flex items-center justify-between gap-3">
-                                <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">Students Recently Submitted</h3>
+                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Students Recently Submitted</h3>
                                 <div className="flex items-center gap-2">
                                     <Badge variant="outline" className="font-black text-[10px] uppercase tracking-widest">
                                         {submittedAttempts.length} submissions
@@ -391,11 +399,11 @@ const ManageExamViewPage: React.FC = () => {
                     </Card>
 
                     <section className="space-y-3">
-                        <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">All Questions and Answers</h3>
+                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">All Questions and Answers</h3>
 
                         {questions.length === 0 ? (
-                            <Card className="rounded-2xl border-gray-100 bg-white">
-                                <CardContent className="p-6 text-sm font-semibold text-gray-500">
+                            <Card className="rounded-lg border-gray-100 bg-white">
+                                <CardContent className="p-4 text-xs font-semibold text-gray-500">
                                     This mock exam has no questions yet.
                                 </CardContent>
                             </Card>
@@ -414,7 +422,7 @@ const ManageExamViewPage: React.FC = () => {
                                         || 'General Section';
 
                                     return (
-                                        <Card key={question.id} className="rounded-2xl border-gray-100 bg-white">
+                                        <Card key={question.id} className="rounded-lg border-gray-100 bg-white">
                                             <CardContent className="p-5 space-y-4">
                                                 <div>
                                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -464,11 +472,11 @@ const ManageExamViewPage: React.FC = () => {
                         )}
                     </section>
 
-                    <Card className="rounded-2xl border-gray-100 bg-white">
-                        <CardContent className="p-4 flex items-center justify-end">
+                    <Card className="rounded-lg border-gray-100 bg-white">
+                        <CardContent className="p-3 flex items-center justify-end">
                             <Link to={`/manage-exams/${exam.id}/edit`}>
-                                <Button className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2">
-                                    <FileText size={14} /> Manage Mock Exam
+                                <Button className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white font-semibold text-xs gap-1.5">
+                                    <FileText size={13} /> Manage Exam
                                 </Button>
                             </Link>
                         </CardContent>

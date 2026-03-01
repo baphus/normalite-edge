@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
-    ArrowLeft,
+    ChevronRight,
     Plus,
     Trash2,
     Upload,
     Download,
     Save,
     X,
-    Layers,
-    Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
@@ -373,66 +372,62 @@ const StudyMaterialEditorPage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-8 font-lexend pb-10">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/study')}
-                        className="rounded-full hover:bg-white hover:shadow-md transition-all"
-                    >
-                        <ArrowLeft size={20} />
-                    </Button>
-                    <div className="space-y-1">
-                        <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Create Study Material</h1>
-                        <p className="text-sm text-gray-500 font-medium tracking-tight">Input your questions and answers to build your personal study material.</p>
+        <div className="flex flex-col gap-5 font-lexend pb-8">
+            {/* Header */}
+            <header className="bg-white rounded-2xl px-5 py-4 md:px-6 border border-slate-200 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
+                            <Link to="/study" className="hover:text-primary transition-colors">Study Hub</Link>
+                            <ChevronRight size={11} />
+                            <span className="text-primary">New Deck</span>
+                        </div>
+                        <h1 className="text-xl font-black text-slate-900 tracking-tight">Create Study Material</h1>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">Build a deck of questions and answers for your review.</p>
                     </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" onClick={() => navigate('/study')} className="h-11 rounded-2xl px-6 font-black border-gray-100 uppercase tracking-widest text-[10px]">
-                        Discard
-                    </Button>
-                    <Button onClick={handleSave} className="h-11 rounded-2xl px-6 bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 gap-2 uppercase tracking-widest text-[10px]">
-                        <Save size={16} /> Create Deck
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                            variant="ghost"
+                            className="h-9 rounded-xl px-4 font-black text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                            onClick={() => navigate('/study')}
+                        >
+                            Discard
+                        </Button>
+                        <Button
+                            className="h-9 rounded-xl px-5 bg-primary hover:bg-primary/90 text-white font-black text-xs gap-1.5"
+                            onClick={handleSave}
+                        >
+                            <Save size={14} /> Create Deck
+                        </Button>
+                    </div>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Left Column: Deck Info */}
-                <div className="lg:col-span-1 space-y-6">
-                    <Card className="rounded-[2.5rem] border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden bg-white">
-                        <CardHeader className="p-8 pb-4">
-                            <CardTitle className="text-xl font-black flex items-center gap-2 text-gray-900">
-                                <Info size={20} className="text-primary" /> Deck Details
-                            </CardTitle>
+                <div className="lg:col-span-1 flex flex-col gap-5">
+                    <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
+                        <CardHeader className="px-5 pt-5 pb-3 border-b border-slate-50">
+                            <div className="flex items-center gap-2.5 text-primary">
+                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-[9px] font-black">1</span>
+                                <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-600">Deck Details</CardTitle>
+                            </div>
                         </CardHeader>
-                        <CardContent className="p-8 space-y-6">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Deck Title</Label>
+                        <CardContent className="p-5 space-y-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Title</Label>
                                 <Input
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="e.g., LET Review - English Terminology"
-                                    className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold"
+                                    placeholder="e.g., LET Review – English Terminology"
+                                    className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Description</Label>
-                                <Textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="What is this deck about?"
-                                    className="min-h-[100px] rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-medium py-4"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Category</Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Category</Label>
                                 <Select value={category} onValueChange={(value) => setCategory(value as (typeof categoryOptions)[number]['value'])}>
-                                    <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold">
+                                    <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm">
                                         <SelectValue placeholder="Select category" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -443,181 +438,227 @@ const StudyMaterialEditorPage: React.FC = () => {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {category === 'NONE' ? (
-                                    <p className="text-[11px] text-gray-500 font-medium">
-                                        No Category selected. This deck will stay uncategorized.
-                                    </p>
-                                ) : null}
                             </div>
 
-                            <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Tags</Label>
-                                <div className="flex flex-wrap gap-2 mb-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description <span className="lowercase text-slate-300 font-medium">(optional)</span></Label>
+                                <Textarea
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="What is this deck about?"
+                                    className="min-h-20 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-medium text-sm leading-relaxed resize-none"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tags</Label>
+                                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/30 min-h-11">
                                     {tags.map(tag => (
-                                        <Badge key={tag} className="bg-primary/5 text-primary border-primary/10 hover:bg-primary/10 rounded-xl px-3 py-1.5 font-bold text-[10px] uppercase tracking-widest group">
+                                        <Badge
+                                            key={tag}
+                                            className="bg-white text-slate-600 border border-slate-200 font-bold text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 hover:border-red-100 hover:text-red-500 transition-all cursor-default shadow-none"
+                                        >
                                             {tag}
-                                            <button onClick={() => removeTag(tag)} className="ml-2 hover:text-red-500 opacity-50 group-hover:opacity-100">
+                                            <button onClick={() => removeTag(tag)} className="hover:text-red-600 opacity-60 hover:opacity-100">
                                                 <X size={10} />
                                             </button>
                                         </Badge>
                                     ))}
-                                </div>
-                                <div className="flex gap-2">
-                                    <Input
-                                        value={tagInput}
-                                        onChange={(e) => setTagInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && addTag()}
-                                        placeholder="Add tag..."
-                                        className="h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold text-xs"
-                                    />
-                                    <Button size="icon" variant="outline" onClick={addTag} className="rounded-xl shrink-0 h-10 w-10 border-gray-100">
-                                        <Plus size={16} />
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            value={tagInput}
+                                            onChange={(e) => setTagInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && addTag()}
+                                            placeholder="Add tag..."
+                                            className="h-7 min-w-0 w-24 bg-transparent border-none text-[11px] font-semibold placeholder:text-slate-300 focus:outline-none"
+                                        />
+                                        <button
+                                            onClick={addTag}
+                                            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-primary px-2 py-1 rounded-lg hover:bg-primary/5 transition-all"
+                                        >
+                                            <Plus size={10} /> Add
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
                             {isAdminOrReviewer && (
-                                <div className="space-y-4 pt-4 border-t border-gray-50">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Visibility Settings</Label>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 border border-transparent hover:border-primary/10 transition-colors cursor-pointer" onClick={() => setSelectedTrackIds([])}>
-                                            <Checkbox checked={selectedTrackIds.length === 0} onCheckedChange={() => setSelectedTrackIds([])} />
-                                            <span className="text-xs font-bold text-gray-700">All Programs</span>
-                                        </div>
-                                        <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 scrollbar-hide">
+                                <>
+                                    <div className="border-t border-slate-100" />
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Visible To</Label>
+                                        <div className="grid grid-cols-1 gap-1.5 max-h-50 overflow-y-auto pr-1 scrollbar-hide">
+                                            <div
+                                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+                                                    selectedTrackIds.length === 0
+                                                        ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/10'
+                                                        : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'
+                                                }`}
+                                                onClick={() => setSelectedTrackIds([])}
+                                            >
+                                                <Checkbox
+                                                    checked={selectedTrackIds.length === 0}
+                                                    onCheckedChange={() => setSelectedTrackIds([])}
+                                                    className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-3.5 w-3.5"
+                                                />
+                                                <Label className="text-xs font-bold leading-none cursor-pointer">All Programs</Label>
+                                            </div>
                                             {tracks.map(track => (
-                                                <div key={track.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => toggleTrack(track.id)}>
-                                                    <Checkbox checked={selectedTrackIds.includes(track.id)} onCheckedChange={() => toggleTrack(track.id)} />
-                                                    <span className="text-[11px] font-semibold text-gray-700 tracking-tight">
+                                                <div
+                                                    key={track.id}
+                                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+                                                        selectedTrackIds.includes(track.id)
+                                                            ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/10'
+                                                            : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'
+                                                    }`}
+                                                    onClick={() => toggleTrack(track.id)}
+                                                >
+                                                    <Checkbox
+                                                        checked={selectedTrackIds.includes(track.id)}
+                                                        onCheckedChange={() => toggleTrack(track.id)}
+                                                        className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-3.5 w-3.5"
+                                                    />
+                                                    <Label className="text-xs font-semibold leading-none cursor-pointer">
                                                         {track.name}
-                                                        {track.code ? <span className="text-gray-400 ml-1">({track.code})</span> : null}
-                                                    </span>
+                                                        {track.code ? <span className="text-slate-400 ml-1 font-normal">({track.code})</span> : null}
+                                                    </Label>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-                                </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>
 
-                    <Card className="rounded-[2.5rem] bg-primary/5 border-primary/10 shadow-none overflow-hidden">
-                        <CardContent className="p-8 space-y-4">
-                            <h3 className="font-black text-primary text-sm uppercase tracking-widest">Import Data</h3>
-                            <p className="text-xs font-medium text-gray-600 italic leading-relaxed">Want to speed things up? Import your questions from a JSON or CSV file using our templates.</p>
-                            <p className="text-[11px] text-gray-600 font-medium leading-relaxed">
-                                For <span className="font-bold">correctAnswer</span>, users may type <span className="font-bold">A/B/C/D</span>, <span className="font-bold">1/2/3/4</span>, <span className="font-bold">0/1/2/3</span>, or the exact option text.
-                            </p>
-                            <div className="rounded-xl border border-primary/20 bg-white/80 p-3 space-y-1.5">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-primary">How to fill the file</p>
-                                <p className="text-[11px] text-gray-700 font-medium">1) One row/object = one question.</p>
-                                <p className="text-[11px] text-gray-700 font-medium">2) Required: question, option1, option2, option3, option4, correctAnswer.</p>
-                                <p className="text-[11px] text-gray-700 font-medium">3) Optional: explanation.</p>
-                                <p className="text-[11px] text-gray-500 font-medium">You can rename headers (ex: "Correct Answer"), and upload still works.</p>
+                    {/* Import card */}
+                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 space-y-3">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Import Data</p>
+                        <p className="text-[10px] font-medium text-slate-400">
+                            Import tip: <span className="font-bold text-slate-500">correctAnswer</span> can be <span className="font-bold text-slate-500">A/B/C/D</span>, <span className="font-bold text-slate-500">1–4</span>, or exact option text. Optional: <span className="font-bold text-slate-500">explanation</span>.
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                                <Input
+                                    type="file"
+                                    accept=".json,.csv"
+                                    onChange={handleImport}
+                                    className="absolute inset-0 opacity-0 cursor-pointer h-full"
+                                />
+                                <Button variant="outline" className="w-full justify-start gap-2 h-8 rounded-lg border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-wider pointer-events-none">
+                                    <Upload size={12} /> Import JSON / CSV
+                                </Button>
                             </div>
-                            <div className="flex flex-col gap-2 pt-2">
-                                <div className="relative">
-                                    <Input
-                                        type="file"
-                                        accept=".json,.csv"
-                                        onChange={handleImport}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
-                                    <Button variant="outline" className="w-full justify-start gap-3 h-11 rounded-2xl border-primary/20 text-primary font-black uppercase tracking-widest text-[10px] hover:bg-primary/10 bg-white shadow-sm shadow-primary/5 pointer-events-none">
-                                        <Upload size={16} /> Import JSON/CSV
-                                    </Button>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" onClick={() => downloadTemplate('csv')} className="flex-1 gap-2 h-10 rounded-xl text-gray-500 font-black uppercase tracking-widest text-[9px] hover:bg-white transition-colors">
-                                        <Download size={14} /> .CSV
-                                    </Button>
-                                    <Button variant="ghost" onClick={() => downloadTemplate('json')} className="flex-1 gap-2 h-10 rounded-xl text-gray-500 font-black uppercase tracking-widest text-[9px] hover:bg-white transition-colors">
-                                        <Download size={14} /> .JSON
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            <Button variant="outline" className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2" onClick={() => downloadTemplate('csv')} title="Download CSV template">
+                                <Download size={13} />
+                            </Button>
+                            <Button variant="outline" className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2" onClick={() => downloadTemplate('json')} title="Download JSON template">
+                                <Download size={13} />
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Right Column: Questions */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                        <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
-                            <Layers size={24} className="text-primary" />
-                            Questions & Answers
-                            <Badge className="bg-gray-100 text-gray-500 rounded-full font-black ml-2 px-3 py-1 text-[10px] border-none shadow-inner">
-                                {cards.length}
+                <div className="lg:col-span-2 flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 text-primary">
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-[9px] font-black">2</span>
+                            <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-600">Questions & Answers</h3>
+                            <Badge className="bg-slate-100 text-slate-500 border-none font-black text-[9px] px-2 py-1 rounded-md">
+                                {cards.length} {cards.length === 1 ? 'item' : 'items'}
                             </Badge>
-                        </h2>
-                        <Button onClick={addCard} className="rounded-2xl bg-white border-2 border-primary/20 text-primary hover:bg-primary/5 font-black uppercase tracking-widest text-[10px] px-6 shadow-sm shadow-primary/5">
-                            <Plus size={16} className="mr-2" /> Add Card
+                        </div>
+                        <Button onClick={addCard} variant="outline" className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider">
+                            <Plus size={12} /> Add Card
                         </Button>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="flex flex-col gap-4">
                         {cards.map((card, index) => (
-                            <Card key={card.id} className="rounded-[2.5rem] border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden bg-white group animate-in slide-in-from-bottom-5 duration-500">
-                                <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between space-y-0">
-                                    <Badge className="bg-gray-100/50 text-gray-400 font-black px-4 py-1.5 rounded-xl text-[10px] uppercase tracking-widest border-none">
-                                        Card #{index + 1}
+                            <Card key={card.id} className="rounded-2xl border-slate-100 shadow-sm overflow-hidden bg-white">
+                                <div className="bg-slate-50/60 px-4 py-2.5 border-b border-slate-100 flex justify-between items-center">
+                                    <Badge className="bg-primary/10 text-primary border-none font-black text-[9px] uppercase tracking-widest px-2 py-1">
+                                        Q{index + 1}
                                     </Badge>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
+                                    <button
                                         onClick={() => removeCard(card.id)}
-                                        className="text-gray-300 hover:text-red-500 hover:bg-red-50 lg:opacity-0 group-hover:opacity-100 transition-all rounded-xl"
+                                        disabled={cards.length <= 1}
+                                        className="p-1.5 text-slate-300 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors hover:bg-white rounded-lg"
+                                        title="Delete"
                                     >
-                                        <Trash2 size={18} />
-                                    </Button>
-                                </CardHeader>
-                                <CardContent className="p-8 pt-4 space-y-8">
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Question / Front of Card</Label>
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+                                <CardContent className="p-4 space-y-4">
+                                    {/* Question */}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Question</Label>
                                         <Textarea
                                             value={card.question}
                                             onChange={(e) => updateCard(card.id, 'question', e.target.value)}
                                             placeholder="Enter your question here..."
-                                            className="min-h-[80px] rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold py-4 resize-none"
+                                            className="min-h-18 rounded-xl border-slate-100 shadow-none focus:ring-primary/20 font-semibold text-sm leading-relaxed resize-none"
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                        <div className="flex items-center justify-between md:col-span-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Options & Correct Answer</Label>
-                                            <span className="text-[9px] font-bold text-gray-400 italic uppercase">Select the radio button for the correct one</span>
+                                    {/* Options */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Options</Label>
+                                            <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest opacity-70">Click radio to set correct</span>
                                         </div>
-                                        {['A', 'B', 'C', 'D'].map((letter, i) => (
-                                            <div key={letter} className={`flex items-center gap-3 p-1.5 rounded-2xl transition-all ${card.correctIndex === i ? 'bg-primary/5 ring-1 ring-primary/10 shadow-sm' : 'bg-gray-50/30'}`}>
-                                                <div className="relative flex items-center justify-center pl-2">
-                                                    <input
-                                                        type="radio"
-                                                        name={`correct-${card.id}`}
-                                                        checked={card.correctIndex === i}
-                                                        onChange={() => updateCard(card.id, 'correctIndex', i)}
-                                                        className="w-5 h-5 text-primary focus:ring-primary border-gray-200 cursor-pointer"
+                                        <RadioGroup
+                                            value={card.correctIndex.toString()}
+                                            onValueChange={(val) => updateCard(card.id, 'correctIndex', parseInt(val))}
+                                            className="grid grid-cols-1 md:grid-cols-2 gap-2"
+                                        >
+                                            {card.options.map((opt, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all ${
+                                                        card.correctIndex === i
+                                                            ? 'bg-emerald-50/60 border-emerald-200 ring-1 ring-emerald-100'
+                                                            : 'bg-white border-slate-100 hover:border-primary/20'
+                                                    }`}
+                                                >
+                                                    <RadioGroupItem
+                                                        value={i.toString()}
+                                                        id={`card-${card.id}-opt-${i}`}
+                                                        className="border-slate-300 text-emerald-500 focus:ring-emerald-500 shrink-0"
                                                     />
+                                                    <div className="flex-1 min-w-0">
+                                                        <label
+                                                            htmlFor={`card-${card.id}-opt-${i}`}
+                                                            className={`text-[9px] font-black uppercase tracking-widest block mb-0.5 ${
+                                                                card.correctIndex === i ? 'text-emerald-600' : 'text-slate-300'
+                                                            }`}
+                                                        >
+                                                            {String.fromCharCode(65 + i)}{card.correctIndex === i && ' · Correct'}
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={opt}
+                                                            onChange={(e) => updateOption(card.id, i, e.target.value)}
+                                                            placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                                                            className={`w-full bg-transparent border-none p-0 text-sm font-semibold focus:ring-0 outline-none ${
+                                                                card.correctIndex === i ? 'text-slate-900' : 'text-slate-500'
+                                                            }`}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div className="flex-1 flex gap-2 items-center">
-                                                    <span className={`font-black text-xs ${card.correctIndex === i ? 'text-primary' : 'text-gray-300'}`}>{letter}</span>
-                                                    <Input
-                                                        value={card.options[i]}
-                                                        onChange={(e) => updateOption(card.id, i, e.target.value)}
-                                                        placeholder={`Option ${letter}`}
-                                                        className={`h-11 rounded-1.5xl border-transparent shadow-none focus:ring-primary/20 font-bold text-sm ${card.correctIndex === i ? 'bg-white border-primary/10' : 'bg-transparent border-gray-100/50'}`}
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </RadioGroup>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Rationalization (Optional explanation)</Label>
+                                    {/* Explanation */}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Explanation <span className="lowercase font-medium text-slate-300">(optional)</span></Label>
                                         <Textarea
                                             value={card.explanation}
                                             onChange={(e) => updateCard(card.id, 'explanation', e.target.value)}
                                             placeholder="Why is this answer correct?"
-                                            className="min-h-[60px] rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-medium py-3 text-sm resize-none"
+                                            className="min-h-15 rounded-xl border-slate-100 shadow-none focus:ring-primary/20 font-medium text-xs leading-relaxed bg-slate-50/40 resize-none"
                                         />
                                     </div>
                                 </CardContent>
@@ -625,12 +666,15 @@ const StudyMaterialEditorPage: React.FC = () => {
                         ))}
                     </div>
 
-                    <Button onClick={addCard} variant="outline" className="w-full py-12 rounded-[2.5rem] border-2 border-dashed border-gray-100 hover:border-primary/30 hover:bg-primary/[0.01] hover:text-primary transition-all group">
-                        <div className="flex flex-col items-center gap-2">
-                            <Plus size={24} className="text-gray-300 group-hover:text-primary group-hover:scale-110 transition-all" />
-                            <span className="font-black uppercase tracking-widest text-xs">Add Another Question</span>
+                    <button
+                        onClick={addCard}
+                        className="w-full py-5 border-2 border-dashed border-slate-100 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/25 hover:bg-primary/1 transition-all group"
+                    >
+                        <div className="bg-white w-7 h-7 rounded-full shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform border border-slate-100">
+                            <Plus size={14} className="text-primary" />
                         </div>
-                    </Button>
+                        <span className="font-black text-[10px] uppercase tracking-widest">Add Another Card</span>
+                    </button>
                 </div>
             </div>
         </div>

@@ -10,11 +10,12 @@ import {
     Library,
     Clock,
     FileUp,
-    Download,
     FileJson,
     FileSpreadsheet,
     ImagePlus,
+    CalendarClock,
 } from 'lucide-react';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,6 +81,7 @@ interface ExamApi {
     tracks?: Array<{ id: string; name: string; code?: string | null }>;
     timeLimit?: number;
     timeLimitMinutes?: number;
+    maxAttempts?: number | null;
     status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
     deadline?: string | null;
     closeOnDeadline?: boolean;
@@ -110,10 +112,15 @@ const CreateExamPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const isEditing = !!id;
 
+    const PRESET_DURATIONS = [30, 60, 90, 120, 180, 240];
+
     // Form State
     const [title, setTitle] = useState('');
     const [duration, setDuration] = useState('');
+    const [maxAttempts, setMaxAttempts] = useState('3');
+    const [isCustomDuration, setIsCustomDuration] = useState(false);
     const [deadline, setDeadline] = useState('');
+    const [showDeadline, setShowDeadline] = useState(false);
     const [closeOnDeadline, setCloseOnDeadline] = useState(false);
     const [examStatus, setExamStatus] = useState<EditableExamStatus>('DRAFT');
     const [description, setDescription] = useState('');
@@ -127,6 +134,7 @@ const CreateExamPage: React.FC = () => {
     const [programs, setPrograms] = useState<string[]>(['All Programs']);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingExam, setIsLoadingExam] = useState(false);
+    const [allowMultipleAttemptsConfig, setAllowMultipleAttemptsConfig] = useState(false);
     const importFileRef = useRef<HTMLInputElement | null>(null);
     const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
     const [importPreviewQuestions, setImportPreviewQuestions] = useState<Question[]>([]);
@@ -148,6 +156,20 @@ const CreateExamPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        const fetchSystemSettings = async () => {
+            try {
+                const response = await api.get('/settings/system');
+                setAllowMultipleAttemptsConfig(Boolean(response.data?.data?.allowMultipleAttempts));
+            } catch (error) {
+                console.error('Failed to load system settings', error);
+                setAllowMultipleAttemptsConfig(false);
+            }
+        };
+
+        void fetchSystemSettings();
+    }, []);
+
+    useEffect(() => {
         if (!isEditing || !id) return;
 
         const fetchExam = async () => {
@@ -159,7 +181,12 @@ const CreateExamPage: React.FC = () => {
                 setTitle(exam.title || '');
                 setDescription(exam.description || '');
                 setCategory((exam.categoryCode as CategoryValue) || 'NONE');
-                setDuration(String(exam.timeLimit || exam.timeLimitMinutes || 120));
+                const loadedDuration = String(exam.timeLimit || exam.timeLimitMinutes || 120);
+                setDuration(loadedDuration);
+                setMaxAttempts(String(exam.maxAttempts ?? 3));
+                if (!PRESET_DURATIONS.includes(Number(loadedDuration))) {
+                    setIsCustomDuration(true);
+                }
                 setCloseOnDeadline(Boolean(exam.closeOnDeadline));
                 const loadedStatus = exam.status === 'PUBLISHED' ? 'LIVE' : exam.status;
                 if (loadedStatus && ['LIVE', 'DRAFT', 'CLOSED', 'ARCHIVED'].includes(loadedStatus)) {
@@ -170,8 +197,10 @@ const CreateExamPage: React.FC = () => {
                     const offset = deadlineDate.getTimezoneOffset();
                     const localDate = new Date(deadlineDate.getTime() - offset * 60_000);
                     setDeadline(localDate.toISOString().slice(0, 16));
+                    setShowDeadline(true);
                 } else {
                     setDeadline('');
+                    setShowDeadline(false);
                 }
                 if (exam.tracks && exam.tracks.length > 0) {
                     setSelectedPrograms(exam.tracks.map((track) => track.name));
@@ -623,6 +652,22 @@ const CreateExamPage: React.FC = () => {
             return;
         }
 
+        const parsedMaxAttempts = allowMultipleAttemptsConfig
+            ? Number(maxAttempts)
+            : 1;
+
+        if (allowMultipleAttemptsConfig) {
+            if (!maxAttempts.trim()) {
+                alert('Please set the maximum number of attempts.');
+                return;
+            }
+
+            if (!Number.isInteger(parsedMaxAttempts) || parsedMaxAttempts < 1) {
+                alert('Maximum attempts must be a whole number of at least 1.');
+                return;
+            }
+        }
+
         const preparedQuestions = questions
             .map((q) => ({
                 text: q.text.trim(),
@@ -666,6 +711,7 @@ const CreateExamPage: React.FC = () => {
             category: category === 'NONE' ? null : category,
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
+            maxAttempts: parsedMaxAttempts,
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
             closeOnDeadline: closeOnDeadline && Boolean(deadline),
             isPublished: publish,
@@ -702,43 +748,43 @@ const CreateExamPage: React.FC = () => {
     return (
         <div className="flex flex-col gap-5 font-lexend pb-8">
             {/* Header */}
-            <header className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200 shadow-sm">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <header className="bg-white rounded-2xl px-5 py-4 md:px-6 border border-slate-200 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 mb-2">
+                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
                             <Link to="/manage-exams" className="hover:text-primary transition-colors">Exams</Link>
-                            <ChevronRight size={12} />
-                            <span className="text-primary">{isEditing ? 'Edit Exam' : 'Create New'}</span>
+                            <ChevronRight size={11} />
+                            <span className="text-primary">{isEditing ? 'Edit Exam' : 'New Exam'}</span>
                         </div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                            {isEditing ? 'Edit Mock Exam' : 'Admin Mock Exam Creator'}
+                        <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                            {isEditing ? 'Edit Mock Exam' : 'Create Mock Exam'}
                         </h1>
-                        <p className="text-sm text-slate-500 font-medium mt-1.5">
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">
                             Design and publish comprehensive mock exams for students.
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
                         <Button
-                            variant="outline"
-                            className="h-10 rounded-xl px-5 font-black border-gray-100 hover:bg-gray-50"
+                            variant="ghost"
+                            className="h-9 rounded-xl px-4 font-black text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                             onClick={() => navigate('/manage-exams')}
                         >
                             Discard
                         </Button>
                         <Button
                             variant="outline"
-                            className="h-10 rounded-xl px-5 font-black border-gray-100 bg-gray-50/50 hover:bg-gray-100"
+                            className="h-9 rounded-xl px-4 font-black text-xs border-slate-200 hover:bg-slate-50"
                             onClick={() => submitExam(false)}
                             disabled={isSubmitting}
                         >
-                            <Save size={18} className="mr-2" /> Save Draft
+                            <Save size={14} className="mr-1.5" /> Save Draft
                         </Button>
                         <Button
-                            className="h-10 rounded-xl px-6 bg-primary hover:bg-primary/95 text-white font-black"
+                            className="h-9 rounded-xl px-5 bg-primary hover:bg-primary/90 text-white font-black text-xs"
                             onClick={() => submitExam(true)}
                             disabled={isSubmitting}
                         >
-                            {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Publish Exam'}
+                            {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Publish'}
                         </Button>
                     </div>
                 </div>
@@ -748,80 +794,110 @@ const CreateExamPage: React.FC = () => {
                 {/* Left Column - General Info */}
                 <div className="lg:col-span-1 space-y-6">
                     <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-                        <CardHeader className="p-5 pb-1">
-                            <div className="flex items-center gap-3 text-primary mb-2">
-                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-[10px] font-black">1</span>
-                                <CardTitle className="text-sm font-black uppercase tracking-widest">General Information</CardTitle>
+                        <CardHeader className="px-5 pt-5 pb-3 border-b border-slate-50">
+                            <div className="flex items-center gap-2.5 text-primary">
+                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-[9px] font-black">1</span>
+                                <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-600">General Information</CardTitle>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-5 pt-2 space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Exam Title</Label>
+                        <CardContent className="p-5 space-y-4">
+                            {/* Title */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Exam Title</Label>
                                 <Input
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="e.g., LET 2024 Comprehensive Mock"
-                                    className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold"
+                                    className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Duration (Minutes)</Label>
-                                <div className="relative">
-                                    <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        value={duration}
-                                        onChange={(e) => setDuration(e.target.value)}
-                                        className="pl-10 h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold"
-                                    />
+                            {/* Duration + Category row */}
+                            <div className={`grid grid-cols-1 ${allowMultipleAttemptsConfig ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-3`}>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Duration</Label>
+                                    <div className="grid grid-cols-3 gap-1">
+                                        {PRESET_DURATIONS.map((preset) => (
+                                            <button
+                                                key={preset}
+                                                type="button"
+                                                onClick={() => { setDuration(String(preset)); setIsCustomDuration(false); }}
+                                                className={`h-8 rounded-lg text-[10px] font-black border transition-all ${
+                                                    !isCustomDuration && duration === String(preset)
+                                                        ? 'bg-primary text-white border-primary shadow-sm'
+                                                        : 'bg-white text-slate-500 border-slate-200 hover:border-primary/30 hover:text-primary'
+                                                }`}
+                                            >
+                                                {preset < 60 ? `${preset}m` : `${preset / 60}h`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsCustomDuration(true); setDuration(''); }}
+                                        className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                                            isCustomDuration ? 'text-primary' : 'text-slate-400 hover:text-primary'
+                                        }`}
+                                    >
+                                        <Clock size={11} />
+                                        Custom
+                                    </button>
+                                    {isCustomDuration && (
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                autoFocus
+                                                value={duration}
+                                                onChange={(e) => setDuration(e.target.value)}
+                                                placeholder="e.g. 150"
+                                                className="h-9 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm pr-14"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-wider">min</span>
+                                        </div>
+                                    )}
+                                </div>
+                                {allowMultipleAttemptsConfig && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Max Attempts</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                step={1}
+                                                value={maxAttempts}
+                                                onChange={(e) => setMaxAttempts(e.target.value)}
+                                                placeholder="e.g. 3"
+                                                className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm pr-20"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-wider">tries</span>
+                                        </div>
+                                        <p className="text-[10px] font-medium text-slate-400">Used when multiple attempts are enabled in System Settings.</p>
+                                    </div>
+                                )}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Category</Label>
+                                    <Select value={category} onValueChange={(value) => setCategory(value as CategoryValue)}>
+                                        <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm">
+                                            <SelectValue placeholder="Category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categoryOptions.map((option) => (
+                                                <SelectItem key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Deadline</Label>
-                                <Input
-                                    type="datetime-local"
-                                    value={deadline}
-                                    onChange={(e) => setDeadline(e.target.value)}
-                                    className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold"
-                                />
-                            </div>
-
-                            <div className="flex items-center space-x-3 p-2.5 rounded-xl border bg-gray-50/50 border-transparent">
-                                <Checkbox
-                                    id="close-on-deadline"
-                                    checked={closeOnDeadline}
-                                    onCheckedChange={(checked) => setCloseOnDeadline(Boolean(checked))}
-                                    className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                                />
-                                <Label htmlFor="close-on-deadline" className="text-xs font-bold leading-none cursor-pointer">
-                                    Automatically close exam on deadline
-                                </Label>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Category</Label>
-                                <Select value={category} onValueChange={(value) => setCategory(value as CategoryValue)}>
-                                    <SelectTrigger className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold">
-                                        <SelectValue placeholder="Select category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categoryOptions.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
+                            {/* Status (edit only) */}
                             {isEditing && (
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Status</Label>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</Label>
                                     <Select value={examStatus} onValueChange={(value) => setExamStatus(value as EditableExamStatus)}>
-                                        <SelectTrigger className="h-11 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold">
+                                        <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm">
                                             <SelectValue placeholder="Select status" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -835,22 +911,82 @@ const CreateExamPage: React.FC = () => {
                                 </div>
                             )}
 
+                            {/* Deadline section */}
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Visible To</Label>
-                                <div className="grid grid-cols-1 gap-2 max-h-[240px] overflow-y-auto pr-2 scrollbar-hide">
+                                {!showDeadline ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDeadline(true)}
+                                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors group"
+                                    >
+                                        <span className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-slate-300 group-hover:border-primary/40 group-hover:bg-primary/5 transition-all">
+                                            <Plus size={10} />
+                                        </span>
+                                        Add Deadline
+                                    </button>
+                                ) : (
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-3 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <CalendarClock size={13} className="text-primary" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Deadline</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowDeadline(false);
+                                                    setDeadline('');
+                                                    setCloseOnDeadline(false);
+                                                }}
+                                                className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                                            >
+                                                <X size={10} /> Remove
+                                            </button>
+                                        </div>
+                                        <DateTimePicker
+                                            value={deadline}
+                                            onChange={setDeadline}
+                                            placeholder="Select deadline date & time"
+                                            onClear={() => setDeadline('')}
+                                        />
+                                        <div
+                                            className={`flex items-center gap-2.5 p-2 rounded-lg border transition-all cursor-pointer ${closeOnDeadline ? 'bg-primary/5 border-primary/20' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+                                            onClick={() => setCloseOnDeadline(!closeOnDeadline)}
+                                        >
+                                            <Checkbox
+                                                id="close-on-deadline"
+                                                checked={closeOnDeadline}
+                                                onCheckedChange={(checked) => setCloseOnDeadline(Boolean(checked))}
+                                                className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-3.5 w-3.5"
+                                            />
+                                            <Label htmlFor="close-on-deadline" className="text-[10px] font-bold leading-none cursor-pointer text-slate-600">
+                                                Auto-close on deadline
+                                            </Label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Divider */}
+                            <div className="border-t border-slate-100" />
+
+                            {/* Visible To */}
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Visible To</Label>
+                                <div className="grid grid-cols-1 gap-1.5 max-h-50 overflow-y-auto pr-1 scrollbar-hide">
                                     {programs.map((program) => (
                                         <div
                                             key={program}
-                                            className={`flex items-center space-x-3 p-2.5 rounded-xl border transition-all cursor-pointer ${selectedPrograms.includes(program)
+                                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all cursor-pointer ${selectedPrograms.includes(program)
                                                 ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/10'
-                                                : 'bg-gray-50/50 border-transparent hover:bg-gray-100/50'
+                                                : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'
                                                 }`}
                                             onClick={() => handleProgramToggle(program)}
                                         >
                                             <Checkbox
                                                 id={program}
                                                 checked={selectedPrograms.includes(program)}
-                                                className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                                className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-3.5 w-3.5"
                                             />
                                             <Label htmlFor={program} className="text-xs font-bold leading-none cursor-pointer">
                                                 {program}
@@ -860,44 +996,48 @@ const CreateExamPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Divider */}
+                            <div className="border-t border-slate-100" />
+
+                            {/* Exam Sections */}
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Exam Sections</Label>
-                                <div className="flex flex-wrap gap-2 p-2.5 rounded-xl border border-dashed border-gray-200 bg-gray-50/30">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Exam Sections</Label>
+                                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/30 min-h-11">
                                     {sections.map((section) => (
                                         <Badge
                                             key={section}
-                                            className="bg-white text-gray-700 border-gray-100 font-bold text-[10px] px-3 py-1.5 rounded-xl flex items-center gap-2 group hover:border-red-100 hover:text-red-500 transition-all cursor-default shadow-sm"
+                                            className="bg-white text-slate-600 border border-slate-200 font-bold text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 hover:border-red-100 hover:text-red-500 transition-all cursor-default shadow-none"
                                         >
                                             {section}
-                                            <button onClick={() => removeSection(section)} className="hover:text-red-600">
-                                                <X size={12} />
+                                            <button onClick={() => removeSection(section)} className="hover:text-red-600 opacity-60 hover:opacity-100">
+                                                <X size={10} />
                                             </button>
                                         </Badge>
                                     ))}
                                     {!isAddingSection ? (
-                                        <Button
+                                        <button
                                             type="button"
-                                            variant="outline"
-                                            className="h-8 rounded-lg border-gray-200 bg-white text-[10px] font-black uppercase tracking-wider px-2.5"
+                                            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-primary px-2 py-1 rounded-lg hover:bg-primary/5 transition-all"
                                             onClick={() => setIsAddingSection(true)}
                                         >
-                                            <Plus size={12} className="mr-1" /> Add Section
-                                        </Button>
+                                            <Plus size={10} /> Section
+                                        </button>
                                     ) : (
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
-                                            Adding section in Question Management...
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-1 italic">
+                                            Adding in editor...
                                         </span>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Description</Label>
+                            {/* Description */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description <span className="lowercase text-slate-300 font-medium">(optional)</span></Label>
                                 <Textarea
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Provide instructions for the students..."
-                                    className="min-h-[96px] rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-medium text-sm leading-relaxed"
+                                    placeholder="Provide instructions or context for students..."
+                                    className="min-h-20 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-medium text-sm leading-relaxed resize-none"
                                 />
                             </div>
                         </CardContent>
@@ -906,13 +1046,16 @@ const CreateExamPage: React.FC = () => {
 
                 {/* Right Column - Question Management */}
                 <div className="lg:col-span-2 space-y-5">
-                    <div className="flex flex-col gap-5">
+                    <div className="flex flex-col gap-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 text-primary">
-                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-[10px] font-black">2</span>
-                                <h3 className="text-sm font-black uppercase tracking-widest">Question Management</h3>
+                            <div className="flex items-center gap-2.5 text-primary">
+                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-[9px] font-black">2</span>
+                                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-600">Question Management</h3>
+                                <Badge className="bg-slate-100 text-slate-500 border-none font-black text-[9px] px-2 py-1 rounded-md">
+                                    {questions.length} {questions.length === 1 ? 'item' : 'items'}
+                                </Badge>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                                 <input
                                     ref={importFileRef}
                                     type="file"
@@ -920,59 +1063,46 @@ const CreateExamPage: React.FC = () => {
                                     onChange={handleFileImport}
                                     className="hidden"
                                 />
-                                <Button variant="outline" className="h-9 rounded-lg border-gray-200 bg-white font-bold text-xs gap-2" onClick={triggerImport}>
-                                    <FileUp size={14} /> Import CSV/JSON
+                                <Button variant="outline" className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider" onClick={triggerImport}>
+                                    <FileUp size={12} /> Import
                                 </Button>
                                 <Button
                                     variant="outline"
-                                    className="h-9 w-16 rounded-lg border-gray-200 bg-white font-bold text-xs gap-1 px-2"
+                                    className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2"
                                     onClick={() => downloadTemplate('csv')}
                                     title="Download CSV template"
                                 >
-                                    <FileSpreadsheet size={14} />
-                                    <Download size={12} />
+                                    <FileSpreadsheet size={13} />
                                 </Button>
                                 <Button
                                     variant="outline"
-                                    className="h-9 w-16 rounded-lg border-gray-200 bg-white font-bold text-xs gap-1 px-2"
+                                    className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2"
                                     onClick={() => downloadTemplate('json')}
                                     title="Download JSON template"
                                 >
-                                    <FileJson size={14} />
-                                    <Download size={12} />
+                                    <FileJson size={13} />
                                 </Button>
-                                <Badge className="bg-gray-100 text-gray-500 border-none font-black text-[10px] px-3 py-1.5 rounded-lg">
-                                    Total: {questions.length} Items
-                                </Badge>
                             </div>
                         </div>
 
-                        <p className="text-[11px] font-medium text-gray-500">
-                            Import tip: <span className="font-bold">correctAnswer</span> can be <span className="font-bold">A/B/C/D</span>, <span className="font-bold">1/2/3/4</span>, <span className="font-bold">0/1/2/3</span>, or the exact option text.
+                        <p className="text-[10px] font-medium text-slate-400 -mt-1">
+                            Import tip: <span className="font-bold text-slate-500">correctAnswer</span> can be <span className="font-bold text-slate-500">A/B/C/D</span>, <span className="font-bold text-slate-500">1–4</span>, or the exact option text. Optional: <span className="font-bold text-slate-500">imageUrl</span>, <span className="font-bold text-slate-500">rationalization</span>, <span className="font-bold text-slate-500">section</span>.
                         </p>
 
-                        <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-1.5">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-700">Import Instructions</p>
-                            <p className="text-[11px] text-gray-700 font-medium">1) One row/object = one question.</p>
-                            <p className="text-[11px] text-gray-700 font-medium">2) Required fields: questionText, choiceA, choiceB, choiceC, choiceD, correctAnswer.</p>
-                            <p className="text-[11px] text-gray-700 font-medium">3) Optional fields: imageUrl, rationalization, section.</p>
-                            <p className="text-[11px] text-gray-500 font-medium">Edited headers still work (for example: "Correct Answer" or "choice a").</p>
-                        </div>
-
                         {/* Section Tabs */}
-                        <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-px">
-                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-px">
+                            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
                                 {[...sections, 'Uncategorized'].map((section) => (
                                     <button
                                         key={section}
                                         onClick={() => setActiveSection(section)}
-                                        className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-2 ${activeSection === section
+                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${activeSection === section
                                             ? 'border-primary text-primary'
-                                            : 'border-transparent text-gray-400 hover:text-gray-600'
+                                            : 'border-transparent text-slate-400 hover:text-slate-600'
                                             }`}
                                     >
                                         {section}
-                                        <Badge className={`border-none ${activeSection === section ? 'bg-primary/10 text-primary' : 'bg-gray-50 text-gray-400'} text-[9px] px-1.5 py-0`}>
+                                        <Badge className={`border-none text-[9px] px-1.5 py-0 ${activeSection === section ? 'bg-primary/10 text-primary' : 'bg-slate-50 text-slate-400'}`}>
                                             {questions.filter(q => q.section === section).length}
                                         </Badge>
                                     </button>
@@ -980,14 +1110,13 @@ const CreateExamPage: React.FC = () => {
                             </div>
                             <div className="shrink-0">
                                 {!isAddingSection ? (
-                                    <Button
+                                    <button
                                         type="button"
-                                        variant="outline"
-                                        className="h-8 rounded-lg border-gray-200 bg-white text-[10px] font-black uppercase tracking-wider px-2.5"
+                                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-all"
                                         onClick={() => setIsAddingSection(true)}
                                     >
-                                        <Plus size={12} className="mr-1" /> Add Section
-                                    </Button>
+                                        <Plus size={10} /> Section
+                                    </button>
                                 ) : (
                                     <div className="flex items-center gap-2">
                                         <Input
@@ -996,12 +1125,12 @@ const CreateExamPage: React.FC = () => {
                                             onChange={(e) => setNewSectionName(e.target.value)}
                                             onKeyDown={handleAddSectionKeyDown}
                                             placeholder="Section name"
-                                            className="h-8 w-36 rounded-lg border-gray-200 bg-white text-xs font-semibold"
+                                            className="h-7 w-32 rounded-lg border-slate-200 bg-white text-xs font-semibold"
                                         />
                                         <Button
                                             type="button"
                                             size="sm"
-                                            className="h-8 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-wider"
+                                            className="h-7 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-wider"
                                             onClick={confirmAddSection}
                                         >
                                             Add
@@ -1010,10 +1139,10 @@ const CreateExamPage: React.FC = () => {
                                             type="button"
                                             size="sm"
                                             variant="ghost"
-                                            className="h-8 rounded-lg px-2 text-[10px] font-black uppercase tracking-wider"
+                                            className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wider"
                                             onClick={cancelAddSection}
                                         >
-                                            Cancel
+                                            <X size={12} />
                                         </Button>
                                     </div>
                                 )}
@@ -1021,134 +1150,135 @@ const CreateExamPage: React.FC = () => {
                         </div>
 
                         {/* Questions List */}
-                        <div className="space-y-5">
+                        <div className="space-y-4">
                             {filteredQuestions.length === 0 ? (
-                                <div className="py-20 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-[2.5rem] bg-gray-50/20">
-                                    <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
-                                        <Library size={32} className="opacity-20 text-gray-900" />
+                                <div className="py-16 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/30">
+                                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center mb-3">
+                                        <Library size={20} className="opacity-40 text-slate-600" />
                                     </div>
-                                    <p className="font-bold text-sm tracking-tight text-gray-500 uppercase tracking-widest">No questions in this section yet</p>
+                                    <p className="font-black text-[10px] tracking-widest uppercase text-slate-400">No questions yet</p>
+                                    <p className="text-[11px] font-medium text-slate-400 mt-1">Add questions manually or import a file</p>
                                     <Button
-                                        variant="link"
-                                        className="text-primary font-black uppercase tracking-widest text-xs mt-2"
+                                        variant="outline"
+                                        className="mt-3 h-8 rounded-xl text-[10px] font-black uppercase tracking-widest border-slate-200 text-primary hover:bg-primary/5"
                                         onClick={addQuestion}
                                     >
-                                        Add the first question
+                                        <Plus size={12} className="mr-1" /> Add Question
                                     </Button>
                                 </div>
                             ) : (
                                 filteredQuestions.map((q, index) => (
-                                    <Card key={q.id} className="rounded-2xl border-gray-100 shadow-sm overflow-hidden bg-white">
-                                        <div className="bg-gray-50/50 px-5 py-3 border-b border-gray-50 flex justify-between items-center">
-                                            <div className="flex items-center gap-3">
-                                                <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] uppercase tracking-widest px-3 py-1">
-                                                    Q#{index + 1}
+                                    <Card key={q.id} className="rounded-2xl border-slate-100 shadow-sm overflow-hidden bg-white">
+                                        <div className="bg-slate-50/60 px-4 py-2.5 border-b border-slate-100 flex justify-between items-center">
+                                            <div className="flex items-center gap-2.5">
+                                                <Badge className="bg-primary/10 text-primary border-none font-black text-[9px] uppercase tracking-widest px-2 py-1">
+                                                    Q{index + 1}
                                                 </Badge>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                     {q.section}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1">
                                                 <button
-                                                    className="p-2 text-gray-300 hover:text-primary transition-colors hover:bg-white rounded-xl"
+                                                    className="p-1.5 text-slate-300 hover:text-primary transition-colors hover:bg-white rounded-lg"
                                                     onClick={() => duplicateQuestion(q)}
+                                                    title="Duplicate"
                                                 >
-                                                    <Copy size={16} />
+                                                    <Copy size={13} />
                                                 </button>
                                                 <button
-                                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors hover:bg-white rounded-xl"
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 transition-colors hover:bg-white rounded-lg"
                                                     onClick={() => deleteQuestion(q.id)}
+                                                    title="Delete"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={13} />
                                                 </button>
                                             </div>
                                         </div>
-                                        <CardContent className="p-5 space-y-5">
+                                        <CardContent className="p-4 space-y-4">
                                             {/* Question Text */}
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center justify-between">
-                                                    Question Text
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                    Question
                                                 </Label>
                                                 <Textarea
                                                     value={q.text}
                                                     onChange={(e) => updateQuestion(q.id, { text: e.target.value })}
                                                     placeholder="Enter your question here..."
-                                                    className="min-h-[84px] rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-bold text-sm leading-relaxed"
+                                                    className="min-h-18 rounded-xl border-slate-100 shadow-none focus:ring-primary/20 font-semibold text-sm leading-relaxed resize-none"
                                                 />
                                             </div>
 
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                                    Question Image (Optional)
+                                            {/* Question Image */}
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                    Image <span className="lowercase font-medium text-slate-300">(optional)</span>
                                                 </Label>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                                    <Input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={(event) => {
-                                                            void handleQuestionImageUpload(q.id, event);
-                                                        }}
-                                                        className="h-10 rounded-xl border-gray-100 shadow-none focus:ring-primary/20 text-xs font-semibold file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:text-primary"
-                                                    />
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                                    <label className={`flex items-center gap-2 h-9 px-3 rounded-xl border cursor-pointer transition-all text-[10px] font-black uppercase tracking-wider ${q.imageUrl ? 'border-slate-200 bg-white text-slate-500 hover:border-slate-300' : 'border-dashed border-slate-200 bg-slate-50/50 text-slate-400 hover:bg-slate-50 hover:border-slate-300'}`}>
+                                                        <ImagePlus size={13} />
+                                                        {q.imageUrl ? 'Replace' : 'Upload Image'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={(event) => { void handleQuestionImageUpload(q.id, event); }}
+                                                            className="hidden"
+                                                        />
+                                                    </label>
                                                     {q.imageUrl && (
-                                                        <Button
+                                                        <button
                                                             type="button"
-                                                            variant="outline"
-                                                            className="h-10 rounded-xl border-gray-200 text-xs font-black uppercase tracking-widest"
+                                                            className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors"
                                                             onClick={() => updateQuestion(q.id, { imageUrl: '' })}
                                                         >
-                                                            Remove Image
-                                                        </Button>
+                                                            Remove
+                                                        </button>
                                                     )}
                                                 </div>
                                                 {q.imageUrl && (
-                                                    <div className="rounded-2xl border border-gray-100 bg-gray-50/30 p-3">
-                                                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
-                                                            <ImagePlus size={12} /> Image Preview
-                                                        </div>
+                                                    <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-2">
                                                         <img
                                                             src={q.imageUrl}
-                                                            alt="Question attachment preview"
-                                                            className="max-h-72 w-auto max-w-full rounded-xl border border-gray-100 object-contain bg-white"
+                                                            alt="Question attachment"
+                                                            className="max-h-48 w-auto max-w-full rounded-lg border border-slate-100 object-contain bg-white"
                                                         />
                                                     </div>
                                                 )}
                                             </div>
 
                                             {/* Options */}
-                                            <div className="space-y-4">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center justify-between">
-                                                    Options
-                                                    <span className="font-bold text-emerald-500 lowercase opacity-60">Select the correct answer</span>
-                                                </Label>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                        Options
+                                                    </Label>
+                                                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest opacity-70">Click radio to set correct</span>
+                                                </div>
                                                 <RadioGroup
                                                     value={q.correctOption.toString()}
                                                     onValueChange={(val) => updateQuestion(q.id, { correctOption: parseInt(val) })}
-                                                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                                                    className="grid grid-cols-1 md:grid-cols-2 gap-2"
                                                 >
                                                     {q.options.map((opt, optIdx) => (
                                                         <div
                                                             key={optIdx}
-                                                            className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${q.correctOption === optIdx
-                                                                ? 'bg-emerald-50/50 border-emerald-200 ring-1 ring-emerald-100'
-                                                                : 'bg-white border-gray-100 hover:border-primary/20 group'
+                                                            className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all ${q.correctOption === optIdx
+                                                                ? 'bg-emerald-50/60 border-emerald-200 ring-1 ring-emerald-100'
+                                                                : 'bg-white border-slate-100 hover:border-primary/20'
                                                                 }`}
                                                         >
-                                                            <div className="flex items-center pt-1">
-                                                                <RadioGroupItem
-                                                                    value={optIdx.toString()}
-                                                                    id={`q-${q.id}-opt-${optIdx}`}
-                                                                    className="border-gray-300 text-emerald-500 focus:ring-emerald-500"
-                                                                />
-                                                            </div>
-                                                            <div className="flex-1 space-y-1">
-                                                                <Label
+                                                            <RadioGroupItem
+                                                                value={optIdx.toString()}
+                                                                id={`q-${q.id}-opt-${optIdx}`}
+                                                                className="border-slate-300 text-emerald-500 focus:ring-emerald-500 shrink-0"
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <label
                                                                     htmlFor={`q-${q.id}-opt-${optIdx}`}
-                                                                    className={`text-[9px] font-black uppercase tracking-widest ${q.correctOption === optIdx ? 'text-emerald-600' : 'text-gray-400'
-                                                                        }`}
+                                                                    className={`text-[9px] font-black uppercase tracking-widest block mb-0.5 ${q.correctOption === optIdx ? 'text-emerald-600' : 'text-slate-300'}`}
                                                                 >
-                                                                    Option {String.fromCharCode(65 + optIdx)} {q.correctOption === optIdx && '(Correct Answer)'}
-                                                                </Label>
+                                                                    {String.fromCharCode(65 + optIdx)}{q.correctOption === optIdx && ' · Correct'}
+                                                                </label>
                                                                 <input
                                                                     type="text"
                                                                     value={opt}
@@ -1158,8 +1288,7 @@ const CreateExamPage: React.FC = () => {
                                                                         updateQuestion(q.id, { options: newOpts });
                                                                     }}
                                                                     placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
-                                                                    className={`w-full bg-transparent border-none p-0 text-sm font-bold focus:ring-0 ${q.correctOption === optIdx ? 'text-gray-900' : 'text-gray-500 group-hover:text-gray-700'
-                                                                        }`}
+                                                                    className={`w-full bg-transparent border-none p-0 text-sm font-semibold focus:ring-0 outline-none ${q.correctOption === optIdx ? 'text-slate-900' : 'text-slate-500'}`}
                                                                 />
                                                             </div>
                                                         </div>
@@ -1168,13 +1297,13 @@ const CreateExamPage: React.FC = () => {
                                             </div>
 
                                             {/* Rationale */}
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Rationale / Explanation</Label>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Rationale <span className="lowercase font-medium text-slate-300">(optional)</span></Label>
                                                 <Textarea
                                                     value={q.rationale}
                                                     onChange={(e) => updateQuestion(q.id, { rationale: e.target.value })}
                                                     placeholder="Explain why this is the correct answer..."
-                                                    className="min-h-[72px] rounded-xl border-gray-100 shadow-none focus:ring-primary/20 font-medium text-xs leading-relaxed bg-gray-50/30"
+                                                    className="min-h-15 rounded-xl border-slate-100 shadow-none focus:ring-primary/20 font-medium text-xs leading-relaxed bg-slate-50/40 resize-none"
                                                 />
                                             </div>
                                         </CardContent>
@@ -1182,17 +1311,15 @@ const CreateExamPage: React.FC = () => {
                                 ))
                             )}
 
-                            <div className="grid grid-cols-1 gap-4 mt-3">
-                                <button
-                                    onClick={addQuestion}
-                                    className="py-8 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:text-primary hover:border-primary/30 hover:bg-primary/[0.01] transition-all group"
-                                >
-                                    <div className="bg-white p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
-                                        <Plus size={24} className="text-primary" />
-                                    </div>
-                                    <span className="font-black text-xs uppercase tracking-widest">Add New Question</span>
-                                </button>
-                            </div>
+                            <button
+                                onClick={addQuestion}
+                                className="w-full py-5 border-2 border-dashed border-slate-100 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/25 hover:bg-primary/1.5 transition-all group"
+                            >
+                                <div className="bg-white w-7 h-7 rounded-full shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform border border-slate-100">
+                                    <Plus size={14} className="text-primary" />
+                                </div>
+                                <span className="font-black text-[10px] uppercase tracking-widest">Add Question</span>
+                            </button>
                         </div>
                     </div>
                 </div>
