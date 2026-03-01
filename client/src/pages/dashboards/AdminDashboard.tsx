@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
     Users,
     UserPlus,
@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 import { Link } from 'react-router-dom';
+import ConferencesWidget from './ConferencesWidget';
 
 interface AdminDashboardProps {
     stats: {
@@ -69,13 +70,12 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
-    // Auth context used for future protected actions
     useAuth();
 
     const adminStats = [
         { label: 'Total Users', value: Number(stats?.totalUsers ?? 0), icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
-        { label: 'Pending Approvals', value: Number(stats?.pendingApprovals ?? 0), icon: UserPlus, color: 'text-orange-600', bg: 'bg-orange-50' },
-        { label: 'Active Sessions', value: Number(stats?.activeSessions ?? 0), icon: Activity, color: 'text-secondary', bg: 'bg-secondary/10' },
+        { label: 'Pending Approvals', value: Number(stats?.pendingApprovals ?? 0), icon: UserPlus, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { label: 'Active Sessions', value: Number(stats?.activeSessions ?? 0), icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     ];
 
     const toLabelCase = (value: string) => value
@@ -86,19 +86,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
 
     const formatRelativeTime = (dateValue?: string) => {
         if (!dateValue) return 'Recently';
-
         const date = new Date(dateValue);
         if (Number.isNaN(date.getTime())) return 'Recently';
-
         const diffMs = Date.now() - date.getTime();
         const minute = 60_000;
         const hour = 60 * minute;
         const day = 24 * hour;
-
         if (diffMs < minute) return 'Just now';
-        if (diffMs < hour) return `${Math.floor(diffMs / minute)} mins ago`;
-        if (diffMs < day) return `${Math.floor(diffMs / hour)} hours ago`;
-        return `${Math.floor(diffMs / day)} days ago`;
+        if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
+        if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+        return `${Math.floor(diffMs / day)}d ago`;
     };
 
     const normalizeExamStatus = (status: string) => {
@@ -162,98 +159,93 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
         : [];
 
     const statusBadgeClass = (status: string) => {
-        if (status === 'Published' || status === 'Active' || status === 'Live') return 'bg-green-100 text-green-700';
-        if (status === 'Pending' || status === 'Draft') return 'bg-yellow-100 text-yellow-700';
-        if (status === 'Disabled' || status === 'Archived' || status === 'Closed') return 'bg-red-100 text-red-700';
-        return 'bg-slate-100 text-slate-700';
+        if (status === 'Published' || status === 'Active' || status === 'Live') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+        if (status === 'Pending' || status === 'Draft') return 'bg-amber-50 text-amber-700 border-amber-100';
+        if (status === 'Disabled' || status === 'Archived' || status === 'Closed') return 'bg-red-50 text-red-600 border-red-100';
+        return 'bg-gray-100 text-gray-600 border-gray-200';
     };
 
+    const EmptyState: React.FC<{ message: string }> = ({ message }) => (
+        <p className="text-xs text-gray-400 py-2">{message}</p>
+    );
+
     return (
-        <div className="flex flex-col gap-4 font-lexend pb-8">
-            <header className="flex flex-col gap-3">
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                            Admin Dashboard
-                            <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-semibold px-2 py-0.5">Control Center</Badge>
-                        </h1>
-                        <p className="text-gray-500 mt-1 text-sm">Compact overview of operations, content, and learner activity.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Link to="/manage-exams/create">
-                            <Button className="bg-primary hover:bg-primary/90 text-white font-semibold h-9 text-xs flex gap-2">
-                                <PlusCircle size={14} />
-                                New Mock Exam
-                            </Button>
-                        </Link>
-                        <Link to="/materials/create">
-                            <Button variant="outline" className="h-9 text-xs font-semibold flex gap-2">
-                                <Upload size={14} />
-                                Add Material
-                            </Button>
-                        </Link>
-                    </div>
+        <div className="flex flex-col gap-3 pb-6">
+            {/* Page header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Dashboard</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Operations overview for administrators.</p>
                 </div>
-            </header>
+                <div className="flex items-center gap-2">
+                    <Link to="/manage-exams/create">
+                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-white font-semibold h-8 text-xs px-3 gap-1.5">
+                            <PlusCircle size={12} />
+                            New Exam
+                        </Button>
+                    </Link>
+                    <Link to="/materials/create">
+                        <Button size="sm" variant="outline" className="h-8 text-xs font-semibold px-3 gap-1.5 bg-white">
+                            <Upload size={12} />
+                            Add Material
+                        </Button>
+                    </Link>
+                </div>
+            </div>
 
-            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
+            {/* Stat strip */}
+            <div className="grid grid-cols-3 gap-2.5">
                 {adminStats.map((stat, i) => (
-                    <Card key={i} className="border-gray-100 shadow-sm">
-                        <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className={`p-2 rounded-lg ${stat.bg} ${stat.color}`}>
-                                    <stat.icon size={18} />
-                                </div>
-                                <Badge variant="outline" className="bg-slate-100 text-slate-700 border-none font-semibold text-[10px]">
-                                    Live
-                                </Badge>
-                            </div>
-                            <div className="space-y-0.5 mt-3">
-                                <h3 className="text-2xl font-bold text-gray-900 leading-none">{stat.value}</h3>
-                                <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">{stat.label}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div key={i} className="bg-white rounded-lg border border-gray-100 px-4 py-3 flex items-center gap-3 shadow-sm">
+                        <div className={`p-2 rounded-md ${stat.bg} ${stat.color} shrink-0`}>
+                            <stat.icon size={15} />
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-gray-900 leading-none">{stat.value}</p>
+                            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">{stat.label}</p>
+                        </div>
+                    </div>
                 ))}
-            </section>
+            </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="border-gray-100 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between gap-2">
-                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                    <FileText size={15} /> Recently Added Mock Exams
+            {/* Main content grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                {/* Left 2/3 - three column card row */}
+                <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Recent Exams */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <FileText size={12} /> Mock Exams
                                 </CardTitle>
                                 <Link to="/manage-exams">
-                                    <Button variant="link" className="h-auto p-0 text-xs">View all</Button>
+                                    <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">
+                                        View all
+                                    </Button>
                                 </Link>
                             </div>
                         </CardHeader>
-                        <CardContent className="pt-0 space-y-2">
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
                             {recentMockExams.length === 0 ? (
-                                <p className="text-xs text-gray-500 font-medium">No recent mock exams.</p>
+                                <EmptyState message="No recent mock exams." />
                             ) : (
                                 recentMockExams.map((item, index) => (
-                                    <div key={index} className="rounded-lg border border-gray-100 px-3 py-2">
+                                    <div key={index} className="py-2 border-b border-gray-50 last:border-0">
                                         <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900 leading-tight">{item.title}</p>
-                                                <p className="text-[11px] text-gray-500 mt-0.5">{item.program}</p>
-                                            </div>
-                                            <Badge className={`${statusBadgeClass(item.status)} border-none text-[10px] font-semibold`}>
+                                            <p className="text-[12px] font-semibold text-gray-800 leading-tight flex-1 truncate">{item.title}</p>
+                                            <Badge className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 border ${statusBadgeClass(item.status)}`}>
                                                 {item.status}
                                             </Badge>
                                         </div>
-                                        <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-                                            <Clock3 size={11} /> {item.time}
-                                        </p>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <Avatar className="h-5 w-5">
-                                                <AvatarImage src={item.uploaderAvatar ?? undefined} alt={item.uploaderName} />
-                                                <AvatarFallback className="text-[9px] font-semibold">{initialsFromName(item.uploaderName)}</AvatarFallback>
+                                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.program}</p>
+                                        <div className="flex items-center gap-1.5 mt-1.5">
+                                            <Avatar className="h-4 w-4">
+                                                <AvatarImage src={item.uploaderAvatar ?? undefined} />
+                                                <AvatarFallback className="text-[8px]">{initialsFromName(item.uploaderName)}</AvatarFallback>
                                             </Avatar>
-                                            <p className="text-[11px] text-gray-500">Uploaded by {item.uploaderName}</p>
+                                            <span className="text-[10px] text-gray-400 flex-1 truncate">{item.uploaderName}</span>
+                                            <span className="text-[10px] text-gray-300 flex items-center gap-0.5 shrink-0"><Clock3 size={9} />{item.time}</span>
                                         </div>
                                     </div>
                                 ))
@@ -261,38 +253,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-gray-100 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between gap-2">
-                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                    <FolderOpen size={15} /> Recently Added Materials
+                    {/* Recent Materials */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <FolderOpen size={12} /> Materials
                                 </CardTitle>
                                 <Link to="/materials">
-                                    <Button variant="link" className="h-auto p-0 text-xs">View all</Button>
+                                    <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">
+                                        View all
+                                    </Button>
                                 </Link>
                             </div>
                         </CardHeader>
-                        <CardContent className="pt-0 space-y-2">
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
                             {recentMaterials.length === 0 ? (
-                                <p className="text-xs text-gray-500 font-medium">No recent materials.</p>
+                                <EmptyState message="No recent materials." />
                             ) : (
                                 recentMaterials.map((item, index) => (
-                                    <div key={index} className="rounded-lg border border-gray-100 px-3 py-2">
-                                        <p className="text-sm font-medium text-gray-900 leading-tight">{item.title}</p>
+                                    <div key={index} className="py-2 border-b border-gray-50 last:border-0">
+                                        <p className="text-[12px] font-semibold text-gray-800 leading-tight truncate">{item.title}</p>
                                         <div className="flex items-center justify-between mt-1">
-                                            <Badge variant="outline" className="text-[10px] font-medium border-gray-200 bg-slate-50 text-slate-600">
+                                            <Badge variant="outline" className="text-[9px] font-medium border-gray-200 bg-slate-50 text-slate-500 px-1.5 py-0">
                                                 {item.category}
                                             </Badge>
-                                            <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                                                <Clock3 size={11} /> {item.time}
-                                            </span>
                                         </div>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <Avatar className="h-5 w-5">
-                                                <AvatarImage src={item.uploaderAvatar ?? undefined} alt={item.uploaderName} />
-                                                <AvatarFallback className="text-[9px] font-semibold">{initialsFromName(item.uploaderName)}</AvatarFallback>
+                                        <div className="flex items-center gap-1.5 mt-1.5">
+                                            <Avatar className="h-4 w-4">
+                                                <AvatarImage src={item.uploaderAvatar ?? undefined} />
+                                                <AvatarFallback className="text-[8px]">{initialsFromName(item.uploaderName)}</AvatarFallback>
                                             </Avatar>
-                                            <p className="text-[11px] text-gray-500">Uploaded by {item.uploaderName}</p>
+                                            <span className="text-[10px] text-gray-400 flex-1 truncate">{item.uploaderName}</span>
+                                            <span className="text-[10px] text-gray-300 flex items-center gap-0.5 shrink-0"><Clock3 size={9} />{item.time}</span>
                                         </div>
                                     </div>
                                 ))
@@ -300,34 +293,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-gray-100 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between gap-2">
-                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                    <ClipboardCheck size={15} /> Recent Student Submissions
+                    {/* Recent Submissions */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <ClipboardCheck size={12} /> Submissions
                                 </CardTitle>
                                 <Link to="/students">
-                                    <Button variant="link" className="h-auto p-0 text-xs">View all</Button>
+                                    <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">
+                                        View all
+                                    </Button>
                                 </Link>
                             </div>
                         </CardHeader>
-                        <CardContent className="pt-0 space-y-2">
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
                             {recentSubmissions.length === 0 ? (
-                                <p className="text-xs text-gray-500 font-medium">No recent submissions.</p>
+                                <EmptyState message="No recent submissions." />
                             ) : (
                                 recentSubmissions.map((item, index) => (
-                                    <div key={index} className="rounded-lg border border-gray-100 px-3 py-2">
+                                    <div key={index} className="py-2 border-b border-gray-50 last:border-0">
                                         <div className="flex items-center gap-2">
-                                            <Avatar className="h-6 w-6">
-                                                <AvatarImage src={item.studentAvatar ?? undefined} alt={item.student} />
-                                                <AvatarFallback className="text-[10px] font-semibold">{initialsFromName(item.student)}</AvatarFallback>
+                                            <Avatar className="h-5 w-5 shrink-0">
+                                                <AvatarImage src={item.studentAvatar ?? undefined} />
+                                                <AvatarFallback className="text-[9px]">{initialsFromName(item.student)}</AvatarFallback>
                                             </Avatar>
-                                            <p className="text-sm font-medium text-gray-900 leading-tight">{item.student}</p>
+                                            <p className="text-[12px] font-semibold text-gray-800 truncate flex-1">{item.student}</p>
                                         </div>
-                                        <p className="text-[11px] text-gray-500 mt-0.5">{item.task}</p>
-                                        <div className="mt-1 flex items-center justify-between">
-                                            <Badge className="bg-primary/10 text-primary border-none text-[10px] font-semibold">Score {item.score}</Badge>
-                                            <span className="text-[11px] text-gray-400">{item.time}</span>
+                                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.task}</p>
+                                        <div className="flex items-center justify-between mt-1">
+                                            <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold px-1.5 py-0">
+                                                {item.score}
+                                            </Badge>
+                                            <span className="text-[10px] text-gray-300">{item.time}</span>
                                         </div>
                                     </div>
                                 ))
@@ -336,30 +334,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
                     </Card>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                    <Card className="border-gray-100 shadow-sm">
-                        <CardHeader className="pb-2">
+                {/* Right 1/3 */}
+                <div className="flex flex-col gap-3">
+                    {/* Recent Registrations */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                    <UserCheck size={15} /> Recent Registrations
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <UserCheck size={12} /> Registrations
                                 </CardTitle>
                                 <Link to="/admin/users">
-                                    <Button variant="link" className="h-auto p-0 text-xs">Manage users</Button>
+                                    <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">
+                                        Manage
+                                    </Button>
                                 </Link>
                             </div>
                         </CardHeader>
-                        <CardContent className="pt-0 space-y-2">
+                        <CardContent className="px-4 pb-3 pt-0 space-y-1.5">
                             {recentUsers.length === 0 ? (
-                                <p className="text-xs text-gray-500 font-medium">No recent registrations.</p>
+                                <EmptyState message="No recent registrations." />
                             ) : (
                                 recentUsers.map((userItem, index) => (
-                                    <div key={index} className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900 leading-tight">{userItem.name}</p>
-                                            <p className="text-[11px] text-gray-500 mt-0.5">{userItem.major}</p>
-                                            <p className="text-[10px] text-gray-400 mt-1">{userItem.date}</p>
+                                    <div key={index} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50 last:border-0">
+                                        <div className="min-w-0">
+                                            <p className="text-[12px] font-semibold text-gray-800 truncate">{userItem.name}</p>
+                                            <p className="text-[10px] text-gray-400 truncate">{userItem.major} Â· {userItem.date}</p>
                                         </div>
-                                        <Badge className={`${statusBadgeClass(userItem.status)} border-none text-[10px] font-semibold`}>
+                                        <Badge className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 border ${statusBadgeClass(userItem.status)}`}>
                                             {userItem.status}
                                         </Badge>
                                     </div>
@@ -368,54 +369,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-gray-100 shadow-sm">
-                        <CardHeader className="pb-2">
+                    {/* System Activity */}
+                    <Card className="border-gray-100 shadow-sm rounded-lg">
+                        <CardHeader className="px-4 pt-3 pb-2">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                    <Layers size={15} /> System Activity
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <Layers size={12} /> Activity
                                 </CardTitle>
                                 <Link to="/admin/logs">
-                                    <Button variant="link" className="h-auto p-0 text-xs">Open logs</Button>
+                                    <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">
+                                        Open logs
+                                    </Button>
                                 </Link>
                             </div>
                         </CardHeader>
-                        <CardContent className="pt-0 space-y-3">
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
                             {activityFeed.length === 0 ? (
-                                <p className="text-xs text-gray-500 font-medium">No recent system activity.</p>
+                                <EmptyState message="No recent system activity." />
                             ) : (
                                 activityFeed.map((log, index) => (
-                                    <div key={index} className="border-l-2 border-slate-200 pl-3">
-                                        <p className="text-sm font-medium text-gray-900">{log.title}</p>
-                                        <p className="text-[11px] text-gray-500">{log.sub}</p>
-                                        <p className="text-[10px] text-gray-400 mt-1">{log.time}</p>
+                                    <div key={index} className="border-l-2 border-primary/20 pl-2.5 py-0.5">
+                                        <p className="text-[12px] font-semibold text-gray-800 leading-tight">{log.title}</p>
+                                        <p className="text-[10px] text-gray-400">{log.sub}</p>
+                                        <p className="text-[10px] text-gray-300 mt-0.5">{log.time}</p>
                                     </div>
                                 ))
                             )}
                         </CardContent>
                     </Card>
 
-                    <Card className="border-dashed border-secondary/30 bg-secondary/5 shadow-none">
-                        <CardContent className="p-3">
-                            <p className="text-[11px] uppercase tracking-wider font-semibold text-gray-500 mb-2">Quick Access</p>
-                            <div className="grid grid-cols-1 gap-2">
-                                <Link to="/manage-exams">
-                                    <Button variant="outline" className="w-full justify-between text-xs h-8">
-                                        Manage Mock Exams <ChevronRight size={14} />
-                                    </Button>
-                                </Link>
-                                <Link to="/materials">
-                                    <Button variant="outline" className="w-full justify-between text-xs h-8">
-                                        Manage Materials <ChevronRight size={14} />
-                                    </Button>
-                                </Link>
-                                <Link to="/students">
-                                    <Button variant="outline" className="w-full justify-between text-xs h-8">
-                                        Open Student Submissions <ChevronRight size={14} />
-                                    </Button>
-                                </Link>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* Conferences */}
+                    <ConferencesWidget />
+
+                    {/* Quick Access */}
+                    <div className="bg-white rounded-lg border border-dashed border-gray-200 p-3">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-2">Quick Access</p>
+                        <div className="space-y-1.5">
+                            <Link to="/manage-exams">
+                                <Button variant="ghost" size="sm" className="w-full justify-between h-8 text-xs font-medium text-gray-600 hover:text-primary hover:bg-primary/5 px-2">
+                                    Manage Mock Exams <ChevronRight size={12} />
+                                </Button>
+                            </Link>
+                            <Link to="/materials">
+                                <Button variant="ghost" size="sm" className="w-full justify-between h-8 text-xs font-medium text-gray-600 hover:text-primary hover:bg-primary/5 px-2">
+                                    Manage Materials <ChevronRight size={12} />
+                                </Button>
+                            </Link>
+                            <Link to="/students">
+                                <Button variant="ghost" size="sm" className="w-full justify-between h-8 text-xs font-medium text-gray-600 hover:text-primary hover:bg-primary/5 px-2">
+                                    Student Submissions <ChevronRight size={12} />
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

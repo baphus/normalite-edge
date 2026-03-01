@@ -11,6 +11,7 @@ import dashboardRoutes from './dashboard.routes';
 import auditRoutes from './audit.routes';
 import reportRoutes from './report.routes';
 import uploadRoutes from './upload.routes';
+import calendarRoutes from './calendar.routes';
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/audit', auditRoutes);
 router.use('/reports', reportRoutes);
 router.use('/uploads', uploadRoutes);
+router.use('/calendar', calendarRoutes);
 
 export default router;

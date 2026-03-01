@@ -204,38 +204,38 @@ const LogsPage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Audit Logs</h1>
-                    <p className="text-sm text-gray-500 font-medium tracking-tight">Timeline of platform actions across all authenticated roles.</p>
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Audit Logs</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Timeline of platform actions across all roles.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" onClick={exportPageAsCsv} className="h-10 rounded-xl px-4 font-semibold border-gray-200 gap-2 text-xs">
-                        <Download size={16} /> Export CSV
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={exportPageAsCsv} className="h-8 rounded-md px-3 font-semibold border-gray-200 gap-1.5 text-xs bg-white">
+                        <Download size={13} /> Export CSV
                     </Button>
-                    <Button onClick={fetchLogs} className="h-10 rounded-xl px-4 bg-primary hover:bg-primary/95 text-white font-semibold gap-2 text-xs">
-                        <RefreshCw size={16} /> Refresh
+                    <Button onClick={fetchLogs} className="h-8 rounded-md px-3 bg-primary hover:bg-primary/95 text-white font-semibold gap-1.5 text-xs">
+                        <RefreshCw size={13} /> Refresh
                     </Button>
                 </div>
             </header>
 
             {/* Filters Bar */}
-            <Card className="rounded-2xl border-gray-100 shadow-sm bg-white overflow-hidden">
-                <CardContent className="p-4 md:p-5">
-                    <div className="flex flex-col md:flex-row items-center gap-4">
+            <Card className="rounded-lg border-gray-100 shadow-sm bg-white">
+                <CardContent className="p-3">
+                    <div className="flex flex-col md:flex-row items-center gap-2.5">
                         <div className="relative flex-1 group w-full">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-primary transition-colors" size={18} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-primary transition-colors" size={14} />
                             <Input
                                 placeholder="Search by actor, action, entity, or summary..."
-                                className="pl-11 h-10 rounded-xl border-gray-200 bg-white shadow-none focus:ring-primary/20 font-medium"
+                                className="pl-9 h-8 rounded-md border-gray-200 bg-white shadow-none focus:ring-primary/20 text-xs"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </div>
-                        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
+                        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap md:flex-nowrap">
                             <Select value={actionFilter} onValueChange={setActionFilter}>
-                                <SelectTrigger className="w-full md:w-40 h-10 rounded-xl border-gray-200 font-semibold text-xs bg-white focus:ring-primary/20">
+                                <SelectTrigger className="w-full md:w-36 h-8 rounded-md border-gray-200 font-semibold text-xs bg-white focus:ring-primary/20">
                                     <SelectValue placeholder="All Actions" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -253,7 +253,7 @@ const LogsPage: React.FC = () => {
                                 </SelectContent>
                             </Select>
                             <Select value={roleFilter} onValueChange={setRoleFilter}>
-                                <SelectTrigger className="w-full md:w-40 h-10 rounded-xl border-gray-200 font-semibold text-xs bg-white focus:ring-primary/20">
+                                <SelectTrigger className="w-full md:w-32 h-8 rounded-md border-gray-200 font-semibold text-xs bg-white focus:ring-primary/20">
                                     <SelectValue placeholder="All Roles" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -264,7 +264,7 @@ const LogsPage: React.FC = () => {
                                 </SelectContent>
                             </Select>
                             <Select value={entityFilter} onValueChange={setEntityFilter}>
-                                <SelectTrigger className="w-full md:w-40 h-10 rounded-xl border-gray-200 font-semibold text-xs bg-white focus:ring-primary/20">
+                                <SelectTrigger className="w-full md:w-36 h-8 rounded-md border-gray-200 font-semibold text-xs bg-white focus:ring-primary/20">
                                     <SelectValue placeholder="All Entities" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -283,7 +283,7 @@ const LogsPage: React.FC = () => {
                                     setActivePreset(null);
                                     setFromDate(e.target.value);
                                 }}
-                                className="w-full md:w-40 h-10 rounded-xl border-gray-200 bg-white font-medium text-xs"
+                                className="w-full md:w-36 h-8 rounded-md border-gray-200 bg-white font-medium text-xs"
                                 aria-label="From date"
                             />
                             <Input
@@ -295,15 +295,15 @@ const LogsPage: React.FC = () => {
                                     setActivePreset(null);
                                     setToDate(e.target.value);
                                 }}
-                                className="w-full md:w-40 h-12 rounded-4xl border-gray-100 bg-white font-semibold"
+                                className="w-full md:w-36 h-8 rounded-md border-gray-200 bg-white font-medium text-xs"
                                 aria-label="To date"
                             />
-                            <div className="w-full md:w-auto flex items-center gap-2">
+                            <div className="w-full md:w-auto flex items-center gap-1.5">
                                 <Button
                                     type="button"
                                     variant={activePreset === 'today' ? 'default' : 'outline'}
                                     onClick={() => applyRangePreset(1)}
-                                    className={`h-12 rounded-4xl px-4 font-black text-[10px] uppercase tracking-widest ${activePreset === 'today' ? 'bg-primary text-white hover:bg-primary/95' : 'border-gray-100'}`}
+                                    className={`h-8 rounded-md px-3 font-semibold text-[11px] ${activePreset === 'today' ? 'bg-primary text-white hover:bg-primary/95' : 'border-gray-200 bg-white'}`}
                                 >
                                     Today
                                 </Button>
@@ -311,17 +311,17 @@ const LogsPage: React.FC = () => {
                                     type="button"
                                     variant={activePreset === 'last7' ? 'default' : 'outline'}
                                     onClick={() => applyRangePreset(7)}
-                                    className={`h-12 rounded-4xl px-4 font-black text-[10px] uppercase tracking-widest ${activePreset === 'last7' ? 'bg-primary text-white hover:bg-primary/95' : 'border-gray-100'}`}
+                                    className={`h-8 rounded-md px-3 font-semibold text-[11px] ${activePreset === 'last7' ? 'bg-primary text-white hover:bg-primary/95' : 'border-gray-200 bg-white'}`}
                                 >
-                                    Last 7 Days
+                                    Last 7d
                                 </Button>
                                 <Button
                                     type="button"
                                     variant={activePreset === 'last30' ? 'default' : 'outline'}
                                     onClick={() => applyRangePreset(30)}
-                                    className={`h-12 rounded-4xl px-4 font-black text-[10px] uppercase tracking-widest ${activePreset === 'last30' ? 'bg-primary text-white hover:bg-primary/95' : 'border-gray-100'}`}
+                                    className={`h-8 rounded-md px-3 font-semibold text-[11px] ${activePreset === 'last30' ? 'bg-primary text-white hover:bg-primary/95' : 'border-gray-200 bg-white'}`}
                                 >
-                                    Last 30 Days
+                                    Last 30d
                                 </Button>
                             </div>
                         </div>
@@ -330,58 +330,58 @@ const LogsPage: React.FC = () => {
             </Card>
 
             {error && (
-                <Card className="rounded-2xl border-red-100 bg-red-50/70">
-                    <CardContent className="py-4 text-red-700 text-sm font-semibold flex items-center gap-2">
-                        <AlertCircle size={16} /> {error}
+                <Card className="rounded-lg border-red-100 bg-red-50/70">
+                    <CardContent className="py-3 px-4 text-red-700 text-xs font-semibold flex items-center gap-2">
+                        <AlertCircle size={14} /> {error}
                     </CardContent>
                 </Card>
             )}
 
             {/* Timeline */}
-            <Card className="rounded-[2.5rem] border-gray-100 shadow-xl shadow-gray-200/20 bg-white overflow-hidden">
-                <CardContent className="p-6 md:p-8">
+            <Card className="rounded-lg border-gray-100 shadow-sm bg-white">
+                <CardContent className="p-4">
                     {loading ? (
-                        <div className="h-80 flex items-center justify-center text-sm font-semibold text-gray-500">
+                        <div className="h-60 flex items-center justify-center text-xs font-medium text-gray-400">
                             Loading audit timeline...
                         </div>
                     ) : logs.length ? (
-                        <div className="relative pl-7">
-                            <div className="absolute left-3 top-0 bottom-0 w-px bg-gray-100" />
-                            <div className="space-y-5">
+                        <div className="relative pl-5">
+                            <div className="absolute left-2 top-0 bottom-0 w-px bg-gray-100" />
+                            <div className="space-y-3">
                                 {logs.map((log) => (
                                     <div key={log.id} className="relative">
-                                        <div className="absolute -left-7 top-4 h-4 w-4 rounded-full bg-primary border-4 border-white shadow" />
-                                        <div className="border border-gray-100 rounded-2xl p-4 md:p-5 hover:bg-gray-50/60 transition-colors">
-                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
-                                                <div className="flex items-center gap-2.5 flex-wrap">
-                                                    <Badge className={`font-black text-[9px] uppercase tracking-widest border ${actionTone(log.action)}`}>
+                                        <div className="absolute -left-5 top-3 h-3 w-3 rounded-full bg-primary border-2 border-white shadow-sm" />
+                                        <div className="border border-gray-100 rounded-md p-3 hover:bg-gray-50/60 transition-colors">
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-1.5 mb-2">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <Badge className={`font-semibold text-[9px] uppercase tracking-wider border ${actionTone(log.action)}`}>
                                                         {log.action}
                                                     </Badge>
-                                                    <Badge variant="outline" className="font-black text-[9px] uppercase tracking-widest border-gray-200 text-gray-600">
+                                                    <Badge variant="outline" className="font-semibold text-[9px] uppercase tracking-wider border-gray-200 text-gray-500">
                                                         {log.entityType}
                                                     </Badge>
-                                                    <Badge variant="outline" className="font-black text-[9px] uppercase tracking-widest border-gray-200 text-gray-600">
+                                                    <Badge variant="outline" className="font-semibold text-[9px] uppercase tracking-wider border-gray-200 text-gray-500">
                                                         {log.actorRole}
                                                     </Badge>
                                                 </div>
-                                                <div className="flex items-center gap-1 text-xs text-gray-500 font-semibold">
-                                                    <Clock3 size={14} /> {formatTime(log.createdAt)}
+                                                <div className="flex items-center gap-1 text-[10px] text-gray-400 font-medium">
+                                                    <Clock3 size={11} /> {formatTime(log.createdAt)}
                                                 </div>
                                             </div>
 
-                                            <p className="text-sm font-bold text-gray-900 mb-2">
+                                            <p className="text-[12px] font-semibold text-gray-800 mb-1.5">
                                                 {log.summary || `${formatActor(log)} performed ${log.action.toLowerCase()} on ${log.entityType}`}
                                             </p>
 
                                             {log.action === 'UPDATE' && extractTitle(log) && (
-                                                <p className="text-xs text-gray-600 font-medium mb-2">
+                                                <p className="text-[11px] text-gray-500 font-medium mb-1.5">
                                                     Title: {extractTitle(log)}
                                                 </p>
                                             )}
 
-                                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium">
-                                                <span className="inline-flex items-center gap-1"><Shield size={12} /> {formatActor(log)}</span>
-                                                {log.actor?.email && <span>• {log.actor.email}</span>}
+                                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-gray-400 font-medium">
+                                                <span className="inline-flex items-center gap-1"><Shield size={10} /> {formatActor(log)}</span>
+                                                {log.actor?.email && <span>· {log.actor.email}</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -389,18 +389,17 @@ const LogsPage: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="h-80 flex flex-col items-center justify-center gap-4 text-center">
-                            <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center">
-                                <SearchX size={40} className="text-gray-200" />
-                            </div>
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-black text-gray-900 tracking-tight">No audit logs found</h3>
-                                <p className="text-sm text-gray-400 font-medium italic">Adjust your filters and try again</p>
+                        <div className="h-52 flex flex-col items-center justify-center gap-3 text-center">
+                            <SearchX size={28} className="text-gray-200" />
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-700">No audit logs found</h3>
+                                <p className="text-xs text-gray-400 mt-0.5">Adjust your filters and try again</p>
                             </div>
                             <Button
                                 variant="outline"
+                                size="sm"
                                 onClick={() => { setSearch(''); setActionFilter('all'); setRoleFilter('all'); setEntityFilter('all'); setFromDate(''); setToDate(''); setActivePreset(null); setPage(1); }}
-                                className="mt-2 h-10 rounded-xl font-black border-gray-200 uppercase tracking-widest text-[10px]"
+                                className="h-7 rounded-md text-xs border-gray-200"
                             >
                                 Clear All Filters
                             </Button>
@@ -410,32 +409,31 @@ const LogsPage: React.FC = () => {
             </Card>
 
             {!!logs.length && (
-                <div className="flex items-center justify-between px-6">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        Showing {logs.length} entries out of {total}
+                <div className="flex items-center justify-between px-1">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        Showing {logs.length} of {total} entries
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             disabled={page <= 1}
                             onClick={() => setPage((current) => Math.max(1, current - 1))}
-                            className="rounded-xl border border-gray-100 h-10 w-10"
+                            className="rounded-md border-gray-200 h-8 w-8 bg-white"
                         >
-                            <ChevronLeft size={18} />
+                            <ChevronLeft size={14} />
                         </Button>
-                        <div className="flex items-center gap-1 mx-2">
-                            <Button className="h-10 min-w-10 rounded-xl bg-primary text-white font-black shadow-lg shadow-primary/20 px-3">{page}</Button>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">/ {totalPages}</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs font-semibold text-gray-600 min-w-8 text-center">{page} / {totalPages}</span>
                         </div>
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             disabled={page >= totalPages}
                             onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                            className="rounded-xl border border-gray-100 h-10 w-10 hover:bg-gray-50"
+                            className="rounded-md border-gray-200 h-8 w-8 bg-white hover:bg-gray-50"
                         >
-                            <ChevronRight size={18} />
+                            <ChevronRight size={14} />
                         </Button>
                     </div>
                 </div>

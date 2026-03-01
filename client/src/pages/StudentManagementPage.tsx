@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
     Activity,
     ArrowDown,
@@ -327,80 +327,82 @@ const StudentManagementPage: React.FC = () => {
     const toCount = Math.min(page * limit, sortedStudents.length);
 
     return (
-        <div className="flex flex-col gap-4 font-lexend pb-8">
-            <header>
-                <h1 className="text-2xl font-black text-gray-900 tracking-tight">Student Management</h1>
-                <p className="text-sm text-gray-500 font-medium">Reviewer view of student profiles, exam activity, and performance trends.</p>
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Student Management</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Student profiles, exam activity, and performance trends.</p>
+                </div>
             </header>
 
-            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-3.5 flex items-center justify-between">
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                <Card className="border-gray-100 rounded-lg shadow-sm">
+                    <CardContent className="p-3 flex items-center justify-between">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Students</p>
-                            <p className="text-xl font-black text-gray-900">{studentSummaries.length}</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Students</p>
+                            <p className="text-lg font-bold text-gray-900">{studentSummaries.length}</p>
                         </div>
-                        <UserCircle2 className="w-5 h-5 text-primary" />
+                        <UserCircle2 className="w-4 h-4 text-primary" />
                     </CardContent>
                 </Card>
-                <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-3.5 flex items-center justify-between">
+                <Card className="border-gray-100 rounded-lg shadow-sm">
+                    <CardContent className="p-3 flex items-center justify-between">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Avg Score</p>
-                            <p className="text-xl font-black text-indigo-700">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Avg Score</p>
+                            <p className="text-lg font-bold text-indigo-700">
                                 {studentSummaries.length === 0
                                     ? '0%'
                                     : `${Math.round(studentSummaries.reduce((sum, item) => sum + item.avgPercentage, 0) / studentSummaries.length)}%`}
                             </p>
                         </div>
-                        <Trophy className="w-5 h-5 text-indigo-700" />
+                        <Trophy className="w-4 h-4 text-indigo-700" />
                     </CardContent>
                 </Card>
-                <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-3.5 flex items-center justify-between">
+                <Card className="border-gray-100 rounded-lg shadow-sm">
+                    <CardContent className="p-3 flex items-center justify-between">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">In Progress</p>
-                            <p className="text-xl font-black text-amber-700">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">In Progress</p>
+                            <p className="text-lg font-bold text-amber-700">
                                 {studentSummaries.reduce((sum, item) => sum + item.inProgressAttempts, 0)}
                             </p>
                         </div>
-                        <Activity className="w-5 h-5 text-amber-700" />
+                        <Activity className="w-4 h-4 text-amber-700" />
                     </CardContent>
                 </Card>
-                <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-3.5 flex items-center justify-between">
+                <Card className="border-gray-100 rounded-lg shadow-sm">
+                    <CardContent className="p-3 flex items-center justify-between">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Completed</p>
-                            <p className="text-xl font-black text-green-700">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Completed</p>
+                            <p className="text-lg font-bold text-green-700">
                                 {studentSummaries.reduce((sum, item) => sum + item.completedAttempts, 0)}
                             </p>
                         </div>
-                        <GraduationCap className="w-5 h-5 text-green-700" />
+                        <GraduationCap className="w-4 h-4 text-green-700" />
                     </CardContent>
                 </Card>
             </section>
 
-            <section className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm space-y-3">
+            <section className="rounded-lg border border-gray-100 bg-white p-2.5 shadow-sm space-y-2.5">
                 <div className="flex flex-col md:flex-row gap-2 md:items-center">
                     <div className="relative group flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 group-focus-within:text-primary" />
                         <Input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder="Search name, email, or program"
-                            className="h-9 pl-9 rounded-xl border-gray-200"
+                            className="h-8 pl-9 rounded-md border-gray-200 text-xs"
                         />
                     </div>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="h-9 rounded-xl border-gray-200 text-xs font-semibold gap-2">
-                                <Filter className="w-3.5 h-3.5" /> Filters
+                            <Button variant="outline" className="h-8 rounded-md border-gray-200 text-xs font-semibold gap-1.5 bg-white">
+                                <Filter className="w-3 h-3" /> Filters
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-72 p-3 font-lexend space-y-3">
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Program</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Program</Label>
                                 <Select value={trackFilter} onValueChange={setTrackFilter}>
                                     <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
                                         <SelectValue placeholder="Filter program" />
@@ -415,7 +417,7 @@ const StudentManagementPage: React.FC = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Activity</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Activity</Label>
                                 <Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as 'ALL' | 'ACTIVE' | 'AT_RISK')}>
                                     <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
                                         <SelectValue placeholder="Filter activity" />
@@ -436,8 +438,8 @@ const StudentManagementPage: React.FC = () => {
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="h-9 rounded-xl border-gray-200 text-xs font-semibold gap-2">
-                                <Columns3 className="w-3.5 h-3.5" /> Columns
+                            <Button variant="outline" className="h-8 rounded-md border-gray-200 text-xs font-semibold gap-1.5 bg-white">
+                                <Columns3 className="w-3 h-3" /> Columns
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="font-lexend min-w-44">
@@ -465,47 +467,47 @@ const StudentManagementPage: React.FC = () => {
                     </div>
                 )}
 
-                <div className="rounded-2xl border border-gray-100 overflow-hidden">
+                <div className="rounded-lg border border-gray-100 overflow-hidden">
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader className="bg-gray-50/80">
                                 <TableRow className="border-gray-100">
                                     {visibleColumns.student && (
-                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 min-w-64">
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 min-w-64">
                                             <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('name')}>
                                                 Student {renderSortIcon('name')}
                                             </button>
                                         </TableHead>
                                     )}
                                     {visibleColumns.program && (
-                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 min-w-44">
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 min-w-44">
                                             <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('program')}>
                                                 Program {renderSortIcon('program')}
                                             </button>
                                         </TableHead>
                                     )}
                                     {visibleColumns.attempts && (
-                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                                             <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('attempts')}>
                                                 Attempts {renderSortIcon('attempts')}
                                             </button>
                                         </TableHead>
                                     )}
                                     {visibleColumns.performance && (
-                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                                             <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('avg')}>
                                                 Performance {renderSortIcon('avg')}
                                             </button>
                                         </TableHead>
                                     )}
                                     {visibleColumns.lastActivity && (
-                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 min-w-52">
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 min-w-52">
                                             <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('lastActivity')}>
                                                 Last Activity {renderSortIcon('lastActivity')}
                                             </button>
                                         </TableHead>
                                     )}
-                                    <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Actions</TableHead>
+                                    <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -637,45 +639,45 @@ const StudentManagementPage: React.FC = () => {
             </section>
 
             <Dialog open={Boolean(selectedStudent)} onOpenChange={(open) => !open && setSelectedStudent(null)}>
-                <DialogContent className="sm:max-w-2xl rounded-2xl font-lexend">
+                <DialogContent className="sm:max-w-2xl rounded-lg font-lexend">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-black text-gray-900">Student Details</DialogTitle>
+                        <DialogTitle className="text-base font-bold text-gray-900">Student Details</DialogTitle>
                         <DialogDescription className="text-sm text-gray-500">
-                            {selectedStudent?.name} • {selectedStudent?.programTrack}
+                            {selectedStudent?.name} â€¢ {selectedStudent?.programTrack}
                         </DialogDescription>
                     </DialogHeader>
 
                     {selectedStudent && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                <Card className="rounded-xl border-gray-100">
-                                    <CardContent className="p-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Attempts</p>
-                                        <p className="text-lg font-black text-gray-900">{selectedStudent.attempts}</p>
+                                <Card className="rounded-md border-gray-100">
+                                    <CardContent className="p-2.5">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Attempts</p>
+                                        <p className="text-base font-bold text-gray-900">{selectedStudent.attempts}</p>
                                     </CardContent>
                                 </Card>
-                                <Card className="rounded-xl border-gray-100">
-                                    <CardContent className="p-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Completed</p>
-                                        <p className="text-lg font-black text-green-700">{selectedStudent.completedAttempts}</p>
+                                <Card className="rounded-md border-gray-100">
+                                    <CardContent className="p-2.5">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Completed</p>
+                                        <p className="text-base font-bold text-green-700">{selectedStudent.completedAttempts}</p>
                                     </CardContent>
                                 </Card>
-                                <Card className="rounded-xl border-gray-100">
-                                    <CardContent className="p-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Average</p>
-                                        <p className="text-lg font-black text-indigo-700">{selectedStudent.avgPercentage.toFixed(1)}%</p>
+                                <Card className="rounded-md border-gray-100">
+                                    <CardContent className="p-2.5">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Average</p>
+                                        <p className="text-base font-bold text-indigo-700">{selectedStudent.avgPercentage.toFixed(1)}%</p>
                                     </CardContent>
                                 </Card>
-                                <Card className="rounded-xl border-gray-100">
-                                    <CardContent className="p-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Best</p>
-                                        <p className="text-lg font-black text-primary">{selectedStudent.bestPercentage.toFixed(1)}%</p>
+                                <Card className="rounded-md border-gray-100">
+                                    <CardContent className="p-2.5">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Best</p>
+                                        <p className="text-base font-bold text-primary">{selectedStudent.bestPercentage.toFixed(1)}%</p>
                                     </CardContent>
                                 </Card>
                             </div>
 
-                            <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/70 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                            <div className="rounded-md border border-gray-100 overflow-hidden">
+                                <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/70 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                                     Recent attempts
                                 </div>
                                 <div className="divide-y divide-gray-100">
@@ -683,7 +685,7 @@ const StudentManagementPage: React.FC = () => {
                                         <div key={attempt.id} className="px-3 py-2 flex items-center justify-between gap-3">
                                             <div className="min-w-0">
                                                 <p className="text-sm font-semibold text-gray-900 truncate">{attempt.exam?.title || 'Untitled Exam'}</p>
-                                                <p className="text-[11px] text-gray-500 truncate">Attempt #{attempt.attemptNo} • {attempt.status.replace('_', ' ')}</p>
+                                                <p className="text-[11px] text-gray-500 truncate">Attempt #{attempt.attemptNo} â€¢ {attempt.status.replace('_', ' ')}</p>
                                             </div>
                                             <div className="text-right shrink-0">
                                                 <p className="text-xs font-semibold text-gray-700">{Number(attempt.percentage || 0).toFixed(1)}%</p>

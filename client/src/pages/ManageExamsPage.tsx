@@ -524,18 +524,18 @@ const ManageExamsPage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="space-y-1">
-                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Exam Library</h1>
-                    <p className="text-sm text-gray-500 font-medium tracking-tight">Manage and organize all LET preparation exams.</p>
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Exam Library</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Manage and organize all LET preparation exams.</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative w-full sm:w-60 group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative w-full sm:w-52 group">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={13} />
                         <Input
                             placeholder="Search exams..."
-                            className="pl-10 h-10 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
+                            className="pl-8 h-8 rounded-md border-gray-200 text-xs"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -544,11 +544,11 @@ const ManageExamsPage: React.FC = () => {
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
-                                className="h-10 rounded-xl border-gray-200 font-bold gap-2"
+                                className="h-8 rounded-md border-gray-200 font-semibold gap-1.5 text-xs bg-white"
                             >
-                                <SlidersHorizontal size={16} /> Filters
+                                <SlidersHorizontal size={13} /> Filters
                                 {activeFilterCount > 0 && (
-                                    <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black">
+                                    <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full bg-primary/10 text-primary text-[9px] font-semibold">
                                         {activeFilterCount}
                                     </span>
                                 )}
@@ -663,47 +663,47 @@ const ManageExamsPage: React.FC = () => {
                             </div>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <div className="flex items-center gap-1 rounded-xl border border-gray-200 p-1 bg-white">
+                    <div className="flex items-center gap-0.5 rounded-md border border-gray-200 p-0.5 bg-white">
                         <Button
                             type="button"
                             variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                            className="h-8 px-3 rounded-lg"
+                            className="h-7 px-2.5 rounded text-xs"
                             onClick={() => setViewMode('grid')}
                         >
-                            <LayoutGrid size={14} className="mr-1" /> Grid
+                            <LayoutGrid size={12} className="mr-1" /> Grid
                         </Button>
                         <Button
                             type="button"
                             variant={viewMode === 'list' ? 'default' : 'ghost'}
-                            className="h-8 px-3 rounded-lg"
+                            className="h-7 px-2.5 rounded text-xs"
                             onClick={() => setViewMode('list')}
                         >
-                            <List size={14} className="mr-1" /> List
+                            <List size={12} className="mr-1" /> List
                         </Button>
                     </div>
                     <Link to="/manage-exams/create">
-                        <Button className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2">
-                            <Plus size={18} /> Create Exam
+                        <Button className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white font-semibold gap-1.5 text-xs px-3">
+                            <Plus size={13} /> Create Exam
                         </Button>
                     </Link>
                 </div>
             </header>
 
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2' : 'flex flex-col gap-3 mt-2'}>
+            <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1' : 'flex flex-col gap-2 mt-1'}>
                 {loading && (
-                    <Card className="border-gray-100 rounded-[2rem] bg-white">
-                        <CardContent className="p-6 text-sm text-gray-500 font-medium">Loading exams...</CardContent>
+                    <Card className="border-gray-100 rounded-lg bg-white">
+                        <CardContent className="p-4 text-xs text-gray-400 font-medium">Loading exams...</CardContent>
                     </Card>
                 )}
                 {filteredExams.map((exam) => (
-                    <Card key={exam.id} className={`group border-gray-100 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 overflow-hidden bg-white h-full ${viewMode === 'grid' ? 'rounded-2xl' : 'rounded-xl'}`}>
-                        <CardContent className="p-4 flex flex-col h-full">
-                            <div className="flex justify-between items-start mb-3 gap-2">
-                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest text-primary border-primary/20 bg-primary/5 rounded-md px-1.5 max-w-[75%] truncate">
+                    <Card key={exam.id} className={`group border-gray-100 hover:border-primary/20 hover:shadow-md transition-all duration-200 overflow-hidden bg-white h-full ${viewMode === 'grid' ? 'rounded-lg' : 'rounded-md'}`}>
+                        <CardContent className="p-3 flex flex-col h-full">
+                            <div className="flex justify-between items-start mb-2 gap-2">
+                                <Badge variant="outline" className="text-[9px] font-semibold uppercase tracking-wider text-primary border-primary/20 bg-primary/5 rounded px-1.5 max-w-[75%] truncate">
                                     Show to: {exam.program}
                                 </Badge>
                                 <div className="flex items-center gap-1">
-                                    <Badge className={`font-black text-[10px] uppercase tracking-widest border-none ${exam.status === 'live' ? 'bg-green-50 text-green-600' :
+                                    <Badge className={`font-semibold text-[9px] uppercase tracking-wider border-none ${exam.status === 'live' ? 'bg-green-50 text-green-600' :
                                         exam.status === 'draft' ? 'bg-amber-50 text-amber-600' :
                                             exam.status === 'closed' ? 'bg-red-50 text-red-600' :
                                                 'bg-gray-50 text-gray-500'
@@ -813,75 +813,75 @@ const ManageExamsPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-2 mb-3 min-h-[72px]">
-                                <h3 className="text-base font-black text-gray-900 group-hover:text-primary transition-colors leading-tight h-10 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
+                            <div className="space-y-1.5 mb-2">
+                                <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors leading-tight overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
                                     {exam.title}
                                 </h3>
-                                <div className="flex items-center gap-2">
-                                    <Avatar className="h-6 w-6">
+                                <div className="flex items-center gap-1.5">
+                                    <Avatar className="h-5 w-5">
                                         <AvatarImage src={exam.authorAvatar} alt={exam.authorName} />
-                                        <AvatarFallback className="text-[10px] font-black">{exam.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                                        <AvatarFallback className="text-[9px] font-semibold">{exam.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
                                     </Avatar>
-                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest truncate">Author: {exam.authorName}</p>
+                                    <p className="text-[10px] text-gray-500 font-medium truncate">Author: {exam.authorName}</p>
                                 </div>
-                                <p className="text-[11px] text-gray-600 font-semibold truncate">
+                                <p className="text-[10px] text-gray-500 font-medium truncate">
                                     Sections: {exam.sectionTitles.length > 0 ? exam.sectionTitles.join(', ') : 'General Section'}
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 py-3 border-y border-gray-100 mb-3 min-h-[74px]">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Grid size={12} /> Questions
+                            <div className="grid grid-cols-2 gap-2 py-2 border-y border-gray-100 mb-2">
+                                <div className="space-y-0.5">
+                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                        <Grid size={11} /> Questions
                                     </p>
-                                    <p className="text-sm font-bold text-gray-700">{exam.questionCount} Items</p>
+                                    <p className="text-xs font-semibold text-gray-700">{exam.questionCount} Items</p>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Clock size={12} /> Timer
+                                <div className="space-y-0.5">
+                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                        <Clock size={11} /> Timer
                                     </p>
-                                    <p className="text-sm font-bold text-gray-700">{exam.duration} Min</p>
+                                    <p className="text-xs font-semibold text-gray-700">{exam.duration} Min</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-2 mb-3 min-h-[66px]">
+                            <div className="space-y-1.5 mb-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <CheckCircle2 size={12} className="text-accent" /> Attempts
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                        <CheckCircle2 size={11} className="text-accent" /> Attempts
                                     </span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs font-black text-gray-900">{exam.maxAttempts}</span>
+                                        <span className="text-[11px] font-semibold text-gray-900">{exam.maxAttempts}</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Calendar size={12} className="text-red-500" /> Deadline
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                        <Calendar size={11} className="text-red-500" /> Deadline
                                     </span>
-                                    <span className="text-xs font-black text-gray-900">
+                                    <span className="text-[11px] font-semibold text-gray-900">
                                         {exam.deadline
                                             ? new Date(exam.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                             : 'No deadline'}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Calendar size={12} className="text-blue-500" /> Close on Deadline
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                        <Calendar size={11} className="text-blue-500" /> Close on Deadline
                                     </span>
-                                    <span className={`text-xs font-black ${exam.closeOnDeadline ? 'text-blue-600' : 'text-gray-500'}`}>
+                                    <span className={`text-[11px] font-semibold ${exam.closeOnDeadline ? 'text-blue-600' : 'text-gray-500'}`}>
                                         {exam.closeOnDeadline ? 'On' : 'Off'}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className={`mt-auto ${viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex items-center gap-3 justify-end'}`}>
+                            <div className={`mt-auto ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex items-center gap-2 justify-end'}`}>
                                 <Link to={`/manage-exams/${exam.id}/view`} className={viewMode === 'grid' ? 'w-full' : ''}>
-                                    <Button variant="outline" className={`h-10 rounded-xl border-gray-200 font-black text-xs gap-2 ${viewMode === 'grid' ? 'w-full' : 'px-4'}`}>
-                                        <Eye size={14} /> View Details
+                                    <Button variant="outline" className={`h-8 rounded-md border-gray-200 font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
+                                        <Eye size={13} /> View Details
                                     </Button>
                                 </Link>
                                 <Link to={`/manage-exams/${exam.id}/edit`} className={viewMode === 'grid' ? 'w-full' : ''}>
-                                    <Button className={`h-10 rounded-xl bg-primary/5 hover:bg-primary/10 text-primary border-none font-black text-xs gap-2 ${viewMode === 'grid' ? 'w-full' : 'px-4'}`}>
-                                        <Edit size={14} /> Edit Exam
+                                    <Button className={`h-8 rounded-md bg-primary/5 hover:bg-primary/10 text-primary border-none font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
+                                        <Edit size={13} /> Edit Exam
                                     </Button>
                                 </Link>
                             </div>
@@ -890,36 +890,36 @@ const ManageExamsPage: React.FC = () => {
                 ))}
 
                 {/* Create New Card */}
-                <Link to="/manage-exams/create" className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 hover:bg-primary/[0.02] hover:border-primary/50 transition-all group min-h-[210px]">
-                    <div className="bg-white p-3 rounded-full shadow-sm group-hover:scale-110 transition-transform">
-                        <Plus size={24} className="text-primary" />
+                <Link to="/manage-exams/create" className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50 hover:bg-primary/[0.02] hover:border-primary/50 transition-all group min-h-[160px]">
+                    <div className="bg-white p-2.5 rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                        <Plus size={20} className="text-primary" />
                     </div>
                     <div className="text-center">
-                        <p className="font-black text-sm text-gray-900 uppercase tracking-tight">Create New Mock Exam</p>
-                        <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase tracking-widest max-w-[200px]">Start from scratch or use a predefined template</p>
+                        <p className="font-semibold text-xs text-gray-900">Create New Mock Exam</p>
+                        <p className="text-[10px] text-gray-400 font-medium mt-0.5 max-w-[180px]">Start from scratch or use a predefined template</p>
                     </div>
                 </Link>
             </div>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent className="rounded-3xl max-w-md border-none shadow-2xl">
-                    <DialogHeader className="space-y-4 text-center items-center">
-                        <div className="h-16 w-16 rounded-full bg-red-50 flex items-center justify-center text-red-500">
-                            <AlertCircle size={32} />
+                <DialogContent className="rounded-xl max-w-md border-none shadow-xl">
+                    <DialogHeader className="space-y-3 text-center items-center">
+                        <div className="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                            <AlertCircle size={24} />
                         </div>
                         <div className="space-y-1">
-                            <DialogTitle className="text-xl font-black">Delete Exam?</DialogTitle>
+                            <DialogTitle className="text-base font-bold">Delete Exam?</DialogTitle>
                             <DialogDescription className="font-medium">
                                 Are you sure you want to delete this exam? This action cannot be undone and all student results will be lost.
                             </DialogDescription>
                         </div>
                     </DialogHeader>
-                    <DialogFooter className="grid grid-cols-2 gap-3 mt-6 sm:justify-center">
-                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="h-12 rounded-xl font-black border-gray-200">
+                    <DialogFooter className="grid grid-cols-2 gap-2 mt-4 sm:justify-center">
+                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="h-9 rounded-md font-semibold border-gray-200">
                             Cancel
                         </Button>
-                        <Button onClick={handleDelete} className="h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black border-none shadow-lg shadow-red-500/20">
+                        <Button onClick={handleDelete} className="h-9 rounded-md bg-red-500 hover:bg-red-600 text-white font-semibold border-none">
                             Yes, Delete
                         </Button>
                     </DialogFooter>
@@ -931,13 +931,13 @@ const ManageExamsPage: React.FC = () => {
                     if (!open) closeStatusDialog();
                 }}
             >
-                <DialogContent className="rounded-3xl max-w-md border-none shadow-2xl">
-                    <DialogHeader className="space-y-4 text-center items-center">
-                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                            <SlidersHorizontal size={32} />
+                <DialogContent className="rounded-xl max-w-md border-none shadow-xl">
+                    <DialogHeader className="space-y-3 text-center items-center">
+                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                            <SlidersHorizontal size={24} />
                         </div>
                         <div className="space-y-1">
-                            <DialogTitle className="text-xl font-black tracking-tight">Change Exam Status</DialogTitle>
+                            <DialogTitle className="text-base font-bold">Change Exam Status</DialogTitle>
                             <DialogDescription className="font-medium">
                                 Select the status you want the exam to reflect.
                             </DialogDescription>
@@ -956,13 +956,13 @@ const ManageExamsPage: React.FC = () => {
                             </SelectContent>
                         </Select>
                     </div>
-                    <DialogFooter className="grid grid-cols-2 gap-3 mt-6">
-                        <Button variant="outline" onClick={closeStatusDialog} className="h-12 rounded-xl font-black border-gray-200">
+                    <DialogFooter className="grid grid-cols-2 gap-2 mt-4">
+                        <Button variant="outline" onClick={closeStatusDialog} className="h-9 rounded-md font-semibold border-gray-200">
                             Cancel
                         </Button>
                         <Button
                             onClick={handleStatusDialogConfirm}
-                            className="h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black border-none shadow-lg"
+                            className="h-9 rounded-md bg-primary hover:bg-primary/90 text-white font-semibold border-none"
                             disabled={!statusDialogExamId}
                         >
                             Update Status

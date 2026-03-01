@@ -8,8 +8,9 @@ interface RoleRouteProps {
 
 const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles }) => {
     const { user } = useAuth();
+    const normalizedRole = (user?.role || '').trim().toUpperCase() as 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 
-    if (!user || !allowedRoles.includes(user.role)) {
+    if (!user || !allowedRoles.includes(normalizedRole)) {
         return <Navigate to="/dashboard" replace />;
     }
 

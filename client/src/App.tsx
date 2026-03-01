@@ -35,6 +35,7 @@ import ZoomMeetingPage from './pages/ZoomMeetingPage';
 import StudentManagementPage from './pages/StudentManagementPage';
 
 import LandingPage from './pages/LandingPage';
+import CalendarPage from './pages/CalendarPage';
 
 function LegacyManageExamAnalyticsRedirect() {
   const { id } = useParams<{ id: string }>();
@@ -98,6 +99,7 @@ function App() {
               {/* Shared Routes */}
               <Route path="/conferences" element={<VideoConferencePage />} />
               <Route path="/zoom-meeting" element={<ZoomMeetingPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<ProfilePage />} />

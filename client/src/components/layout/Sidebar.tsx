@@ -9,7 +9,8 @@ import {
     Settings,
     ShieldCheck,
     Users,
-    LogOut
+    LogOut,
+    CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -22,27 +23,57 @@ interface NavItem {
     roles: string[];
 }
 
-const navItems: NavItem[] = [
-    // Common for all (after approval)
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
+interface NavGroup {
+    label: string;
+    roles: string[];
+    items: NavItem[];
+}
 
-    // Reviewee specific
-    { name: 'Study', href: '/study', icon: BookOpen, roles: ['REVIEWEE'] },
-    { name: 'Exams', href: '/exams', icon: FileText, roles: ['REVIEWEE'] },
-
-    // Reviewer/Admin specific
-    { name: 'Manage Materials', href: '/materials', icon: BookOpen, roles: ['ADMIN', 'REVIEWER'] },
-    { name: 'Manage Exams', href: '/manage-exams', icon: FileText, roles: ['ADMIN', 'REVIEWER'] },
-    { name: 'Student Management', href: '/students', icon: Users, roles: ['ADMIN', 'REVIEWER'] },
-
-    // Admin specific
-    { name: 'User Management', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
-    { name: 'Audit Logs', href: '/admin/logs', icon: ShieldCheck, roles: ['ADMIN'] },
-
-    // Common
-    { name: 'Conferences', href: '/conferences', icon: Video, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
-    { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
-    { name: 'Settings', href: '/settings', icon: Settings, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
+const navGroups: NavGroup[] = [
+    {
+        label: 'General',
+        roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'],
+        items: [
+            { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
+        ],
+    },
+    {
+        label: 'Review',
+        roles: ['REVIEWEE'],
+        items: [
+            { name: 'Study Hub', href: '/study', icon: BookOpen, roles: ['REVIEWEE'] },
+            { name: 'Exams', href: '/exams', icon: FileText, roles: ['REVIEWEE'] },
+            { name: 'Calendar', href: '/calendar', icon: CalendarDays, roles: ['REVIEWEE'] },
+            { name: 'Conferences', href: '/conferences', icon: Video, roles: ['REVIEWEE'] },
+        ],
+    },
+    {
+        label: 'Content',
+        roles: ['ADMIN', 'REVIEWER'],
+        items: [
+            { name: 'Materials', href: '/materials', icon: BookOpen, roles: ['ADMIN', 'REVIEWER'] },
+            { name: 'Exams', href: '/manage-exams', icon: FileText, roles: ['ADMIN', 'REVIEWER'] },
+            { name: 'Students', href: '/students', icon: Users, roles: ['ADMIN', 'REVIEWER'] },
+            { name: 'Calendar', href: '/calendar', icon: CalendarDays, roles: ['ADMIN', 'REVIEWER'] },
+            { name: 'Conferences', href: '/conferences', icon: Video, roles: ['ADMIN', 'REVIEWER'] },
+        ],
+    },
+    {
+        label: 'Admin',
+        roles: ['ADMIN'],
+        items: [
+            { name: 'User Management', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
+            { name: 'Audit Logs', href: '/admin/logs', icon: ShieldCheck, roles: ['ADMIN'] },
+        ],
+    },
+    {
+        label: 'System',
+        roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'],
+        items: [
+            { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
+            { name: 'Settings', href: '/settings', icon: Settings, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
+        ],
+    },
 ];
 
 const Sidebar: React.FC = () => {
@@ -50,10 +81,18 @@ const Sidebar: React.FC = () => {
     const location = useLocation();
     const [unreadCount, setUnreadCount] = useState(0);
     const [imgError, setImgError] = useState(false);
+    const normalizedRole = (user?.role || '').trim().toUpperCase();
 
-    const filteredNavItems = useMemo(() => navItems.filter(item =>
-        user && item.roles.includes(user.role)
-    ), [user]);
+    const visibleGroups = useMemo(() => {
+        if (!user) return [];
+        return navGroups
+            .filter(group => group.roles.includes(normalizedRole))
+            .map(group => ({
+                ...group,
+                items: group.items.filter(item => item.roles.includes(normalizedRole)),
+            }))
+            .filter(group => group.items.length > 0);
+    }, [user, normalizedRole]);
 
     useEffect(() => {
         const loadUnreadCount = async () => {
@@ -65,67 +104,79 @@ const Sidebar: React.FC = () => {
                 setUnreadCount(0);
             }
         };
-
-        if (user) {
-            loadUnreadCount();
-        }
+        if (user) loadUnreadCount();
     }, [user, location.pathname]);
 
-    const isStaff = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
+    const userInitials = user?.name
+        ? user.name.trim().split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()
+        : 'U';
+
+    const roleLabel: Record<string, string> = { ADMIN: 'Admin', REVIEWER: 'Reviewer', REVIEWEE: 'Reviewee' };
 
     return (
-        <div className="flex flex-col w-60 h-screen bg-white border-r border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-5 border-b border-slate-100">
-                <div className="flex items-center gap-3 text-primary">
-                    <div className="h-9 w-9 overflow-hidden rounded-sm">
-                        <img
-                            src="/NormaliteEdgeLogo.png"
-                            alt="Normalite EDGE logo mark"
-                            className="h-full w-auto max-w-none object-cover object-left"
-                        />
-                    </div>
-                    <div className="flex flex-col leading-tight">
-                        <h2 className="text-primary text-base font-extrabold tracking-tight">Normalite EDGE</h2>
-                        <p className="text-primary/90 text-[10px] font-medium">Everyday Digital Guide to Excellence</p>
-                    </div>
+        <div className="flex flex-col w-[218px] shrink-0 h-screen bg-[#0d0f14] border-r border-white/[0.06]">
+            {/* Brand */}
+            <div className="flex items-center gap-2.5 px-4 h-12 border-b border-white/[0.06] shrink-0">
+                <div className="h-6 w-6 overflow-hidden rounded-sm shrink-0">
+                    <img
+                        src="/NormaliteEdgeLogo.png"
+                        alt="Normalite EDGE logo"
+                        className="h-full w-auto max-w-none object-cover object-left"
+                    />
                 </div>
-                {isStaff && (
-                    <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Management Workspace</p>
-                )}
+                <span className="text-[13px] font-bold text-white tracking-tight truncate">Normalite EDGE</span>
             </div>
 
-            <nav className="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto">
-                {filteredNavItems.map((item) => (
-                    <NavLink
-                        key={item.href}
-                        to={item.href}
-                        className={({ isActive }) =>
-                            cn(
-                                "relative flex items-center gap-2.5 px-3 py-2.5 text-[13px] rounded-lg transition-colors",
-                                isActive
-                                    ? "bg-primary/10 text-primary font-semibold border-r-4 border-r-primary"
-                                    : "text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-800"
-                            )
-                        }
-                    >
-                        <item.icon className="w-4.5 h-4.5" />
-                        <span className="flex-1">{item.name}</span>
-                        {item.href === '/notifications' && unreadCount > 0 && (
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
-                                {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                        )}
-                    </NavLink>
+            {/* Nav */}
+            <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-3">
+                {visibleGroups.map((group) => (
+                    <div key={group.label}>
+                        <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/25 select-none">
+                            {group.label}
+                        </p>
+                        <div className="space-y-0.5">
+                            {group.items.map((item) => (
+                                <NavLink
+                                    key={item.href}
+                                    to={item.href}
+                                    className={({ isActive }) =>
+                                        cn(
+                                            'relative flex items-center gap-2.5 px-2.5 h-8 text-[12.5px] rounded-md transition-colors font-medium',
+                                            isActive
+                                                ? 'bg-white/10 text-white'
+                                                : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+                                        )
+                                    }
+                                >
+                                    {({ isActive }) => (
+                                        <>
+                                            {isActive && (
+                                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full bg-primary" />
+                                            )}
+                                            <item.icon className="w-[14px] h-[14px] shrink-0" />
+                                            <span className="flex-1 truncate">{item.name}</span>
+                                            {item.href === '/notifications' && unreadCount > 0 && (
+                                                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[9px] font-bold flex items-center justify-center">
+                                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
+                                </NavLink>
+                            ))}
+                        </div>
+                    </div>
                 ))}
             </nav>
 
-            <div className="p-3 border-t border-slate-100 mt-auto">
+            {/* User / Footer */}
+            <div className="shrink-0 border-t border-white/[0.06] p-2 space-y-0.5">
                 <NavLink
                     to="/profile"
                     className={({ isActive }) =>
                         cn(
-                            "bg-slate-50 p-3 rounded-xl flex items-center gap-2.5 mb-2.5 transition-colors cursor-pointer group border border-transparent",
-                            isActive ? "border-primary/60 ring-2 ring-primary/10" : "hover:border-primary/20"
+                            'flex items-center gap-2.5 px-2.5 h-10 rounded-md transition-colors w-full',
+                            isActive ? 'bg-white/10' : 'hover:bg-white/[0.06]'
                         )
                     }
                 >
@@ -133,38 +184,27 @@ const Sidebar: React.FC = () => {
                         <img
                             src={user.picture}
                             alt="Profile"
-                            className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                            className="w-7 h-7 rounded-full object-cover ring-1 ring-white/20 shrink-0"
                             onError={() => setImgError(true)}
                         />
                     ) : (
-                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-                            {user?.name?.charAt(0)}
+                        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                            {userInitials}
                         </div>
                     )}
                     <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
-                        {user?.role === 'REVIEWEE' && (
-                            <>
-                                {user.program && (
-                                    <p className="text-[10px] text-primary font-semibold truncate">{user.program}</p>
-                                )}
-                                {(user.yearLevel || user.section) && (
-                                    <p className="text-[10px] text-slate-400 font-medium truncate">
-                                        {user.yearLevel ? user.yearLevel : ''}
-                                        {user.yearLevel && user.section ? ' • ' : ''}
-                                        {user.section ? `Section ${user.section}` : ''}
-                                    </p>
-                                )}
-                            </>
-                        )}
+                        <p className="text-[12px] font-semibold text-white/90 truncate leading-tight">{user?.name}</p>
+                        <p className="text-[10px] text-white/35 font-medium leading-tight">
+                            {normalizedRole ? roleLabel[normalizedRole] ?? normalizedRole : ''}
+                        </p>
                     </div>
                 </NavLink>
                 <button
                     onClick={logout}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] font-medium text-red-600 hover:bg-slate-50 rounded-lg transition-colors"
+                    className="flex items-center gap-2.5 w-full px-2.5 h-8 text-[12px] font-medium text-white/40 hover:text-red-400 hover:bg-white/[0.04] rounded-md transition-colors"
                 >
-                    <LogOut className="w-4.5 h-4.5" />
-                    Logout
+                    <LogOut className="w-[14px] h-[14px] shrink-0" />
+                    Sign out
                 </button>
             </div>
         </div>

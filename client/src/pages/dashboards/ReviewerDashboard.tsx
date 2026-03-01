@@ -7,7 +7,6 @@ import {
     Plus,
     BarChart3,
     Calendar,
-    Gavel,
     History,
     Edit,
     Download
@@ -19,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { Link } from 'react-router-dom';
+import ConferencesWidget from './ConferencesWidget';
 
 interface ReviewerDashboardProps {
     stats: {
@@ -166,24 +166,8 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
 
                 {/* Right Column */}
                 <div className="flex flex-col gap-6">
-                    {/* Action Required */}
-                    <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary to-[#5a0000] p-6 text-white shadow-lg space-y-4">
-                        <div className="flex items-center gap-2 text-white/80">
-                            <Gavel size={18} />
-                            <span className="text-xs font-bold uppercase tracking-widest">Action Required</span>
-                        </div>
-                        <div>
-                            <h3 className="text-2xl font-bold leading-tight">5 Upcoming Sessions</h3>
-                            <p className="text-white/70 text-sm mt-1">You have scheduled video conferences today.</p>
-                        </div>
-                        <Link to="/conferences">
-                            <Button className="w-full bg-white text-primary hover:bg-gray-100 font-bold h-11 border-none mt-2">
-                                View Schedule
-                            </Button>
-                        </Link>
-                        <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-                        <div className="absolute -bottom-10 -left-6 h-40 w-40 rounded-full bg-secondary/10 blur-3xl" />
-                    </div>
+                    {/* Conferences */}
+                    <ConferencesWidget compact={false} />
 
                     {/* Recent Activity */}
                     <Card className="border-gray-100 shadow-sm">
