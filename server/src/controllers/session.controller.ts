@@ -41,6 +41,9 @@ export const sessionController = {
             entityType: 'session',
             entityId: session.id,
             summary: `Scheduled session: ${session.title}`,
+            metadata: {
+                title: session.title,
+            },
         });
 
         ApiResponse.created(res, session, 'Session created');
@@ -65,6 +68,9 @@ export const sessionController = {
             entityType: 'session',
             entityId: session.id,
             summary: `Updated session: ${session.title}`,
+            metadata: {
+                title: session.title,
+            },
         });
 
         ApiResponse.success(res, session, 'Session updated');

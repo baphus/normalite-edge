@@ -345,7 +345,7 @@ const CustomDeckPage: React.FC = () => {
                 title,
                 description: description || undefined,
                 subject: tags[0] || 'General',
-                category: category === 'NONE' ? 'GENERAL_EDUCATION' : category,
+                category: category === 'NONE' ? null : category,
                 visibility: isAdminOrReviewer ? 'PUBLISHED' : 'DRAFT',
                 trackIds: selectedTrackIds,
                 questions: cards.map(c => {
@@ -445,7 +445,7 @@ const CustomDeckPage: React.FC = () => {
                                 </Select>
                                 {category === 'NONE' ? (
                                     <p className="text-[11px] text-gray-500 font-medium">
-                                        No Category selected. This will be saved as General Education.
+                                        No Category selected. This deck will stay uncategorized.
                                     </p>
                                 ) : null}
                             </div>

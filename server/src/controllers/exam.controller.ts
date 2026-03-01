@@ -75,6 +75,9 @@ export const examController = {
             entityType: 'exam',
             entityId: exam.id,
             summary: `Created exam: ${exam.title}`,
+            metadata: {
+                title: exam.title,
+            },
         });
 
         ApiResponse.created(res, exam, 'Exam created successfully');
@@ -102,6 +105,9 @@ export const examController = {
             entityType: 'exam',
             entityId: exam.id,
             summary: `Updated exam: ${exam.title}`,
+            metadata: {
+                title: exam.title,
+            },
         });
 
         ApiResponse.success(res, exam, 'Exam updated successfully');

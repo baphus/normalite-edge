@@ -524,18 +524,18 @@ const ManageExamsPage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-6 font-lexend pb-10">
-            <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex flex-col gap-5 font-lexend pb-8">
+            <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Exam Library</h1>
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Exam Library</h1>
                     <p className="text-sm text-gray-500 font-medium tracking-tight">Manage and organize all LET preparation exams.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative w-full sm:w-64 group">
+                    <div className="relative w-full sm:w-60 group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
                         <Input
                             placeholder="Search exams..."
-                            className="pl-10 h-11 rounded-xl border-gray-200 focus:border-primary focus:ring-primary shadow-sm"
+                            className="pl-10 h-10 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -544,7 +544,7 @@ const ManageExamsPage: React.FC = () => {
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
-                                className="h-11 rounded-xl border-gray-200 font-bold gap-2"
+                                className="h-10 rounded-xl border-gray-200 font-bold gap-2"
                             >
                                 <SlidersHorizontal size={16} /> Filters
                                 {activeFilterCount > 0 && (
@@ -682,7 +682,7 @@ const ManageExamsPage: React.FC = () => {
                         </Button>
                     </div>
                     <Link to="/manage-exams/create">
-                        <Button className="h-11 rounded-xl bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 gap-2">
+                        <Button className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2">
                             <Plus size={18} /> Create Exam
                         </Button>
                     </Link>
@@ -874,9 +874,9 @@ const ManageExamsPage: React.FC = () => {
                             </div>
 
                             <div className={`mt-auto ${viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex items-center gap-3 justify-end'}`}>
-                                <Link to={`/manage-exams/${exam.id}/analytics`} className={viewMode === 'grid' ? 'w-full' : ''}>
+                                <Link to={`/manage-exams/${exam.id}/view`} className={viewMode === 'grid' ? 'w-full' : ''}>
                                     <Button variant="outline" className={`h-10 rounded-xl border-gray-200 font-black text-xs gap-2 ${viewMode === 'grid' ? 'w-full' : 'px-4'}`}>
-                                        <Eye size={14} /> View Report
+                                        <Eye size={14} /> View Details
                                     </Button>
                                 </Link>
                                 <Link to={`/manage-exams/${exam.id}/edit`} className={viewMode === 'grid' ? 'w-full' : ''}>

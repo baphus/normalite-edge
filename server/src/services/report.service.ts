@@ -7,7 +7,6 @@ interface ReportRow {
     subject: string;
     attemptsCount: number;
     averageScore: number;
-    passRate: number;
     highestScore: number;
     lowestScore: number;
 }
@@ -20,8 +19,6 @@ interface PdfFilters {
 }
 
 const round = (value: number) => Math.round(value * 100) / 100;
-const PASSING_SCORE = 75;
-
 const formatDateTime = (value?: Date | string | null) => {
     if (!value) return 'N/A';
     const date = value instanceof Date ? value : new Date(value);
@@ -145,7 +142,6 @@ export class ReportService {
                 subject: attempt.exam.subject || 'General',
                 attemptsCount: 0,
                 averageScore: 0,
-                passRate: 0,
                 highestScore: 0,
                 lowestScore: 100,
             };
@@ -155,7 +151,6 @@ export class ReportService {
             current.averageScore += score;
             current.highestScore = Math.max(current.highestScore, score);
             current.lowestScore = Math.min(current.lowestScore, score);
-            current.passRate += score >= 75 ? 1 : 0;
 
             grouped.set(key, current);
         }
@@ -163,7 +158,6 @@ export class ReportService {
         const items = Array.from(grouped.values()).map((row) => ({
             ...row,
             averageScore: row.attemptsCount > 0 ? round(row.averageScore / row.attemptsCount) : 0,
-            passRate: row.attemptsCount > 0 ? round((row.passRate / row.attemptsCount) * 100) : 0,
             highestScore: round(row.highestScore),
             lowestScore: row.lowestScore === 100 && row.attemptsCount === 0 ? 0 : round(row.lowestScore),
         }));
@@ -190,7 +184,6 @@ export class ReportService {
             'subject',
             'attempts_count',
             'average_score',
-            'pass_rate',
             'highest_score',
             'lowest_score',
         ];
@@ -203,7 +196,6 @@ export class ReportService {
             escape(item.subject),
             escape(item.attemptsCount),
             escape(item.averageScore),
-            escape(item.passRate),
             escape(item.highestScore),
             escape(item.lowestScore),
         ].join(','));
@@ -379,7 +371,6 @@ export class ReportService {
                         ensureSpace(76);
                         const studentName = `${attempt.user.firstName} ${attempt.user.lastName}`.trim() || attempt.user.email || 'Unknown';
                         const percentage = Number(attempt.percentage || 0);
-                        const passState = percentage >= PASSING_SCORE ? 'Passed' : 'Below Target';
 
                         doc.fontSize(10).font('Helvetica-Bold').text(`Attempt ${index + 1}`);
                         doc.font('Helvetica').fontSize(10).text(`Attempt ID: ${attempt.id}`);
@@ -395,7 +386,7 @@ export class ReportService {
                         doc.text(`Time Spent (Seconds): ${attempt.timeSpentSeconds}`);
                         doc.text(`Remaining Seconds: ${attempt.remainingSeconds ?? 'N/A'}`);
                         doc.text(`Raw Score: ${attempt.score}`);
-                        doc.text(`Percentage: ${round(percentage)}% (${passState})`);
+                        doc.text(`Percentage: ${round(percentage)}%`);
                         doc.moveDown(0.35);
                     });
                 }
@@ -425,7 +416,6 @@ export class ReportService {
                     doc.fontSize(11).font('Helvetica-Bold').text(`${item.examTitle} (${item.subject})`, { underline: true });
                     doc.font('Helvetica').fontSize(10).text(`Attempts: ${item.attemptsCount}`);
                     doc.text(`Average Score: ${item.averageScore}%`);
-                    doc.text(`Pass Rate: ${item.passRate}%`);
                     doc.text(`Highest Score: ${item.highestScore}%`);
                     doc.text(`Lowest Score: ${item.lowestScore}%`);
                     doc.moveDown(0.6);

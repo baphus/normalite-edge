@@ -38,6 +38,7 @@ export class AttemptService {
             email: user.email,
             name: `${user.firstName} ${user.lastName}`.trim(),
             programTrack: user.programTrack || null,
+            profilePicture: user.profilePicture || null,
         };
     }
 
@@ -584,7 +585,7 @@ export class AttemptService {
                 where,
                 include: {
                     exam: { select: { id: true, title: true, subject: true, timeLimitMinutes: true } },
-                    user: { select: { id: true, firstName: true, lastName: true, email: true, programTrack: true } },
+                    user: { select: { id: true, firstName: true, lastName: true, email: true, programTrack: true, profilePicture: true } },
                     answers: true,
                 },
                 skip,
@@ -629,7 +630,7 @@ export class AttemptService {
                         },
                     },
                 },
-                user: { select: { id: true, firstName: true, lastName: true, email: true, programTrack: true } },
+                user: { select: { id: true, firstName: true, lastName: true, email: true, programTrack: true, profilePicture: true } },
                 answers: true,
             },
         });

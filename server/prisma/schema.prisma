@@ -55,6 +55,7 @@ enum ApplicableCategory {
 }
 
 enum AuditAction {
+  ACCESS
   CREATE
   UPDATE
   DELETE
@@ -62,6 +63,8 @@ enum AuditAction {
   REJECT
   ROLE_CHANGE
   LOGIN
+  LOGOUT
+  REGISTER
 }
 
 enum DeckSessionMode {
@@ -278,7 +281,7 @@ model StudyDeck {
   title       String
   description String?
   subject     String?
-  category    ApplicableCategory @default(GENERAL_EDUCATION)
+  category    ApplicableCategory?
   visibility  Visibility         @default(DRAFT)
   createdBy   String             @map("created_by") @db.Uuid
   createdAt   DateTime           @default(now()) @map("created_at")

@@ -58,7 +58,6 @@ interface ReportItem {
     subject: string;
     attemptsCount: number;
     averageScore: number;
-    passRate: number;
     highestScore: number;
     lowestScore: number;
 }

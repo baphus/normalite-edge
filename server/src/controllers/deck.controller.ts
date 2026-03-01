@@ -64,6 +64,9 @@ export const deckController = {
             entityType: 'study_deck',
             entityId: deck.id,
             summary: `Created study deck: ${deck.title}`,
+            metadata: {
+                title: deck.title,
+            },
         });
 
         ApiResponse.created(res, deck, 'Study deck created');
@@ -86,6 +89,9 @@ export const deckController = {
             entityType: 'study_deck',
             entityId: deck.id,
             summary: `Updated study deck: ${deck.title}`,
+            metadata: {
+                title: deck.title,
+            },
         });
 
         ApiResponse.success(res, deck, 'Study deck updated');

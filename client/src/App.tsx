@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import RoleRoute from './routes/RoleRoute';
@@ -19,20 +19,28 @@ import StudyHubPage from './pages/StudyHubPage';
 import StudySessionPage from './pages/StudySessionPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ManageMaterialsPage from './pages/ManageMaterialsPage';
+import MaterialViewPage from './pages/MaterialViewPage';
 import AchievementsPage from './pages/AchievementsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
 import VideoConferencePage from './pages/VideoConferencePage';
 import CustomDeckPage from './pages/CustomDeckPage';
-import ExamPerformancePage from './pages/ExamPerformancePage';
 import LogsPage from './pages/LogsPage';
 import CreateExamPage from './pages/CreateExamPage';
+import ManageExamViewPage from './pages/ManageExamViewPage';
+import ManageExamSubmissionsPage from './pages/ManageExamSubmissionsPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ZoomMeetingPage from './pages/ZoomMeetingPage';
 import StudentManagementPage from './pages/StudentManagementPage';
 
 import LandingPage from './pages/LandingPage';
+
+function LegacyManageExamAnalyticsRedirect() {
+  const { id } = useParams<{ id: string }>();
+  if (!id) return <Navigate to="/manage-exams" replace />;
+  return <Navigate to={`/manage-exams/${id}/submissions`} replace />;
+}
 
 function App() {
   return (
@@ -68,11 +76,14 @@ function App() {
               <Route element={<RoleRoute allowedRoles={['ADMIN', 'REVIEWER']} />}>
                 <Route path="/materials" element={<ManageMaterialsPage />} />
                 <Route path="/materials/create" element={<CustomDeckPage />} />
+                <Route path="/materials/:id/view" element={<MaterialViewPage />} />
                 <Route path="/materials/:id/edit" element={<CustomDeckPage />} />
                 <Route path="/manage-exams" element={<ManageExamsPage />} />
                 <Route path="/manage-exams/create" element={<CreateExamPage />} />
+                <Route path="/manage-exams/:id/view" element={<ManageExamViewPage />} />
+                <Route path="/manage-exams/:id/submissions" element={<ManageExamSubmissionsPage />} />
                 <Route path="/manage-exams/:id/edit" element={<CreateExamPage />} />
-                <Route path="/manage-exams/:id/analytics" element={<ExamPerformancePage />} />
+                <Route path="/manage-exams/:id/analytics" element={<LegacyManageExamAnalyticsRedirect />} />
                 <Route path="/students" element={<StudentManagementPage />} />
                 <Route path="/reviewer/students" element={<Navigate to="/students" replace />} />
                 <Route path="/admin/students" element={<Navigate to="/students" replace />} />

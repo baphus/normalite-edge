@@ -2,6 +2,18 @@ import crypto from 'crypto';
 import { env } from '../config/env';
 import { ApiError } from '../utils/ApiError';
 
+type CloudinaryUploadPayload = {
+    secure_url?: string;
+    public_id?: string;
+    width?: number;
+    height?: number;
+    bytes?: number;
+    format?: string;
+    error?: {
+        message?: string;
+    };
+};
+
 export class CloudinaryService {
     private getConfig() {
         const cloudName = env.CLOUDINARY_CLOUD_NAME;
@@ -38,7 +50,10 @@ export class CloudinaryService {
             body: formData,
         });
 
-        const payload = await response.json();
+        const payloadUnknown: unknown = await response.json();
+        const payload = (payloadUnknown && typeof payloadUnknown === 'object'
+            ? payloadUnknown
+            : {}) as CloudinaryUploadPayload;
 
         if (!response.ok) {
             const message = payload?.error?.message || 'Failed to upload image to Cloudinary';

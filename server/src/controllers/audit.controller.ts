@@ -5,7 +5,7 @@ import { auditService } from '../services/audit.service';
 
 export const auditController = {
     listLogs: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, action, entityType, actorId, search } = req.query;
+        const { page, limit, action, entityType, actorId, actorRole, from, to, search } = req.query;
 
         const result = await auditService.listLogs({
             page: page ? parseInt(page as string) : undefined,
@@ -13,6 +13,9 @@ export const auditController = {
             action: action as string | undefined,
             entityType: entityType as string | undefined,
             actorId: actorId as string | undefined,
+            actorRole: actorRole as string | undefined,
+            from: from as string | undefined,
+            to: to as string | undefined,
             search: search as string | undefined,
         });
 

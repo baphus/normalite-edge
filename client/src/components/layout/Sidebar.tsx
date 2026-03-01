@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
 
     // Admin specific
     { name: 'User Management', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
-    { name: 'System Logs', href: '/admin/logs', icon: ShieldCheck, roles: ['ADMIN'] },
+    { name: 'Audit Logs', href: '/admin/logs', icon: ShieldCheck, roles: ['ADMIN'] },
 
     // Common
     { name: 'Conferences', href: '/conferences', icon: Video, roles: ['ADMIN', 'REVIEWER', 'REVIEWEE'] },
@@ -71,11 +71,13 @@ const Sidebar: React.FC = () => {
         }
     }, [user, location.pathname]);
 
+    const isStaff = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
+
     return (
-        <div className="flex flex-col w-64 h-screen bg-white border-r border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="p-6">
+        <div className="flex flex-col w-60 h-screen bg-white border-r border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="px-4 py-5 border-b border-slate-100">
                 <div className="flex items-center gap-3 text-primary">
-                    <div className="h-10 w-10 overflow-hidden rounded-sm">
+                    <div className="h-9 w-9 overflow-hidden rounded-sm">
                         <img
                             src="/NormaliteEdgeLogo.png"
                             alt="Normalite EDGE logo mark"
@@ -87,24 +89,26 @@ const Sidebar: React.FC = () => {
                         <p className="text-primary/90 text-[10px] font-medium">Everyday Digital Guide to Excellence</p>
                     </div>
                 </div>
-                {/* Removed portal role text as requested */}
+                {isStaff && (
+                    <p className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Management Workspace</p>
+                )}
             </div>
 
-            <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">
+            <nav className="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto">
                 {filteredNavItems.map((item) => (
                     <NavLink
                         key={item.href}
                         to={item.href}
                         className={({ isActive }) =>
                             cn(
-                                "relative flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors",
+                                "relative flex items-center gap-2.5 px-3 py-2.5 text-[13px] rounded-lg transition-colors",
                                 isActive
                                     ? "bg-primary/10 text-primary font-semibold border-r-4 border-r-primary"
                                     : "text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-800"
                             )
                         }
                     >
-                        <item.icon className="w-5 h-5" />
+                        <item.icon className="w-4.5 h-4.5" />
                         <span className="flex-1">{item.name}</span>
                         {item.href === '/notifications' && unreadCount > 0 && (
                             <span className="absolute right-4 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
@@ -115,12 +119,12 @@ const Sidebar: React.FC = () => {
                 ))}
             </nav>
 
-            <div className="p-4 border-t border-slate-100 mt-auto">
+            <div className="p-3 border-t border-slate-100 mt-auto">
                 <NavLink
                     to="/profile"
                     className={({ isActive }) =>
                         cn(
-                            "bg-slate-50 p-4 rounded-xl flex items-center gap-3 mb-3 transition-colors cursor-pointer group border border-transparent",
+                            "bg-slate-50 p-3 rounded-xl flex items-center gap-2.5 mb-2.5 transition-colors cursor-pointer group border border-transparent",
                             isActive ? "border-primary/60 ring-2 ring-primary/10" : "hover:border-primary/20"
                         )
                     }
@@ -157,9 +161,9 @@ const Sidebar: React.FC = () => {
                 </NavLink>
                 <button
                     onClick={logout}
-                    className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-red-600 hover:bg-slate-50 rounded-lg transition-colors"
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] font-medium text-red-600 hover:bg-slate-50 rounded-lg transition-colors"
                 >
-                    <LogOut className="w-5 h-5" />
+                    <LogOut className="w-4.5 h-4.5" />
                     Logout
                 </button>
             </div>

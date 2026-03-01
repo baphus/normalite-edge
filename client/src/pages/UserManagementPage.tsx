@@ -1,10 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
     Clock,
+    Columns3,
     Edit,
+    Eye,
+    Filter,
     MoreVertical,
     Search,
     Shield,
@@ -42,6 +48,7 @@ import {
 } from '@/components/ui/select';
 import {
     DropdownMenu,
+    DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
@@ -52,6 +59,10 @@ import api from '@/lib/axios';
 
 type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 type UiStatus = 'active' | 'pending' | 'inactive';
+type ApiStatus = 'PENDING' | 'ACTIVE' | 'DISABLED' | 'APPROVED' | 'REJECTED';
+type UserColumn = 'user' | 'academic' | 'role' | 'status' | 'joined';
+type SortDirection = 'asc' | 'desc';
+type SortKey = 'name' | 'program' | 'role' | 'status' | 'dateJoined';
 
 interface User {
     id: string;
@@ -70,7 +81,7 @@ interface UserApiItem {
     name: string;
     email: string;
     role: UserRole;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    status: ApiStatus;
     program?: string | null;
     major?: string | null;
     yearLevel?: string | null;
@@ -79,14 +90,14 @@ interface UserApiItem {
 }
 
 const statusFromApi = (status: UserApiItem['status']): UiStatus => {
-    if (status === 'APPROVED') return 'active';
-    if (status === 'REJECTED') return 'inactive';
+    if (status === 'ACTIVE' || status === 'APPROVED') return 'active';
+    if (status === 'DISABLED' || status === 'REJECTED') return 'inactive';
     return 'pending';
 };
 
-const statusToApi = (status: UiStatus): UserApiItem['status'] => {
-    if (status === 'active') return 'APPROVED';
-    if (status === 'inactive') return 'REJECTED';
+const statusToApi = (status: UiStatus): ApiStatus => {
+    if (status === 'active') return 'ACTIVE';
+    if (status === 'inactive') return 'DISABLED';
     return 'PENDING';
 };
 
@@ -114,6 +125,26 @@ const statusBadgeClass: Record<UiStatus, string> = {
     inactive: 'bg-rose-50 text-rose-700 border-rose-100',
 };
 
+const statusRank: Record<UiStatus, number> = {
+    active: 3,
+    pending: 2,
+    inactive: 1,
+};
+
+const columnLabels: Record<UserColumn, string> = {
+    user: 'User',
+    academic: 'Academic',
+    role: 'Role',
+    status: 'Status',
+    joined: 'Joined',
+};
+
+const formatDate = (value: string) => new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+});
+
 const UserManagementPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [totalUsers, setTotalUsers] = useState(0);
@@ -126,9 +157,19 @@ const UserManagementPage: React.FC = () => {
     const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
     const [statusFilter, setStatusFilter] = useState<'ALL' | UiStatus>('ALL');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [editRole, setEditRole] = useState<UserRole>('REVIEWEE');
-    const [editStatus, setEditStatus] = useState<UiStatus>('pending');
+    const [editStatus, setEditStatus] = useState<UiStatus>('active');
+    const [sortBy, setSortBy] = useState<SortKey>('dateJoined');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+    const [visibleColumns, setVisibleColumns] = useState<Record<UserColumn, boolean>>({
+        user: true,
+        academic: true,
+        role: true,
+        status: true,
+        joined: true,
+    });
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -167,23 +208,16 @@ const UserManagementPage: React.FC = () => {
         return () => clearTimeout(timeout);
     }, [search]);
 
+    const handleView = (user: User) => {
+        setSelectedUser(user);
+        setIsViewModalOpen(true);
+    };
+
     const handleEdit = (user: User) => {
         setSelectedUser(user);
         setEditRole(user.role);
         setEditStatus(user.status);
         setIsEditModalOpen(true);
-    };
-
-    const handleStatusChange = async (user: User, newStatus: UiStatus) => {
-        try {
-            setMutatingId(user.id);
-            await api.patch(`/users/${user.id}/status`, { status: statusToApi(newStatus) });
-            await fetchUsers();
-        } catch (error: any) {
-            window.alert(error?.response?.data?.message || 'Failed to update status');
-        } finally {
-            setMutatingId(null);
-        }
     };
 
     const handleDelete = async (user: User) => {
@@ -229,6 +263,38 @@ const UserManagementPage: React.FC = () => {
         }
     };
 
+    const handleSort = (key: SortKey) => {
+        if (sortBy === key) {
+            setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+            return;
+        }
+        setSortBy(key);
+        setSortDirection('asc');
+    };
+
+    const sortedUsers = useMemo(() => {
+        const copy = [...users];
+        copy.sort((first, second) => {
+            let value = 0;
+
+            if (sortBy === 'name') {
+                value = first.name.localeCompare(second.name);
+            } else if (sortBy === 'program') {
+                value = first.program.localeCompare(second.program);
+            } else if (sortBy === 'role') {
+                value = first.role.localeCompare(second.role);
+            } else if (sortBy === 'status') {
+                value = statusRank[first.status] - statusRank[second.status];
+            } else {
+                value = new Date(first.dateJoined).getTime() - new Date(second.dateJoined).getTime();
+            }
+
+            return sortDirection === 'asc' ? value : -value;
+        });
+
+        return copy;
+    }, [users, sortBy, sortDirection]);
+
     const summary = useMemo(() => {
         const active = users.filter((u) => u.status === 'active').length;
         const pending = users.filter((u) => u.status === 'pending').length;
@@ -236,105 +302,147 @@ const UserManagementPage: React.FC = () => {
         return { active, pending, inactive };
     }, [users]);
 
+    const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length + 1;
     const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
     const fromCount = totalUsers === 0 ? 0 : (page - 1) * limit + 1;
     const toCount = Math.min(page * limit, totalUsers);
 
+    const renderSortIcon = (key: SortKey) => {
+        if (sortBy !== key) return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+        if (sortDirection === 'asc') return <ArrowUp className="w-3.5 h-3.5 text-primary" />;
+        return <ArrowDown className="w-3.5 h-3.5 text-primary" />;
+    };
+
+    const resetFilters = () => {
+        setRoleFilter('ALL');
+        setStatusFilter('ALL');
+        setPage(1);
+    };
+
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-10">
-            <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">User Management</h1>
-                    <p className="text-sm text-gray-500 font-medium">Compact view of accounts, roles, profile info, and access status.</p>
-                </div>
+        <div className="flex flex-col gap-4 font-lexend pb-8">
+            <header className="flex flex-col gap-1">
+                <h1 className="text-2xl font-black text-gray-900 tracking-tight">User Management</h1>
+                <p className="text-sm text-gray-500 font-medium">Compact view of accounts, roles, profile info, and access status.</p>
             </header>
 
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-4 flex items-center justify-between">
+                    <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total</p>
-                            <p className="text-2xl font-black text-gray-900">{totalUsers}</p>
+                            <p className="text-xl font-black text-gray-900">{totalUsers}</p>
                         </div>
                         <UserCog className="w-5 h-5 text-primary" />
                     </CardContent>
                 </Card>
                 <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-4 flex items-center justify-between">
+                    <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Active</p>
-                            <p className="text-2xl font-black text-green-700">{summary.active}</p>
+                            <p className="text-xl font-black text-green-700">{summary.active}</p>
                         </div>
                         <CheckCircle2 className="w-5 h-5 text-green-700" />
                     </CardContent>
                 </Card>
                 <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-4 flex items-center justify-between">
+                    <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pending</p>
-                            <p className="text-2xl font-black text-amber-700">{summary.pending}</p>
+                            <p className="text-xl font-black text-amber-700">{summary.pending}</p>
                         </div>
                         <Clock className="w-5 h-5 text-amber-700" />
                     </CardContent>
                 </Card>
                 <Card className="border-gray-100 rounded-2xl shadow-sm">
-                    <CardContent className="p-4 flex items-center justify-between">
+                    <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Inactive</p>
-                            <p className="text-2xl font-black text-rose-700">{summary.inactive}</p>
+                            <p className="text-xl font-black text-rose-700">{summary.inactive}</p>
                         </div>
                         <UserX className="w-5 h-5 text-rose-700" />
                     </CardContent>
                 </Card>
             </section>
 
-            <section className="rounded-2xl border border-gray-100 bg-white p-3 md:p-4 shadow-sm space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2">
-                    <div className="relative group">
+            <section className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm space-y-3">
+                <div className="flex flex-col md:flex-row gap-2 md:items-center">
+                    <div className="relative group flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary" />
                         <Input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder="Search name, email, or program"
-                            className="h-10 pl-9 rounded-xl border-gray-200"
+                            className="h-9 pl-9 rounded-xl border-gray-200"
                         />
                     </div>
 
-                    <Select
-                        value={roleFilter}
-                        onValueChange={(value) => {
-                            setPage(1);
-                            setRoleFilter(value as 'ALL' | UserRole);
-                        }}
-                    >
-                        <SelectTrigger className="h-10 w-full md:w-42.5 rounded-xl border-gray-200 bg-white font-semibold">
-                            <SelectValue placeholder="Filter role" />
-                        </SelectTrigger>
-                        <SelectContent className="font-lexend">
-                            <SelectItem value="ALL">All Roles</SelectItem>
-                            <SelectItem value="REVIEWEE">Reviewee</SelectItem>
-                            <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                            <SelectItem value="ADMIN">Admin</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="h-9 rounded-xl border-gray-200 text-xs font-semibold gap-2">
+                                <Filter className="w-3.5 h-3.5" /> Filters
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64 p-3 font-lexend space-y-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Role</Label>
+                                <Select value={roleFilter} onValueChange={(value) => { setPage(1); setRoleFilter(value as 'ALL' | UserRole); }}>
+                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="ALL">All Roles</SelectItem>
+                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                    <Select
-                        value={statusFilter}
-                        onValueChange={(value) => {
-                            setPage(1);
-                            setStatusFilter(value as 'ALL' | UiStatus);
-                        }}
-                    >
-                        <SelectTrigger className="h-10 w-full md:w-42.5 rounded-xl border-gray-200 bg-white font-semibold">
-                            <SelectValue placeholder="Filter status" />
-                        </SelectTrigger>
-                        <SelectContent className="font-lexend">
-                            <SelectItem value="ALL">All Status</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
-                        </SelectContent>
-                    </Select>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Status</Label>
+                                <Select value={statusFilter} onValueChange={(value) => { setPage(1); setStatusFilter(value as 'ALL' | UiStatus); }}>
+                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="ALL">All Status</SelectItem>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="pending">Pending</SelectItem>
+                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <Button variant="outline" className="h-8 w-full rounded-lg border-gray-200 text-xs font-semibold" onClick={resetFilters}>
+                                Reset filters
+                            </Button>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="h-9 rounded-xl border-gray-200 text-xs font-semibold gap-2">
+                                <Columns3 className="w-3.5 h-3.5" /> Columns
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="font-lexend min-w-44">
+                            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-gray-500">Visible columns</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {(Object.keys(visibleColumns) as UserColumn[]).map((key) => (
+                                <DropdownMenuCheckboxItem
+                                    key={key}
+                                    checked={visibleColumns[key]}
+                                    onCheckedChange={(checked) => {
+                                        setVisibleColumns((prev) => ({ ...prev, [key]: checked === true }));
+                                    }}
+                                    className="text-xs font-semibold"
+                                >
+                                    {columnLabels[key]}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {errorMessage && (
@@ -348,90 +456,124 @@ const UserManagementPage: React.FC = () => {
                         <Table>
                             <TableHeader className="bg-gray-50/80">
                                 <TableRow className="border-gray-100">
-                                    <TableHead className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">User</TableHead>
-                                    <TableHead className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Academic</TableHead>
-                                    <TableHead className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Role</TableHead>
-                                    <TableHead className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Status</TableHead>
-                                    <TableHead className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Joined</TableHead>
-                                    <TableHead className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Action</TableHead>
+                                    {visibleColumns.user && (
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 min-w-64">
+                                            <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('name')}>
+                                                User {renderSortIcon('name')}
+                                            </button>
+                                        </TableHead>
+                                    )}
+                                    {visibleColumns.academic && (
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 min-w-52">
+                                            <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('program')}>
+                                                Academic {renderSortIcon('program')}
+                                            </button>
+                                        </TableHead>
+                                    )}
+                                    {visibleColumns.role && (
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                            <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('role')}>
+                                                Role {renderSortIcon('role')}
+                                            </button>
+                                        </TableHead>
+                                    )}
+                                    {visibleColumns.status && (
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                            <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('status')}>
+                                                Status {renderSortIcon('status')}
+                                            </button>
+                                        </TableHead>
+                                    )}
+                                    {visibleColumns.joined && (
+                                        <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                            <button type="button" className="inline-flex items-center gap-1.5" onClick={() => handleSort('dateJoined')}>
+                                                Joined {renderSortIcon('dateJoined')}
+                                            </button>
+                                        </TableHead>
+                                    )}
+                                    <TableHead className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="px-4 py-9 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
+                                        <TableCell colSpan={visibleColumnCount} className="px-3 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
                                             Loading users...
                                         </TableCell>
                                     </TableRow>
-                                ) : users.length === 0 ? (
+                                ) : sortedUsers.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="px-4 py-9 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
+                                        <TableCell colSpan={visibleColumnCount} className="px-3 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
                                             No users found
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    users.map((user) => (
+                                    sortedUsers.map((user) => (
                                         <TableRow key={user.id} className="border-gray-100 hover:bg-gray-50/70 align-top">
-                                            <TableCell className="px-4 py-3 min-w-60">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-black shrink-0">
-                                                        {user.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}
+                                            {visibleColumns.user && (
+                                                <TableCell className="px-3 py-2.5 min-w-64">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[11px] font-black shrink-0">
+                                                            {user.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
+                                                            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
-                                                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                                                        <p className="text-[10px] text-gray-400 mt-1">ID: {user.id.slice(0, 8)}</p>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="px-4 py-3 min-w-52.5">
-                                                <p className="text-sm font-semibold text-gray-800 leading-tight">{user.program}</p>
-                                                <p className="text-xs text-gray-500 leading-tight mt-1">{user.major}</p>
-                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mt-1">{user.yearSection}</p>
-                                            </TableCell>
-                                            <TableCell className="px-4 py-3">
-                                                <Badge variant="outline" className={`text-[10px] uppercase tracking-widest font-black border ${roleBadgeClass[user.role]}`}>
-                                                    {user.role}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="px-4 py-3">
-                                                <Badge variant="outline" className={`text-[10px] uppercase tracking-widest font-black border ${statusBadgeClass[user.status]}`}>
-                                                    {user.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="px-4 py-3 text-xs font-semibold text-gray-600">
-                                                {new Date(user.dateJoined).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                })}
-                                            </TableCell>
-                                            <TableCell className="px-4 py-3 text-right">
+                                                </TableCell>
+                                            )}
+
+                                            {visibleColumns.academic && (
+                                                <TableCell className="px-3 py-2.5 min-w-52">
+                                                    <p className="text-sm font-semibold text-gray-800 leading-tight">{user.program}</p>
+                                                    <p className="text-xs text-gray-500 leading-tight mt-0.5">{user.major}</p>
+                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mt-1">{user.yearSection}</p>
+                                                </TableCell>
+                                            )}
+
+                                            {visibleColumns.role && (
+                                                <TableCell className="px-3 py-2.5">
+                                                    <Badge variant="outline" className={`text-[10px] uppercase tracking-widest font-black border ${roleBadgeClass[user.role]}`}>
+                                                        {user.role}
+                                                    </Badge>
+                                                </TableCell>
+                                            )}
+
+                                            {visibleColumns.status && (
+                                                <TableCell className="px-3 py-2.5">
+                                                    <Badge variant="outline" className={`text-[10px] uppercase tracking-widest font-black border ${statusBadgeClass[user.status]}`}>
+                                                        {user.status}
+                                                    </Badge>
+                                                </TableCell>
+                                            )}
+
+                                            {visibleColumns.joined && (
+                                                <TableCell className="px-3 py-2.5 text-xs font-semibold text-gray-600">
+                                                    {formatDate(user.dateJoined)}
+                                                </TableCell>
+                                            )}
+
+                                            <TableCell className="px-3 py-2.5 text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={mutatingId === user.id}>
                                                             <MoreVertical className="w-4 h-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="font-lexend min-w-44">
-                                                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-gray-500">Quick actions</DropdownMenuLabel>
+                                                    <DropdownMenuContent align="end" className="font-lexend min-w-40">
+                                                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-gray-500">Actions</DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => handleEdit(user)} className="font-semibold gap-2">
-                                                            <Edit className="w-4 h-4" /> Edit user
+                                                        <DropdownMenuItem onClick={() => handleView(user)} className="font-semibold gap-2 text-xs">
+                                                            <Eye className="w-4 h-4" /> View
                                                         </DropdownMenuItem>
-                                                        {user.status !== 'active' ? (
-                                                            <DropdownMenuItem onClick={() => handleStatusChange(user, 'active')} className="font-semibold gap-2">
-                                                                <CheckCircle2 className="w-4 h-4" /> Activate
-                                                            </DropdownMenuItem>
-                                                        ) : (
-                                                            <DropdownMenuItem onClick={() => handleStatusChange(user, 'inactive')} className="font-semibold gap-2">
-                                                                <UserX className="w-4 h-4" /> Deactivate
-                                                            </DropdownMenuItem>
-                                                        )}
+                                                        <DropdownMenuItem onClick={() => handleEdit(user)} className="font-semibold gap-2 text-xs">
+                                                            <Edit className="w-4 h-4" /> Edit
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
                                                             onClick={() => handleDelete(user)}
-                                                            className="font-semibold gap-2 text-rose-700 focus:text-rose-700 focus:bg-rose-50"
+                                                            className="font-semibold gap-2 text-xs text-rose-700 focus:text-rose-700 focus:bg-rose-50"
                                                         >
                                                             <Trash2 className="w-4 h-4" /> Delete
                                                         </DropdownMenuItem>
@@ -475,6 +617,46 @@ const UserManagementPage: React.FC = () => {
                     </div>
                 </div>
             </section>
+
+            <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+                <DialogContent className="sm:max-w-md rounded-2xl font-lexend">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black text-gray-900 flex items-center gap-2">
+                            <Eye className="w-5 h-5 text-primary" /> User Details
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-gray-500">
+                            Profile and access summary.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedUser && (
+                        <div className="grid gap-3 py-1">
+                            <div className="rounded-xl border border-gray-100 p-3">
+                                <p className="text-sm font-bold text-gray-900">{selectedUser.name}</p>
+                                <p className="text-xs text-gray-500">{selectedUser.email}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-xl border border-gray-100 p-3">
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Role</p>
+                                    <p className="text-sm font-semibold text-gray-800 mt-1">{selectedUser.role}</p>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 p-3">
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Status</p>
+                                    <p className="text-sm font-semibold text-gray-800 mt-1">{selectedUser.status}</p>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 p-3">
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Program</p>
+                                    <p className="text-sm font-semibold text-gray-800 mt-1">{selectedUser.program}</p>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 p-3">
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Joined</p>
+                                    <p className="text-sm font-semibold text-gray-800 mt-1">{formatDate(selectedUser.dateJoined)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
                 <DialogContent className="sm:max-w-md rounded-2xl font-lexend">

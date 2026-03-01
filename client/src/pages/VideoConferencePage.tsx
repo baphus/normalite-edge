@@ -3,37 +3,101 @@ import { Calendar, Clock3, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/axios';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Session {
     id: string;
+    description?: string;
     title: string;
     meetingLink?: string;
-    platform?: string;
     scheduledDate: string;
     startTime: string;
     endTime: string;
+    programTrack?: string | null;
     creator?: {
         name: string;
     };
 }
 
+interface SessionFormState {
+    title: string;
+    description: string;
+    meetingLink: string;
+    scheduledDate: string;
+    startTime: string;
+    endTime: string;
+    programTrack: string;
+}
+
+const INITIAL_FORM_STATE: SessionFormState = {
+    title: '',
+    description: '',
+    meetingLink: '',
+    scheduledDate: '',
+    startTime: '',
+    endTime: '',
+    programTrack: '',
+};
+
 const VideoConferencePage: React.FC = () => {
+    const { user } = useAuth();
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
+    const [creating, setCreating] = useState(false);
+    const [createError, setCreateError] = useState('');
+    const [createSuccess, setCreateSuccess] = useState('');
+    const [form, setForm] = useState<SessionFormState>(INITIAL_FORM_STATE);
+
+    const canCreateConference = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
+
+    const mapSession = (session: any): Session => {
+        const startAt = session.startAt ? new Date(session.startAt) : null;
+        const endAt = session.endAt ? new Date(session.endAt) : null;
+        const formattedStart = startAt
+            ? `${startAt.getHours().toString().padStart(2, '0')}:${startAt.getMinutes().toString().padStart(2, '0')}`
+            : session.startTime;
+        const formattedEnd = endAt
+            ? `${endAt.getHours().toString().padStart(2, '0')}:${endAt.getMinutes().toString().padStart(2, '0')}`
+            : session.endTime;
+
+        return {
+            id: session.id,
+            title: session.title,
+            description: session.description,
+            meetingLink: session.meetingLink,
+            scheduledDate: session.scheduledDate || session.startAt,
+            startTime: formattedStart,
+            endTime: formattedEnd,
+            programTrack: session.programTrack ?? session.program_track ?? null,
+            creator: session.creator,
+        };
+    };
+
+    const fetchSessions = async () => {
+        setLoading(true);
+        try {
+            const response = await api.get('/sessions');
+            const payload = response.data?.data;
+            const list = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.items)
+                    ? payload.items
+                    : [];
+
+            setSessions(list.map(mapSession));
+        } catch (error) {
+            console.error('Failed to fetch sessions', error);
+            setSessions([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchSessions = async () => {
-            try {
-                const response = await api.get('/sessions');
-                setSessions(response.data.data.items || response.data.data);
-            } catch (error) {
-                console.error('Failed to fetch sessions', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchSessions();
     }, []);
 
@@ -66,6 +130,58 @@ const VideoConferencePage: React.FC = () => {
     const formatDate = (value: string) =>
         new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
+    const handleFieldChange = (field: keyof SessionFormState, value: string) => {
+        setForm((previous) => ({ ...previous, [field]: value }));
+    };
+
+    const handleCreateConference = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setCreateError('');
+        setCreateSuccess('');
+
+        const hasRequiredFields =
+            form.title.trim()
+            && form.meetingLink.trim()
+            && form.scheduledDate
+            && form.startTime
+            && form.endTime;
+
+        if (!hasRequiredFields) {
+            setCreateError('Please complete all required fields.');
+            return;
+        }
+
+        if (form.endTime <= form.startTime) {
+            setCreateError('End time must be later than start time.');
+            return;
+        }
+
+        setCreating(true);
+        try {
+            const scheduledDateIso = new Date(`${form.scheduledDate}T00:00:00.000Z`).toISOString();
+
+            await api.post('/sessions', {
+                title: form.title.trim(),
+                description: form.description.trim() || undefined,
+                meetingLink: form.meetingLink.trim(),
+                platform: 'ONLINE',
+                scheduledDate: scheduledDateIso,
+                startTime: form.startTime,
+                endTime: form.endTime,
+                program_track: form.programTrack.trim() || undefined,
+            });
+
+            setForm(INITIAL_FORM_STATE);
+            setCreateSuccess('Conference created successfully.');
+            await fetchSessions();
+        } catch (error: any) {
+            const message = error?.response?.data?.message || 'Failed to create conference.';
+            setCreateError(message);
+        } finally {
+            setCreating(false);
+        }
+    };
+
     const renderSessionSection = (
         title: string,
         description: string,
@@ -96,7 +212,11 @@ const VideoConferencePage: React.FC = () => {
                                     <span className="inline-flex items-center gap-1"><Calendar size={14} /> {formatDate(session.scheduledDate)}</span>
                                     <span className="inline-flex items-center gap-1"><Clock3 size={14} /> {session.startTime} - {session.endTime}</span>
                                     <span>Host: {session.creator?.name || 'Unavailable'}</span>
+                                    {session.programTrack && <span>Track: {session.programTrack}</span>}
                                 </div>
+                                {session.description && (
+                                    <p className="text-xs text-gray-600 font-medium">{session.description}</p>
+                                )}
                             </div>
                             {session.meetingLink ? (
                                 <a href={session.meetingLink} target="_blank" rel="noreferrer" className="md:ml-auto">
@@ -117,13 +237,117 @@ const VideoConferencePage: React.FC = () => {
     );
 
     return (
-        <div className="flex flex-col gap-8 font-lexend pb-10">
-            <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex flex-col gap-5 font-lexend pb-8">
+            <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Video Conferences</h1>
-                    <p className="text-gray-500 font-medium tracking-tight">View and join your online conferences.</p>
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Video Conferences</h1>
+                    <p className="text-gray-500 font-medium tracking-tight">View, join, and manage your online conferences.</p>
                 </div>
             </header>
+
+            {canCreateConference && (
+                <Card className="rounded-3xl border-gray-100 shadow-sm">
+                    <CardHeader>
+                        <CardTitle className="text-xl font-bold text-gray-900">Create Conference</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleCreateConference} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2 md:col-span-2">
+                                <Label htmlFor="conference-title">Title</Label>
+                                <Input
+                                    id="conference-title"
+                                    value={form.title}
+                                    onChange={(event) => handleFieldChange('title', event.target.value)}
+                                    placeholder="LET Coaching Conference"
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <Label htmlFor="conference-description">Description</Label>
+                                <Textarea
+                                    id="conference-description"
+                                    value={form.description}
+                                    onChange={(event) => handleFieldChange('description', event.target.value)}
+                                    placeholder="Agenda and session details"
+                                />
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <Label htmlFor="conference-link">Meeting Link</Label>
+                                <Input
+                                    id="conference-link"
+                                    type="url"
+                                    value={form.meetingLink}
+                                    onChange={(event) => handleFieldChange('meetingLink', event.target.value)}
+                                    placeholder="https://..."
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="conference-date">Date</Label>
+                                <Input
+                                    id="conference-date"
+                                    type="date"
+                                    value={form.scheduledDate}
+                                    onChange={(event) => handleFieldChange('scheduledDate', event.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="conference-track">Program Track (Optional)</Label>
+                                <Input
+                                    id="conference-track"
+                                    value={form.programTrack}
+                                    onChange={(event) => handleFieldChange('programTrack', event.target.value)}
+                                    placeholder={user?.programTrack || user?.program_track || 'All tracks'}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="conference-start">Start Time</Label>
+                                <Input
+                                    id="conference-start"
+                                    type="time"
+                                    value={form.startTime}
+                                    onChange={(event) => handleFieldChange('startTime', event.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="conference-end">End Time</Label>
+                                <Input
+                                    id="conference-end"
+                                    type="time"
+                                    value={form.endTime}
+                                    onChange={(event) => handleFieldChange('endTime', event.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            {createError && (
+                                <p className="text-sm font-medium text-red-600 md:col-span-2">{createError}</p>
+                            )}
+                            {createSuccess && (
+                                <p className="text-sm font-medium text-green-600 md:col-span-2">{createSuccess}</p>
+                            )}
+
+                            <div className="md:col-span-2 flex justify-end">
+                                <Button
+                                    type="submit"
+                                    disabled={creating}
+                                    className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-bold"
+                                >
+                                    {creating ? 'Creating...' : 'Create Conference'}
+                                </Button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+            )}
 
             {loading ? (
                 <Card className="rounded-3xl border-gray-100 shadow-sm">

@@ -148,6 +148,18 @@ export class AuthService {
             },
         });
 
+        await auditService.log({
+            actorId: user.id,
+            actorRole: user.role,
+            action: 'REGISTER',
+            entityType: 'user',
+            entityId: user.id,
+            summary: `User registered: ${user.email}`,
+            metadata: {
+                source: 'self-registration',
+            },
+        });
+
         return this.sanitizeUser(user);
     }
 
@@ -165,6 +177,13 @@ export class AuthService {
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
         if (!isPasswordValid) {
+            await auditService.log({
+                actorId: user.id,
+                actorRole: user.role,
+                action: 'REJECT',
+                entityType: 'auth',
+                summary: `Failed login attempt: ${user.email}`,
+            });
             throw ApiError.unauthorized('Invalid email or password');
         }
 
@@ -324,9 +343,17 @@ export class AuthService {
      * Invalidate refresh token (logout).
      */
     async logout(userId: string) {
-        await prisma.user.update({
+        const user = await prisma.user.update({
             where: { id: userId },
             data: { refreshTokenHash: null },
+        });
+
+        await auditService.log({
+            actorId: user.id,
+            actorRole: user.role,
+            action: 'LOGOUT',
+            entityType: 'auth',
+            summary: `User logged out: ${user.email}`,
         });
     }
 
@@ -405,6 +432,18 @@ export class AuthService {
                 track: {
                     select: { id: true, name: true, code: true },
                 },
+            },
+        });
+
+        await auditService.log({
+            actorId: user.id,
+            actorRole: user.role,
+            action: 'UPDATE',
+            entityType: 'user',
+            entityId: user.id,
+            summary: `Profile updated: ${user.email}`,
+            metadata: {
+                title: user.email,
             },
         });
 

@@ -13,7 +13,7 @@ export class DeckService {
             case 'SPECIALIZATION':
                 return 'Specialization';
             default:
-                return 'General Education';
+                return 'No Category';
         }
     }
 
@@ -152,7 +152,7 @@ export class DeckService {
         title: string;
         description?: string;
         subject?: string;
-        category: ApplicableCategory;
+        category?: ApplicableCategory | null;
         visibility?: Visibility;
         trackIds?: string[];
         questions?: {
@@ -254,7 +254,7 @@ export class DeckService {
             title?: string;
             description?: string;
             subject?: string;
-            category?: ApplicableCategory;
+            category?: ApplicableCategory | null;
             visibility?: Visibility;
             trackIds?: string[];
             questions?: {

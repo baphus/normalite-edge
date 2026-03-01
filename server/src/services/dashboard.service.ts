@@ -230,7 +230,20 @@ export class DashboardService {
      */
     async getAdminStats() {
         const now = new Date();
-        const [totalUsers, pendingUsers, totalExams, totalAttempts, totalMaterials, totalSessions, activeSessions] = await Promise.all([
+        const [
+            totalUsers,
+            pendingUsers,
+            totalExams,
+            totalAttempts,
+            totalMaterials,
+            totalSessions,
+            activeSessions,
+            recentMockExams,
+            recentMaterials,
+            recentSubmissions,
+            recentUsers,
+            recentAuditLogs,
+        ] = await Promise.all([
             prisma.user.count(),
             prisma.user.count({ where: { status: 'PENDING' } }),
             prisma.exam.count(),
@@ -238,6 +251,88 @@ export class DashboardService {
             prisma.studyDeck.count(),
             prisma.conference.count(),
             prisma.conference.count({ where: { startAt: { gte: now } } }),
+            prisma.exam.findMany({
+                select: {
+                    id: true,
+                    title: true,
+                    subject: true,
+                    programTrack: true,
+                    status: true,
+                    createdAt: true,
+                    creator: {
+                        select: {
+                            firstName: true,
+                            lastName: true,
+                            profilePicture: true,
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+            }),
+            prisma.studyDeck.findMany({
+                select: {
+                    id: true,
+                    title: true,
+                    category: true,
+                    visibility: true,
+                    createdAt: true,
+                    creator: {
+                        select: {
+                            firstName: true,
+                            lastName: true,
+                            profilePicture: true,
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+            }),
+            prisma.attempt.findMany({
+                where: { status: { not: 'IN_PROGRESS' } },
+                select: {
+                    id: true,
+                    percentage: true,
+                    submittedAt: true,
+                    updatedAt: true,
+                    user: {
+                        select: {
+                            firstName: true,
+                            lastName: true,
+                            profilePicture: true,
+                        },
+                    },
+                    exam: {
+                        select: {
+                            title: true,
+                        },
+                    },
+                },
+                orderBy: [{ submittedAt: 'desc' }, { updatedAt: 'desc' }],
+                take: 5,
+            }),
+            prisma.user.findMany({
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    programTrack: true,
+                    status: true,
+                    createdAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+            }),
+            prisma.auditLog.findMany({
+                select: {
+                    id: true,
+                    action: true,
+                    summary: true,
+                    createdAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+            }),
         ]);
 
         const usersByRole = await prisma.user.groupBy({
@@ -255,6 +350,45 @@ export class DashboardService {
             totalSessions,
             activeSessions,
             usersByRole: usersByRole.map((r) => ({ role: r.role, count: r._count })),
+            recentMockExams: recentMockExams.map((exam) => ({
+                id: exam.id,
+                title: exam.title,
+                program: exam.programTrack || exam.subject || 'General',
+                status: exam.status,
+                createdAt: exam.createdAt,
+                uploaderName: `${exam.creator.firstName} ${exam.creator.lastName}`.trim(),
+                uploaderAvatar: exam.creator.profilePicture,
+            })),
+            recentMaterials: recentMaterials.map((material) => ({
+                id: material.id,
+                title: material.title,
+                category: material.category,
+                visibility: material.visibility,
+                createdAt: material.createdAt,
+                uploaderName: `${material.creator.firstName} ${material.creator.lastName}`.trim(),
+                uploaderAvatar: material.creator.profilePicture,
+            })),
+            recentSubmissions: recentSubmissions.map((attempt) => ({
+                id: attempt.id,
+                student: `${attempt.user.firstName} ${attempt.user.lastName}`.trim(),
+                studentAvatar: attempt.user.profilePicture,
+                task: attempt.exam.title,
+                score: Number(attempt.percentage),
+                submittedAt: attempt.submittedAt || attempt.updatedAt,
+            })),
+            recentUsers: recentUsers.map((user) => ({
+                id: user.id,
+                name: `${user.firstName} ${user.lastName}`.trim(),
+                major: user.programTrack || 'General',
+                status: user.status,
+                createdAt: user.createdAt,
+            })),
+            activityFeed: recentAuditLogs.map((log) => ({
+                id: log.id,
+                title: log.summary || log.action,
+                sub: log.summary || `Action: ${log.action}`,
+                createdAt: log.createdAt,
+            })),
         };
     }
 }

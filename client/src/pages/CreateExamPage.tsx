@@ -700,7 +700,7 @@ const CreateExamPage: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col gap-8 font-lexend pb-10">
+        <div className="flex flex-col gap-5 font-lexend pb-8">
             {/* Header */}
             <header className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200 shadow-sm">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -710,7 +710,7 @@ const CreateExamPage: React.FC = () => {
                             <ChevronRight size={12} />
                             <span className="text-primary">{isEditing ? 'Edit Exam' : 'Create New'}</span>
                         </div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                             {isEditing ? 'Edit Mock Exam' : 'Admin Mock Exam Creator'}
                         </h1>
                         <p className="text-sm text-slate-500 font-medium mt-1.5">

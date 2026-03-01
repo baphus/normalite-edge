@@ -32,6 +32,9 @@ export const userController = {
             entityType: 'user',
             entityId: user.id,
             summary: `Admin created user ${user.email}`,
+            metadata: {
+                title: user.email,
+            },
         });
 
         ApiResponse.created(res, user, 'User created successfully');
@@ -47,6 +50,9 @@ export const userController = {
             entityType: 'user',
             entityId: user.id,
             summary: `Updated user status for ${user.email} to ${req.body.status}`,
+            metadata: {
+                title: user.email,
+            },
         });
 
         ApiResponse.success(res, user, `User ${req.body.status.toLowerCase()}`);
@@ -62,6 +68,9 @@ export const userController = {
             entityType: 'user',
             entityId: user.id,
             summary: `Updated user role for ${user.email} to ${req.body.role}`,
+            metadata: {
+                title: user.email,
+            },
         });
 
         ApiResponse.success(res, user, 'User role updated');

@@ -475,7 +475,7 @@ REQ-PROF-003 REVIEWEE SHALL view only their own profile.
 ## 7.5 Reports (Admin)
 
 REQ-REPORT-001 ADMIN SHALL generate reports by exam and program_track.
-REQ-REPORT-002 Reports SHALL include attempt counts, average score, highest/lowest score, and pass rate.
+REQ-REPORT-002 Reports SHALL include attempt counts, average score, and highest/lowest score.
 REQ-REPORT-003 Reports SHALL export to CSV and PDF.
 
 ---

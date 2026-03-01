@@ -29,6 +29,9 @@ export class AuditService {
         action?: string;
         entityType?: string;
         actorId?: string;
+        actorRole?: string;
+        from?: string;
+        to?: string;
         search?: string;
     }) {
         const page = params.page || 1;
@@ -39,12 +42,22 @@ export class AuditService {
         if (params.action) where.action = params.action;
         if (params.entityType) where.entityType = params.entityType;
         if (params.actorId) where.actorId = params.actorId;
+        if (params.actorRole) where.actorRole = params.actorRole;
+        if (params.from || params.to) {
+            where.createdAt = {
+                ...(params.from ? { gte: new Date(params.from) } : {}),
+                ...(params.to ? { lte: new Date(params.to) } : {}),
+            };
+        }
         if (params.search) {
             where.OR = [
                 { summary: { contains: params.search, mode: 'insensitive' } },
                 { entityType: { contains: params.search, mode: 'insensitive' } },
+                { action: { equals: params.search as any } },
+                { actorRole: { equals: params.search as any } },
                 { actor: { firstName: { contains: params.search, mode: 'insensitive' } } },
                 { actor: { lastName: { contains: params.search, mode: 'insensitive' } } },
+                { actor: { email: { contains: params.search, mode: 'insensitive' } } },
             ];
         }
 

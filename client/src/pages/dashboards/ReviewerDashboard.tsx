@@ -43,14 +43,14 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
     const performanceTable: any[] = [];
 
     return (
-        <div className="flex flex-col gap-8 font-lexend pb-10">
-            <header className="bg-white border border-gray-100 px-6 py-8 rounded-2xl shadow-sm relative overflow-hidden">
+        <div className="flex flex-col gap-5 font-lexend pb-8">
+            <header className="bg-white border border-gray-100 px-5 py-6 rounded-2xl shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
                 <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-secondary/5 rounded-full blur-3xl" />
 
                 <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="space-y-2">
-                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Welcome back, Reviewer!</h1>
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Welcome back, Reviewer!</h1>
                         <p className="text-gray-500 flex items-center gap-2 text-sm font-medium">
                             <Calendar size={16} />
                             <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
@@ -59,7 +59,7 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                         </p>
                     </div>
                     <Link to="/manage-exams/create">
-                        <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-12 px-6 flex gap-2">
+                        <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-4 flex gap-2 text-sm">
                             <Plus size={20} />
                             Create New Exam
                         </Button>
@@ -68,10 +68,10 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
             </header>
 
             {/* Stats Grid */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {reviewerStats.map((stat, i) => (
                     <Card key={i} className="border-gray-100 shadow-sm">
-                        <CardContent className="p-6">
+                        <CardContent className="p-4">
                             <div className="flex items-center justify-between mb-4">
                                 <div className={`p-2 rounded-lg ${stat.bg} ${stat.color}`}>
                                     <stat.icon size={24} />
@@ -87,7 +87,7 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                                 )}
                             </div>
                             <div>
-                                <h3 className="text-3xl font-bold text-gray-900">{stat.value}</h3>
+                                <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
                                 <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
                             </div>
                         </CardContent>
@@ -148,7 +148,6 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                                         <TableHead className="font-bold text-xs uppercase text-gray-400 py-4">Exam Title</TableHead>
                                         <TableHead className="font-bold text-xs uppercase text-gray-400 py-4">Attempts</TableHead>
                                         <TableHead className="font-bold text-xs uppercase text-gray-400 py-4">Avg Score</TableHead>
-                                        <TableHead className="font-bold text-xs uppercase text-gray-400 py-4">Pass Rate</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -157,9 +156,6 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                                             <TableCell className="font-bold text-gray-900">{row.title}</TableCell>
                                             <TableCell className="text-gray-500">{row.attempts}</TableCell>
                                             <TableCell className="text-gray-500 font-medium">{row.avg}</TableCell>
-                                            <TableCell>
-                                                <Badge className="bg-green-100 text-green-700 font-bold border-none">{row.passRate}</Badge>
-                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -171,7 +167,7 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                 {/* Right Column */}
                 <div className="flex flex-col gap-6">
                     {/* Action Required */}
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[#5a0000] p-6 text-white shadow-lg space-y-4">
+                    <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary to-[#5a0000] p-6 text-white shadow-lg space-y-4">
                         <div className="flex items-center gap-2 text-white/80">
                             <Gavel size={18} />
                             <span className="text-xs font-bold uppercase tracking-widest">Action Required</span>
