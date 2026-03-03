@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Bell,
     Lock,
     Globe,
     Shield,
@@ -25,7 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 
-type Section = 'notifications' | 'security' | 'system';
+type Section = 'security' | 'system';
 
 interface NavItem {
     id: Section;
@@ -39,7 +38,7 @@ const SettingsPage: React.FC = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'ADMIN';
 
-    const [activeSection, setActiveSection] = useState<Section>('notifications');
+    const [activeSection, setActiveSection] = useState<Section>('security');
 
     // Password state
     const [showCurrent, setShowCurrent] = useState(false);
@@ -56,12 +55,6 @@ const SettingsPage: React.FC = () => {
     const [systemLoading, setSystemLoading] = useState(false);
     const [systemSaving, setSystemSaving] = useState(false);
     const [settingsUpdatedAt, setSettingsUpdatedAt] = useState<string | null>(null);
-
-    // Notification preferences state
-    const [notifExamReminders, setNotifExamReminders] = useState(true);
-    const [notifPerformanceReports, setNotifPerformanceReports] = useState(true);
-    const [notifDailyChallenges, setNotifDailyChallenges] = useState(false);
-    const [notifNewMaterials, setNotifNewMaterials] = useState(true);
 
     useEffect(() => {
         if (!isAdmin) return;
@@ -121,12 +114,6 @@ const SettingsPage: React.FC = () => {
     };
 
     const navItems: NavItem[] = [
-        {
-            id: 'notifications',
-            label: 'Notifications',
-            description: 'Alerts & reminders',
-            icon: <Bell size={16} />,
-        },
         {
             id: 'security',
             label: 'Security',
@@ -227,57 +214,6 @@ const SettingsPage: React.FC = () => {
 
                 {/* Main Content */}
                 <div className="flex-1 min-w-0 space-y-4">
-                    {/* === NOTIFICATIONS === */}
-                    {activeSection === 'notifications' && (
-                        <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300 space-y-4">
-                            <SectionHeader
-                                icon={<Bell size={18} />}
-                                title="Notification Preferences"
-                                description="Choose how and when you want to be notified about activity."
-                            />
-
-                            <Card className="rounded-2xl border-gray-100 shadow-sm overflow-hidden bg-white">
-                                <CardContent className="p-0">
-                                    <NotifRow
-                                        title="Exam Reminders"
-                                        description="Get notified before upcoming mock exams and submission deadlines."
-                                        checked={notifExamReminders}
-                                        onChange={setNotifExamReminders}
-                                    />
-                                    <div className="border-t border-gray-50 mx-5" />
-                                    <NotifRow
-                                        title="Performance Reports"
-                                        description="Receive weekly summaries of your study progress and exam scores."
-                                        checked={notifPerformanceReports}
-                                        onChange={setNotifPerformanceReports}
-                                    />
-                                    <div className="border-t border-gray-50 mx-5" />
-                                    <NotifRow
-                                        title="New Study Materials"
-                                        description="Be alerted when new materials, flashcards, or videos are published."
-                                        checked={notifNewMaterials}
-                                        onChange={setNotifNewMaterials}
-                                    />
-                                    <div className="border-t border-gray-50 mx-5" />
-                                    <NotifRow
-                                        title="Daily Challenges"
-                                        description="New practice questions and flashcards available every day."
-                                        checked={notifDailyChallenges}
-                                        onChange={setNotifDailyChallenges}
-                                        last
-                                    />
-                                </CardContent>
-                            </Card>
-
-                            <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-blue-50/60 border border-blue-100">
-                                <Info size={14} className="text-blue-400 shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-600 font-medium leading-relaxed">
-                                    Notification preferences are saved automatically. In-app notifications can be found in the notifications panel.
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
                     {/* === SECURITY === */}
                     {activeSection === 'security' && (
                         <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300 space-y-4">
@@ -569,23 +505,6 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ icon, title, description,
             </div>
         </div>
         {badge}
-    </div>
-);
-
-interface NotifRowProps {
-    title: string;
-    description: string;
-    checked: boolean;
-    onChange: (v: boolean) => void;
-    last?: boolean;
-}
-const NotifRow: React.FC<NotifRowProps> = ({ title, description, checked, onChange, last }) => (
-    <div className={cn('flex items-center justify-between gap-4 px-5 py-4', !last && '')}>
-        <div className="space-y-0.5 min-w-0 flex-1">
-            <p className="text-sm font-black text-gray-900">{title}</p>
-            <p className="text-xs text-gray-500 font-medium">{description}</p>
-        </div>
-        <Switch checked={checked} onCheckedChange={onChange} className="data-[state=checked]:bg-primary shrink-0" />
     </div>
 );
 
