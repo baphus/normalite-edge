@@ -1,6 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Activity,
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
@@ -11,12 +10,9 @@ import {
     Edit,
     Eye,
     Filter,
-    GraduationCap,
     MoreVertical,
     Search,
     Trash2,
-    Trophy,
-    UserCircle2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -57,6 +53,8 @@ import { Label } from '@/components/ui/label';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface AttemptUser {
     id: string;
@@ -102,6 +100,17 @@ interface StudentSummary {
     recentAttempts: AttemptItem[];
 }
 
+interface StudentUserItem {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    program?: string | null;
+    program_track?: string | null;
+    yearLevel?: string | null;
+    section?: string | null;
+}
+
 type StudentColumn = 'student' | 'program' | 'attempts' | 'performance' | 'lastActivity';
 type SortDirection = 'asc' | 'desc';
 type SortKey = 'name' | 'program' | 'attempts' | 'avg' | 'lastActivity';
@@ -124,17 +133,18 @@ const StudentManagementPage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [attempts, setAttempts] = useState<AttemptItem[]>([]);
+    const [students, setStudents] = useState<StudentUserItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [trackFilter, setTrackFilter] = useState('ALL');
-    const [activityFilter, setActivityFilter] = useState<'ALL' | 'ACTIVE' | 'AT_RISK'>('ALL');
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
     const [selectedStudent, setSelectedStudent] = useState<StudentSummary | null>(null);
     const [sortBy, setSortBy] = useState<SortKey>('lastActivity');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [mutatingId, setMutatingId] = useState<string | null>(null);
+    const [deleteStudentTarget, setDeleteStudentTarget] = useState<StudentSummary | null>(null);
     const [visibleColumns, setVisibleColumns] = useState<Record<StudentColumn, boolean>>({
         student: true,
         program: true,
@@ -146,25 +156,50 @@ const StudentManagementPage: React.FC = () => {
     const isAdmin = user?.role === 'ADMIN';
 
     const fetchAttempts = async () => {
+        const response = await api.get('/attempts', {
+            params: { page: 1, limit: 500 },
+        });
+
+        return (response.data?.data || []) as AttemptItem[];
+    };
+
+    const fetchStudents = async () => {
+        const response = await api.get('/users', {
+            params: {
+                page: 1,
+                limit: 1000,
+                role: 'REVIEWEE',
+            },
+        });
+
+        return (response.data?.data || []) as StudentUserItem[];
+    };
+
+    const fetchData = async () => {
         setLoading(true);
         setErrorMessage(null);
         try {
-            const response = await api.get('/attempts', {
-                params: { page: 1, limit: 500 },
-            });
+            const [attemptRows, studentRows] = await Promise.all([
+                fetchAttempts(),
+                fetchStudents().catch((error) => {
+                    if (error?.response?.status === 403) return [] as StudentUserItem[];
+                    throw error;
+                }),
+            ]);
 
-            const rows = (response.data?.data || []) as AttemptItem[];
-            setAttempts(rows);
+            setAttempts(attemptRows);
+            setStudents(studentRows);
         } catch (error: any) {
             setErrorMessage(error?.response?.data?.message || 'Failed to load student activity');
             setAttempts([]);
+            setStudents([]);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchAttempts();
+        fetchData();
     }, []);
 
     const studentSummaries = useMemo<StudentSummary[]>(() => {
@@ -177,7 +212,10 @@ const StudentManagementPage: React.FC = () => {
             byStudent.set(attempt.user.id, userAttempts);
         });
 
-        return Array.from(byStudent.entries()).map(([studentId, studentAttempts]) => {
+        const summariesById = new Map<string, StudentSummary>();
+
+        students.forEach((student) => {
+            const studentAttempts = byStudent.get(student.id) || [];
             const first = studentAttempts[0];
             const submitted = studentAttempts.filter((item) => item.status === 'SUBMITTED');
             const inProgress = studentAttempts.filter((item) => item.status === 'IN_PROGRESS');
@@ -198,7 +236,48 @@ const StudentManagementPage: React.FC = () => {
                 return bTime - aTime;
             });
 
-            return {
+            summariesById.set(student.id, {
+                id: student.id,
+                name: student.name || first?.user?.name || 'Unknown Student',
+                email: student.email || first?.user?.email || 'N/A',
+                programTrack: student.program || student.program_track || first?.user?.programTrack || 'Unassigned',
+                yearLevel: student.yearLevel || first?.user?.yearLevel || '',
+                section: student.section || first?.user?.section || '',
+                attempts: studentAttempts.length,
+                completedAttempts: submitted.length,
+                inProgressAttempts: inProgress.length,
+                avgPercentage,
+                bestPercentage,
+                lastActivityAt: sortedByRecent[0]?.submittedAt || sortedByRecent[0]?.startedAt || null,
+                latestExamTitle: sortedByRecent[0]?.exam?.title || 'N/A',
+                recentAttempts: sortedByRecent.slice(0, 6),
+            });
+        });
+
+        byStudent.forEach((studentAttempts, studentId) => {
+            if (summariesById.has(studentId)) return;
+
+            const first = studentAttempts[0];
+            const submitted = studentAttempts.filter((item) => item.status === 'SUBMITTED');
+            const inProgress = studentAttempts.filter((item) => item.status === 'IN_PROGRESS');
+
+            const percentages = submitted
+                .map((item) => Number(item.percentage || 0))
+                .filter((value) => Number.isFinite(value));
+
+            const avgPercentage = percentages.length > 0
+                ? Math.round((percentages.reduce((sum, value) => sum + value, 0) / percentages.length) * 100) / 100
+                : 0;
+
+            const bestPercentage = percentages.length > 0 ? Math.max(...percentages) : 0;
+
+            const sortedByRecent = [...studentAttempts].sort((a, b) => {
+                const aTime = new Date(a.submittedAt || a.startedAt).getTime();
+                const bTime = new Date(b.submittedAt || b.startedAt).getTime();
+                return bTime - aTime;
+            });
+
+            summariesById.set(studentId, {
                 id: studentId,
                 name: first.user?.name || 'Unknown Student',
                 email: first.user?.email || 'N/A',
@@ -213,9 +292,11 @@ const StudentManagementPage: React.FC = () => {
                 lastActivityAt: sortedByRecent[0]?.submittedAt || sortedByRecent[0]?.startedAt || null,
                 latestExamTitle: sortedByRecent[0]?.exam?.title || 'N/A',
                 recentAttempts: sortedByRecent.slice(0, 6),
-            };
+            });
         });
-    }, [attempts]);
+
+        return Array.from(summariesById.values());
+    }, [attempts, students]);
 
     const trackOptions = useMemo(() => {
         return Array.from(new Set(studentSummaries.map((student) => student.programTrack))).sort((a, b) => a.localeCompare(b));
@@ -223,8 +304,6 @@ const StudentManagementPage: React.FC = () => {
 
     const filteredStudents = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
-        const now = Date.now();
-        const activeWindow = 14 * 24 * 60 * 60 * 1000;
 
         return studentSummaries
             .filter((student) => {
@@ -235,14 +314,9 @@ const StudentManagementPage: React.FC = () => {
 
                 const matchesTrack = trackFilter === 'ALL' || student.programTrack === trackFilter;
 
-                if (activityFilter === 'ALL') return matchesSearch && matchesTrack;
-
-                const last = student.lastActivityAt ? new Date(student.lastActivityAt).getTime() : 0;
-                const isActive = last > 0 && now - last <= activeWindow;
-
-                return matchesSearch && matchesTrack && (activityFilter === 'ACTIVE' ? isActive : !isActive);
+                return matchesSearch && matchesTrack;
             });
-    }, [activityFilter, search, studentSummaries, trackFilter]);
+    }, [search, studentSummaries, trackFilter]);
 
     const sortedStudents = useMemo(() => {
         const copy = [...filteredStudents];
@@ -277,7 +351,7 @@ const StudentManagementPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [search, trackFilter, activityFilter]);
+    }, [search, trackFilter]);
 
     const handleSort = (key: SortKey) => {
         if (sortBy === key) {
@@ -296,7 +370,6 @@ const StudentManagementPage: React.FC = () => {
 
     const resetFilters = () => {
         setTrackFilter('ALL');
-        setActivityFilter('ALL');
         setPage(1);
     };
 
@@ -305,18 +378,22 @@ const StudentManagementPage: React.FC = () => {
         navigate('/admin/users');
     };
 
-    const handleDeleteStudent = async (student: StudentSummary) => {
+    const handleDeleteStudent = (student: StudentSummary) => {
         if (!isAdmin) return;
+        setDeleteStudentTarget(student);
+    };
 
-        const approved = window.confirm(`Delete ${student.name}? This action cannot be undone.`);
-        if (!approved) return;
-
+    const confirmDeleteStudent = async () => {
+        if (!deleteStudentTarget) return;
+        const target = deleteStudentTarget;
+        setDeleteStudentTarget(null);
         try {
-            setMutatingId(student.id);
-            await api.delete(`/users/${student.id}`);
-            await fetchAttempts();
+            setMutatingId(target.id);
+            await api.delete(`/users/${target.id}`);
+            await fetchData();
+            toast.success(`${target.name} has been removed.`);
         } catch (error: any) {
-            window.alert(error?.response?.data?.message || 'Failed to delete student');
+            toast.error(error?.response?.data?.message || 'Failed to delete student.');
         } finally {
             setMutatingId(null);
         }
@@ -334,53 +411,6 @@ const StudentManagementPage: React.FC = () => {
                     <p className="text-[11px] text-gray-400 mt-0.5">Student profiles, exam activity, and performance trends.</p>
                 </div>
             </header>
-
-            <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Students</p>
-                            <p className="text-lg font-bold text-gray-900">{studentSummaries.length}</p>
-                        </div>
-                        <UserCircle2 className="w-4 h-4 text-primary" />
-                    </CardContent>
-                </Card>
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Avg Score</p>
-                            <p className="text-lg font-bold text-indigo-700">
-                                {studentSummaries.length === 0
-                                    ? '0%'
-                                    : `${Math.round(studentSummaries.reduce((sum, item) => sum + item.avgPercentage, 0) / studentSummaries.length)}%`}
-                            </p>
-                        </div>
-                        <Trophy className="w-4 h-4 text-indigo-700" />
-                    </CardContent>
-                </Card>
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">In Progress</p>
-                            <p className="text-lg font-bold text-amber-700">
-                                {studentSummaries.reduce((sum, item) => sum + item.inProgressAttempts, 0)}
-                            </p>
-                        </div>
-                        <Activity className="w-4 h-4 text-amber-700" />
-                    </CardContent>
-                </Card>
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Completed</p>
-                            <p className="text-lg font-bold text-green-700">
-                                {studentSummaries.reduce((sum, item) => sum + item.completedAttempts, 0)}
-                            </p>
-                        </div>
-                        <GraduationCap className="w-4 h-4 text-green-700" />
-                    </CardContent>
-                </Card>
-            </section>
 
             <section className="rounded-lg border border-gray-100 bg-white p-2.5 shadow-sm space-y-2.5">
                 <div className="flex flex-col md:flex-row gap-2 md:items-center">
@@ -412,20 +442,6 @@ const StudentManagementPage: React.FC = () => {
                                         {trackOptions.map((track) => (
                                             <SelectItem key={track} value={track}>{track}</SelectItem>
                                         ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Activity</Label>
-                                <Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as 'ALL' | 'ACTIVE' | 'AT_RISK')}>
-                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
-                                        <SelectValue placeholder="Filter activity" />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        <SelectItem value="ALL">All Activity</SelectItem>
-                                        <SelectItem value="ACTIVE">Active (14 days)</SelectItem>
-                                        <SelectItem value="AT_RISK">At Risk</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -702,6 +718,17 @@ const StudentManagementPage: React.FC = () => {
                     )}
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={deleteStudentTarget !== null}
+                onOpenChange={(open) => { if (!open) setDeleteStudentTarget(null); }}
+                title="Delete Student"
+                description={`Delete ${deleteStudentTarget?.name ?? ''}? This action cannot be undone.`}
+                confirmLabel="Delete"
+                variant="destructive"
+                isLoading={!!mutatingId}
+                onConfirm={confirmDeleteStudent}
+            />
         </div>
     );
 };

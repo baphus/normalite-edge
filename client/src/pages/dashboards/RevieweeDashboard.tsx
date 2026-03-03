@@ -1,22 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
-    BookOpen,
-    CalendarClock,
-    CheckSquare,
-    Clock3,
-    LineChart,
-    PlayCircle,
     RefreshCw,
     Sparkles,
     Video,
-    VideoIcon,
-    User
+    Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -28,6 +21,14 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
+import CalendarEventsWidget from './CalendarEventsWidget';
 
 type UpcomingSession = {
     id: string;
@@ -97,7 +98,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const programTrack = user?.program_track || user?.programTrack || user?.program || user?.major || 'Program track not set';
     const upcomingSessions = stats?.upcomingSessions || [];
     const recentAttempts = stats?.recentAttempts || [];
-    const averageScore = Number(stats?.overallAverage || 0);
     const today = new Date();
     const [dailyQuestion, setDailyQuestion] = useState<DailyQuestion | null>(null);
     const [isDailyLoading, setIsDailyLoading] = useState(true);
@@ -108,47 +108,15 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const [quote, setQuote] = useState<MotivationalQuote | null>(null);
     const [isQuoteLoading, setIsQuoteLoading] = useState(true);
     const [quoteError, setQuoteError] = useState('');
-
-    const dashboardStats = [
-        {
-            label: 'Available Study Decks',
-            value: `${stats?.totalMaterials || 0} Decks`,
-            icon: BookOpen,
-        },
-        {
-            label: 'Available Mock Exams',
-            value: `${stats?.totalExamsAvailable || 0} Exams`,
-            icon: CheckSquare,
-        },
-        {
-            label: 'Upcoming Conferences',
-            value: `${upcomingSessions.length} Sessions`,
-            icon: CalendarClock,
-        },
-        {
-            label: 'My Average Score',
-            value: `${averageScore}%`,
-            icon: LineChart,
-            emphasized: true,
-        },
-    ];
-
-    const continueLearning = recentAttempts[0];
-
-    const getHostName = (session: UpcomingSession) => {
-        if (!session.host?.firstName && !session.host?.lastName) return 'TBA';
-        return `${session.host?.firstName || ''} ${session.host?.lastName || ''}`.trim();
-    };
+    const [isDailyModalOpen, setIsDailyModalOpen] = useState(false);
 
     const formatDateRange = (startAt: string, endAt: string) => {
         const start = new Date(startAt);
         const end = new Date(endAt);
         const sameDay = start.toDateString() === end.toDateString();
-
         if (sameDay) {
             return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
         }
-
         return `${start.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
     };
 
@@ -156,10 +124,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         const start = new Date(startAt);
         return start.toDateString() === today.toDateString();
     };
-
-    const progressPercent = continueLearning?.exam
-        ? Math.min(100, Math.max(0, Number(continueLearning.percentage || 0)))
-        : 0;
 
     const fallbackQuotes: MotivationalQuote[] = [
         { text: 'Success is the sum of small efforts, repeated day in and day out.', author: 'Robert Collier' },
@@ -172,12 +136,8 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         try {
             setIsQuoteLoading(true);
             setQuoteError('');
-
             const response = await fetch('https://dummyjson.com/quotes/random');
-            if (!response.ok) {
-                throw new Error('Failed to fetch quote');
-            }
-
+            if (!response.ok) throw new Error('Failed to fetch quote');
             const data = await response.json();
             setQuote({
                 text: data?.quote || fallbackQuotes[0].text,
@@ -208,7 +168,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 setIsDailyLoading(false);
             }
         };
-
         loadDailyQuestion();
     }, []);
 
@@ -221,16 +180,13 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             setDailyError('Please select an answer before submitting.');
             return;
         }
-
         try {
             setIsSubmittingDaily(true);
             setDailyError('');
-
             const response = await api.post('/dashboard/daily-question/answer', {
                 questionId: dailyQuestion.questionId,
                 selectedChoice,
             });
-
             setDailyResult(response.data?.data || null);
         } catch {
             setDailyError('Unable to submit your answer right now. Please try again.');
@@ -240,205 +196,163 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     };
 
     return (
-        <div className="flex flex-col gap-8 font-lexend pb-10">
-            <header>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Welcome back, {firstName} 👋</h1>
-                <p className="text-slate-500 mt-1">{programTrack}</p>
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Dashboard</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{programTrack}</p>
+                </div>
+                <span className="text-sm font-semibold text-gray-500">Welcome back, {firstName} 👋</span>
             </header>
 
-            <section>
-                <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <PlayCircle className="h-5 w-5 text-primary" />
-                    Continue Learning
-                </h2>
-                <Card className="border border-slate-200 shadow-sm">
-                    <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
-                        <div className="w-full md:w-48 h-32 rounded-lg bg-gradient-to-br from-primary/10 to-secondary/20 flex items-center justify-center">
-                            <BookOpen className="h-10 w-10 text-primary/60" />
-                        </div>
-
-                        {continueLearning?.exam ? (
-                            <>
-                                <div className="flex-1 space-y-3 w-full">
-                                    <div>
-                                        <Badge className="bg-secondary/20 text-secondary-foreground border-none text-[10px] font-bold uppercase">Quiz Mode</Badge>
-                                        <h3 className="text-lg font-bold text-slate-900 mt-1">{continueLearning.exam.title}</h3>
-                                        <p className="text-sm text-slate-500">{continueLearning.exam.subject || 'General Subject'}</p>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between text-xs font-semibold">
-                                            <span className="text-slate-500">Last attempt score: {continueLearning.score}</span>
-                                            <span className="text-primary">{progressPercent}%</span>
-                                        </div>
-                                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-primary" style={{ width: `${progressPercent}%` }} />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="w-full md:w-auto flex flex-col gap-2">
-                                    <Link to="/exams" className="w-full">
-                                        <Button className="w-full md:w-auto px-8 font-bold">Resume</Button>
-                                    </Link>
-                                    <Link to="/exams" className="w-full">
-                                        <Button variant="ghost" className="w-full md:w-auto text-slate-600 font-semibold">View Details</Button>
-                                    </Link>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="flex-1 w-full space-y-3">
-                                <h3 className="text-lg font-bold text-slate-900">No recent learning session yet</h3>
-                                <p className="text-sm text-slate-500">Start a study deck or mock exam to track progress and continue where you left off.</p>
-                                <div className="flex gap-2">
-                                    <Link to="/study">
-                                        <Button className="font-bold">Open Study Decks</Button>
-                                    </Link>
-                                    <Link to="/exams">
-                                        <Button variant="outline" className="font-semibold">Open Mock Exams</Button>
-                                    </Link>
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </section>
-
-            <section className="max-w-3xl">
-                <Card className="border border-slate-200 shadow-sm">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <CardTitle className="text-lg font-bold text-slate-900">Daily Question</CardTitle>
-                                <CardDescription className="text-xs">Answer one random question from mock exam database.</CardDescription>
-                            </div>
-                            <Badge className="bg-primary/10 text-primary border-none uppercase text-[10px] font-bold">Today</Badge>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
+            {/* Daily Question — compact card */}
+            <Card className="border-gray-100 shadow-sm rounded-lg">
+                <CardContent className="p-3 flex items-center gap-3">
+                    <div className="shrink-0 p-2 rounded-md bg-primary/10 text-primary">
+                        <Zap size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Daily Question</p>
                         {isDailyLoading ? (
-                            <p className="text-sm text-slate-500">Loading daily question...</p>
+                            <p className="text-xs text-gray-400">Loading...</p>
                         ) : dailyQuestion ? (
-                            <>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{dailyQuestion.examTitle}</p>
-                                    <p className="text-sm font-semibold text-slate-900">{dailyQuestion.questionText}</p>
-                                </div>
-
-                                <RadioGroup
-                                    value={selectedChoice}
-                                    onValueChange={(value) => {
-                                        setSelectedChoice(value as 'A' | 'B' | 'C' | 'D');
-                                        setDailyError('');
-                                    }}
-                                    className="gap-2"
-                                    disabled={!!dailyResult}
-                                >
-                                    {(['A', 'B', 'C', 'D'] as const).map((choiceKey) => (
-                                        <div key={choiceKey} className="flex items-start gap-2 rounded-lg border border-slate-200 p-2.5 hover:bg-slate-50 transition-colors">
-                                            <RadioGroupItem value={choiceKey} id={`daily-choice-${choiceKey}`} className="mt-0.5" />
-                                            <Label htmlFor={`daily-choice-${choiceKey}`} className="cursor-pointer text-xs text-slate-700 leading-relaxed">
-                                                <span className="font-bold mr-1">{choiceKey}.</span>
-                                                {dailyQuestion.choices[choiceKey]}
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </RadioGroup>
-
-                                {dailyResult ? (
-                                    <div className={`rounded-lg border p-4 space-y-2 ${dailyResult.isCorrect ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
-                                        <p className={`text-sm font-bold ${dailyResult.isCorrect ? 'text-green-700' : 'text-amber-700'}`}>
-                                            {dailyResult.isCorrect ? 'Correct! Great job.' : 'Not quite this time.'}
-                                        </p>
-                                        <p className="text-sm text-slate-700">
-                                            Correct answer: <span className="font-bold">{dailyResult.correctChoice}</span>
-                                        </p>
-                                        {dailyResult.rationalization && (
-                                            <p className="text-sm text-slate-600">Rationalization: {dailyResult.rationalization}</p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-3">
-                                        <Button onClick={handleSubmitDailyAnswer} disabled={isSubmittingDaily || !selectedChoice} className="font-bold">
-                                            {isSubmittingDaily ? 'Submitting...' : 'Submit Answer'}
-                                        </Button>
-                                    </div>
-                                )}
-                            </>
+                            <p className="text-xs font-semibold text-gray-800 truncate">{dailyQuestion.questionText}</p>
                         ) : (
-                            <p className="text-sm text-slate-500">No daily question available yet. Please check back later.</p>
+                            <p className="text-xs text-gray-400">No question available today.</p>
                         )}
+                    </div>
+                    {dailyQuestion && (
+                        <Button
+                            size="sm"
+                            className="shrink-0 h-7 px-3 text-xs font-semibold bg-primary hover:bg-primary/90 text-white gap-1"
+                            onClick={() => { setIsDailyModalOpen(true); setDailyError(''); }}
+                            disabled={isDailyLoading}
+                        >
+                            {dailyResult ? 'View Result' : 'Answer Now →'}
+                        </Button>
+                    )}
+                </CardContent>
+            </Card>
 
-                        {dailyError && (
-                            <p className="text-sm text-red-600 font-medium">{dailyError}</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </section>
+            {/* Daily Question Modal */}
+            <Dialog open={isDailyModalOpen} onOpenChange={(open) => { if (!isSubmittingDaily) setIsDailyModalOpen(open); }}>
+                <DialogContent className="sm:max-w-lg rounded-lg font-lexend">
+                    <DialogHeader>
+                        <div className="flex items-center justify-between gap-2">
+                            <DialogTitle className="text-sm font-bold text-gray-900">Daily Question</DialogTitle>
+                            <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase">Today</Badge>
+                        </div>
+                        <DialogDescription className="text-xs text-gray-400">
+                            {dailyQuestion?.examTitle}
+                        </DialogDescription>
+                    </DialogHeader>
 
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {dashboardStats.map((item) => (
-                    <Card key={item.label} className="border border-slate-200 shadow-sm border-t-4 border-t-primary">
-                        <CardContent className="p-6 space-y-4">
-                            <div className="inline-flex p-2 rounded-lg bg-primary/10 text-primary">
-                                <item.icon className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-500">{item.label}</p>
-                                <h3 className={`text-2xl font-black mt-1 ${item.emphasized ? 'text-primary' : 'text-slate-900'}`}>{item.value}</h3>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </section>
+                    {dailyQuestion && (
+                        <div className="space-y-3">
+                            <p className="text-sm font-semibold text-gray-900 leading-snug">{dailyQuestion.questionText}</p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <section className="lg:col-span-2">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-slate-900">My Recent Exam Attempts</h2>
+                            <RadioGroup
+                                value={selectedChoice}
+                                onValueChange={(value) => { setSelectedChoice(value as 'A' | 'B' | 'C' | 'D'); setDailyError(''); }}
+                                className="gap-2"
+                                disabled={!!dailyResult}
+                            >
+                                {(['A', 'B', 'C', 'D'] as const).map((choiceKey) => (
+                                    <div key={choiceKey} className={`flex items-start gap-2 rounded-lg border p-2.5 transition-colors ${
+                                        dailyResult
+                                            ? choiceKey === dailyResult.correctChoice
+                                                ? 'border-green-300 bg-green-50'
+                                                : choiceKey === dailyResult.selectedChoice && !dailyResult.isCorrect
+                                                    ? 'border-red-200 bg-red-50'
+                                                    : 'border-gray-100'
+                                            : 'border-gray-200 hover:bg-gray-50'
+                                    }`}>
+                                        <RadioGroupItem value={choiceKey} id={`dq-${choiceKey}`} className="mt-0.5" />
+                                        <Label htmlFor={`dq-${choiceKey}`} className="cursor-pointer text-xs text-gray-700 leading-relaxed">
+                                            <span className="font-bold mr-1">{choiceKey}.</span>
+                                            {dailyQuestion.choices[choiceKey]}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </RadioGroup>
+
+                            {dailyResult && (
+                                <div className={`rounded-lg border p-3 space-y-1.5 ${
+                                    dailyResult.isCorrect ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'
+                                }`}>
+                                    <p className={`text-xs font-bold ${ dailyResult.isCorrect ? 'text-green-700' : 'text-amber-700'}`}>
+                                        {dailyResult.isCorrect ? '\u2713 Correct! Great job.' : '\u2717 Not quite this time.'}
+                                    </p>
+                                    <p className="text-xs text-gray-700">Correct answer: <span className="font-bold">{dailyResult.correctChoice}</span></p>
+                                    {dailyResult.rationalization && (
+                                        <p className="text-xs text-gray-600">{dailyResult.rationalization}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {dailyError && <p className="text-xs text-red-600 font-medium">{dailyError}</p>}
+
+                            {!dailyResult && (
+                                <Button
+                                    onClick={handleSubmitDailyAnswer}
+                                    disabled={isSubmittingDaily || !selectedChoice}
+                                    className="w-full h-8 text-xs font-bold"
+                                >
+                                    {isSubmittingDaily ? 'Submitting...' : 'Submit Answer'}
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                {/* Left 2/3 — recent attempts */}
+                <section className="xl:col-span-2">
+                    <div className="flex items-center justify-between mb-2">
+                        <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">My Recent Exam Attempts</h2>
                         <Link to="/exams">
-                            <Button variant="link" className="p-0 text-primary font-bold">View All</Button>
+                            <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">View All</Button>
                         </Link>
                     </div>
 
-                    <Card className="border border-slate-200 shadow-sm overflow-hidden">
+                    <Card className="border-gray-100 shadow-sm rounded-lg overflow-hidden">
                         <Table>
-                            <TableHeader className="bg-slate-50">
-                                <TableRow>
-                                    <TableHead className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Exam Title</TableHead>
-                                    <TableHead className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Score</TableHead>
-                                    <TableHead className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</TableHead>
-                                    <TableHead className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</TableHead>
+                            <TableHeader className="bg-gray-50/80">
+                                <TableRow className="border-gray-100">
+                                    <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Exam</TableHead>
+                                    <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Score</TableHead>
+                                    <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Date</TableHead>
+                                    <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {recentAttempts.length > 0 ? recentAttempts.map((attempt) => (
-                                    <TableRow key={attempt.id} className="hover:bg-slate-50/60">
-                                        <TableCell className="px-6 py-4">
-                                            <p className="text-sm font-bold text-slate-900">{attempt.exam?.title || 'Mock Exam'}</p>
-                                            <p className="text-[10px] text-slate-400">{attempt.exam?.timeLimitMinutes || 0} Minutes</p>
+                                    <TableRow key={attempt.id} className="border-gray-100 hover:bg-gray-50/70">
+                                        <TableCell className="px-3 py-2.5">
+                                            <p className="text-xs font-bold text-gray-900 truncate max-w-48">{attempt.exam?.title || 'Mock Exam'}</p>
+                                            <p className="text-[10px] text-gray-400">{attempt.exam?.timeLimitMinutes || 0} min</p>
                                         </TableCell>
-                                        <TableCell className="px-6 py-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-slate-900">{attempt.score}</span>
-                                                <span className="text-xs font-semibold text-green-600">{Number(attempt.percentage || 0).toFixed(1)}%</span>
-                                            </div>
+                                        <TableCell className="px-3 py-2.5">
+                                            <p className="text-xs font-bold text-gray-900">{attempt.score}</p>
+                                            <p className="text-[10px] font-semibold text-green-600">{Number(attempt.percentage || 0).toFixed(1)}%</p>
                                         </TableCell>
-                                        <TableCell className="px-6 py-4 text-sm text-slate-500">
+                                        <TableCell className="px-3 py-2.5 text-xs text-gray-500">
                                             {attempt.submittedAt
                                                 ? new Date(attempt.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                                 : 'In Progress'}
                                         </TableCell>
-                                        <TableCell className="px-6 py-4">
+                                        <TableCell className="px-3 py-2.5">
                                             <Badge className={attempt.submissionType === 'AUTO'
-                                                ? 'bg-amber-100 text-amber-700 border-none text-[10px] font-bold uppercase'
-                                                : 'bg-green-100 text-green-700 border-none text-[10px] font-bold uppercase'}>
-                                                {attempt.submissionType === 'AUTO' ? 'Auto-submitted' : 'Submitted'}
+                                                ? 'bg-amber-50 text-amber-700 border-none text-[9px] font-bold uppercase'
+                                                : 'bg-green-50 text-green-700 border-none text-[9px] font-bold uppercase'}>
+                                                {attempt.submissionType === 'AUTO' ? 'Auto' : 'Submitted'}
                                             </Badge>
                                         </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="px-6 py-10 text-center text-sm text-slate-500 font-medium">
+                                        <TableCell colSpan={4} className="px-3 py-8 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
                                             No recent exam attempts yet.
                                         </TableCell>
                                     </TableRow>
@@ -448,104 +362,82 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                     </Card>
                 </section>
 
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-slate-900">Upcoming Conferences</h2>
-                        <Link to="/conferences">
-                            <Button variant="link" className="p-0 text-primary font-bold">View All</Button>
-                        </Link>
+                {/* Right sidebar */}
+                <div className="flex flex-col gap-3">
+                    {/* Upcoming Conferences */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Upcoming Conferences</p>
+                            <Link to="/conferences">
+                                <Button variant="ghost" size="sm" className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70">View All</Button>
+                            </Link>
+                        </div>
+                        <Card className="border-gray-100 shadow-sm rounded-lg">
+                            <CardContent className="p-0 divide-y divide-gray-100">
+                                {upcomingSessions.length > 0 ? upcomingSessions.slice(0, 3).map((session) => (
+                                    <Link to="/conferences" key={session.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50/70 transition-colors">
+                                        <div className="shrink-0 p-1.5 bg-primary/5 text-primary rounded-md">
+                                            <Video className="h-3.5 w-3.5" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-bold text-gray-900 truncate">{session.title}</p>
+                                            <p className="text-[10px] text-gray-400 truncate">
+                                                {formatDateRange(session.startAt, session.endAt)}
+                                            </p>
+                                        </div>
+                                        {isTodaySession(session.startAt) && (
+                                            <span className="shrink-0 text-[9px] font-bold uppercase bg-primary/10 text-primary rounded px-1.5 py-0.5">Live</span>
+                                        )}
+                                    </Link>
+                                )) : (
+                                    <div className="px-3 py-6 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
+                                        No upcoming conferences.
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    <div className="space-y-4">
-                        {upcomingSessions.length > 0 ? upcomingSessions.slice(0, 2).map((session) => (
-                            <Card key={session.id} className="border border-slate-200 shadow-sm">
-                                <CardContent className="p-5">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="p-2 bg-primary/5 text-primary rounded-lg">
-                                            <VideoIcon className="h-5 w-5" />
-                                        </div>
-                                        <Badge className={isTodaySession(session.startAt)
-                                            ? 'bg-primary/10 text-primary border-none text-[10px] font-bold uppercase'
-                                            : 'bg-slate-100 text-slate-500 border-none text-[10px] font-bold uppercase'}>
-                                            {isTodaySession(session.startAt) ? 'Live Today' : new Date(session.startAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                        </Badge>
-                                    </div>
+                    {/* Calendar & Events */}
+                    <CalendarEventsWidget />
 
-                                    <h3 className="font-bold text-slate-900 leading-tight">{session.title}</h3>
-                                    <div className="mt-3 space-y-2">
-                                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                                            <Clock3 className="h-4 w-4" />
-                                            {formatDateRange(session.startAt, session.endAt)}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                                            <User className="h-4 w-4" />
-                                            Host: {getHostName(session)}
-                                        </div>
-                                    </div>
-
-                                    <Link to="/conferences" className="block mt-4">
-                                        <Button className="w-full font-bold">
-                                            <Video className="h-4 w-4" />
-                                            {isTodaySession(session.startAt) ? 'Join Room' : 'View Schedule'}
-                                        </Button>
-                                    </Link>
-                                </CardContent>
-                            </Card>
-                        )) : (
-                            <Card className="border border-slate-200 shadow-sm">
-                                <CardHeader>
-                                    <CardTitle className="text-base font-bold text-slate-900">No upcoming conferences</CardTitle>
-                                    <CardDescription>Check conference schedules from your reviewer or admin.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Link to="/conferences">
-                                        <Button variant="outline" className="w-full font-semibold">Open Conferences</Button>
-                                    </Link>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
-                </section>
-            </div>
-
-            <section>
-                <Card className="border border-slate-200 shadow-sm">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-secondary" />
-                                <CardTitle className="text-xl font-bold text-slate-900">Motivational Quote</CardTitle>
-                            </div>
+                    {/* Motivational Quote */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                                <Sparkles className="h-3 w-3 text-secondary" /> Quote of the Day
+                            </p>
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-slate-600"
+                                className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70 gap-1"
                                 onClick={loadMotivationalQuote}
                                 disabled={isQuoteLoading}
                             >
-                                <RefreshCw className={`h-4 w-4 ${isQuoteLoading ? 'animate-spin' : ''}`} />
-                                New Quote
+                                <RefreshCw className={`h-3 w-3 ${isQuoteLoading ? 'animate-spin' : ''}`} />
+                                New
                             </Button>
                         </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        {isQuoteLoading ? (
-                            <p className="text-sm text-slate-500">Loading quote...</p>
-                        ) : quote ? (
-                            <>
-                                <p className="text-base text-slate-800 leading-relaxed">“{quote.text}”</p>
-                                <p className="text-sm font-semibold text-primary">— {quote.author}</p>
-                            </>
-                        ) : (
-                            <p className="text-sm text-slate-500">Unable to load quote right now.</p>
-                        )}
-
-                        {quoteError && (
-                            <p className="text-xs text-amber-600 font-medium">{quoteError}</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </section>
+                        <Card className="border-gray-100 shadow-sm rounded-lg">
+                            <CardContent className="px-3 py-2.5 space-y-1">
+                                {isQuoteLoading ? (
+                                    <p className="text-xs text-gray-400">Loading quote...</p>
+                                ) : quote ? (
+                                    <>
+                                        <p className="text-xs text-gray-700 leading-relaxed">"{quote.text}"</p>
+                                        <p className="text-[10px] font-semibold text-primary">— {quote.author}</p>
+                                    </>
+                                ) : (
+                                    <p className="text-xs text-gray-400">Unable to load quote right now.</p>
+                                )}
+                                {quoteError && (
+                                    <p className="text-[10px] text-amber-600 font-medium">{quoteError}</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

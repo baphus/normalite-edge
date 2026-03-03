@@ -112,7 +112,7 @@ export const examController = {
     }),
 
     deleteExam: catchAsync(async (req: Request, res: Response) => {
-        await examService.deleteExam(req.params.id as string, req.user!.userId, req.user!.role as any);
+        const deleted = await examService.deleteExam(req.params.id as string, req.user!.userId, req.user!.role as any);
 
         await auditService.log({
             actorId: req.user!.userId,
@@ -120,7 +120,7 @@ export const examController = {
             action: 'DELETE',
             entityType: 'exam',
             entityId: req.params.id as string,
-            summary: `Deleted exam with id: ${req.params.id as string}`,
+            summary: `Deleted exam: ${deleted.title}`,
         });
 
         ApiResponse.success(res, null, 'Exam deleted');

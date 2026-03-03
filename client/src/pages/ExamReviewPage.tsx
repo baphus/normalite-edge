@@ -116,7 +116,11 @@ const ExamReviewPage: React.FC = () => {
                 const review = reviewResponse.data.data;
                 const answerMap = (review.answers || {}) as Record<string, string>;
 
-                const parsedQuestions: QuestionReview[] = (review.exam?.questions || []).map((question: any) => {
+                const sortedQuestions = (review.exam?.questions || [])
+                    .slice()
+                    .sort((first: any, second: any) => Number(first.orderNo ?? 0) - Number(second.orderNo ?? 0));
+
+                const parsedQuestions: QuestionReview[] = sortedQuestions.map((question: any, index: number) => {
                     const rawSection = question.section;
                     const sectionName = typeof rawSection === 'string'
                         ? rawSection
@@ -124,7 +128,7 @@ const ExamReviewPage: React.FC = () => {
 
                     return {
                         id: question.id,
-                        orderNo: question.orderNo,
+                        orderNo: index + 1,
                         text: question.questionText,
                         imageUrl: question.imageUrl || null,
                         options: [question.choiceA, question.choiceB, question.choiceC, question.choiceD],

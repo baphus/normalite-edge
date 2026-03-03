@@ -5,6 +5,7 @@ import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Track {
     id: string;
@@ -45,6 +46,7 @@ interface DeckDetails {
 const MaterialViewPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { user } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -83,10 +85,11 @@ const MaterialViewPage: React.FC = () => {
 
     const creatorName = useMemo(() => {
         if (!deck?.creator) return 'Unknown author';
+        if (user?.role === 'REVIEWER' && deck.creator.id === user?.id) return 'You';
         return deck.creator.name
             || `${deck.creator.firstName || ''} ${deck.creator.lastName || ''}`.trim()
             || 'Unknown author';
-    }, [deck]);
+    }, [deck, user?.id, user?.role]);
 
     const questions = useMemo(() => {
         return (deck?.questions || [])

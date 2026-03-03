@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft, Send, Lock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, ArrowLeft, Send } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -18,6 +18,7 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 
 const ForgotPasswordPage: React.FC = () => {
+    const navigate = useNavigate();
     const [submitted, setSubmitted] = useState(false);
 
     const {
@@ -46,9 +47,9 @@ const ForgotPasswordPage: React.FC = () => {
             <div className="relative z-20 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
                 <div className="w-full max-w-[520px] bg-white rounded-3xl shadow-2xl border border-red-100 overflow-hidden flex flex-col">
                     <div className="pt-10 px-8 pb-4 text-center">
-                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-6 text-primary">
-                            <Lock size={40} />
-                        </div>
+                        <button onClick={() => navigate('/')} className="inline-flex items-center justify-center mb-6">
+                            <img src="/NormaliteEdgeLogo.png" alt="Normalite EDGE" className="h-16 w-16 object-contain" />
+                        </button>
                         <h1 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Reset your password</h1>
                         <p className="text-gray-500 font-medium text-sm md:text-base px-4">
                             Enter your school email to receive reset instructions.

@@ -35,6 +35,8 @@ import {
 } from '@/components/ui/dialog';
 import api from '@/lib/axios';
 import { uploadImageToCloudinary } from '@/lib/upload';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Question {
     id: string;
@@ -139,6 +141,8 @@ const CreateExamPage: React.FC = () => {
     const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
     const [importPreviewQuestions, setImportPreviewQuestions] = useState<Question[]>([]);
     const [questions, setQuestions] = useState<Question[]>([]);
+    const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
+    const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
     useEffect(() => {
         const fetchTracks = async () => {
@@ -189,6 +193,11 @@ const CreateExamPage: React.FC = () => {
                 }
                 setCloseOnDeadline(Boolean(exam.closeOnDeadline));
                 const loadedStatus = exam.status === 'PUBLISHED' ? 'LIVE' : exam.status;
+                if (loadedStatus === 'LIVE') {
+                    toast.error('Published exams cannot be edited.');
+                    navigate(`/manage-exams/${id}/view`);
+                    return;
+                }
                 if (loadedStatus && ['LIVE', 'DRAFT', 'CLOSED', 'ARCHIVED'].includes(loadedStatus)) {
                     setExamStatus(loadedStatus as EditableExamStatus);
                 }
@@ -249,7 +258,7 @@ const CreateExamPage: React.FC = () => {
                 setActiveSection(safeSections[0]);
             } catch (error) {
                 console.error('Failed to load exam for editing', error);
-                alert('Failed to load exam details.');
+                toast.error('Failed to load exam details.');
                 navigate('/manage-exams');
             } finally {
                 setIsLoadingExam(false);
@@ -327,8 +336,13 @@ const CreateExamPage: React.FC = () => {
     };
 
     const deleteQuestion = (id: string) => {
-        if (window.confirm('Delete this question?')) {
-            setQuestions(questions.filter(q => q.id !== id));
+        setDeleteQuestionId(id);
+    };
+
+    const confirmDeleteQuestion = () => {
+        if (deleteQuestionId) {
+            setQuestions(questions.filter(q => q.id !== deleteQuestionId));
+            setDeleteQuestionId(null);
         }
     };
 
@@ -343,22 +357,23 @@ const CreateExamPage: React.FC = () => {
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            alert('Please select a valid image file.');
+            toast.error('Please select a valid image file.');
             return;
         }
 
         const maxFileSizeInBytes = 3 * 1024 * 1024;
         if (file.size > maxFileSizeInBytes) {
-            alert('Image must be 3MB or smaller.');
+            toast.error('Image must be 3MB or smaller.');
             return;
         }
 
         try {
             const secureUrl = await uploadImageToCloudinary(file, 'question-images');
             updateQuestion(questionId, { imageUrl: secureUrl });
+            toast.success('Image attached successfully.');
         } catch (error) {
             console.error('Failed to attach question image', error);
-            alert('Failed to attach image. Please try again.');
+            toast.error('Failed to attach image. Please try again.');
         }
     };
 
@@ -487,9 +502,29 @@ const CreateExamPage: React.FC = () => {
         return undefined;
     };
 
+    const orderQuestionsBySections = (items: Question[], sectionOrder: string[]) => {
+        const sectionIndexMap = new Map(
+            sectionOrder.map((section, index) => [section.trim().toLowerCase(), index])
+        );
+
+        return items
+            .map((question, index) => ({ question, index }))
+            .sort((left, right) => {
+                const leftSectionIndex = sectionIndexMap.get((left.question.section || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+                const rightSectionIndex = sectionIndexMap.get((right.question.section || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+
+                if (leftSectionIndex !== rightSectionIndex) {
+                    return leftSectionIndex - rightSectionIndex;
+                }
+
+                return left.index - right.index;
+            })
+            .map((entry) => entry.question);
+    };
+
     const processImportedRecords = (records: Array<Record<string, any>>) => {
         if (records.length === 0) {
-            alert('No valid question rows found in the import file.');
+            toast.error('No valid question rows found in the import file.');
             return;
         }
 
@@ -566,11 +601,18 @@ const CreateExamPage: React.FC = () => {
             .filter((item): item is Question => !!item);
 
         if (mappedQuestions.length === 0) {
-            alert('No valid questions were parsed from the import file.');
+            toast.error('No valid questions were parsed from the import file.');
             return;
         }
 
-        setImportPreviewQuestions(mappedQuestions);
+        const importSectionOrder = Array.from(
+            new Set(mappedQuestions.map((question) => question.section).filter(Boolean))
+        );
+        const previewSectionOrder = Array.from(new Set([...sections, ...importSectionOrder]));
+
+        const orderedMappedQuestions = orderQuestionsBySections(mappedQuestions, previewSectionOrder);
+
+        setImportPreviewQuestions(orderedMappedQuestions);
         setIsImportPreviewOpen(true);
     };
 
@@ -580,12 +622,14 @@ const CreateExamPage: React.FC = () => {
             return;
         }
 
-        const importedSections = Array.from(new Set(importPreviewQuestions.map((question) => question.section)));
-        setSections((prev) => Array.from(new Set([...prev, ...importedSections])));
-        setQuestions((prev) => [...prev, ...importPreviewQuestions]);
+        const importedSections = Array.from(new Set(importPreviewQuestions.map((question) => question.section).filter(Boolean)));
+        const mergedSections = Array.from(new Set([...sections, ...importedSections]));
+
+        setSections(mergedSections);
+        setQuestions((prev) => orderQuestionsBySections([...prev, ...importPreviewQuestions], mergedSections));
         setIsImportPreviewOpen(false);
         setImportPreviewQuestions([]);
-        alert('Imported questions added successfully.');
+        toast.success('Imported questions added successfully.');
     };
 
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -595,7 +639,7 @@ const CreateExamPage: React.FC = () => {
 
         const lowerName = file.name.toLowerCase();
         if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.json')) {
-            alert('Unsupported file type. Please upload a CSV or JSON file.');
+            toast.error('Unsupported file type. Please upload a CSV or JSON file.');
             return;
         }
 
@@ -621,7 +665,7 @@ const CreateExamPage: React.FC = () => {
                 .filter((line) => line.length > 0 && !line.startsWith('#'));
 
             if (lines.length < 2) {
-                alert('CSV file has no data rows.');
+                toast.error('CSV file has no data rows.');
                 return;
             }
 
@@ -637,18 +681,33 @@ const CreateExamPage: React.FC = () => {
             processImportedRecords(rows);
         } catch (error) {
             console.error('Failed to import questions', error);
-            alert('Failed to import file. Please check the template and try again.');
+            toast.error('Failed to import file. Please check the template and try again.');
         }
     };
 
-    const submitExam = async (publish: boolean) => {
+    const handleSubmitIntent = (publish: boolean) => {
+        if (isEditing && examStatus === 'LIVE') {
+            toast.error('Published exams cannot be edited.');
+            navigate(id ? `/manage-exams/${id}/view` : '/manage-exams');
+            return;
+        }
+
+        if (publish) {
+            setPublishConfirmOpen(true);
+            return;
+        }
+
+        void doSubmit(false);
+    };
+
+    const doSubmit = async (publish: boolean) => {
         if (!title.trim()) {
-            alert('Please enter an exam title.');
+            toast.error('Please enter an exam title.');
             return;
         }
 
         if (!duration.trim()) {
-            alert('Please enter the exam duration in minutes.');
+            toast.error('Please enter the exam duration in minutes.');
             return;
         }
 
@@ -658,12 +717,12 @@ const CreateExamPage: React.FC = () => {
 
         if (allowMultipleAttemptsConfig) {
             if (!maxAttempts.trim()) {
-                alert('Please set the maximum number of attempts.');
+                toast.error('Please set the maximum number of attempts.');
                 return;
             }
 
             if (!Number.isInteger(parsedMaxAttempts) || parsedMaxAttempts < 1) {
-                alert('Maximum attempts must be a whole number of at least 1.');
+                toast.error('Maximum attempts must be a whole number of at least 1.');
                 return;
             }
         }
@@ -680,18 +739,18 @@ const CreateExamPage: React.FC = () => {
             .filter((q) => q.text.length > 0);
 
         if (preparedQuestions.length === 0) {
-            alert('Please add at least one question.');
+            toast.error('Please add at least one question.');
             return;
         }
 
         const hasInvalidQuestion = preparedQuestions.some((q) => q.choices.some((choice) => choice.length === 0));
         if (hasInvalidQuestion) {
-            alert('Please complete all four options for each question.');
+            toast.error('Please complete all four options for each question.');
             return;
         }
 
         if (closeOnDeadline && !deadline) {
-            alert('Please set a deadline when enabling close on deadline.');
+            toast.error('Please set a deadline when enabling close on deadline.');
             return;
         }
 
@@ -724,16 +783,16 @@ const CreateExamPage: React.FC = () => {
         try {
             if (isEditing && id) {
                 await api.put(`/exams/${id}`, payload);
-                alert(publish ? 'Exam updated and published successfully!' : 'Exam draft updated successfully!');
+                toast.success(publish ? 'Exam updated and published successfully!' : 'Exam draft updated successfully!');
             } else {
                 await api.post('/exams', payload);
-                alert(publish ? 'Exam published successfully!' : 'Exam saved as draft!');
+                toast.success(publish ? 'Exam published successfully!' : 'Exam saved as draft!');
             }
             navigate('/manage-exams');
         } catch (error: any) {
             console.error('Failed to submit exam', error);
             const message = error.response?.data?.message || 'Failed to save exam.';
-            alert(message);
+            toast.error(message);
         } finally {
             setIsSubmitting(false);
         }
@@ -774,20 +833,23 @@ const CreateExamPage: React.FC = () => {
                         <Button
                             variant="outline"
                             className="h-9 rounded-xl px-4 font-black text-xs border-slate-200 hover:bg-slate-50"
-                            onClick={() => submitExam(false)}
+                            onClick={() => handleSubmitIntent(false)}
                             disabled={isSubmitting}
                         >
                             <Save size={14} className="mr-1.5" /> Save Draft
                         </Button>
                         <Button
                             className="h-9 rounded-xl px-5 bg-primary hover:bg-primary/90 text-white font-black text-xs"
-                            onClick={() => submitExam(true)}
+                            onClick={() => handleSubmitIntent(true)}
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Publish'}
                         </Button>
                     </div>
                 </div>
+                <p className="mt-2 text-[11px] font-semibold text-amber-700">
+                    Warning: Once published, this exam can no longer be edited.
+                </p>
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -868,7 +930,7 @@ const CreateExamPage: React.FC = () => {
                                                 value={maxAttempts}
                                                 onChange={(e) => setMaxAttempts(e.target.value)}
                                                 placeholder="e.g. 3"
-                                                className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm pr-20"
+                                                className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                             />
                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-wider">tries</span>
                                         </div>
@@ -1374,6 +1436,31 @@ const CreateExamPage: React.FC = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={deleteQuestionId !== null}
+                onOpenChange={(open) => { if (!open) setDeleteQuestionId(null); }}
+                title="Delete Question"
+                description="Are you sure you want to delete this question? This action cannot be undone."
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={confirmDeleteQuestion}
+            />
+
+            <ConfirmDialog
+                open={publishConfirmOpen}
+                onOpenChange={setPublishConfirmOpen}
+                title="Publish Exam"
+                description="Once published, this exam can no longer be edited. Do you want to continue?"
+                confirmLabel="Publish"
+                cancelLabel="Cancel"
+                variant="default"
+                isLoading={isSubmitting}
+                onConfirm={() => {
+                    setPublishConfirmOpen(false);
+                    void doSubmit(true);
+                }}
+            />
         </div>
     );
 };

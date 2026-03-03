@@ -13,8 +13,8 @@ export class SystemSettingService {
 
         if (rows.length === 0) {
             await prisma.$executeRaw`
-                INSERT INTO system_settings (id, allow_multiple_attempts)
-                VALUES (${SETTINGS_ROW_ID}, false)
+                INSERT INTO system_settings (id, allow_multiple_attempts, created_at, updated_at)
+                VALUES (${SETTINGS_ROW_ID}, false, NOW(), NOW())
                 ON CONFLICT (id) DO NOTHING
             `;
 
@@ -32,8 +32,8 @@ export class SystemSettingService {
 
     async updateSettings(data: { allowMultipleAttempts: boolean }) {
         await prisma.$executeRaw`
-            INSERT INTO system_settings (id, allow_multiple_attempts)
-            VALUES (${SETTINGS_ROW_ID}, ${data.allowMultipleAttempts})
+            INSERT INTO system_settings (id, allow_multiple_attempts, created_at, updated_at)
+            VALUES (${SETTINGS_ROW_ID}, ${data.allowMultipleAttempts}, NOW(), NOW())
             ON CONFLICT (id)
             DO UPDATE SET
                 allow_multiple_attempts = EXCLUDED.allow_multiple_attempts,

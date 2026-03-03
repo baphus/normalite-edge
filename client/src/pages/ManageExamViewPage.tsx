@@ -122,6 +122,8 @@ const ManageExamViewPage: React.FC = () => {
     const [error, setError] = useState('');
     const [exam, setExam] = useState<ExamDetails | null>(null);
     const [attempts, setAttempts] = useState<AttemptItem[]>([]);
+    const [selectedSection, setSelectedSection] = useState('ALL');
+    const [questionViewMode, setQuestionViewMode] = useState<'cards' | 'list'>('cards');
 
     useEffect(() => {
         const loadData = async () => {
@@ -181,13 +183,15 @@ const ManageExamViewPage: React.FC = () => {
 
     const creatorName = useMemo(() => {
         if (!exam?.creator) return 'Unknown author';
+        if (user?.role === 'REVIEWER' && exam.creator.id === user?.id) return 'You';
         return exam.creator.name
             || `${exam.creator.firstName || ''} ${exam.creator.lastName || ''}`.trim()
             || 'Unknown author';
-    }, [exam]);
+    }, [exam, user?.id, user?.role]);
 
     const canEditExam = useMemo(() => {
         if (!exam) return false;
+        if (exam.status === 'LIVE' || exam.status === 'PUBLISHED') return false;
         if (user?.role === 'ADMIN') return true;
         return Boolean(exam.creator?.id && exam.creator.id === user?.id);
     }, [exam, user?.id, user?.role]);
@@ -229,6 +233,48 @@ const ManageExamViewPage: React.FC = () => {
             .slice()
             .sort((first, second) => (first.orderNo || 0) - (second.orderNo || 0));
     }, [exam]);
+
+    const questionsWithSection = useMemo(() => {
+        return questions.map((question, index) => {
+            const sectionTitle = question.section?.title
+                || exam?.sections?.find((section) => section.id === question.sectionId)?.title
+                || 'General Section';
+
+            return {
+                question,
+                globalQuestionNo: index + 1,
+                sectionTitle,
+            };
+        });
+    }, [questions, exam?.sections]);
+
+    const availableSections = useMemo(() => {
+        const fromExam = (exam?.sections || [])
+            .slice()
+            .sort((first, second) => (first.orderNo || 0) - (second.orderNo || 0))
+            .map((section) => section.title?.trim())
+            .filter((section): section is string => Boolean(section));
+
+        const fromQuestions = Array.from(new Set(
+            questionsWithSection
+                .map((entry) => entry.sectionTitle?.trim())
+                .filter((section): section is string => Boolean(section))
+        ));
+
+        const merged = Array.from(new Set([...fromExam, ...fromQuestions]));
+        return ['ALL', ...merged];
+    }, [exam?.sections, questionsWithSection]);
+
+    const visibleQuestions = useMemo(() => {
+        if (selectedSection === 'ALL') return questionsWithSection;
+        return questionsWithSection.filter((entry) => entry.sectionTitle === selectedSection);
+    }, [questionsWithSection, selectedSection]);
+
+    useEffect(() => {
+        if (!availableSections.includes(selectedSection)) {
+            setSelectedSection('ALL');
+        }
+    }, [availableSections, selectedSection]);
 
     if (loading) {
         return (
@@ -399,7 +445,41 @@ const ManageExamViewPage: React.FC = () => {
                     </Card>
 
                     <section className="space-y-3">
-                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">All Questions and Answers</h3>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">All Questions and Answers</h3>
+                            <div className="flex items-center gap-1 rounded-md border border-gray-200 p-0.5 bg-white">
+                                <Button
+                                    type="button"
+                                    variant={questionViewMode === 'cards' ? 'default' : 'ghost'}
+                                    className="h-7 px-2.5 rounded text-[11px] font-semibold"
+                                    onClick={() => setQuestionViewMode('cards')}
+                                >
+                                    Cards
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={questionViewMode === 'list' ? 'default' : 'ghost'}
+                                    className="h-7 px-2.5 rounded text-[11px] font-semibold"
+                                    onClick={() => setQuestionViewMode('list')}
+                                >
+                                    List
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                            {availableSections.map((section) => (
+                                <Button
+                                    key={section}
+                                    type="button"
+                                    variant={selectedSection === section ? 'default' : 'outline'}
+                                    className="h-7 rounded-md text-[10px] font-black uppercase tracking-widest px-2.5"
+                                    onClick={() => setSelectedSection(section)}
+                                >
+                                    {section === 'ALL' ? 'All Sections' : section}
+                                </Button>
+                            ))}
+                        </div>
 
                         {questions.length === 0 ? (
                             <Card className="rounded-lg border-gray-100 bg-white">
@@ -407,9 +487,15 @@ const ManageExamViewPage: React.FC = () => {
                                     This mock exam has no questions yet.
                                 </CardContent>
                             </Card>
+                        ) : visibleQuestions.length === 0 ? (
+                            <Card className="rounded-lg border-gray-100 bg-white">
+                                <CardContent className="p-4 text-xs font-semibold text-gray-500">
+                                    No questions found in this section.
+                                </CardContent>
+                            </Card>
                         ) : (
-                            <div className="space-y-3">
-                                {questions.map((question, index) => {
+                            <div className={questionViewMode === 'cards' ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : 'rounded-lg border border-gray-100 bg-white divide-y divide-gray-100'}>
+                                {visibleQuestions.map(({ question, sectionTitle, globalQuestionNo }) => {
                                     const options = [
                                         { key: 'A', value: question.choiceA },
                                         { key: 'B', value: question.choiceB },
@@ -417,18 +503,14 @@ const ManageExamViewPage: React.FC = () => {
                                         { key: 'D', value: question.choiceD },
                                     ].filter((option) => Boolean(option.value));
 
-                                    const sectionTitle = question.section?.title
-                                        || exam.sections?.find((section) => section.id === question.sectionId)?.title
-                                        || 'General Section';
-
                                     return (
-                                        <Card key={question.id} className="rounded-lg border-gray-100 bg-white">
-                                            <CardContent className="p-5 space-y-4">
+                                        <Card key={question.id} className={questionViewMode === 'cards' ? 'rounded-lg border-gray-100 bg-white' : 'rounded-none border-none shadow-none'}>
+                                            <CardContent className={questionViewMode === 'cards' ? 'p-5 space-y-4' : 'p-4 space-y-3'}>
                                                 <div>
                                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                        Question {index + 1} • {sectionTitle}
+                                                        Question {globalQuestionNo} • {sectionTitle}
                                                     </p>
-                                                    <p className="text-sm md:text-base font-bold text-gray-900 mt-1 leading-relaxed">
+                                                    <p className={`${questionViewMode === 'cards' ? 'text-sm md:text-base' : 'text-sm'} font-bold text-gray-900 mt-1 leading-relaxed`}>
                                                         {question.questionText || 'No question text available.'}
                                                     </p>
                                                 </div>
@@ -436,12 +518,12 @@ const ManageExamViewPage: React.FC = () => {
                                                 {question.imageUrl ? (
                                                     <img
                                                         src={question.imageUrl}
-                                                        alt={`Question ${index + 1}`}
+                                                        alt={`Question ${globalQuestionNo}`}
                                                         className="w-full max-h-72 object-contain rounded-xl border border-gray-100 bg-gray-50"
                                                     />
                                                 ) : null}
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                                <div className={`grid grid-cols-1 ${questionViewMode === 'cards' ? 'md:grid-cols-2 gap-2.5' : 'gap-1.5'}`}>
                                                     {options.map((option) => {
                                                         const isCorrect = option.key === (question.correctChoice || '').toUpperCase();
                                                         return (

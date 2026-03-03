@@ -35,6 +35,9 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import api from '@/lib/axios';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Track {
     id: string;
@@ -60,7 +63,38 @@ interface Deck {
     createdAt: string;
 }
 
+const normalizeDeckItem = (deck: Partial<Deck> & Record<string, any>): Deck => {
+    const rawTracks = Array.isArray(deck.tracks)
+        ? deck.tracks
+        : Array.isArray(deck.trackLinks)
+            ? deck.trackLinks.map((link: any) => link?.track).filter(Boolean)
+            : [];
+
+    const tracks: Track[] = rawTracks
+        .filter((track: any) => track && typeof track === 'object')
+        .map((track: any) => ({
+            id: String(track.id ?? ''),
+            name: String(track.name ?? track.code ?? 'Unknown Track'),
+            code: track.code ?? null,
+        }))
+        .filter((track) => track.id.length > 0 || track.name.length > 0);
+
+    return {
+        id: String(deck.id ?? ''),
+        title: String(deck.title ?? 'Untitled Material'),
+        description: deck.description ?? null,
+        category: (deck.category as Deck['category']) || 'No Category',
+        categoryCode: (deck.categoryCode as Deck['categoryCode']) || null,
+        visibility: (deck.visibility as Deck['visibility']) || 'DRAFT',
+        totalItems: typeof deck.totalItems === 'number' ? deck.totalItems : 0,
+        tracks,
+        creator: deck.creator,
+        createdAt: deck.createdAt ? String(deck.createdAt) : new Date().toISOString(),
+    };
+};
+
 const ManageMaterialsPage: React.FC = () => {
+    const { user } = useAuth();
     const [decks, setDecks] = useState<Deck[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -69,18 +103,45 @@ const ManageMaterialsPage: React.FC = () => {
     const [categoryFilter, setCategoryFilter] = useState<'all' | 'General Education' | 'Professional Education' | 'Specialization'>('all');
     const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'PUBLISHED' | 'DRAFT'>('all');
     const [search, setSearch] = useState('');
+    const [deleteDeckTarget, setDeleteDeckTarget] = useState<Deck | null>(null);
 
     const fetchManagedDecks = async () => {
         setIsLoading(true);
 
         try {
             setError(null);
-            const response = await api.get('/decks/managed', {
-                params: { page: 1, limit: 100 },
-            });
+            let response;
+            let usedFallback = false;
 
-            const items = (response.data?.data || []) as Deck[];
-            setDecks(items);
+            try {
+                response = await api.get('/decks/managed', {
+                    params: { page: 1, limit: 100 },
+                });
+            } catch (requestError: any) {
+                const statusCode = requestError?.response?.status;
+                const shouldFallbackToDecks = statusCode === 404 && user?.role === 'ADMIN';
+
+                if (!shouldFallbackToDecks) {
+                    throw requestError;
+                }
+
+                usedFallback = true;
+                response = await api.get('/decks', {
+                    params: { page: 1, limit: 100 },
+                });
+            }
+
+            const payload = response.data?.data;
+                const items = (Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.items)
+                    ? payload.items
+                    : []) as Array<Partial<Deck> & Record<string, any>>;
+                setDecks(items.map(normalizeDeckItem));
+
+            if (usedFallback) {
+                toast.info('Loaded materials using compatibility mode.');
+            }
         } catch (err) {
             console.error('Failed to load managed materials', err);
             setError('Unable to load materials right now. Please try again.');
@@ -90,8 +151,9 @@ const ManageMaterialsPage: React.FC = () => {
     };
 
     useEffect(() => {
+        if (!user) return;
         fetchManagedDecks();
-    }, []);
+    }, [user]);
 
     const formatVisibilityTracks = (tracks: Track[]) => {
         if (!tracks || tracks.length === 0) {
@@ -99,6 +161,13 @@ const ManageMaterialsPage: React.FC = () => {
         }
 
         return tracks.map((track) => track.name).join(', ');
+    };
+
+    const getDisplayCreatorName = (deck: Deck) => {
+        if (user?.role === 'REVIEWER' && deck.creator?.id === user?.id) return 'You';
+        return deck.creator?.name
+            || `${deck.creator?.firstName || ''} ${deck.creator?.lastName || ''}`.trim()
+            || 'Unknown author';
     };
 
     const countByCategory = useMemo(() => {
@@ -110,16 +179,21 @@ const ManageMaterialsPage: React.FC = () => {
         };
     }, [decks]);
 
-    const handleDelete = async (deck: Deck) => {
-        const approved = window.confirm(`Delete "${deck.title}"? This action cannot be undone.`);
-        if (!approved) return;
+    const handleDelete = (deck: Deck) => {
+        setDeleteDeckTarget(deck);
+    };
 
+    const confirmDelete = async () => {
+        if (!deleteDeckTarget) return;
+        const target = deleteDeckTarget;
+        setDeleteDeckTarget(null);
         try {
-            await api.delete(`/decks/${deck.id}`);
-            setDecks((prev) => prev.filter((item) => item.id !== deck.id));
+            await api.delete(`/decks/${target.id}`);
+            setDecks((prev) => prev.filter((item) => item.id !== target.id));
+            toast.success(`"${target.title}" has been deleted.`);
         } catch (err) {
             console.error('Failed to delete deck', err);
-            alert('Failed to delete material. Please try again.');
+            toast.error('Failed to delete material. Please try again.');
         }
     };
 
@@ -132,7 +206,7 @@ const ManageMaterialsPage: React.FC = () => {
             term.length === 0
             || deck.title.toLowerCase().includes(term)
             || (deck.description || '').toLowerCase().includes(term)
-            || deck.tracks.some((track) => track.name.toLowerCase().includes(term));
+            || (deck.tracks || []).some((track) => (track.name || '').toLowerCase().includes(term));
 
         return matchesCategory && matchesVisibility && matchesSearch;
     });
@@ -352,9 +426,7 @@ const ManageMaterialsPage: React.FC = () => {
                                         <UserRound size={11} /> Author
                                     </span>
                                     <span className="text-[11px] font-semibold text-gray-900 truncate max-w-[60%] text-right">
-                                        {deck.creator?.name
-                                            || `${deck.creator?.firstName || ''} ${deck.creator?.lastName || ''}`.trim()
-                                            || 'Unknown author'}
+                                        {getDisplayCreatorName(deck)}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -403,6 +475,15 @@ const ManageMaterialsPage: React.FC = () => {
                 )}
             </div>
 
+            <ConfirmDialog
+                open={deleteDeckTarget !== null}
+                onOpenChange={(open) => { if (!open) setDeleteDeckTarget(null); }}
+                title="Delete Material"
+                description={`Delete "${deleteDeckTarget?.title ?? ''}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={confirmDelete}
+            />
         </div>
     );
 };

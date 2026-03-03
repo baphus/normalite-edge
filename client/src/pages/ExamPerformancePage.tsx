@@ -299,14 +299,14 @@ const ExamPerformancePage: React.FC = () => {
         return attemptReview.exam.questions
             .slice()
             .sort((first, second) => asNumber(first.orderNo) - asNumber(second.orderNo))
-            .map((question) => {
+            .map((question, index) => {
                 const selectedChoice = attemptReview.answers?.[question.id];
                 const correctChoice = question.correctChoice || '';
                 const isCorrect = !!selectedChoice && toChoiceLabel(selectedChoice) === toChoiceLabel(correctChoice);
 
                 return {
                     id: question.id,
-                    orderNo: asNumber(question.orderNo),
+                    orderNo: index + 1,
                     section: (typeof question.section === 'string'
                         ? question.section
                         : (question.section as any)?.title || ''

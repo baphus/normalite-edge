@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
     BookOpen,
@@ -102,7 +102,7 @@ const Sidebar: React.FC = () => {
     return (
         <div className="flex flex-col w-[218px] shrink-0 h-screen bg-[#0d0f14] border-r border-white/[0.06]">
             {/* Brand */}
-            <div className="flex items-center gap-2.5 px-4 h-12 border-b border-white/[0.06] shrink-0">
+            <Link to="/dashboard" className="flex items-center gap-2.5 px-4 h-12 border-b border-white/[0.06] shrink-0 hover:opacity-80 transition-opacity">
                 <div className="h-6 w-6 overflow-hidden rounded-sm shrink-0">
                     <img
                         src="/NormaliteEdgeLogo.png"
@@ -111,7 +111,7 @@ const Sidebar: React.FC = () => {
                     />
                 </div>
                 <span className="text-[13px] font-bold text-white tracking-tight truncate">Normalite EDGE</span>
-            </div>
+            </Link>
 
             {/* Nav */}
             <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-3">

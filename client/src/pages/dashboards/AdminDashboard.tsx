@@ -21,6 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 import { Link } from 'react-router-dom';
 import ConferencesWidget from './ConferencesWidget';
+import CalendarEventsWidget from './CalendarEventsWidget';
 
 interface AdminDashboardProps {
     stats: {
@@ -78,11 +79,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
         { label: 'Active Sessions', value: Number(stats?.activeSessions ?? 0), icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     ];
 
-    const toLabelCase = (value: string) => value
+    const toLabelCase = (value?: unknown) => String(value ?? '')
+        .trim()
         .toLowerCase()
         .split('_')
+        .filter(Boolean)
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ');
+        .join(' ') || 'Uncategorized';
 
     const formatRelativeTime = (dateValue?: string) => {
         if (!dateValue) return 'Recently';
@@ -98,19 +101,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
         return `${Math.floor(diffMs / day)}d ago`;
     };
 
-    const normalizeExamStatus = (status: string) => {
-        if (status === 'LIVE') return 'Published';
+    const normalizeExamStatus = (status?: unknown) => {
+        if (String(status ?? '').toUpperCase() === 'LIVE') return 'Published';
         return toLabelCase(status);
     };
 
-    const initialsFromName = (name: string) => {
-        const parts = name.trim().split(' ').filter(Boolean);
+    const initialsFromName = (name?: unknown) => {
+        const parts = String(name ?? '').trim().split(' ').filter(Boolean);
         if (parts.length === 0) return 'U';
         if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
         return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
     };
 
-    const recentMockExams = stats?.recentMockExams?.length
+    const recentMockExams = Array.isArray(stats?.recentMockExams)
         ? stats.recentMockExams.map((item) => ({
             title: item.title,
             program: item.program,
@@ -121,7 +124,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
         }))
         : [];
 
-    const recentMaterials = stats?.recentMaterials?.length
+    const recentMaterials = Array.isArray(stats?.recentMaterials)
         ? stats.recentMaterials.map((item) => ({
             title: item.title,
             category: toLabelCase(item.category),
@@ -131,7 +134,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
         }))
         : [];
 
-    const recentSubmissions = stats?.recentSubmissions?.length
+    const recentSubmissions = Array.isArray(stats?.recentSubmissions)
         ? stats.recentSubmissions.map((item) => ({
             student: item.student,
             studentAvatar: item.studentAvatar,
@@ -141,7 +144,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
         }))
         : [];
 
-    const recentUsers = stats?.recentUsers?.length
+    const recentUsers = Array.isArray(stats?.recentUsers)
         ? stats.recentUsers.map((item) => ({
             name: item.name,
             major: item.major,
@@ -150,7 +153,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
         }))
         : [];
 
-    const activityFeed = stats?.activityFeed?.length
+    const activityFeed = Array.isArray(stats?.activityFeed)
         ? stats.activityFeed.map((item) => ({
             title: item.title,
             sub: item.sub,
@@ -400,6 +403,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
 
                     {/* Conferences */}
                     <ConferencesWidget />
+
+                    {/* Calendar & Events */}
+                    <CalendarEventsWidget />
 
                     {/* Quick Access */}
                     <div className="bg-white rounded-lg border border-dashed border-gray-200 p-3">

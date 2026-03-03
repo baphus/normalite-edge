@@ -530,8 +530,11 @@ export class ExamService {
         if (userRole !== 'ADMIN' && exam.createdBy !== userId) {
             throw ApiError.forbidden('You can only edit exams you created');
         }
+        if (exam.status === 'LIVE') {
+            throw ApiError.forbidden('Published exams cannot be edited');
+        }
 
-        const wasLive = exam.status === 'LIVE';
+        const wasLive = (exam.status as string) === 'LIVE';
 
         const updatedExam = await prisma.$transaction(async (tx) => {
             const uniqueTrackIds = data.trackIds ? Array.from(new Set(data.trackIds)) : undefined;
@@ -665,7 +668,7 @@ export class ExamService {
         }
 
         await prisma.exam.delete({ where: { id: examId } });
-        return { id: examId };
+        return { id: examId, title: exam.title };
     }
 }
 

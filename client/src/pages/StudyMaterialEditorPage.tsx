@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
+import { toast } from 'sonner';
 
 interface CardItem {
     id: string;
@@ -244,7 +245,7 @@ const StudyMaterialEditorPage: React.FC = () => {
             } else if (lowerFileName.endsWith('.csv')) {
                 records = parseCsvRecords(content);
             } else {
-                alert('Unsupported file type. Please upload a JSON or CSV file.');
+                toast.error('Unsupported file type. Please upload a JSON or CSV file.');
                 return;
             }
 
@@ -253,15 +254,15 @@ const StudyMaterialEditorPage: React.FC = () => {
                 .filter((item): item is CardItem => !!item);
 
             if (importedCards.length === 0) {
-                alert('No valid questions found in the uploaded file. Please use the template.');
+                toast.error('No valid questions found in the uploaded file. Please use the template.');
                 return;
             }
 
             setCards((prev) => [...prev, ...importedCards]);
-            alert(`Successfully imported ${importedCards.length} question(s) from ${file.name}.`);
+            toast.success(`Successfully imported ${importedCards.length} question(s) from ${file.name}.`);
         } catch (err) {
             console.error('Failed to parse import file', err);
-            alert('Error parsing file. Please check the template format and try again.');
+            toast.error('Error parsing file. Please check the template format and try again.');
         }
     };
 
@@ -335,7 +336,7 @@ const StudyMaterialEditorPage: React.FC = () => {
 
     const handleSave = async () => {
         if (!title.trim()) {
-            alert('Please enter a deck title');
+            toast.error('Please enter a deck title.');
             return;
         }
 
@@ -362,12 +363,12 @@ const StudyMaterialEditorPage: React.FC = () => {
             };
 
             await api.post('/decks', payload);
-            alert('Deck created successfully!');
+            toast.success('Deck created successfully!');
             navigate('/study');
         } catch (error: any) {
             console.error('Failed to save deck:', error);
             const detail = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-            alert(`Failed to create deck: ${detail}`);
+            toast.error(`Failed to create deck: ${detail}`);
         }
     };
 

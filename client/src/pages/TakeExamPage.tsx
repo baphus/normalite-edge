@@ -18,6 +18,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import api from '@/lib/axios';
+import { toast } from 'sonner';
 
 interface Question {
     id: string;
@@ -117,8 +118,17 @@ const TakeExamPage: React.FC = () => {
         return safeAnswers;
     }, []);
 
+    const getResumeIndex = useCallback((questions: Question[] = [], savedAnswers: Record<string, string> = {}) => {
+        if (!questions.length) return 0;
+
+        const firstUnansweredIndex = questions.findIndex((question) => !savedAnswers[question.id]);
+        if (firstUnansweredIndex >= 0) return firstUnansweredIndex;
+
+        return Math.max(questions.length - 1, 0);
+    }, []);
+
     const normalizeQuestions = useCallback((rawQuestions: any[] = []): Question[] => {
-        return rawQuestions
+        const sorted = rawQuestions
             .map((rawQuestion, index) => {
                 const normalizedChoices = Array.isArray(rawQuestion.choices)
                     ? rawQuestion.choices
@@ -139,6 +149,11 @@ const TakeExamPage: React.FC = () => {
             })
             .filter((question) => question.text.trim().length > 0 && question.choices.length > 0)
             .sort((first, second) => first.orderNo - second.orderNo);
+
+        return sorted.map((question, index) => ({
+            ...question,
+            orderNo: index + 1,
+        }));
     }, []);
 
     const readDraft = useCallback((): LocalDraft | null => {
@@ -235,7 +250,11 @@ const TakeExamPage: React.FC = () => {
                     setAnswers(mergedAnswers);
                     answersRef.current = mergedAnswers;
 
-                    const safeIndex = Math.min(Math.max(draft.currentIndex, 0), Math.max(normalizedExam.questions.length - 1, 0));
+                    const draftIndex = Math.min(Math.max(draft.currentIndex, 0), Math.max(normalizedExam.questions.length - 1, 0));
+                    const resumeFromAnswersIndex = getResumeIndex(normalizedExam.questions, mergedAnswers);
+                    const safeIndex = Object.keys(safeDraftAnswers || {}).length > 0
+                        ? Math.max(draftIndex, resumeFromAnswersIndex)
+                        : resumeFromAnswersIndex;
                     setCurrentIndex(safeIndex);
 
                     const resolvedTimeLeft = Math.max(0, Math.min(serverTimeLeft, draft.timeLeft));
@@ -249,7 +268,7 @@ const TakeExamPage: React.FC = () => {
                     setAnswers(serverAnswers);
                     answersRef.current = serverAnswers;
 
-                    setCurrentIndex(0);
+                    setCurrentIndex(getResumeIndex(normalizedExam.questions, serverAnswers));
 
                     const safeTimeLeft = Math.max(0, serverTimeLeft);
                     setTimeLeft(safeTimeLeft);
@@ -264,7 +283,7 @@ const TakeExamPage: React.FC = () => {
         };
 
         fetchAttempt();
-    }, [id, normalizeQuestions, readDraft, sanitizeAnswersMap]);
+    }, [getResumeIndex, id, normalizeQuestions, readDraft, sanitizeAnswersMap]);
 
     useEffect(() => {
         answersRef.current = answers;
@@ -354,7 +373,7 @@ const TakeExamPage: React.FC = () => {
         if (!attemptId || !exam || isSubmitting) return;
 
         if (!navigator.onLine && !autoSubmitted) {
-            window.alert('You are offline. Reconnect first to submit. Your progress is saved locally.');
+            toast.warning('You are offline. Reconnect first to submit. Your progress is saved locally.');
             setSaveStatus('pending');
             return;
         }
@@ -374,7 +393,7 @@ const TakeExamPage: React.FC = () => {
             navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`);
         } catch (submitError: any) {
             const message = submitError?.response?.data?.message || 'Failed to submit exam. Your progress remains saved.';
-            window.alert(message);
+            toast.error(message);
             setSaveStatus('error');
         } finally {
             setIsSubmitting(false);
@@ -416,6 +435,10 @@ const TakeExamPage: React.FC = () => {
         return Array.from(buckets.values());
     }, [answers, exam?.questions]);
 
+    const questionNumberById = useMemo(() => {
+        return new Map((exam?.questions || []).map((question, index) => [question.id, index + 1]));
+    }, [exam?.questions]);
+
     if (loading) {
         return <div className="p-6 text-sm text-gray-500">Loading exam attempt...</div>;
     }
@@ -439,6 +462,8 @@ const TakeExamPage: React.FC = () => {
     }
 
     const currentQuestion = exam.questions[currentIndex] || { id: '', orderNo: 0, text: '', choices: [], section: '' };
+
+    const currentQuestionNo = questionNumberById.get(currentQuestion.id) || currentIndex + 1;
 
     const skippedQuestions = exam.questions
         .map((q, idx) => ({ q, idx }))
@@ -504,7 +529,7 @@ const TakeExamPage: React.FC = () => {
                         {/* Progress bar row */}
                         <div className="flex items-center gap-3">
                             <span className="text-xs font-semibold text-gray-400 shrink-0">
-                                {currentIndex + 1} / {exam.questions.length}
+                                {currentQuestionNo} / {exam.questions.length}
                             </span>
                             <Progress value={((currentIndex + 1) / exam.questions.length) * 100} className="flex-1 h-1.5" />
                             <span className="text-xs font-semibold text-gray-400 shrink-0">
@@ -619,11 +644,12 @@ const TakeExamPage: React.FC = () => {
                             {exam.questions.map((_, idx) => {
                                 const isCurrent = currentIndex === idx;
                                 const isAnswered = Boolean(answers[exam.questions[idx].id]);
+                                const questionNo = questionNumberById.get(exam.questions[idx].id) || idx + 1;
                                 return (
                                     <button
                                         key={idx}
                                         onClick={() => setCurrentIndex(idx)}
-                                        title={`Question ${idx + 1}`}
+                                        title={`Question ${questionNo}`}
                                         className={`h-8 rounded-md text-[11px] font-bold transition-all duration-150 ${
                                             isCurrent
                                                 ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
@@ -632,7 +658,7 @@ const TakeExamPage: React.FC = () => {
                                                     : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100 hover:text-gray-600'
                                         }`}
                                     >
-                                        {idx + 1}
+                                        {questionNo}
                                     </button>
                                 );
                             })}
@@ -720,7 +746,7 @@ const TakeExamPage: React.FC = () => {
                                             }}
                                             className="w-7 h-7 rounded-md bg-white border border-amber-200 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition-colors"
                                         >
-                                            {idx + 1}
+                                            {questionNumberById.get(exam.questions[idx].id) || idx + 1}
                                         </button>
                                     ))}
                                 </div>

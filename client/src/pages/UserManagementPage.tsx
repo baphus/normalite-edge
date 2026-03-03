@@ -16,6 +16,7 @@ import {
     Shield,
     Trash2,
     UserCog,
+    UserPlus,
     UserX,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import api from '@/lib/axios';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 type UiStatus = 'active' | 'pending' | 'inactive';
@@ -158,9 +161,23 @@ const UserManagementPage: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<'ALL' | UiStatus>('ALL');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [editRole, setEditRole] = useState<UserRole>('REVIEWEE');
     const [editStatus, setEditStatus] = useState<UiStatus>('active');
+    const [createForm, setCreateForm] = useState({
+        name: '',
+        email: '',
+        password: '',
+        role: 'REVIEWEE' as UserRole,
+        status: 'ACTIVE' as ApiStatus,
+        program_track: '',
+        yearLevel: '',
+        section: '',
+    });
+    const [createError, setCreateError] = useState<string | null>(null);
+    const [creating, setCreating] = useState(false);
+    const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [sortBy, setSortBy] = useState<SortKey>('dateJoined');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [visibleColumns, setVisibleColumns] = useState<Record<UserColumn, boolean>>({
@@ -220,22 +237,62 @@ const UserManagementPage: React.FC = () => {
         setIsEditModalOpen(true);
     };
 
-    const handleDelete = async (user: User) => {
-        const shouldDelete = window.confirm(`Delete ${user.name}? This action cannot be undone.`);
-        if (!shouldDelete) return;
+    const handleDelete = (user: User) => {
+        setDeleteUserTarget(user);
+    };
 
+    const confirmDeleteUser = async () => {
+        if (!deleteUserTarget) return;
+        const target = deleteUserTarget;
+        setDeleteUserTarget(null);
         try {
-            setMutatingId(user.id);
-            await api.delete(`/users/${user.id}`);
+            setMutatingId(target.id);
             if (users.length === 1 && page > 1) {
                 setPage((prev) => prev - 1);
             } else {
+                await api.delete(`/users/${target.id}`);
                 await fetchUsers();
             }
+            toast.success(`${target.name} has been deleted.`);
         } catch (error: any) {
-            window.alert(error?.response?.data?.message || 'Failed to delete user');
+            toast.error(error?.response?.data?.message || 'Failed to delete user.');
         } finally {
             setMutatingId(null);
+        }
+    };
+
+    const handleCreate = async () => {
+        setCreateError(null);
+        if (!createForm.name.trim() || !createForm.email.trim() || !createForm.password.trim()) {
+            setCreateError('Name, email, and password are required.');
+            return;
+        }
+        if (createForm.role === 'REVIEWER') {
+            if (!createForm.program_track.trim() || !createForm.yearLevel.trim() || !createForm.section.trim()) {
+                setCreateError('Program track, year level, and section are required for Reviewers.');
+                return;
+            }
+        }
+        try {
+            setCreating(true);
+            await api.post('/users', {
+                name: createForm.name.trim(),
+                email: createForm.email.trim(),
+                password: createForm.password,
+                role: createForm.role,
+                status: createForm.status,
+                program_track: createForm.program_track.trim() || undefined,
+                yearLevel: createForm.yearLevel.trim() || undefined,
+                section: createForm.section.trim() || undefined,
+            });
+            setIsCreateModalOpen(false);
+            setCreateForm({ name: '', email: '', password: '', role: 'REVIEWEE', status: 'ACTIVE', program_track: '', yearLevel: '', section: '' });
+            await fetchUsers();
+            toast.success('User created successfully.');
+        } catch (error: any) {
+            setCreateError(error?.response?.data?.message || 'Failed to create user');
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -256,8 +313,9 @@ const UserManagementPage: React.FC = () => {
             setIsEditModalOpen(false);
             setSelectedUser(null);
             await fetchUsers();
+            toast.success('User updated successfully.');
         } catch (error: any) {
-            window.alert(error?.response?.data?.message || 'Failed to update user');
+            toast.error(error?.response?.data?.message || 'Failed to update user.');
         } finally {
             setMutatingId(null);
         }
@@ -326,6 +384,12 @@ const UserManagementPage: React.FC = () => {
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">User Management</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">Accounts, roles, and access status.</p>
                 </div>
+                <Button
+                    onClick={() => { setCreateError(null); setIsCreateModalOpen(true); }}
+                    className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white text-xs font-semibold gap-1.5"
+                >
+                    <UserPlus className="w-3.5 h-3.5" /> Create User
+                </Button>
             </header>
 
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -620,6 +684,126 @@ const UserManagementPage: React.FC = () => {
                 </div>
             </section>
 
+            <Dialog open={isCreateModalOpen} onOpenChange={(open) => { if (!creating) { setIsCreateModalOpen(open); setCreateError(null); } }}>
+                <DialogContent className="sm:max-w-md rounded-lg font-lexend">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <UserPlus className="w-4 h-4 text-primary" /> Create User
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-gray-500">
+                            Add a new user account to the system.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid gap-3 py-1">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Full Name <span className="text-rose-500">*</span></Label>
+                            <Input
+                                value={createForm.name}
+                                onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+                                placeholder="e.g. Juan Dela Cruz"
+                                className="h-8 rounded-md border-gray-200 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Email <span className="text-rose-500">*</span></Label>
+                            <Input
+                                type="email"
+                                value={createForm.email}
+                                onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
+                                placeholder="user@example.com"
+                                className="h-8 rounded-md border-gray-200 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Password <span className="text-rose-500">*</span></Label>
+                            <Input
+                                type="password"
+                                value={createForm.password}
+                                onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
+                                placeholder="Min. 6 characters"
+                                className="h-8 rounded-md border-gray-200 text-xs"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Role</Label>
+                                <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, role: v as UserRole }))}>
+                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</Label>
+                                <Select value={createForm.status} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, status: v as ApiStatus }))}>
+                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="ACTIVE">Active</SelectItem>
+                                        <SelectItem value="PENDING">Pending</SelectItem>
+                                        <SelectItem value="DISABLED">Disabled</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                Program Track {createForm.role === 'REVIEWER' ? <span className="text-rose-500">*</span> : <span className="text-gray-400 normal-case font-normal">(optional)</span>}
+                            </Label>
+                            <Input
+                                value={createForm.program_track}
+                                onChange={(e) => setCreateForm((prev) => ({ ...prev, program_track: e.target.value }))}
+                                placeholder="e.g. Professional Education"
+                                className="h-8 rounded-md border-gray-200 text-xs"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Year Level {createForm.role === 'REVIEWER' ? <span className="text-rose-500">*</span> : <span className="text-gray-400 normal-case font-normal">(optional)</span>}
+                                </Label>
+                                <Input
+                                    value={createForm.yearLevel}
+                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, yearLevel: e.target.value }))}
+                                    placeholder="e.g. 4th Year"
+                                    className="h-8 rounded-md border-gray-200 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Section {createForm.role === 'REVIEWER' ? <span className="text-rose-500">*</span> : <span className="text-gray-400 normal-case font-normal">(optional)</span>}
+                                </Label>
+                                <Input
+                                    value={createForm.section}
+                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, section: e.target.value }))}
+                                    placeholder="e.g. A"
+                                    className="h-8 rounded-md border-gray-200 text-xs"
+                                />
+                            </div>
+                        </div>
+                        {createError && (
+                            <p className="text-xs font-semibold text-rose-600 rounded-md border border-rose-100 bg-rose-50 px-3 py-2">{createError}</p>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCreateModalOpen(false)} disabled={creating} className="h-8 rounded-md border-gray-200 text-xs font-semibold">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleCreate} disabled={creating} className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white text-xs font-semibold">
+                            {creating ? 'Creating...' : 'Create User'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
                 <DialogContent className="sm:max-w-md rounded-lg font-lexend">
                     <DialogHeader>
@@ -724,6 +908,17 @@ const UserManagementPage: React.FC = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={deleteUserTarget !== null}
+                onOpenChange={(open) => { if (!open) setDeleteUserTarget(null); }}
+                title="Delete User"
+                description={`Delete ${deleteUserTarget?.name ?? ''}? This action cannot be undone.`}
+                confirmLabel="Delete"
+                variant="destructive"
+                isLoading={!!mutatingId}
+                onConfirm={confirmDeleteUser}
+            />
         </div>
     );
 };

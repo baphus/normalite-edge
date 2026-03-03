@@ -4,6 +4,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import RoleRoute from './routes/RoleRoute';
 import DashboardLayout from './components/layout/DashboardLayout';
+import { Toaster } from './components/ui/sonner';
 
 // Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -31,6 +32,7 @@ import LogsPage from './pages/LogsPage';
 import CreateExamPage from './pages/CreateExamPage';
 import ManageExamViewPage from './pages/ManageExamViewPage';
 import ManageExamSubmissionsPage from './pages/ManageExamSubmissionsPage';
+import RevieweeExamViewPage from './pages/RevieweeExamViewPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ZoomMeetingPage from './pages/ZoomMeetingPage';
 import StudentManagementPage from './pages/StudentManagementPage';
@@ -68,6 +70,7 @@ function App() {
                   <Route path="/study" element={<StudyHubPage />} />
                   <Route path="/study/:id" element={<StudySessionPage />} />
                   <Route path="/exams" element={<ExamsPage />} />
+                  <Route path="/exams/:id/view" element={<RevieweeExamViewPage />} />
                   <Route path="/exams/:id/take" element={<TakeExamPage />} />
                   <Route path="/exams/:id/result" element={<ExamResultPage />} />
                   <Route path="/exams/:id/review" element={<ExamReviewPage />} />
@@ -112,6 +115,7 @@ function App() {
           </Routes>
         </NotificationProvider>
       </AuthProvider>
+      <Toaster />
     </Router>
   );
 }

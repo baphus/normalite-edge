@@ -1,11 +1,12 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { MailCheck, ShieldCheck, RefreshCw, ExternalLink } from 'lucide-react';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 
 const PendingApprovalPage: React.FC = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [success, setSuccess] = React.useState<string | null>(null);
@@ -47,6 +48,9 @@ const PendingApprovalPage: React.FC = () => {
             </div>
 
             <div className="relative z-10 w-full max-w-[500px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 text-center space-y-6">
+                <button onClick={() => navigate('/')} className="inline-flex items-center justify-center">
+                    <img src="/NormaliteEdgeLogo.png" alt="Normalite EDGE" className="h-14 w-14 object-contain" />
+                </button>
                 <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-50 text-yellow-500 mb-2 animate-pulse">
                     <MailCheck size={48} />
                 </div>

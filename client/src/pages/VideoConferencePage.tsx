@@ -42,7 +42,7 @@ interface Session {
     startTime: string;
     endTime: string;
     programTrack?: string | null;
-    creator?: { name: string };
+    creator?: { id?: string; name: string };
 }
 
 /* ------------------------------------------------------------------ */
@@ -327,12 +327,14 @@ interface SessionCardProps {
     session: Session;
     dimmed?: boolean;
     canManage?: boolean;
+    currentUserId?: string;
+    currentUserRole?: string;
     onView?: () => void;
     onEdit?: () => void;
     onDelete?: () => void;
 }
 
-const SessionCard: React.FC<SessionCardProps> = ({ session, dimmed, canManage, onView, onEdit, onDelete }) => (
+const SessionCard: React.FC<SessionCardProps> = ({ session, dimmed, canManage, currentUserId, currentUserRole, onView, onEdit, onDelete }) => (
     <div
         className={cn(
             'group rounded-lg border border-gray-100 bg-white p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all hover:border-primary/20 hover:shadow-sm',
@@ -354,7 +356,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, dimmed, canManage, o
                     </span>
                     {session.creator?.name && (
                         <span className="inline-flex items-center gap-1">
-                            <Users2 size={11} /> {session.creator.name}
+                            <Users2 size={11} /> {session.creator.id && currentUserRole === 'REVIEWER' && session.creator.id === currentUserId ? 'You' : session.creator.name}
                         </span>
                     )}
                 </div>
@@ -430,10 +432,12 @@ const SessionSection: React.FC<{
     empty: string;
     dimmed?: boolean;
     canManage?: boolean;
+    currentUserId?: string;
+    currentUserRole?: string;
     onView?: (s: Session) => void;
     onEdit?: (s: Session) => void;
     onDelete?: (s: Session) => void;
-}> = ({ title, subtitle, sessions, empty, dimmed, canManage, onView, onEdit, onDelete }) => (
+}> = ({ title, subtitle, sessions, empty, dimmed, canManage, currentUserId, currentUserRole, onView, onEdit, onDelete }) => (
     <div className="space-y-2">
         <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">{title}</span>
@@ -455,6 +459,8 @@ const SessionSection: React.FC<{
                         session={s}
                         dimmed={dimmed}
                         canManage={canManage}
+                        currentUserId={currentUserId}
+                        currentUserRole={currentUserRole}
                         onView={() => onView?.(s)}
                         onEdit={() => onEdit?.(s)}
                         onDelete={() => onDelete?.(s)}
@@ -689,6 +695,8 @@ const VideoConferencePage: React.FC = () => {
                         sessions={grouped.today}
                         empty="No conferences scheduled for today."
                         canManage={canCreate}
+                        currentUserId={user?.id}
+                        currentUserRole={user?.role}
                         onView={setViewingSession}
                         onEdit={openEditSheet}
                         onDelete={setDeletingSession}
@@ -699,6 +707,8 @@ const VideoConferencePage: React.FC = () => {
                         sessions={grouped.upcoming}
                         empty="No upcoming conferences."
                         canManage={canCreate}
+                        currentUserId={user?.id}
+                        currentUserRole={user?.role}
                         onView={setViewingSession}
                         onEdit={openEditSheet}
                         onDelete={setDeletingSession}
@@ -710,6 +720,8 @@ const VideoConferencePage: React.FC = () => {
                         empty="No conference history yet."
                         dimmed
                         canManage={canCreate}
+                        currentUserId={user?.id}
+                        currentUserRole={user?.role}
                         onView={setViewingSession}
                         onEdit={openEditSheet}
                         onDelete={setDeletingSession}
@@ -1031,7 +1043,7 @@ const VideoConferencePage: React.FC = () => {
                                 {viewingSession?.creator?.name && (
                                     <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500">
                                         <Users2 size={11} />
-                                        Hosted by <span className="font-semibold text-gray-700">{viewingSession.creator.name}</span>
+                                        Hosted by <span className="font-semibold text-gray-700">{viewingSession.creator.id && user?.role === 'REVIEWER' && viewingSession.creator.id === user?.id ? 'You' : viewingSession.creator.name}</span>
                                     </div>
                                 )}
 

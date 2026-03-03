@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
 import { uploadImageToCloudinary } from '@/lib/upload';
+import { toast } from 'sonner';
 
 const ProfilePage: React.FC = () => {
     const { user, updateUser } = useAuth();
@@ -54,7 +55,7 @@ const ProfilePage: React.FC = () => {
                 setTracks(response.data?.data || []);
             } catch (error) {
                 console.error('Failed to load tracks', error);
-                alert('Unable to load program tracks. Please refresh and try again.');
+                toast.error('Unable to load program tracks. Please refresh and try again.');
             } finally {
                 setTracksLoading(false);
             }
@@ -77,21 +78,22 @@ const ProfilePage: React.FC = () => {
         event.target.value = '';
         if (!file) return;
         if (!file.type.startsWith('image/')) {
-            alert('Please select a valid image file.');
+            toast.error('Please select a valid image file.');
             return;
         }
         const maxFileSizeInBytes = 3 * 1024 * 1024;
         if (file.size > maxFileSizeInBytes) {
-            alert('Image must be 3MB or smaller.');
+            toast.error('Image must be 3MB or smaller.');
             return;
         }
         try {
             setIsUploadingPicture(true);
             const secureUrl = await uploadImageToCloudinary(file, 'profile-pics');
             setPicture(secureUrl);
+            toast.success('Profile picture updated.');
         } catch (error) {
             console.error('Failed to upload profile picture', error);
-            alert('Failed to upload profile picture. Please try again.');
+            toast.error('Failed to upload profile picture. Please try again.');
         } finally {
             setIsUploadingPicture(false);
         }
@@ -115,23 +117,23 @@ const ProfilePage: React.FC = () => {
 
     const handleSaveProfile = async () => {
         if (!firstName.trim()) {
-            alert('First name is required.');
+            toast.error('First name is required.');
             return;
         }
         if (!lastName.trim()) {
-            alert('Last name is required.');
+            toast.error('Last name is required.');
             return;
         }
         if (isReviewee && !trackId.trim()) {
-            alert('Program track is required.');
+            toast.error('Program track is required.');
             return;
         }
         if (isReviewee && !yearLevel.trim()) {
-            alert('Year is required.');
+            toast.error('Year is required.');
             return;
         }
         if (isReviewee && !section.trim()) {
-            alert('Section is required.');
+            toast.error('Section is required.');
             return;
         }
         try {
@@ -153,10 +155,10 @@ const ProfilePage: React.FC = () => {
             const response = await api.patch('/auth/me/profile', payload);
             const nextUser = response.data?.data || user;
             updateUser(nextUser);
-            alert('Profile updated successfully.');
+            toast.success('Profile updated successfully.');
         } catch (error: any) {
             console.error('Failed to update profile', error);
-            alert(error?.response?.data?.message || 'Failed to update profile.');
+            toast.error(error?.response?.data?.message || 'Failed to update profile.');
         } finally {
             setIsSavingProfile(false);
         }

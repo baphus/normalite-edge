@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { isAxiosError } from 'axios';
-import { Mail, Lock, GraduationCap, ArrowRight, ShieldCheck, UserRound } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck, UserRound } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -138,9 +138,9 @@ const RegisterPage: React.FC = () => {
 
             <div className="relative z-10 w-full max-w-[580px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
                 <div className="pt-8 px-8 pb-2 text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4 text-primary">
-                        <GraduationCap size={36} />
-                    </div>
+                    <Link to="/" className="inline-flex items-center justify-center mb-4">
+                        <img src="/NormaliteEdgeLogo.png" alt="Normalite EDGE" className="h-16 w-16 object-contain" />
+                    </Link>
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight mb-2">
                         Create your account
                     </h1>

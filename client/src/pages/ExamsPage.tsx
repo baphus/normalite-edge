@@ -64,6 +64,7 @@ interface Exam {
     deadline?: string;
     lastScore?: number;
     sections?: Array<{ id?: string; title?: string; orderNo?: number }>;
+    createdAt?: string;
 }
 
 const ExamsPage: React.FC = () => {
@@ -74,6 +75,7 @@ const ExamsPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [sortBy, setSortBy] = useState<'default' | 'most_recent'>('default');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [viewingExam, setViewingExam] = useState<Exam | null>(null);
 
@@ -128,8 +130,9 @@ const ExamsPage: React.FC = () => {
         if (statusFilter !== 'all') count++;
         if (categoryFilter !== 'all') count++;
         if (search.trim().length > 0) count++;
+        if (sortBy !== 'default') count++;
         return count;
-    }, [statusFilter, categoryFilter, search]);
+    }, [statusFilter, categoryFilter, search, sortBy]);
 
     const filteredExams = visibleExams.filter((exam) => {
         const matchesSearch =
@@ -145,6 +148,14 @@ const ExamsPage: React.FC = () => {
             (statusFilter === 'locked' && !hasSubmitted && exam.status !== 'LIVE');
         return matchesSearch && matchesCategory && matchesStatus;
     });
+
+    const filteredAndSortedExams =
+        sortBy === 'most_recent'
+            ? [...filteredExams].sort(
+                  (a, b) =>
+                      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+              )
+            : filteredExams;
 
     const isDeadlineSoon = (deadline?: string) => {
         if (!deadline) return false;
@@ -162,10 +173,12 @@ const ExamsPage: React.FC = () => {
     };
 
     const handleAction = (exam: Exam) => {
-        const { hasSubmitted, canTake } = getExamState(exam);
+        const { hasSubmitted, hasInProgress, canTake, isLive } = getExamState(exam);
         if (hasSubmitted) {
             const resultLink = `/exams/${exam.id}/result${exam.latestSubmittedAttemptId ? `?attemptId=${exam.latestSubmittedAttemptId}` : ''}`;
             navigate(resultLink);
+        } else if (hasInProgress && isLive) {
+            navigate(`/exams/${exam.id}/take`);
         } else if (canTake) {
             navigate(`/exams/${exam.id}/take`);
         }
@@ -249,34 +262,39 @@ const ExamsPage: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2.5 text-xs rounded-md border-gray-200 font-semibold gap-1"
-                                onClick={() => setViewingExam(exam)}
-                            >
-                                <Eye size={11} /> Info
-                            </Button>
-                            <Button
-                                size="sm"
-                                onClick={() => handleAction(exam)}
-                                disabled={!hasSubmitted && !canTake}
-                                className={`h-7 px-2.5 text-xs rounded-md font-semibold gap-1 ${
-                                    hasSubmitted
-                                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                                        : canTake
-                                        ? 'bg-primary hover:bg-primary/90 text-white'
-                                        : 'bg-gray-100 text-gray-400 border-none'
-                                }`}
-                            >
-                                {hasSubmitted ? (
-                                    <><TrendingUp size={11} /> Result</>
-                                ) : canTake ? (
-                                    hasInProgress ? <><RotateCcw size={11} /> Resume</> : <><Play size={11} fill="currentColor" /> Take</>
-                                ) : (
-                                    <><Lock size={11} /> Locked</>
-                                )}
-                            </Button>
+                            {hasSubmitted ? (
+                                <Button
+                                    size="sm"
+                                    className="h-7 px-3 text-xs rounded-md font-semibold gap-1 bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() => handleAction(exam)}
+                                >
+                                    <TrendingUp size={11} /> Result
+                                </Button>
+                            ) : hasInProgress && canTake ? (
+                                <Button
+                                    size="sm"
+                                    className="h-7 px-3 text-xs rounded-md font-semibold gap-1 bg-primary hover:bg-primary/90 text-white"
+                                    onClick={() => handleAction(exam)}
+                                >
+                                    <RotateCcw size={11} /> Resume Exam
+                                </Button>
+                            ) : canTake ? (
+                                <Button
+                                    size="sm"
+                                    className="h-7 px-3 text-xs rounded-md font-semibold gap-1 bg-primary hover:bg-primary/90 text-white"
+                                    onClick={() => handleAction(exam)}
+                                >
+                                    <Play size={11} fill="currentColor" /> Take Exam
+                                </Button>
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    className="h-7 px-3 text-xs rounded-md font-semibold gap-1 bg-primary hover:bg-primary/90 text-white"
+                                    onClick={() => navigate(`/exams/${exam.id}/view`)}
+                                >
+                                    <Eye size={11} /> View
+                                </Button>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -388,33 +406,36 @@ const ExamsPage: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="mt-auto grid grid-cols-2 gap-2">
-                        <Button
-                            variant="outline"
-                            className="h-8 rounded-md border-gray-200 font-semibold text-xs gap-1.5"
-                            onClick={() => setViewingExam(exam)}
-                        >
-                            <Eye size={12} /> View Info
-                        </Button>
-                        <Button
-                            className={`h-8 rounded-md font-semibold text-xs gap-1.5 ${
-                                hasSubmitted
-                                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                                    : canTake
-                                    ? 'bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20'
-                                    : 'bg-gray-100 text-gray-400 border-none'
-                            }`}
-                            disabled={!hasSubmitted && !canTake}
-                            onClick={() => handleAction(exam)}
-                        >
-                            {hasSubmitted ? (
-                                <><TrendingUp size={12} /> Result</>
-                            ) : canTake ? (
-                                hasInProgress ? <><RotateCcw size={12} /> Resume</> : <><Play size={12} fill="currentColor" /> Take</>
-                            ) : (
-                                <><Lock size={12} /> Locked</>
-                            )}
-                        </Button>
+                    <div className="mt-auto">
+                        {hasSubmitted ? (
+                            <Button
+                                className="h-8 w-full rounded-md font-semibold text-xs gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => handleAction(exam)}
+                            >
+                                <TrendingUp size={12} /> View Result
+                            </Button>
+                        ) : hasInProgress && canTake ? (
+                            <Button
+                                className="h-8 w-full rounded-md font-semibold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-white"
+                                onClick={() => handleAction(exam)}
+                            >
+                                <RotateCcw size={12} /> Resume Exam
+                            </Button>
+                        ) : canTake ? (
+                            <Button
+                                className="h-8 w-full rounded-md font-semibold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-white"
+                                onClick={() => handleAction(exam)}
+                            >
+                                <Play size={12} fill="currentColor" /> Take Exam
+                            </Button>
+                        ) : (
+                            <Button
+                                className="h-8 w-full rounded-md font-semibold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-white"
+                                onClick={() => navigate(`/exams/${exam.id}/view`)}
+                            >
+                                <Eye size={12} /> View Exam
+                            </Button>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -483,6 +504,18 @@ const ExamsPage: React.FC = () => {
                                     </SelectContent>
                                 </Select>
                             </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs">Sort By</Label>
+                                <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'default' | 'most_recent')}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Default" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="default">Default</SelectItem>
+                                        <SelectItem value="most_recent">Most Recent</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="pt-2 flex justify-end">
                                 <Button
                                     variant="outline"
@@ -492,6 +525,7 @@ const ExamsPage: React.FC = () => {
                                         setStatusFilter('all');
                                         setCategoryFilter('all');
                                         setSearch('');
+                                        setSortBy('default');
                                     }}
                                 >
                                     Clear Filters
@@ -544,7 +578,7 @@ const ExamsPage: React.FC = () => {
                         </Card>
                     ))}
                 </div>
-            ) : filteredExams.length === 0 ? (
+            ) : filteredAndSortedExams.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center space-y-3 mt-1">
                     <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
                         <BookOpen size={24} />
@@ -562,7 +596,7 @@ const ExamsPage: React.FC = () => {
                             variant="outline"
                             size="sm"
                             className="h-8 text-xs font-semibold border-gray-200"
-                            onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); }}
+                            onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setSortBy('default'); }}
                         >
                             Clear All Filters
                         </Button>
@@ -570,7 +604,7 @@ const ExamsPage: React.FC = () => {
                 </div>
             ) : (
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1' : 'flex flex-col gap-2 mt-1'}>
-                    {filteredExams.map((exam) => renderExamCard(exam))}
+                    {filteredAndSortedExams.map((exam) => renderExamCard(exam))}
                 </div>
             )}
 

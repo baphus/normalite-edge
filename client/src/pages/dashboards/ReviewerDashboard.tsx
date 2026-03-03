@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import ConferencesWidget from './ConferencesWidget';
+import CalendarEventsWidget from './CalendarEventsWidget';
 
 interface ReviewerDashboardProps {
     stats: {
@@ -265,6 +266,9 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
 
                     {/* Conferences */}
                     <ConferencesWidget />
+
+                    {/* Calendar & Events */}
+                    <CalendarEventsWidget />
 
                     {/* Quick Access */}
                     <div className="bg-white rounded-lg border border-dashed border-gray-200 p-3">

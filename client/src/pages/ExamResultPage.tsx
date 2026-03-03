@@ -157,7 +157,20 @@ const ExamResultPage: React.FC = () => {
     }, [result]);
 
     const sections: any[] = result?.sections || [];
-    const questionDetails: any[] = result?.questionDetails || [];
+    const questionDetails: any[] = useMemo(() => {
+        const asNumber = (value: unknown) => {
+            const numeric = Number(value);
+            return Number.isFinite(numeric) ? numeric : 0;
+        };
+
+        return (result?.questionDetails || [])
+            .slice()
+            .sort((first: any, second: any) => asNumber(first.orderNo) - asNumber(second.orderNo))
+            .map((question: any, index: number) => ({
+                ...question,
+                orderNo: index + 1,
+            }));
+    }, [result?.questionDetails]);
     const safeTotal = results.totalQuestions > 0 ? results.totalQuestions : 1;
 
     if (loading) {

@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
+import { toast } from 'sonner';
 
 type Section = 'notifications' | 'security' | 'system';
 
@@ -87,10 +88,11 @@ const SettingsPage: React.FC = () => {
             const response = await api.patch('/settings/system', { allowMultipleAttempts: checked });
             setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
             setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
+            toast.success(checked ? 'Multiple attempts enabled.' : 'Multiple attempts disabled.');
         } catch (error) {
             console.error('Failed to update multiple attempts setting', error);
             setAllowMultipleAttempts(previousValue);
-            alert('Failed to update multiple attempts setting. Please try again.');
+            toast.error('Failed to update multiple attempts setting. Please try again.');
         } finally {
             setSystemSaving(false);
         }
@@ -99,7 +101,7 @@ const SettingsPage: React.FC = () => {
     const handlePasswordUpdate = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) return;
         if (newPassword !== confirmPassword) {
-            alert('New passwords do not match.');
+            toast.error('New passwords do not match.');
             return;
         }
         setPasswordSaving(true);
@@ -112,7 +114,7 @@ const SettingsPage: React.FC = () => {
             setConfirmPassword('');
             setTimeout(() => setPasswordSuccess(false), 3000);
         } catch {
-            alert('Failed to update password. Please try again.');
+            toast.error('Failed to update password. Please try again.');
         } finally {
             setPasswordSaving(false);
         }
