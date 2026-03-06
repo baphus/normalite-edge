@@ -1,45 +1,46 @@
 import { z } from 'zod';
 
 const categorySchema = z.enum(['GENERAL_EDUCATION', 'PROFESSIONAL_EDUCATION', 'SPECIALIZATION']);
+const requiredTrimmedString = (field: string) => z.string().trim().min(1, `${field} is required`);
 
 const deckQuestionSchema = z.object({
     orderNo: z.number().int().min(1).optional(),
-    questionText: z.string().min(1, 'questionText is required'),
-    imageUrl: z.string().optional(),
-    choiceA: z.string().optional(),
-    choiceB: z.string().optional(),
-    choiceC: z.string().optional(),
-    choiceD: z.string().optional(),
-    correctChoice: z.enum(['A', 'B', 'C', 'D']).optional(),
-    answerText: z.string().optional(),
-    rationalization: z.string().optional(),
+    questionText: requiredTrimmedString('questionText'),
+    imageUrl: z.string().trim().optional(),
+    choiceA: requiredTrimmedString('choiceA'),
+    choiceB: requiredTrimmedString('choiceB'),
+    choiceC: requiredTrimmedString('choiceC'),
+    choiceD: requiredTrimmedString('choiceD'),
+    correctChoice: z.enum(['A', 'B', 'C', 'D']),
+    answerText: z.string().trim().optional(),
+    rationalization: z.string().trim().optional(),
     points: z.number().int().min(1).optional(),
 });
 
 export const createDeckSchema = z.object({
-    title: z.string().min(1, 'title is required'),
-    description: z.string().optional(),
-    subject: z.string().optional(),
+    title: requiredTrimmedString('title'),
+    description: z.string().trim().optional(),
+    subject: z.string().trim().optional(),
     category: categorySchema.nullable().optional(),
-    program: z.string().optional(),
-    program_track: z.string().optional(),
-    programTrack: z.string().optional(),
+    program: z.string().trim().optional(),
+    program_track: z.string().trim().optional(),
+    programTrack: z.string().trim().optional(),
     visibility: z.enum(['DRAFT', 'PUBLISHED']).optional(),
     trackIds: z.array(z.string().uuid()).optional(),
-    questions: z.array(deckQuestionSchema).optional(),
+    questions: z.array(deckQuestionSchema).min(1, 'At least 1 question is required'),
 });
 
 export const updateDeckSchema = z.object({
-    title: z.string().min(1).optional(),
-    description: z.string().optional(),
-    subject: z.string().optional(),
+    title: requiredTrimmedString('title').optional(),
+    description: z.string().trim().optional(),
+    subject: z.string().trim().optional(),
     category: categorySchema.nullable().optional(),
-    program: z.string().optional(),
-    program_track: z.string().optional(),
-    programTrack: z.string().optional(),
+    program: z.string().trim().optional(),
+    program_track: z.string().trim().optional(),
+    programTrack: z.string().trim().optional(),
     visibility: z.enum(['DRAFT', 'PUBLISHED']).optional(),
     trackIds: z.array(z.string().uuid()).optional(),
-    questions: z.array(deckQuestionSchema).optional(),
+    questions: z.array(deckQuestionSchema).min(1, 'At least 1 question is required').optional(),
 });
 
 export const startDeckSessionSchema = z.object({

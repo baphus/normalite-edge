@@ -340,24 +340,57 @@ const StudyMaterialEditorPage: React.FC = () => {
             return;
         }
 
+        const preparedCards = cards.map((card) => {
+            const questionText = card.question.trim();
+            const choices = card.options.map((option) => option.trim());
+            const rationalization = card.explanation.trim();
+
+            return {
+                questionText,
+                choices,
+                correctChoice: ['A', 'B', 'C', 'D'][card.correctIndex],
+                rationalization: rationalization || undefined,
+                hasAnyContent:
+                    questionText.length > 0
+                    || choices.some((choice) => choice.length > 0)
+                    || rationalization.length > 0,
+            };
+        });
+
+        const cardsWithContent = preparedCards.filter((card) => card.hasAnyContent);
+
+        if (cardsWithContent.length === 0) {
+            toast.error('Please add at least one question to the deck.');
+            return;
+        }
+
+        if (cardsWithContent.some((card) => card.questionText.length === 0)) {
+            toast.error('Please complete or remove deck items without a question.');
+            return;
+        }
+
+        if (cardsWithContent.some((card) => card.choices.some((choice) => choice.length === 0))) {
+            toast.error('Please complete all four options for each deck question.');
+            return;
+        }
+
         try {
             const payload = {
-                title,
-                description: description || undefined,
+                title: title.trim(),
+                description: description.trim() || undefined,
                 subject: tags[0] || 'General',
                 category: category === 'NONE' ? null : category,
                 visibility: isAdminOrReviewer ? 'PUBLISHED' : 'DRAFT',
                 trackIds: selectedTrackIds,
-                questions: cards.map(c => {
-                    const filledChoices = c.options.map((opt, i) => opt.trim() || `Option ${i + 1}`);
+                questions: cardsWithContent.map((card) => {
                     return {
-                        questionText: c.question.trim() || 'Empty Question',
-                        choiceA: filledChoices[0],
-                        choiceB: filledChoices[1],
-                        choiceC: filledChoices[2],
-                        choiceD: filledChoices[3],
-                        correctChoice: ['A', 'B', 'C', 'D'][c.correctIndex],
-                        rationalization: c.explanation || undefined,
+                        questionText: card.questionText,
+                        choiceA: card.choices[0],
+                        choiceB: card.choices[1],
+                        choiceC: card.choices[2],
+                        choiceD: card.choices[3],
+                        correctChoice: card.correctChoice,
+                        rationalization: card.rationalization,
                     };
                 })
             };

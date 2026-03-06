@@ -138,17 +138,8 @@ const CreateExamPage: React.FC = () => {
     const [isLoadingExam, setIsLoadingExam] = useState(false);
     const [allowMultipleAttemptsConfig, setAllowMultipleAttemptsConfig] = useState(false);
     const importFileRef = useRef<HTMLInputElement | null>(null);
-    const wordImportFileRef = useRef<HTMLInputElement | null>(null);
     const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
     const [importPreviewQuestions, setImportPreviewQuestions] = useState<Question[]>([]);
-    const [wordImportFile, setWordImportFile] = useState<File | null>(null);
-    const [wordImportTitle, setWordImportTitle] = useState('');
-    const [isWordImporting, setIsWordImporting] = useState(false);
-    const [wordImportSummary, setWordImportSummary] = useState<{
-        sectionsCreated: number;
-        questionsImported: number;
-        errors: Array<{ questionNumber: number; message: string }>;
-    } | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
     const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
@@ -416,90 +407,6 @@ const CreateExamPage: React.FC = () => {
 
     const triggerImport = () => {
         importFileRef.current?.click();
-    };
-
-    const triggerWordImport = () => {
-        wordImportFileRef.current?.click();
-    };
-
-    const handleWordImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0] || null;
-        event.target.value = '';
-
-        if (!file) return;
-
-        const isDocx = file.name.toLowerCase().endsWith('.docx');
-        if (!isDocx) {
-            toast.error('Only .docx files are supported for Word import.');
-            return;
-        }
-
-        const maxSizeBytes = 10 * 1024 * 1024;
-        if (file.size > maxSizeBytes) {
-            toast.error('Word file must be 10MB or smaller.');
-            return;
-        }
-
-        setWordImportFile(file);
-        setWordImportSummary(null);
-    };
-
-    const downloadWordTemplate = async () => {
-        try {
-            const response = await api.get('/exams/import/word/template', {
-                responseType: 'blob',
-            });
-
-            const blob = new Blob([
-                response.data,
-            ], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'question-import-template.docx');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Failed to download Word template', error);
-            toast.error('Failed to download Word template.');
-        }
-    };
-
-    const importWordQuestions = async () => {
-        if (!wordImportFile) {
-            toast.error('Please select a .docx file first.');
-            return;
-        }
-
-        try {
-            setIsWordImporting(true);
-            const formData = new FormData();
-            formData.append('file', wordImportFile);
-            if (wordImportTitle.trim()) {
-                formData.append('title', wordImportTitle.trim());
-            }
-
-            const response = await api.post('/exams/import/word', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-
-            const summary = response.data?.data?.summary;
-            setWordImportSummary(summary || null);
-            setWordImportFile(null);
-            toast.success(
-                `Imported ${summary?.questionsImported ?? 0} question(s) into a new mock exam draft.`
-            );
-        } catch (error: any) {
-            console.error('Failed to import Word questions', error);
-            const message = error?.response?.data?.message || 'Failed to import Word file.';
-            toast.error(message);
-        } finally {
-            setIsWordImporting(false);
-        }
     };
 
     const downloadTemplate = (format: 'csv' | 'json') => {
@@ -820,19 +727,38 @@ const CreateExamPage: React.FC = () => {
             }
         }
 
-        const preparedQuestions = questions
-            .map((q) => ({
-                text: q.text.trim(),
-                imageUrl: q.imageUrl?.trim() || undefined,
-                choices: q.options.map((option) => option.trim()),
-                correctAnswer: ['A', 'B', 'C', 'D'][q.correctOption],
-                explanation: q.rationale.trim() || undefined,
-                section: q.section?.trim() || 'General Section',
-            }))
-            .filter((q) => q.text.length > 0);
+        const normalizedQuestions = questions.map((question) => {
+            const text = question.text.trim();
+            const imageUrl = question.imageUrl?.trim() || undefined;
+            const choices = question.options.map((option) => option.trim());
+            const explanation = question.rationale.trim() || undefined;
+
+            return {
+                text,
+                imageUrl,
+                choices,
+                correctAnswer: ['A', 'B', 'C', 'D'][question.correctOption],
+                explanation,
+                section: question.section?.trim() || 'General Section',
+                hasAnyContent:
+                    text.length > 0
+                    || Boolean(imageUrl)
+                    || choices.some((choice) => choice.length > 0)
+                    || Boolean(explanation),
+            };
+        });
+
+        const preparedQuestions = normalizedQuestions
+            .filter((question) => question.hasAnyContent)
+            .map(({ hasAnyContent, ...question }) => question);
 
         if (preparedQuestions.length === 0) {
             toast.error('Please add at least one question.');
+            return;
+        }
+
+        if (normalizedQuestions.some((question) => question.hasAnyContent && question.text.length === 0)) {
+            toast.error('Please complete or remove questions without question text.');
             return;
         }
 
@@ -1218,22 +1144,8 @@ const CreateExamPage: React.FC = () => {
                                     onChange={handleFileImport}
                                     className="hidden"
                                 />
-                                <input
-                                    ref={wordImportFileRef}
-                                    type="file"
-                                    accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                    onChange={handleWordImportFileChange}
-                                    className="hidden"
-                                />
                                 <Button variant="outline" className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider" onClick={triggerImport}>
                                     <FileUp size={12} /> Import
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider"
-                                    onClick={triggerWordImport}
-                                >
-                                    <FileUp size={12} /> Import Word
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -1251,47 +1163,12 @@ const CreateExamPage: React.FC = () => {
                                 >
                                     <FileJson size={13} />
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider"
-                                    onClick={downloadWordTemplate}
-                                >
-                                    Template .DOCX
-                                </Button>
                             </div>
                         </div>
 
                         <p className="text-[10px] font-medium text-slate-400 -mt-1">
                             Import tip: <span className="font-bold text-slate-500">correctAnswer</span> can be <span className="font-bold text-slate-500">A/B/C/D</span>, <span className="font-bold text-slate-500">1–4</span>, or the exact option text. Optional: <span className="font-bold text-slate-500">imageUrl</span>, <span className="font-bold text-slate-500">rationalization</span>, <span className="font-bold text-slate-500">section</span>.
                         </p>
-
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-3 space-y-2">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                <Input
-                                    value={wordImportTitle}
-                                    onChange={(event) => setWordImportTitle(event.target.value)}
-                                    placeholder="Title for imported mock exam (optional)"
-                                    className="h-8 text-xs md:col-span-2"
-                                />
-                                <Button
-                                    className="h-8 text-[10px] font-bold uppercase tracking-wider"
-                                    onClick={() => { void importWordQuestions(); }}
-                                    disabled={!wordImportFile || isWordImporting}
-                                >
-                                    {isWordImporting ? 'Importing...' : 'Import from Word'}
-                                </Button>
-                            </div>
-                            <p className="text-[10px] text-slate-500 font-medium">
-                                {wordImportFile
-                                    ? `Selected: ${wordImportFile.name}`
-                                    : 'Select a .docx file, then run one-click import to create a new mock exam draft.'}
-                            </p>
-                            {wordImportSummary && (
-                                <p className="text-[10px] text-emerald-700 font-semibold">
-                                    Imported {wordImportSummary.questionsImported} question(s) across {wordImportSummary.sectionsCreated} section(s).
-                                </p>
-                            )}
-                        </div>
 
                         {/* Section Tabs */}
                         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-px">
