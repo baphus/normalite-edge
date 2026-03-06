@@ -87,6 +87,7 @@ interface StudentSummary {
     id: string;
     name: string;
     email: string;
+    status: string;
     programTrack: string;
     yearLevel?: string;
     section?: string;
@@ -105,10 +106,17 @@ interface StudentUserItem {
     name: string;
     email: string;
     role: string;
+    status?: string;
     program?: string | null;
     program_track?: string | null;
     yearLevel?: string | null;
     section?: string | null;
+}
+
+interface TrackItem {
+    id: string;
+    name: string;
+    code?: string | null;
 }
 
 type StudentColumn = 'student' | 'program' | 'attempts' | 'performance' | 'lastActivity';
@@ -134,10 +142,14 @@ const StudentManagementPage: React.FC = () => {
     const navigate = useNavigate();
     const [attempts, setAttempts] = useState<AttemptItem[]>([]);
     const [students, setStudents] = useState<StudentUserItem[]>([]);
+    const [tracks, setTracks] = useState<TrackItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [trackFilter, setTrackFilter] = useState('ALL');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [yearLevelFilter, setYearLevelFilter] = useState('ALL');
+    const [sectionFilter, setSectionFilter] = useState('ALL');
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
     const [selectedStudent, setSelectedStudent] = useState<StudentSummary | null>(null);
@@ -175,24 +187,32 @@ const StudentManagementPage: React.FC = () => {
         return (response.data?.data || []) as StudentUserItem[];
     };
 
+    const fetchTracks = async () => {
+        const response = await api.get('/tracks');
+        return (response.data?.data || []) as TrackItem[];
+    };
+
     const fetchData = async () => {
         setLoading(true);
         setErrorMessage(null);
         try {
-            const [attemptRows, studentRows] = await Promise.all([
+            const [attemptRows, studentRows, trackRows] = await Promise.all([
                 fetchAttempts(),
                 fetchStudents().catch((error) => {
                     if (error?.response?.status === 403) return [] as StudentUserItem[];
                     throw error;
                 }),
+                fetchTracks().catch(() => [] as TrackItem[]),
             ]);
 
             setAttempts(attemptRows);
             setStudents(studentRows);
+            setTracks(trackRows);
         } catch (error: any) {
             setErrorMessage(error?.response?.data?.message || 'Failed to load student activity');
             setAttempts([]);
             setStudents([]);
+            setTracks([]);
         } finally {
             setLoading(false);
         }
@@ -240,9 +260,10 @@ const StudentManagementPage: React.FC = () => {
                 id: student.id,
                 name: student.name || first?.user?.name || 'Unknown Student',
                 email: student.email || first?.user?.email || 'N/A',
+                status: student.status || 'UNKNOWN',
                 programTrack: student.program || student.program_track || first?.user?.programTrack || 'Unassigned',
-                yearLevel: student.yearLevel || first?.user?.yearLevel || '',
-                section: student.section || first?.user?.section || '',
+                yearLevel: student.yearLevel || first?.user?.yearLevel || 'Unassigned',
+                section: student.section || first?.user?.section || 'Unassigned',
                 attempts: studentAttempts.length,
                 completedAttempts: submitted.length,
                 inProgressAttempts: inProgress.length,
@@ -281,9 +302,10 @@ const StudentManagementPage: React.FC = () => {
                 id: studentId,
                 name: first.user?.name || 'Unknown Student',
                 email: first.user?.email || 'N/A',
+                status: 'UNKNOWN',
                 programTrack: first.user?.programTrack || 'Unassigned',
-                yearLevel: first.user?.yearLevel || '',
-                section: first.user?.section || '',
+                yearLevel: first.user?.yearLevel || 'Unassigned',
+                section: first.user?.section || 'Unassigned',
                 attempts: studentAttempts.length,
                 completedAttempts: submitted.length,
                 inProgressAttempts: inProgress.length,
@@ -299,7 +321,24 @@ const StudentManagementPage: React.FC = () => {
     }, [attempts, students]);
 
     const trackOptions = useMemo(() => {
-        return Array.from(new Set(studentSummaries.map((student) => student.programTrack))).sort((a, b) => a.localeCompare(b));
+        const configuredTracks = tracks.map((track) => track.name).filter(Boolean);
+        const observedTracks = studentSummaries
+            .map((student) => student.programTrack)
+            .filter((track) => track && track !== 'Unassigned');
+
+        return Array.from(new Set([...configuredTracks, ...observedTracks])).sort((a, b) => a.localeCompare(b));
+    }, [studentSummaries, tracks]);
+
+    const statusOptions = useMemo(() => {
+        return Array.from(new Set(studentSummaries.map((student) => student.status || 'UNKNOWN'))).sort((a, b) => a.localeCompare(b));
+    }, [studentSummaries]);
+
+    const yearLevelOptions = useMemo(() => {
+        return Array.from(new Set(studentSummaries.map((student) => student.yearLevel || 'Unassigned'))).sort((a, b) => a.localeCompare(b));
+    }, [studentSummaries]);
+
+    const sectionOptions = useMemo(() => {
+        return Array.from(new Set(studentSummaries.map((student) => student.section || 'Unassigned'))).sort((a, b) => a.localeCompare(b));
     }, [studentSummaries]);
 
     const filteredStudents = useMemo(() => {
@@ -310,13 +349,19 @@ const StudentManagementPage: React.FC = () => {
                 const matchesSearch = !normalizedSearch
                     || student.name.toLowerCase().includes(normalizedSearch)
                     || student.email.toLowerCase().includes(normalizedSearch)
-                    || student.programTrack.toLowerCase().includes(normalizedSearch);
+                    || student.programTrack.toLowerCase().includes(normalizedSearch)
+                    || (isAdmin && (student.status || '').toLowerCase().includes(normalizedSearch))
+                    || (student.yearLevel || '').toLowerCase().includes(normalizedSearch)
+                    || (student.section || '').toLowerCase().includes(normalizedSearch);
 
                 const matchesTrack = trackFilter === 'ALL' || student.programTrack === trackFilter;
+                const matchesStatus = !isAdmin || statusFilter === 'ALL' || student.status === statusFilter;
+                const matchesYearLevel = yearLevelFilter === 'ALL' || (student.yearLevel || 'Unassigned') === yearLevelFilter;
+                const matchesSection = sectionFilter === 'ALL' || (student.section || 'Unassigned') === sectionFilter;
 
-                return matchesSearch && matchesTrack;
+                return matchesSearch && matchesTrack && matchesStatus && matchesYearLevel && matchesSection;
             });
-    }, [search, studentSummaries, trackFilter]);
+    }, [isAdmin, search, studentSummaries, trackFilter, statusFilter, yearLevelFilter, sectionFilter]);
 
     const sortedStudents = useMemo(() => {
         const copy = [...filteredStudents];
@@ -351,7 +396,7 @@ const StudentManagementPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [search, trackFilter]);
+    }, [search, trackFilter, statusFilter, yearLevelFilter, sectionFilter]);
 
     const handleSort = (key: SortKey) => {
         if (sortBy === key) {
@@ -370,6 +415,9 @@ const StudentManagementPage: React.FC = () => {
 
     const resetFilters = () => {
         setTrackFilter('ALL');
+        setStatusFilter('ALL');
+        setYearLevelFilter('ALL');
+        setSectionFilter('ALL');
         setPage(1);
     };
 
@@ -419,7 +467,7 @@ const StudentManagementPage: React.FC = () => {
                         <Input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search name, email, or program"
+                            placeholder={isAdmin ? 'Search name, email, program, status, year, section' : 'Search name, email, program, year, section'}
                             className="h-8 pl-9 rounded-md border-gray-200 text-xs"
                         />
                     </div>
@@ -430,7 +478,7 @@ const StudentManagementPage: React.FC = () => {
                                 <Filter className="w-3 h-3" /> Filters
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-72 p-3 font-lexend space-y-3">
+                        <DropdownMenuContent align="end" className="w-80 p-3 font-lexend space-y-3">
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Program</Label>
                                 <Select value={trackFilter} onValueChange={setTrackFilter}>
@@ -441,6 +489,53 @@ const StudentManagementPage: React.FC = () => {
                                         <SelectItem value="ALL">All Programs</SelectItem>
                                         {trackOptions.map((track) => (
                                             <SelectItem key={track} value={track}>{track}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {isAdmin && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</Label>
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
+                                            <SelectValue placeholder="Filter status" />
+                                        </SelectTrigger>
+                                        <SelectContent className="font-lexend">
+                                            <SelectItem value="ALL">All Statuses</SelectItem>
+                                            {statusOptions.map((status) => (
+                                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Year Level</Label>
+                                <Select value={yearLevelFilter} onValueChange={setYearLevelFilter}>
+                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
+                                        <SelectValue placeholder="Filter year level" />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="ALL">All Year Levels</SelectItem>
+                                        {yearLevelOptions.map((yearLevel) => (
+                                            <SelectItem key={yearLevel} value={yearLevel}>{yearLevel}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Section</Label>
+                                <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
+                                        <SelectValue placeholder="Filter section" />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="ALL">All Sections</SelectItem>
+                                        {sectionOptions.map((section) => (
+                                            <SelectItem key={section} value={section}>{section}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

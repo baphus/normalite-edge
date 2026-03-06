@@ -315,6 +315,7 @@ model StudyDeckQuestion {
   deckId          String  @map("deck_id") @db.Uuid
   orderNo         Int     @map("order_no")
   questionText    String  @map("question_text")
+  imageUrl        String? @map("image_url")
   choiceA         String? @map("choice_a")
   choiceB         String? @map("choice_b")
   choiceC         String? @map("choice_c")

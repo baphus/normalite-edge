@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -56,6 +56,15 @@ const CustomDeckPage: React.FC = () => {
     const [tagInput, setTagInput] = useState('');
     const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
+    const wordImportFileRef = useRef<HTMLInputElement | null>(null);
+    const [wordImportFile, setWordImportFile] = useState<File | null>(null);
+    const [wordImportTitle, setWordImportTitle] = useState('');
+    const [isWordImporting, setIsWordImporting] = useState(false);
+    const [wordImportSummary, setWordImportSummary] = useState<{
+        sectionsCreated: number;
+        questionsImported: number;
+        errors: Array<{ questionNumber: number; message: string }>;
+    } | null>(null);
     const [cards, setCards] = useState<CardItem[]>([
         { id: '1', question: '', options: ['', '', '', ''], correctIndex: 0, explanation: '' }
     ]);
@@ -291,6 +300,87 @@ const CustomDeckPage: React.FC = () => {
         a.href = url;
         a.download = `template.${type}`;
         a.click();
+    };
+
+    const triggerWordImport = () => {
+        wordImportFileRef.current?.click();
+    };
+
+    const handleWordImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
+        event.target.value = '';
+
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith('.docx')) {
+            toast.error('Only .docx files are supported for Word import.');
+            return;
+        }
+
+        const maxSizeBytes = 10 * 1024 * 1024;
+        if (file.size > maxSizeBytes) {
+            toast.error('Word file must be 10MB or smaller.');
+            return;
+        }
+
+        setWordImportFile(file);
+        setWordImportSummary(null);
+    };
+
+    const downloadWordTemplate = async () => {
+        try {
+            const response = await api.get('/decks/import/word/template', {
+                responseType: 'blob',
+            });
+
+            const blob = new Blob([
+                response.data,
+            ], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'question-import-template.docx');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download Word template', error);
+            toast.error('Failed to download Word template.');
+        }
+    };
+
+    const importFromWord = async () => {
+        if (!wordImportFile) {
+            toast.error('Please select a .docx file first.');
+            return;
+        }
+
+        try {
+            setIsWordImporting(true);
+            const formData = new FormData();
+            formData.append('file', wordImportFile);
+            if (wordImportTitle.trim()) {
+                formData.append('title', wordImportTitle.trim());
+            }
+
+            const response = await api.post('/decks/import/word', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const summary = response.data?.data?.summary;
+            setWordImportSummary(summary || null);
+            setWordImportFile(null);
+            toast.success(`Imported ${summary?.questionsImported ?? 0} question(s) into a new study material draft.`);
+        } catch (error: any) {
+            console.error('Failed to import Word file', error);
+            const message = error?.response?.data?.message || 'Failed to import Word file.';
+            toast.error(message);
+        } finally {
+            setIsWordImporting(false);
+        }
     };
 
     const addTag = () => {
@@ -536,6 +626,56 @@ const CustomDeckPage: React.FC = () => {
                                         <Download size={14} /> .JSON
                                     </Button>
                                 </div>
+                                <div className="h-px bg-primary/10 my-1" />
+                                <input
+                                    ref={wordImportFileRef}
+                                    type="file"
+                                    accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                    onChange={handleWordImportFileChange}
+                                    className="hidden"
+                                />
+                                <div className="grid grid-cols-1 gap-2">
+                                    <Input
+                                        value={wordImportTitle}
+                                        onChange={(event) => setWordImportTitle(event.target.value)}
+                                        placeholder="Title for imported study material (optional)"
+                                        className="h-10 rounded-xl text-xs"
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={triggerWordImport}
+                                            className="flex-1 gap-2 h-10 rounded-xl text-primary border-primary/20 font-black uppercase tracking-widest text-[9px]"
+                                        >
+                                            <Upload size={14} /> Pick .DOCX
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            onClick={() => { void importFromWord(); }}
+                                            disabled={!wordImportFile || isWordImporting}
+                                            className="flex-1 gap-2 h-10 rounded-xl font-black uppercase tracking-widest text-[9px]"
+                                        >
+                                            {isWordImporting ? 'Importing...' : 'Import from Word'}
+                                        </Button>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => { void downloadWordTemplate(); }}
+                                        className="gap-2 h-9 rounded-xl text-gray-500 font-black uppercase tracking-widest text-[9px] hover:bg-white"
+                                    >
+                                        <Download size={14} /> Download .DOCX Template
+                                    </Button>
+                                </div>
+                                <p className="text-[10px] text-gray-500 font-medium">
+                                    {wordImportFile ? `Selected: ${wordImportFile.name}` : 'Select a .docx file to run one-click import directly to a new study material draft.'}
+                                </p>
+                                {wordImportSummary && (
+                                    <p className="text-[10px] font-semibold text-emerald-700">
+                                        Imported {wordImportSummary.questionsImported} question(s) across {wordImportSummary.sectionsCreated} section(s).
+                                    </p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

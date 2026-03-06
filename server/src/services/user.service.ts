@@ -63,13 +63,18 @@ export class UserService {
         role?: Role;
         status?: string;
         search?: string;
+        requesterRole?: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
     }) {
         const page = params.page || 1;
         const limit = params.limit || 20;
         const skip = (page - 1) * limit;
 
         const where: any = {};
-        if (params.role) where.role = params.role;
+        if (params.requesterRole === 'REVIEWER') {
+            where.role = 'REVIEWEE';
+        } else if (params.role) {
+            where.role = params.role;
+        }
         if (params.status) where.status = toDbUserStatus(params.status);
         if (params.search) {
             where.OR = [

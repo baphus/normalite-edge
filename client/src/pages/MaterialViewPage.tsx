@@ -17,6 +17,7 @@ interface DeckQuestion {
     id: string;
     orderNo?: number;
     questionText: string;
+    imageUrl?: string | null;
     choiceA?: string | null;
     choiceB?: string | null;
     choiceC?: string | null;
@@ -237,6 +238,15 @@ const MaterialViewPage: React.FC = () => {
                                                     <p className="text-sm md:text-base font-bold text-gray-900 mt-1 leading-relaxed">
                                                         {question.questionText || 'No question text available.'}
                                                     </p>
+                                                    {question.imageUrl ? (
+                                                        <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50/40 p-2">
+                                                            <img
+                                                                src={question.imageUrl}
+                                                                alt={`Question ${index + 1}`}
+                                                                className="max-h-56 w-auto max-w-full rounded-md object-contain bg-white"
+                                                            />
+                                                        </div>
+                                                    ) : null}
                                                 </div>
 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">

@@ -5,6 +5,7 @@ const categorySchema = z.enum(['GENERAL_EDUCATION', 'PROFESSIONAL_EDUCATION', 'S
 const deckQuestionSchema = z.object({
     orderNo: z.number().int().min(1).optional(),
     questionText: z.string().min(1, 'questionText is required'),
+    imageUrl: z.string().optional(),
     choiceA: z.string().optional(),
     choiceB: z.string().optional(),
     choiceC: z.string().optional(),

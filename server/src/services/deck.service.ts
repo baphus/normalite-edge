@@ -158,6 +158,7 @@ export class DeckService {
         questions?: {
             orderNo?: number;
             questionText: string;
+            imageUrl?: string;
             choiceA?: string;
             choiceB?: string;
             choiceC?: string;
@@ -204,6 +205,7 @@ export class DeckService {
                         deckId: createdDeck.id,
                         orderNo: question.orderNo ?? index + 1,
                         questionText: question.questionText,
+                        imageUrl: question.imageUrl,
                         choiceA: question.choiceA,
                         choiceB: question.choiceB,
                         choiceC: question.choiceC,
@@ -260,6 +262,7 @@ export class DeckService {
             questions?: {
                 orderNo?: number;
                 questionText: string;
+                imageUrl?: string;
                 choiceA?: string;
                 choiceB?: string;
                 choiceC?: string;
@@ -317,6 +320,7 @@ export class DeckService {
                             deckId,
                             orderNo: question.orderNo ?? index + 1,
                             questionText: question.questionText,
+                            imageUrl: question.imageUrl,
                             choiceA: question.choiceA,
                             choiceB: question.choiceB,
                             choiceC: question.choiceC,

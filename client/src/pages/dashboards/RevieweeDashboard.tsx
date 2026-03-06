@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-    RefreshCw,
     Sparkles,
     Video,
     Zap,
@@ -26,7 +25,6 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
 } from '@/components/ui/dialog';
 import CalendarEventsWidget from './CalendarEventsWidget';
 
@@ -82,6 +80,8 @@ type MotivationalQuote = {
     author: string;
 };
 
+const QUOTE_STORAGE_KEY = 'reviewee-dashboard-daily-quote';
+
 interface RevieweeDashboardProps {
     stats: {
         overallAverage?: number;
@@ -136,20 +136,41 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         try {
             setIsQuoteLoading(true);
             setQuoteError('');
+
+            const todayKey = new Date().toISOString().slice(0, 10);
+            const cached = localStorage.getItem(QUOTE_STORAGE_KEY);
+            if (cached) {
+                const parsed = JSON.parse(cached) as { date: string; quote: MotivationalQuote };
+                if (parsed?.date === todayKey && parsed?.quote?.text) {
+                    setQuote(parsed.quote);
+                    return;
+                }
+            }
+
             const response = await fetch('https://dummyjson.com/quotes/random');
             if (!response.ok) throw new Error('Failed to fetch quote');
             const data = await response.json();
-            setQuote({
+            const dailyQuote = {
                 text: data?.quote || fallbackQuotes[0].text,
                 author: data?.author || 'Unknown',
-            });
+            };
+            setQuote(dailyQuote);
+            localStorage.setItem(QUOTE_STORAGE_KEY, JSON.stringify({ date: todayKey, quote: dailyQuote }));
         } catch {
             const randomFallback = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
             setQuote(randomFallback);
-            setQuoteError('Showing offline fallback quote.');
+            localStorage.setItem(
+                QUOTE_STORAGE_KEY,
+                JSON.stringify({ date: new Date().toISOString().slice(0, 10), quote: randomFallback })
+            );
+            setQuoteError('Showing offline daily quote.');
         } finally {
             setIsQuoteLoading(false);
         }
+    };
+
+    const handleRequestAnotherQuote = () => {
+        setQuoteError('Quote of the Day updates once daily. Please come back tomorrow for a new one.');
     };
 
     useEffect(() => {
@@ -242,39 +263,29 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                             <DialogTitle className="text-sm font-bold text-gray-900">Daily Question</DialogTitle>
                             <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase">Today</Badge>
                         </div>
-                        <DialogDescription className="text-xs text-gray-400">
-                            {dailyQuestion?.examTitle}
-                        </DialogDescription>
                     </DialogHeader>
 
                     {dailyQuestion && (
                         <div className="space-y-3">
                             <p className="text-sm font-semibold text-gray-900 leading-snug">{dailyQuestion.questionText}</p>
 
-                            <RadioGroup
-                                value={selectedChoice}
-                                onValueChange={(value) => { setSelectedChoice(value as 'A' | 'B' | 'C' | 'D'); setDailyError(''); }}
-                                className="gap-2"
-                                disabled={!!dailyResult}
-                            >
-                                {(['A', 'B', 'C', 'D'] as const).map((choiceKey) => (
-                                    <div key={choiceKey} className={`flex items-start gap-2 rounded-lg border p-2.5 transition-colors ${
-                                        dailyResult
-                                            ? choiceKey === dailyResult.correctChoice
-                                                ? 'border-green-300 bg-green-50'
-                                                : choiceKey === dailyResult.selectedChoice && !dailyResult.isCorrect
-                                                    ? 'border-red-200 bg-red-50'
-                                                    : 'border-gray-100'
-                                            : 'border-gray-200 hover:bg-gray-50'
-                                    }`}>
-                                        <RadioGroupItem value={choiceKey} id={`dq-${choiceKey}`} className="mt-0.5" />
-                                        <Label htmlFor={`dq-${choiceKey}`} className="cursor-pointer text-xs text-gray-700 leading-relaxed">
-                                            <span className="font-bold mr-1">{choiceKey}.</span>
-                                            {dailyQuestion.choices[choiceKey]}
-                                        </Label>
-                                    </div>
-                                ))}
-                            </RadioGroup>
+                            {!dailyResult && (
+                                <RadioGroup
+                                    value={selectedChoice}
+                                    onValueChange={(value) => { setSelectedChoice(value as 'A' | 'B' | 'C' | 'D'); setDailyError(''); }}
+                                    className="gap-2"
+                                >
+                                    {(['A', 'B', 'C', 'D'] as const).map((choiceKey) => (
+                                        <div key={choiceKey} className="flex items-start gap-2 rounded-lg border border-gray-200 p-2.5 transition-colors hover:bg-gray-50">
+                                            <RadioGroupItem value={choiceKey} id={`dq-${choiceKey}`} className="mt-0.5" />
+                                            <Label htmlFor={`dq-${choiceKey}`} className="cursor-pointer text-xs text-gray-700 leading-relaxed">
+                                                <span className="font-bold mr-1">{choiceKey}.</span>
+                                                {dailyQuestion.choices[choiceKey]}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+                            )}
 
                             {dailyResult && (
                                 <div className={`rounded-lg border p-3 space-y-1.5 ${
@@ -283,10 +294,13 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                                     <p className={`text-xs font-bold ${ dailyResult.isCorrect ? 'text-green-700' : 'text-amber-700'}`}>
                                         {dailyResult.isCorrect ? '\u2713 Correct! Great job.' : '\u2717 Not quite this time.'}
                                     </p>
+                                    <p className="text-xs text-gray-700"><span className="font-bold">Question:</span> {dailyQuestion.questionText}</p>
+                                    <p className="text-xs text-gray-700">Your answer: <span className="font-bold">{dailyResult.selectedChoice}</span></p>
                                     <p className="text-xs text-gray-700">Correct answer: <span className="font-bold">{dailyResult.correctChoice}</span></p>
-                                    {dailyResult.rationalization && (
-                                        <p className="text-xs text-gray-600">{dailyResult.rationalization}</p>
-                                    )}
+                                    <p className="text-xs text-gray-600">
+                                        <span className="font-bold text-gray-700">Rationalization:</span>{' '}
+                                        {dailyResult.rationalization || 'No rationalization provided.'}
+                                    </p>
                                 </div>
                             )}
 
@@ -411,11 +425,10 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                                 variant="ghost"
                                 size="sm"
                                 className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70 gap-1"
-                                onClick={loadMotivationalQuote}
+                                onClick={handleRequestAnotherQuote}
                                 disabled={isQuoteLoading}
                             >
-                                <RefreshCw className={`h-3 w-3 ${isQuoteLoading ? 'animate-spin' : ''}`} />
-                                New
+                                Another quote?
                             </Button>
                         </div>
                         <Card className="border-gray-100 shadow-sm rounded-lg">

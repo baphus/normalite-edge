@@ -13,6 +13,7 @@ export const userController = {
             role: role as any,
             status: status as any,
             search: search as string,
+            requesterRole: req.user?.role as 'ADMIN' | 'REVIEWER' | 'REVIEWEE' | undefined,
         });
 
         ApiResponse.paginated(res, result.users, {

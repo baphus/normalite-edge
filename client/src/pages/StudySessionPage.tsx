@@ -21,6 +21,7 @@ import api from '@/lib/axios';
 interface StudyItem {
     id: string;
     question: string;
+    imageUrl?: string | null;
     options: string[];
     answer: number;
     rationalization: string;
@@ -55,6 +56,7 @@ const StudySessionPage: React.FC = () => {
                     return {
                         id: q.id,
                         question: q.questionText,
+                        imageUrl: q.imageUrl || null,
                         options,
                         answer: answerIndex >= 0 ? answerIndex : 0,
                         rationalization: q.rationalization || 'No explanation provided.',
@@ -184,6 +186,15 @@ const StudySessionPage: React.FC = () => {
                                                 : <XCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
                                         )}
                                     </div>
+                                    {item.imageUrl ? (
+                                        <div className="rounded-md border border-gray-100 bg-gray-50/30 p-2">
+                                            <img
+                                                src={item.imageUrl}
+                                                alt={`Review item ${idx + 1}`}
+                                                className="max-h-48 w-auto max-w-full rounded-md object-contain bg-white"
+                                            />
+                                        </div>
+                                    ) : null}
                                     <div className="p-3 rounded-md bg-blue-50 border border-blue-100 space-y-1">
                                         <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Answer</p>
                                         <p className="text-xs font-bold text-gray-900">{item.options[item.answer]}</p>
@@ -272,6 +283,15 @@ const StudySessionPage: React.FC = () => {
                                         <p className="text-base md:text-lg font-semibold text-gray-900 leading-relaxed">
                                             {currentItem.question}
                                         </p>
+                                        {currentItem.imageUrl ? (
+                                            <div className="mt-2 rounded-md border border-gray-100 bg-gray-50/30 p-2">
+                                                <img
+                                                    src={currentItem.imageUrl}
+                                                    alt={`Flashcard ${currentIndex + 1}`}
+                                                    className="max-h-56 w-auto max-w-full rounded-md object-contain bg-white"
+                                                />
+                                            </div>
+                                        ) : null}
                                         <div className="absolute bottom-4 flex items-center gap-1.5 text-[10px] font-semibold text-gray-300 uppercase tracking-wider">
                                             <Repeat2 size={12} /> Tap to flip
                                         </div>
@@ -312,9 +332,20 @@ const StudySessionPage: React.FC = () => {
                                     <span className="shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-0.5 w-6 text-right">
                                         {currentIndex + 1}.
                                     </span>
-                                    <p className="text-sm md:text-base font-semibold text-gray-900 leading-relaxed">
-                                        {currentItem.question}
-                                    </p>
+                                    <div className="flex-1">
+                                        <p className="text-sm md:text-base font-semibold text-gray-900 leading-relaxed">
+                                            {currentItem.question}
+                                        </p>
+                                        {currentItem.imageUrl ? (
+                                            <div className="mt-2 rounded-md border border-gray-100 bg-gray-50/30 p-2">
+                                                <img
+                                                    src={currentItem.imageUrl}
+                                                    alt={`Question ${currentIndex + 1}`}
+                                                    className="max-h-56 w-auto max-w-full rounded-md object-contain bg-white"
+                                                />
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </div>
 
                                 <div className="grid gap-2 pl-9">

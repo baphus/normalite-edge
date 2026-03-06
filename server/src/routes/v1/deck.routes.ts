@@ -10,6 +10,8 @@ import {
     startDeckSessionSchema,
     updateDeckSchema,
 } from '../../validators/deck.validator';
+import { parseDocxUpload } from '../../middleware/docxUpload';
+import { wordImportController } from '../../controllers/word-import.controller';
 
 const router = Router();
 
@@ -17,6 +19,8 @@ router.use(authenticate);
 
 router.get('/', deckController.listDecks);
 router.get('/managed', authorize('ADMIN', 'REVIEWER'), deckController.listManagedDecks);
+router.get('/import/word/template', authorize('ADMIN', 'REVIEWER'), wordImportController.downloadWordTemplate);
+router.post('/import/word', authorize('ADMIN', 'REVIEWER'), parseDocxUpload, wordImportController.importDeckFromWord);
 router.get('/sessions/:sessionId', deckController.getDeckSession);
 router.post('/:id/sessions/start', authorize('REVIEWEE'), validate(startDeckSessionSchema), deckController.startDeckSession);
 router.patch('/sessions/:sessionId/save', authorize('REVIEWEE'), validate(saveDeckSessionSchema), deckController.saveDeckSession);
