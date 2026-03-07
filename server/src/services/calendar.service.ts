@@ -2,7 +2,7 @@ import prisma from '../config/db';
 
 export interface CalendarEvent {
     id: string;
-    type: 'exam_start' | 'exam_deadline' | 'conference' | 'submission';
+    type: 'exam_start' | 'exam_deadline' | 'conference';
     title: string;
     date: string; // ISO date string YYYY-MM-DD
     time?: string; // HH:mm
@@ -133,56 +133,6 @@ export class CalendarService {
                     host: hostName,
                 },
             });
-        }
-
-        // ── Submission activity (Admin / Reviewer only) ───────────────
-        if (role === 'ADMIN' || role === 'REVIEWER') {
-            const submissions = await prisma.attempt.findMany({
-                where: {
-                    status: 'SUBMITTED',
-                    submittedAt: { gte: start, lte: end },
-                },
-                select: {
-                    id: true,
-                    submittedAt: true,
-                    score: true,
-                    percentage: true,
-                    exam: { select: { id: true, title: true } },
-                    user: { select: { id: true, firstName: true, lastName: true } },
-                },
-                orderBy: { submittedAt: 'asc' },
-            });
-
-            // Group by day
-            const byDay = new Map<string, typeof submissions>();
-            for (const sub of submissions) {
-                if (!sub.submittedAt) continue;
-                const key = toDateString(sub.submittedAt);
-                if (!byDay.has(key)) byDay.set(key, []);
-                byDay.get(key)!.push(sub);
-            }
-
-            for (const [date, subs] of byDay.entries()) {
-                events.push({
-                    id: `submissions-${date}`,
-                    type: 'submission',
-                    title: `${subs.length} submission${subs.length !== 1 ? 's' : ''}`,
-                    date,
-                    color: 'green',
-                    meta: {
-                        count: subs.length,
-                        submissions: subs.map(s => ({
-                            id: s.id,
-                            studentName: `${s.user.firstName} ${s.user.lastName}`,
-                            examTitle: s.exam.title,
-                            examId: s.exam.id,
-                            score: s.score,
-                            percentage: Number(s.percentage ?? 0),
-                            submittedAt: s.submittedAt?.toISOString(),
-                        })),
-                    },
-                });
-            }
         }
 
         return events.sort((a, b) => {

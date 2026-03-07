@@ -57,10 +57,12 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import api from '@/lib/axios';
+import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
+type CreateUserRole = 'REVIEWER' | 'REVIEWEE';
 type UiStatus = 'active' | 'pending' | 'inactive';
 type ApiStatus = 'PENDING' | 'ACTIVE' | 'DISABLED' | 'APPROVED' | 'REJECTED';
 type UserColumn = 'user' | 'academic' | 'role' | 'status' | 'joined';
@@ -72,6 +74,7 @@ interface User {
     name: string;
     email: string;
     program: string;
+    campus: string;
     major: string;
     yearSection: string;
     role: UserRole;
@@ -86,10 +89,18 @@ interface UserApiItem {
     role: UserRole;
     status: ApiStatus;
     program?: string | null;
+    campus?: string | null;
+    campus_id?: string | null;
     major?: string | null;
     yearLevel?: string | null;
     section?: string | null;
     createdAt: string;
+}
+
+interface TrackOption {
+    id: string;
+    name: string;
+    code?: string | null;
 }
 
 const statusFromApi = (status: UserApiItem['status']): UiStatus => {
@@ -109,6 +120,7 @@ const toUiUser = (item: UserApiItem): User => ({
     name: item.name,
     email: item.email,
     program: item.program || 'N/A',
+    campus: item.campus || 'N/A',
     major: item.major || 'N/A',
     yearSection: [item.yearLevel, item.section].filter(Boolean).join(' - ') || 'N/A',
     role: item.role,
@@ -165,12 +177,26 @@ const UserManagementPage: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [editRole, setEditRole] = useState<UserRole>('REVIEWEE');
     const [editStatus, setEditStatus] = useState<UiStatus>('active');
+interface CampusOption {
+    id: string;
+    name: string;
+    code?: string | null;
+}
+    const [tracks, setTracks] = useState<TrackOption[]>([]);
+    const [campuses, setCampuses] = useState<CampusOption[]>([]);
+    const [tracksLoading, setTracksLoading] = useState(false);
+    const [campusesLoading, setCampusesLoading] = useState(false);
     const [createForm, setCreateForm] = useState({
-        name: '',
+        firstName: '',
+        middleInitial: '',
+        lastName: '',
+        suffix: '',
         email: '',
         password: '',
-        role: 'REVIEWEE' as UserRole,
+        role: 'REVIEWEE' as CreateUserRole,
         status: 'ACTIVE' as ApiStatus,
+        track_id: '',
+        campus_id: '',
         program_track: '',
         yearLevel: '',
         section: '',
@@ -215,6 +241,35 @@ const UserManagementPage: React.FC = () => {
     useEffect(() => {
         fetchUsers();
     }, [page, roleFilter, statusFilter]);
+
+    useEffect(() => {
+        const fetchTracks = async () => {
+            setTracksLoading(true);
+            try {
+                const response = await api.get('/tracks');
+                setTracks((response.data?.data || []) as TrackOption[]);
+            } catch {
+                setTracks([]);
+            } finally {
+                setTracksLoading(false);
+            }
+        };
+
+        const fetchCampuses = async () => {
+            setCampusesLoading(true);
+            try {
+                const response = await api.get('/campuses');
+                setCampuses((response.data?.data || []) as CampusOption[]);
+            } catch {
+                setCampuses([]);
+            } finally {
+                setCampusesLoading(false);
+            }
+        };
+
+        fetchTracks();
+        fetchCampuses();
+    }, []);
 
     useEffect(() => {
         const timeout = setTimeout(() => {
@@ -263,30 +318,38 @@ const UserManagementPage: React.FC = () => {
 
     const handleCreate = async () => {
         setCreateError(null);
-        if (!createForm.name.trim() || !createForm.email.trim() || !createForm.password.trim()) {
-            setCreateError('Name, email, and password are required.');
+        if (!createForm.firstName.trim() || !createForm.lastName.trim() || !createForm.email.trim() || !createForm.password.trim()) {
+            setCreateError('First name, last name, email, and password are required.');
             return;
         }
-        if (createForm.role === 'REVIEWER') {
-            if (!createForm.program_track.trim() || !createForm.yearLevel.trim() || !createForm.section.trim()) {
-                setCreateError('Program track, year level, and section are required for Reviewers.');
+        if (createForm.role === 'REVIEWEE') {
+            if (!createForm.track_id.trim() || !createForm.yearLevel.trim() || !createForm.section.trim()) {
+                setCreateError('Program track, year level, and section are required for reviewees.');
                 return;
             }
+        }
+        if (!createForm.campus_id.trim()) {
+            setCreateError('Campus is required for reviewers and reviewees.');
+            return;
         }
         try {
             setCreating(true);
             await api.post('/users', {
-                name: createForm.name.trim(),
+                firstName: createForm.firstName.trim(),
+                middleInitial: createForm.middleInitial.trim() || undefined,
+                lastName: createForm.lastName.trim(),
+                suffix: createForm.suffix.trim() || undefined,
                 email: createForm.email.trim(),
                 password: createForm.password,
                 role: createForm.role,
                 status: createForm.status,
-                program_track: createForm.program_track.trim() || undefined,
+                track_id: createForm.role === 'REVIEWEE' ? createForm.track_id : undefined,
+                campus_id: createForm.campus_id,
                 yearLevel: createForm.yearLevel.trim() || undefined,
                 section: createForm.section.trim() || undefined,
             });
             setIsCreateModalOpen(false);
-            setCreateForm({ name: '', email: '', password: '', role: 'REVIEWEE', status: 'ACTIVE', program_track: '', yearLevel: '', section: '' });
+            setCreateForm({ firstName: '', middleInitial: '', lastName: '', suffix: '', email: '', password: '', role: 'REVIEWEE', status: 'ACTIVE', track_id: '', campus_id: '', program_track: '', yearLevel: '', section: '' });
             await fetchUsers();
             toast.success('User created successfully.');
         } catch (error: any) {
@@ -385,7 +448,11 @@ const UserManagementPage: React.FC = () => {
                     <p className="text-[11px] text-gray-400 mt-0.5">Accounts, roles, and access status.</p>
                 </div>
                 <Button
-                    onClick={() => { setCreateError(null); setIsCreateModalOpen(true); }}
+                    onClick={() => {
+                        setCreateError(null);
+                        setCreateForm({ firstName: '', middleInitial: '', lastName: '', suffix: '', email: '', password: '', role: 'REVIEWEE', status: 'ACTIVE', track_id: '', campus_id: '', program_track: '', yearLevel: '', section: '' });
+                        setIsCreateModalOpen(true);
+                    }}
                     className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white text-xs font-semibold gap-1.5"
                 >
                     <UserPlus className="w-3.5 h-3.5" /> Create User
@@ -593,6 +660,7 @@ const UserManagementPage: React.FC = () => {
                                             {visibleColumns.academic && (
                                                 <TableCell className="px-3 py-2.5 min-w-52">
                                                     <p className="text-sm font-semibold text-gray-800 leading-tight">{user.program}</p>
+                                                    <p className="text-xs text-gray-500 leading-tight mt-0.5">{user.campus}</p>
                                                     <p className="text-xs text-gray-500 leading-tight mt-0.5">{user.major}</p>
                                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mt-1">{user.yearSection}</p>
                                                 </TableCell>
@@ -691,19 +759,76 @@ const UserManagementPage: React.FC = () => {
                             <UserPlus className="w-4 h-4 text-primary" /> Create User
                         </DialogTitle>
                         <DialogDescription className="text-sm text-gray-500">
-                            Add a new user account to the system.
+                            Choose whether you are creating a reviewee or reviewer account.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="grid gap-3 py-1">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5 col-span-2">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">User Type</Label>
+                                <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({
+                                    ...prev,
+                                    role: v as CreateUserRole,
+                                    track_id: v === 'REVIEWEE' ? prev.track_id : '',
+                                    program_track: '',
+                                    yearLevel: v === 'REVIEWEE' ? prev.yearLevel : '',
+                                    section: v === 'REVIEWEE' ? prev.section : '',
+                                }))}>
+                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">First Name <span className="text-rose-500">*</span></Label>
+                                <Input
+                                    value={createForm.firstName}
+                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                                    placeholder="Juan"
+                                    className="h-8 rounded-md border-gray-200 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Middle Initial</Label>
+                                <Input
+                                    value={createForm.middleInitial}
+                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, middleInitial: e.target.value.slice(0, 1) }))}
+                                    placeholder="M"
+                                    maxLength={1}
+                                    className="h-8 rounded-md border-gray-200 text-xs"
+                                />
+                            </div>
+                        </div>
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Full Name <span className="text-rose-500">*</span></Label>
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Last Name <span className="text-rose-500">*</span></Label>
                             <Input
-                                value={createForm.name}
-                                onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
-                                placeholder="e.g. Juan Dela Cruz"
+                                value={createForm.lastName}
+                                onChange={(e) => setCreateForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                                placeholder="Dela Cruz"
                                 className="h-8 rounded-md border-gray-200 text-xs"
                             />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Suffix <span className="text-gray-400 normal-case font-normal">(optional)</span></Label>
+                            <Select
+                                value={createForm.suffix || NO_SUFFIX_VALUE}
+                                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, suffix: value === NO_SUFFIX_VALUE ? '' : value }))}
+                            >
+                                <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                    <SelectValue placeholder="Select suffix" />
+                                </SelectTrigger>
+                                <SelectContent className="font-lexend">
+                                    <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
+                                    {SUFFIX_OPTIONS.map((suffixOption) => (
+                                        <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Email <span className="text-rose-500">*</span></Label>
@@ -727,19 +852,6 @@ const UserManagementPage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Role</Label>
-                                <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, role: v as UserRole }))}>
-                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
-                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                                        <SelectItem value="ADMIN">Admin</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</Label>
                                 <Select value={createForm.status} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, status: v as ApiStatus }))}>
                                     <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
@@ -755,30 +867,70 @@ const UserManagementPage: React.FC = () => {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                Program Track {createForm.role === 'REVIEWER' ? <span className="text-rose-500">*</span> : <span className="text-gray-400 normal-case font-normal">(optional)</span>}
+                                Campus <span className="text-rose-500">*</span>
                             </Label>
-                            <Input
-                                value={createForm.program_track}
-                                onChange={(e) => setCreateForm((prev) => ({ ...prev, program_track: e.target.value }))}
-                                placeholder="e.g. Professional Education"
-                                className="h-8 rounded-md border-gray-200 text-xs"
-                            />
+                            <Select
+                                value={createForm.campus_id}
+                                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, campus_id: value }))}
+                                disabled={campusesLoading || campuses.length === 0}
+                            >
+                                <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                    <SelectValue placeholder={campusesLoading ? 'Loading campuses...' : 'Select a campus'} />
+                                </SelectTrigger>
+                                <SelectContent className="font-lexend">
+                                    {campuses.map((campus) => (
+                                        <SelectItem key={campus.id} value={campus.id}>
+                                            {campus.code ? `${campus.name} (${campus.code})` : campus.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {createForm.role === 'REVIEWEE' && (
+                        <>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                Program Track <span className="text-rose-500">*</span>
+                            </Label>
+                            <Select
+                                value={createForm.track_id}
+                                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, track_id: value, program_track: '' }))}
+                                disabled={tracksLoading || tracks.length === 0}
+                            >
+                                <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                    <SelectValue placeholder={tracksLoading ? 'Loading program tracks...' : 'Select a program track'} />
+                                </SelectTrigger>
+                                <SelectContent className="font-lexend">
+                                    {tracks.map((track) => (
+                                        <SelectItem key={track.id} value={track.id}>
+                                            {track.code ? `${track.name} (${track.code})` : track.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                    Year Level {createForm.role === 'REVIEWER' ? <span className="text-rose-500">*</span> : <span className="text-gray-400 normal-case font-normal">(optional)</span>}
+                                    Year Level <span className="text-rose-500">*</span>
                                 </Label>
-                                <Input
+                                <Select
                                     value={createForm.yearLevel}
-                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, yearLevel: e.target.value }))}
-                                    placeholder="e.g. 4th Year"
-                                    className="h-8 rounded-md border-gray-200 text-xs"
-                                />
+                                    onValueChange={(value) => setCreateForm((prev) => ({ ...prev, yearLevel: value }))}
+                                >
+                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                        <SelectValue placeholder="Select year level" />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
+                                            <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                    Section {createForm.role === 'REVIEWER' ? <span className="text-rose-500">*</span> : <span className="text-gray-400 normal-case font-normal">(optional)</span>}
+                                    Section <span className="text-rose-500">*</span>
                                 </Label>
                                 <Input
                                     value={createForm.section}
@@ -788,6 +940,8 @@ const UserManagementPage: React.FC = () => {
                                 />
                             </div>
                         </div>
+                        </>
+                        )}
                         {createError && (
                             <p className="text-xs font-semibold text-rose-600 rounded-md border border-rose-100 bg-rose-50 px-3 py-2">{createError}</p>
                         )}
@@ -833,6 +987,10 @@ const UserManagementPage: React.FC = () => {
                                 <div className="rounded-md border border-gray-100 p-2.5">
                                     <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Program</p>
                                     <p className="text-xs font-semibold text-gray-800 mt-0.5">{selectedUser.program}</p>
+                                </div>
+                                <div className="rounded-md border border-gray-100 p-2.5">
+                                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Campus</p>
+                                    <p className="text-xs font-semibold text-gray-800 mt-0.5">{selectedUser.campus}</p>
                                 </div>
                                 <div className="rounded-md border border-gray-100 p-2.5">
                                     <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Joined</p>

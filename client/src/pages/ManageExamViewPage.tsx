@@ -177,7 +177,7 @@ const ManageExamViewPage: React.FC = () => {
             .map((section) => section.title?.trim())
             .filter((section): section is string => Boolean(section));
 
-        if (sectionTitles.length === 0) return 'General Section';
+        if (sectionTitles.length === 0) return 'Full Exam';
         return sectionTitles.join(', ');
     }, [exam]);
 
@@ -238,7 +238,7 @@ const ManageExamViewPage: React.FC = () => {
         return questions.map((question, index) => {
             const sectionTitle = question.section?.title
                 || exam?.sections?.find((section) => section.id === question.sectionId)?.title
-                || 'General Section';
+                || 'Full Exam';
 
             return {
                 question,

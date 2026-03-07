@@ -10,7 +10,6 @@ import {
     Clock,
     Users,
     CheckCircle2,
-    X,
     ExternalLink,
     AlignLeft,
     Clock3,
@@ -48,7 +47,7 @@ import { cn } from '@/lib/utils';
 /* Types                                                                       */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-type EventType = 'exam_start' | 'exam_deadline' | 'conference' | 'submission';
+type EventType = 'exam_start' | 'exam_deadline' | 'conference';
 
 interface CalendarEvent {
     id: string;
@@ -56,18 +55,8 @@ interface CalendarEvent {
     title: string;
     date: string;      // YYYY-MM-DD
     time?: string;     // HH:mm
-    color: 'blue' | 'red' | 'violet' | 'green';
+    color: 'blue' | 'red' | 'violet';
     meta?: Record<string, unknown>;
-}
-
-interface SubmissionEntry {
-    id: string;
-    studentName: string;
-    examTitle: string;
-    examId: string;
-    score: number;
-    percentage: number;
-    submittedAt?: string;
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -131,18 +120,6 @@ const formatTime = (t: string) => {
     return `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
 };
 
-const formatSubmissionTime = (value?: string) => {
-    if (!value) return '';
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return '';
-    return parsed.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-    });
-};
-
 const calcDuration = (start: string, end: string) => {
     if (!start || !end) return '';
     const [sh, sm] = start.split(':').map(Number);
@@ -174,7 +151,6 @@ const EVENT_BAR: Record<EventType, string> = {
     exam_start:    'bg-blue-500 text-white',
     exam_deadline: 'bg-rose-500 text-white',
     conference:    'bg-violet-500 text-white',
-    submission:    'bg-emerald-500 text-white',
 };
 
 /** Left-border accent card in the detail panel */
@@ -182,28 +158,24 @@ const EVENT_ACCENT: Record<EventType, string> = {
     exam_start:    'border-l-blue-500 bg-blue-50/60',
     exam_deadline: 'border-l-rose-500 bg-rose-50/60',
     conference:    'border-l-violet-500 bg-violet-50/60',
-    submission:    'border-l-emerald-500 bg-emerald-50/60',
 };
 
 const EVENT_ICON_COLOR: Record<EventType, string> = {
     exam_start:    'text-blue-500',
     exam_deadline: 'text-rose-500',
     conference:    'text-violet-500',
-    submission:    'text-emerald-600',
 };
 
 const EVENT_LABEL: Record<EventType, string> = {
     exam_start:    'Opens',
     exam_deadline: 'Closes',
     conference:    'Conference',
-    submission:    'Submissions',
 };
 
 const eventIcon: Record<EventType, React.ReactNode> = {
     exam_start:    <FileText size={13} />,
     exam_deadline: <FileText size={13} />,
     conference:    <Video size={13} />,
-    submission:    <Users size={13} />,
 };
 
 const TIME_SLOTS: { value: string; label: string }[] = (() => {
@@ -369,9 +341,6 @@ const CalendarPage: React.FC = () => {
     const [deleteConferenceId, setDeleteConferenceId] = useState<string | null>(null);
     const [deleteConferenceTitle, setDeleteConferenceTitle] = useState('');
     const [deleting, setDeleting] = useState(false);
-
-    // Submission detail sheet
-    const [expandedSubmission, setExpandedSubmission] = useState<string | null>(null);
 
     /* ── Fetch events ───────────────────────────────────────────────────── */
     const fetchEvents = useCallback(async () => {
@@ -571,7 +540,6 @@ const CalendarPage: React.FC = () => {
                             ['bg-blue-500', 'Exam Opens'],
                             ['bg-rose-500', 'Exam Closes'],
                             ['bg-violet-500', 'Conference'],
-                            ...(canManage ? [['bg-emerald-500', 'Submissions']] : []),
                         ] as [string, string][]).map(([bg, label]) => (
                             <span key={label} className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
                                 <span className={cn('w-2 h-2 rounded-full shrink-0', bg)} />
@@ -787,7 +755,6 @@ const CalendarPage: React.FC = () => {
                                                             ev.type === 'exam_start'    && 'bg-blue-500',
                                                             ev.type === 'exam_deadline' && 'bg-rose-500',
                                                             ev.type === 'conference'    && 'bg-violet-500',
-                                                            ev.type === 'submission'    && 'bg-emerald-500',
                                                         )} />
 
                                                         {/* Icon */}
@@ -823,7 +790,6 @@ const CalendarPage: React.FC = () => {
                                                                 ev.type === 'exam_start'    && 'bg-blue-50 text-blue-600',
                                                                 ev.type === 'exam_deadline' && 'bg-rose-50 text-rose-600',
                                                                 ev.type === 'conference'    && 'bg-violet-50 text-violet-600',
-                                                                ev.type === 'submission'    && 'bg-emerald-50 text-emerald-600',
                                                             )}>
                                                                 {EVENT_LABEL[ev.type]}
                                                             </span>
@@ -899,8 +865,6 @@ const CalendarPage: React.FC = () => {
                                     key={ev.id}
                                     event={ev}
                                     canManage={canManage}
-                                    expandedSubmission={expandedSubmission}
-                                    onToggleSubmission={id => setExpandedSubmission(s => s === id ? null : id)}
                                     onEditConference={id => {
                                         setSelectedDate(null);
                                         setTimeout(() => openEditConference(id), 150);
@@ -1121,8 +1085,6 @@ const CalendarPage: React.FC = () => {
 interface EventCardProps {
     event: CalendarEvent;
     canManage: boolean;
-    expandedSubmission: string | null;
-    onToggleSubmission: (id: string) => void;
     onEditConference: (id: string) => void;
     onDeleteConference: (id: string, title: string) => void;
 }
@@ -1130,23 +1092,12 @@ interface EventCardProps {
 const EventCard: React.FC<EventCardProps> = ({
     event,
     canManage,
-    expandedSubmission,
-    onToggleSubmission,
     onEditConference,
     onDeleteConference,
 }) => {
     const conferenceId = event.type === 'conference'
         ? (event.meta?.conferenceId as string)
         : undefined;
-    const isExpanded = expandedSubmission === event.id;
-
-    const submissions = event.type === 'submission'
-        ? (event.meta?.submissions as SubmissionEntry[] ?? [])
-        : [];
-    const submitterNames = submissions
-        .map((sub) => sub.studentName)
-        .filter(Boolean);
-    const submitterPreview = submitterNames.slice(0, 3).join(', ');
 
     return (
         <div className={cn(
@@ -1214,16 +1165,6 @@ const EventCard: React.FC<EventCardProps> = ({
                             </button>
                         </>
                     )}
-                    {event.type === 'submission' && (
-                        <button
-                            type="button"
-                            onClick={() => onToggleSubmission(event.id)}
-                            className="h-6 w-6 rounded flex items-center justify-center text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                            title={isExpanded ? 'Collapse' : 'Expand'}
-                        >
-                            {isExpanded ? <X size={11} /> : <ChevronDown size={11} />}
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -1253,45 +1194,6 @@ const EventCard: React.FC<EventCardProps> = ({
                 </p>
             ) : null}
 
-            {/* Submission preview */}
-            {event.type === 'submission' && submitterNames.length > 0 && (
-                <p className="text-[10px] text-gray-500 leading-relaxed">
-                    Submitted by {submitterPreview}
-                    {submitterNames.length > 3 ? ` +${submitterNames.length - 3} more` : ''}
-                </p>
-            )}
-
-            {/* Submission list */}
-            {event.type === 'submission' && isExpanded && submissions.length > 0 && (
-                <div className="mt-2 space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
-                    {submissions.map((sub) => (
-                        <div
-                            key={sub.id}
-                            className="flex items-center justify-between rounded-lg bg-white border border-gray-100 shadow-sm px-2.5 py-1.5"
-                        >
-                            <div className="min-w-0">
-                                <p className="text-[11px] font-semibold text-gray-800 truncate flex items-center gap-1.5">
-                                    <span className="truncate">{sub.studentName}</span>
-                                    {sub.submittedAt ? (
-                                        <span className="text-[10px] font-medium text-gray-400 shrink-0">• {formatSubmissionTime(sub.submittedAt)}</span>
-                                    ) : null}
-                                </p>
-                                <p className="text-[10px] text-gray-400 truncate">{sub.examTitle}</p>
-                            </div>
-                            <div className="shrink-0 text-right ml-3">
-                                <p className="text-[11px] font-bold text-emerald-600">{sub.percentage.toFixed(1)}%</p>
-                                <p className="text-[10px] text-gray-400">{sub.score} pts</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {event.type === 'submission' && submissions.length === 0 && !isExpanded && (
-                <p className="text-[10px] text-gray-400">
-                    {(event.meta?.count as number) ?? 0} exam submission(s) recorded
-                </p>
-            )}
         </div>
     );
 };

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../lib/axios';
+import { formatUserDisplayName } from '../lib/formatUserDisplayName';
 
 interface User {
     id: string;
@@ -16,6 +17,8 @@ interface User {
     program_track?: string;
     programTrack?: string;
     track_id?: string;
+    campus?: string;
+    campus_id?: string;
     major?: string;
     yearLevel?: string;
     section?: string;
@@ -31,6 +34,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const normalizeUser = (userData: User): User => {
+    const normalized = { ...userData };
+    normalized.name = formatUserDisplayName(normalized);
+    return normalized;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -41,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (token && token !== 'undefined' && token !== 'null') {
                 try {
                     const response = await api.get('/auth/me');
-                    const userData = response.data.data as User;
+                    const userData = normalizeUser(response.data.data as User);
                     setUser(userData);
                     localStorage.setItem('user', JSON.stringify(userData));
                 } catch (error) {
@@ -57,9 +66,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = (accessToken: string, userData: User) => {
+        const normalizedUser = normalizeUser(userData);
         localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
+        setUser(normalizedUser);
     };
 
     const logout = async () => {
@@ -76,8 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const updateUser = (userData: User) => {
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
+        const normalizedUser = normalizeUser(userData);
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
+        setUser(normalizedUser);
     };
 
     return (

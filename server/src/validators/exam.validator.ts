@@ -18,7 +18,7 @@ const examQuestionSchema = z.object({
     ]),
     correctAnswer: z.enum(['A', 'B', 'C', 'D']),
     explanation: z.string().trim().optional(),
-    section: requiredTrimmedString('Section').optional(),
+    section: requiredTrimmedString('Section'),
     imageUrl: imageUrlSchema.optional(),
 });
 

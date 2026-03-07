@@ -26,7 +26,7 @@ interface Question {
     text: string;
     imageUrl?: string | null;
     choices: string[];
-    section?: string | null;
+    section: string;
 }
 
 interface Exam {
@@ -78,7 +78,6 @@ interface LocalDraft {
 }
 
 const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
-
 const TakeExamPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -144,12 +143,11 @@ const TakeExamPage: React.FC = () => {
                     text: String(rawQuestion.text ?? rawQuestion.questionText ?? ''),
                     imageUrl: rawQuestion.imageUrl ? String(rawQuestion.imageUrl) : null,
                     choices: normalizedChoices.map((choice: string) => String(choice ?? '')),
-                    section: normalizedSection,
+                    section: normalizedSection || 'Main section',
                 };
             })
             .filter((question) => question.text.trim().length > 0 && question.choices.length > 0)
             .sort((first, second) => first.orderNo - second.orderNo);
-
         return sorted.map((question, index) => ({
             ...question,
             orderNo: index + 1,
@@ -415,8 +413,21 @@ const TakeExamPage: React.FC = () => {
         const buckets = new Map<string, { name: string; total: number; answered: number }>();
         const questions = exam?.questions || [];
 
+        const effectiveSectionNames = Array.from(new Set(
+            questions
+                .map((question) => question.section?.trim() || '')
+                .filter(Boolean)
+        ));
+
+        if (effectiveSectionNames.length <= 1) {
+            return [];
+        }
+
         for (const question of questions) {
-            const sectionName = question.section?.trim() || 'General Section';
+            const sectionName = question.section?.trim() || '';
+            if (!sectionName) {
+                continue;
+            }
             if (!buckets.has(sectionName)) {
                 buckets.set(sectionName, {
                     name: sectionName,
@@ -495,10 +506,10 @@ const TakeExamPage: React.FC = () => {
                     ? 'Save failed'
                     : 'Idle';
 
-    const currentSection = currentQuestion.section?.trim() || 'General Section';
+    const currentSection = currentQuestion.section?.trim() || '';
 
     return (
-        <div className="fixed inset-y-0 right-0 left-[218px] z-50 flex flex-col overflow-hidden bg-gray-50">
+        <div className="fixed inset-y-0 right-0 left-54.5 z-50 flex flex-col overflow-hidden bg-gray-50">
             {/* Header */}
             <header className="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3 min-w-0">

@@ -57,6 +57,15 @@ interface ReviewerDashboardProps {
 const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
     const { user } = useAuth();
     const firstName = user?.name?.split(' ')[0] || 'Reviewer';
+    const normalizeExamSubject = (value?: string | null) => {
+        const normalized = String(value || '').trim();
+
+        if (!normalized || normalized.toLowerCase() === 'general section') {
+            return 'Full Exam';
+        }
+
+        return normalized;
+    };
 
     const reviewerStats = [
         { label: 'My Exams', value: stats?.examsCreated ?? 0, icon: FileText, color: 'text-primary', bg: 'bg-primary/10' },
@@ -179,7 +188,7 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                                                     {displayStatus}
                                                 </Badge>
                                             </div>
-                                            <p className="text-[10px] text-gray-400 mt-0.5 truncate">{exam.subject || 'General'}</p>
+                                            <p className="text-[10px] text-gray-400 mt-0.5 truncate">{normalizeExamSubject(exam.subject)}</p>
                                             <div className="flex items-center justify-between mt-1">
                                                 <span className="text-[10px] text-gray-400">{exam._count?.attempts ?? 0} attempts</span>
                                                 <span className="text-[10px] text-gray-300 flex items-center gap-0.5">
@@ -255,7 +264,7 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                                         <p className="text-[12px] font-semibold text-gray-800 leading-tight truncate">{item.title}</p>
                                         <p className="text-[10px] text-gray-400 truncate">
                                             {item.creator ? `${item.creator.firstName} ${item.creator.lastName}` : 'System'}
-                                            {item.subject ? ` · ${item.subject}` : ''}
+                                            {item.subject ? ` · ${normalizeExamSubject(item.subject)}` : ''}
                                         </p>
                                         <p className="text-[10px] text-gray-300 mt-0.5">{formatRelativeTime(item.createdAt)}</p>
                                     </div>

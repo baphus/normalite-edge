@@ -4,9 +4,9 @@ import Sidebar from './Sidebar';
 
 const DashboardLayout: React.FC = () => {
     return (
-        <div className="flex h-screen bg-[#f4f5f7] overflow-hidden font-lexend">
+        <div className="flex min-h-screen items-start bg-[#f4f5f7] font-lexend">
             <Sidebar />
-            <main className="flex-1 flex flex-col overflow-y-auto min-w-0">
+            <main className="min-w-0 flex-1">
                 <div className="w-full max-w-screen-2xl mx-auto px-5 py-4">
                     <Outlet />
                 </div>

@@ -21,6 +21,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
+import { parseCsvRecords } from '@/lib/parseCsvRecords';
+import { readUploadedText } from '@/lib/readUploadedText';
 import { toast } from 'sonner';
 
 interface CardItem {
@@ -80,37 +82,6 @@ const CustomDeckPage: React.FC = () => {
                 ? prev.filter((id) => id !== trackId)
                 : [...prev, trackId]
         );
-    };
-
-    const parseCsvLine = (line: string) => {
-        const values: string[] = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let index = 0; index < line.length; index += 1) {
-            const char = line[index];
-
-            if (char === '"') {
-                if (inQuotes && line[index + 1] === '"') {
-                    current += '"';
-                    index += 1;
-                } else {
-                    inQuotes = !inQuotes;
-                }
-                continue;
-            }
-
-            if (char === ',' && !inQuotes) {
-                values.push(current.trim());
-                current = '';
-                continue;
-            }
-
-            current += char;
-        }
-
-        values.push(current.trim());
-        return values;
     };
 
     const normalizeImportKey = (key: string) =>
@@ -207,32 +178,13 @@ const CustomDeckPage: React.FC = () => {
         };
     };
 
-    const parseCsvRecords = (content: string) => {
-        const rows = content
-            .replace(/^\uFEFF/, '')
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0 && !line.startsWith('#'));
-
-        if (rows.length < 2) return [] as Array<Record<string, string>>;
-
-        const headers = parseCsvLine(rows[0]);
-        return rows.slice(1).map((line) => {
-            const values = parseCsvLine(line);
-            return headers.reduce<Record<string, string>>((acc, header, idx) => {
-                acc[header] = values[idx] || '';
-                return acc;
-            }, {});
-        });
-    };
-
     const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file) return;
 
         try {
-            const content = await file.text();
+            const content = await readUploadedText(file);
             const lowerFileName = file.name.toLowerCase();
 
             let records: Array<Record<string, any>> = [];

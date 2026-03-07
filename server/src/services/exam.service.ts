@@ -2,9 +2,11 @@ import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { ApplicableCategory, Role } from '@prisma/client';
 import { notificationService } from './notification.service';
+import { deckService } from './deck.service';
 
 export class ExamService {
     private readonly defaultMultipleAttemptsLimit = 3;
+    private readonly defaultSectionTitle = 'Main section';
 
     private async getAllowMultipleAttempts() {
         try {
@@ -33,8 +35,12 @@ export class ExamService {
     }
 
     private toSectionKey(value?: string | null) {
-        return (this.toEncodingSafeText(value)?.trim().toLowerCase() || 'general section')
+        return (this.toEncodingSafeText(value)?.trim().toLowerCase() || this.defaultSectionTitle.toLowerCase())
             .replace(/\s+/g, ' ');
+    }
+
+    private normalizeSectionTitle(value?: string | null) {
+        return this.toEncodingSafeText(value)?.trim() || this.defaultSectionTitle;
     }
 
     private async closeExpiredLiveExams() {
@@ -101,13 +107,14 @@ export class ExamService {
         imageUrl?: string;
     }) {
         const normalizedImageUrl = (data.imageUrl || '').trim();
+        const normalizedSection = this.normalizeSectionTitle(data.section);
 
         return {
             text: this.toEncodingSafeText(data.text) || '',
             choices: (data.choices || []).map((choice) => this.toEncodingSafeText(choice) || ''),
             correctAnswer: data.correctAnswer,
             explanation: this.toEncodingSafeText(data.explanation),
-            section: this.toEncodingSafeText(data.section)?.trim() || 'General Section',
+            section: normalizedSection,
             imageUrl: normalizedImageUrl || undefined,
         };
     }
@@ -320,6 +327,245 @@ export class ExamService {
         return this.normalizeExam(exam);
     }
 
+    async exportExamToStudyDeck(examId: string, userId: string, userRole: Role) {
+        const exam = await prisma.exam.findUnique({
+            where: { id: examId },
+            include: {
+                trackLinks: { include: { track: true } },
+                sections: { select: { id: true, title: true, orderNo: true } },
+                questions: {
+                    orderBy: { orderNo: 'asc' },
+                    include: {
+                        section: { select: { id: true, title: true, orderNo: true } },
+                    },
+                },
+            },
+        });
+
+        if (!exam) {
+            throw ApiError.notFound('Exam not found');
+        }
+
+        if (userRole !== 'ADMIN' && exam.createdBy !== userId) {
+            throw ApiError.forbidden('You can only export mock exams you created');
+        }
+
+        if (!exam.questions.length) {
+            throw ApiError.badRequest('This mock exam has no questions to export');
+        }
+
+        const sortedQuestions = exam.questions
+            .slice()
+            .sort((left, right) => {
+                const leftSectionOrder = left.section?.orderNo ?? Number.MAX_SAFE_INTEGER;
+                const rightSectionOrder = right.section?.orderNo ?? Number.MAX_SAFE_INTEGER;
+
+                if (leftSectionOrder !== rightSectionOrder) {
+                    return leftSectionOrder - rightSectionOrder;
+                }
+
+                return left.orderNo - right.orderNo;
+            });
+
+        const sectionSummary = exam.sections
+            .slice()
+            .sort((left, right) => left.orderNo - right.orderNo)
+            .map((section) => section.title.trim())
+            .filter(Boolean);
+
+        const descriptionParts = [exam.description?.trim()].filter((value): value is string => Boolean(value));
+        descriptionParts.push(`Exported from mock exam \"${exam.title}\".`);
+        if (sectionSummary.length > 0) {
+            descriptionParts.push(`Sections: ${sectionSummary.join(', ')}`);
+        }
+
+        const deck = await deckService.createDeck({
+            title: `${exam.title} Study Material`,
+            description: descriptionParts.join(' '),
+            subject: exam.subject || undefined,
+            category: exam.category,
+            trackIds: exam.trackLinks.map((link) => link.trackId),
+            visibility: 'DRAFT',
+            questions: sortedQuestions.map((question, index) => {
+                const correctChoice = (question.correctChoice || 'A').toUpperCase();
+                const answerTextByChoice: Record<string, string | null | undefined> = {
+                    A: question.choiceA,
+                    B: question.choiceB,
+                    C: question.choiceC,
+                    D: question.choiceD,
+                };
+
+                return {
+                    orderNo: index + 1,
+                    questionText: question.questionText,
+                    imageUrl: question.imageUrl || undefined,
+                    choiceA: question.choiceA,
+                    choiceB: question.choiceB,
+                    choiceC: question.choiceC,
+                    choiceD: question.choiceD,
+                    correctChoice: ['A', 'B', 'C', 'D'].includes(correctChoice) ? correctChoice : 'A',
+                    answerText: answerTextByChoice[correctChoice] || undefined,
+                    rationalization: question.rationalization || undefined,
+                    points: question.points || 1,
+                };
+            }),
+            createdBy: userId,
+        });
+
+        return deck;
+    }
+
+    async getSubmissionAnalytics(examId: string, userId: string, userRole: Role) {
+        await this.closeExpiredLiveExams();
+
+        const exam = await prisma.exam.findUnique({
+            where: { id: examId },
+            include: {
+                questions: {
+                    orderBy: { orderNo: 'asc' },
+                    include: {
+                        section: { select: { id: true, title: true } },
+                    },
+                },
+                attempts: {
+                    where: { status: 'SUBMITTED' },
+                    select: {
+                        id: true,
+                        userId: true,
+                        startedAt: true,
+                        submittedAt: true,
+                        timeSpentSeconds: true,
+                        answers: {
+                            select: {
+                                questionId: true,
+                                isCorrect: true,
+                                answeredAt: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!exam) throw ApiError.notFound('Exam not found');
+        if (userRole !== 'ADMIN' && userRole !== 'REVIEWER' && exam.createdBy !== userId) {
+            throw ApiError.forbidden('You do not have permission to view these submission analytics');
+        }
+
+        const now = Date.now();
+        const scheduleEndMs = exam.scheduleEnd ? new Date(exam.scheduleEnd).getTime() : null;
+        const canStudentsSubmit = exam.status === 'LIVE' && (!scheduleEndMs || scheduleEndMs >= now);
+
+        let submissionMessage = 'Students cannot submit this exam right now.';
+        if (exam.status === 'LIVE' && canStudentsSubmit) {
+            submissionMessage = exam.scheduleEnd
+                ? 'Students can still submit until the exam deadline.'
+                : 'Students can still submit. No deadline is currently set.';
+        } else if (exam.status === 'CLOSED') {
+            submissionMessage = 'Submissions are closed for this exam.';
+        } else if (exam.status === 'DRAFT') {
+            submissionMessage = 'This exam is still in draft and not open for submissions.';
+        } else if (exam.status === 'ARCHIVED') {
+            submissionMessage = 'This exam is archived and no longer accepts submissions.';
+        } else if (exam.scheduleEnd && scheduleEndMs && scheduleEndMs < now) {
+            submissionMessage = 'The submission deadline has already passed.';
+        }
+
+        const durationSamples = exam.attempts
+            .map((attempt) => {
+                if (attempt.timeSpentSeconds > 0) {
+                    return attempt.timeSpentSeconds;
+                }
+
+                if (attempt.submittedAt) {
+                    return Math.max(0, Math.round((attempt.submittedAt.getTime() - attempt.startedAt.getTime()) / 1000));
+                }
+
+                return 0;
+            })
+            .filter((value) => value > 0);
+
+        const averageCompletionSeconds = durationSamples.length > 0
+            ? Math.round(durationSamples.reduce((sum, value) => sum + value, 0) / durationSamples.length)
+            : 0;
+
+        const questionStats = exam.questions.map((question) => {
+            let rightCount = 0;
+            let wrongCount = 0;
+            let unansweredCount = exam.attempts.length;
+            let answeredCount = 0;
+            const answerTimeSamples: number[] = [];
+
+            for (const attempt of exam.attempts) {
+                const answer = attempt.answers.find((item) => item.questionId === question.id);
+                if (!answer) {
+                    continue;
+                }
+
+                unansweredCount -= 1;
+                answeredCount += 1;
+
+                if (answer.isCorrect) {
+                    rightCount += 1;
+                } else {
+                    wrongCount += 1;
+                }
+
+                if (answer.answeredAt) {
+                    const secondsToAnswer = Math.max(
+                        0,
+                        Math.round((answer.answeredAt.getTime() - attempt.startedAt.getTime()) / 1000),
+                    );
+                    answerTimeSamples.push(secondsToAnswer);
+                }
+            }
+
+            const averageAnswerSeconds = answerTimeSamples.length > 0
+                ? Math.round(answerTimeSamples.reduce((sum, value) => sum + value, 0) / answerTimeSamples.length)
+                : null;
+
+            return {
+                questionId: question.id,
+                orderNo: question.orderNo,
+                section: question.section?.title || this.defaultSectionTitle,
+                questionText: question.questionText,
+                rightCount,
+                wrongCount,
+                unansweredCount,
+                answeredCount,
+                averageAnswerSeconds,
+            };
+        });
+
+        const slowestQuestion = questionStats
+            .filter((question) => question.averageAnswerSeconds !== null)
+            .sort((left, right) => (right.averageAnswerSeconds || 0) - (left.averageAnswerSeconds || 0))[0] || null;
+
+        return {
+            examStatus: {
+                status: exam.status,
+                canStudentsSubmit,
+                message: submissionMessage,
+                scheduleEnd: exam.scheduleEnd,
+                closeOnDeadline: Boolean(exam.closeOnDeadline),
+            },
+            submissionStats: {
+                submittedCount: exam.attempts.length,
+                averageCompletionSeconds,
+                slowestQuestion: slowestQuestion
+                    ? {
+                        questionId: slowestQuestion.questionId,
+                        orderNo: slowestQuestion.orderNo,
+                        questionText: slowestQuestion.questionText,
+                        averageAnswerSeconds: slowestQuestion.averageAnswerSeconds,
+                        section: slowestQuestion.section || this.defaultSectionTitle,
+                    }
+                    : null,
+            },
+            questionStats,
+        };
+    }
+
     /**
      * Get exam for taking — hides correct answers and explanations.
      */
@@ -357,7 +603,7 @@ export class ExamService {
                 imageUrl: q.imageUrl || null,
                 choices: [q.choiceA, q.choiceB, q.choiceC, q.choiceD],
                 orderIndex: q.orderNo,
-                section: q.section?.title || null,
+                section: q.section?.title || this.defaultSectionTitle,
             })),
         };
     }
@@ -425,13 +671,13 @@ export class ExamService {
             }
 
             const explicitSections = (data.sections || [])
-                .map((section) => this.toEncodingSafeText(section)?.trim() || '')
+                .map((section) => this.normalizeSectionTitle(section))
                 .filter(Boolean);
             const questionSections = normalizedQuestions
-                .map((question) => question.section?.trim() || 'General Section')
+                .map((question) => this.normalizeSectionTitle(question.section))
                 .filter(Boolean);
             const sectionTitles = Array.from(new Set([...explicitSections, ...questionSections]));
-            if (sectionTitles.length === 0) sectionTitles.push('General Section');
+            if (sectionTitles.length === 0) sectionTitles.push(this.defaultSectionTitle);
 
             await tx.examSection.createMany({
                 data: sectionTitles.map((sectionTitle, index) => ({
@@ -584,13 +830,13 @@ export class ExamService {
                 await tx.examSection.deleteMany({ where: { examId } });
 
                 const explicitSections = (data.sections || [])
-                    .map((section) => this.toEncodingSafeText(section)?.trim() || '')
+                    .map((section) => this.normalizeSectionTitle(section))
                     .filter(Boolean);
                 const questionSections = normalizedQuestions
-                    .map((question) => question.section?.trim() || 'General Section')
+                    .map((question) => this.normalizeSectionTitle(question.section))
                     .filter(Boolean);
                 const sectionTitles = Array.from(new Set([...explicitSections, ...questionSections]));
-                if (sectionTitles.length === 0) sectionTitles.push('General Section');
+                if (sectionTitles.length === 0) sectionTitles.push(this.defaultSectionTitle);
 
                 await tx.examSection.createMany({
                     data: sectionTitles.map((sectionTitle, index) => ({

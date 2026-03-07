@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
+import { formatUserDisplayName } from '@/lib/formatUserDisplayName';
 import { uploadImageToCloudinary } from '@/lib/upload';
+import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
 
 const ProfilePage: React.FC = () => {
@@ -20,14 +22,19 @@ const ProfilePage: React.FC = () => {
     const [picture, setPicture] = useState<string>('');
     const [imgError, setImgError] = useState(false);
     const [trackId, setTrackId] = useState('');
+    const [campusId, setCampusId] = useState('');
     const [yearLevel, setYearLevel] = useState('');
     const [section, setSection] = useState('');
     const [tracks, setTracks] = useState<Array<{ id: string; name: string }>>([]);
+    const [campuses, setCampuses] = useState<Array<{ id: string; name: string }>>([]);
     const [tracksLoading, setTracksLoading] = useState(false);
+    const [campusesLoading, setCampusesLoading] = useState(false);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isUploadingPicture, setIsUploadingPicture] = useState(false);
     const profileImageInputRef = useRef<HTMLInputElement | null>(null);
     const isReviewee = user?.role === 'REVIEWEE';
+    const isReviewer = user?.role === 'REVIEWER';
+    const canEditCampus = isReviewee || isReviewer;
 
     useEffect(() => {
         const resolvedFirstName = user?.firstName?.trim() || user?.name?.trim().split(/\s+/).filter(Boolean)[0] || '';
@@ -41,9 +48,29 @@ const ProfilePage: React.FC = () => {
         setPicture(user?.picture || '');
         setImgError(false);
         setTrackId(user?.track_id || '');
+        setCampusId(user?.campus_id || '');
         setYearLevel(user?.yearLevel || '');
         setSection(user?.section || '');
     }, [user]);
+
+    useEffect(() => {
+        if (!canEditCampus) return;
+
+        const fetchCampuses = async () => {
+            try {
+                setCampusesLoading(true);
+                const response = await api.get('/campuses');
+                setCampuses(response.data?.data || []);
+            } catch (error) {
+                console.error('Failed to load campuses', error);
+                toast.error('Unable to load campuses. Please refresh and try again.');
+            } finally {
+                setCampusesLoading(false);
+            }
+        };
+
+        void fetchCampuses();
+    }, [canEditCampus]);
 
     useEffect(() => {
         if (!isReviewee) return;
@@ -64,7 +91,13 @@ const ProfilePage: React.FC = () => {
         void fetchTracks();
     }, [isReviewee]);
 
-    const displayName = [firstName, lastName].filter(Boolean).join(' ') || user?.name || 'User';
+    const displayName = formatUserDisplayName({
+        name: user?.name,
+        firstName,
+        middleInitial,
+        lastName,
+        suffix,
+    });
 
     const userInitials = displayName
         .split(' ')
@@ -111,6 +144,7 @@ const ProfilePage: React.FC = () => {
         setPicture(user?.picture || '');
         setImgError(false);
         setTrackId(user?.track_id || '');
+        setCampusId(user?.campus_id || '');
         setYearLevel(user?.yearLevel || '');
         setSection(user?.section || '');
     };
@@ -122,6 +156,10 @@ const ProfilePage: React.FC = () => {
         }
         if (!lastName.trim()) {
             toast.error('Last name is required.');
+            return;
+        }
+        if (canEditCampus && !campusId.trim()) {
+            toast.error('Campus is required.');
             return;
         }
         if (isReviewee && !trackId.trim()) {
@@ -150,6 +188,9 @@ const ProfilePage: React.FC = () => {
                 payload.track_id = trackId.trim() || undefined;
                 payload.yearLevel = yearLevel.trim() || undefined;
                 payload.section = section.trim() || undefined;
+            }
+            if (canEditCampus) {
+                payload.campus_id = campusId.trim() || undefined;
             }
 
             const response = await api.patch('/auth/me/profile', payload);
@@ -200,6 +241,11 @@ const ProfilePage: React.FC = () => {
                         </div>
                         <div className="space-y-1">
                             <p className="font-black text-gray-900 uppercase tracking-tight">{displayName}</p>
+                            {user?.campus && (
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                    {user.campus}
+                                </p>
+                            )}
                             {user?.program && (
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                                     {user.program}{user.major ? ` • ${user.major}` : ''}
@@ -240,7 +286,17 @@ const ProfilePage: React.FC = () => {
                         </div>
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Suffix</Label>
-                            <Input value={suffix} onChange={(event) => setSuffix(event.target.value)} placeholder="Jr." className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
+                            <Select value={suffix || NO_SUFFIX_VALUE} onValueChange={(value) => setSuffix(value === NO_SUFFIX_VALUE ? '' : value)}>
+                                <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20">
+                                    <SelectValue placeholder="Select suffix" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
+                                    {SUFFIX_OPTIONS.map((suffixOption) => (
+                                        <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Email Address</Label>
@@ -249,6 +305,25 @@ const ProfilePage: React.FC = () => {
                                 <Input value={email} disabled className="pl-12 h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
                             </div>
                         </div>
+                        {canEditCampus && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Campus</Label>
+                                    <Select value={campusId} onValueChange={setCampusId} disabled={campusesLoading || campuses.length === 0}>
+                                        <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20">
+                                            <SelectValue placeholder={campusesLoading ? 'Loading campuses...' : 'Select campus'} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {campuses.map((campus) => (
+                                                <SelectItem key={campus.id} value={campus.id}>
+                                                    {campus.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
                         {isReviewee && (
                             <>
                                 <div className="space-y-2">
@@ -273,9 +348,9 @@ const ProfilePage: React.FC = () => {
                                             <SelectValue placeholder="Select year level" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="3rd Year">3rd Year</SelectItem>
-                                            <SelectItem value="4th Year">4th Year</SelectItem>
-                                            <SelectItem value="Alumni">Alumni</SelectItem>
+                                            {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
+                                                <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

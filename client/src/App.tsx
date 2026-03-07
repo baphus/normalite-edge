@@ -22,6 +22,7 @@ import StudySessionPage from './pages/StudySessionPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ManageMaterialsPage from './pages/ManageMaterialsPage';
 import MaterialViewPage from './pages/MaterialViewPage';
+import RevieweeMaterialViewPage from './pages/RevieweeMaterialViewPage';
 import AchievementsPage from './pages/AchievementsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -36,6 +37,8 @@ import RevieweeExamViewPage from './pages/RevieweeExamViewPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ZoomMeetingPage from './pages/ZoomMeetingPage';
 import StudentManagementPage from './pages/StudentManagementPage';
+import ProgramsPage from './pages/ProgramsPage';
+import CampusesPage from './pages/CampusesPage';
 
 import LandingPage from './pages/LandingPage';
 import CalendarPage from './pages/CalendarPage';
@@ -68,6 +71,7 @@ function App() {
                 {/* Reviewee Routes */}
                 <Route element={<RoleRoute allowedRoles={['REVIEWEE']} />}>
                   <Route path="/study" element={<StudyHubPage />} />
+                  <Route path="/study/:id/view" element={<RevieweeMaterialViewPage />} />
                   <Route path="/study/:id" element={<StudySessionPage />} />
                   <Route path="/exams" element={<ExamsPage />} />
                   <Route path="/exams/:id/view" element={<RevieweeExamViewPage />} />
@@ -97,6 +101,8 @@ function App() {
                 {/* Admin Only Routes */}
                 <Route element={<RoleRoute allowedRoles={['ADMIN']} />}>
                   <Route path="/admin/users" element={<UserManagementPage />} />
+                  <Route path="/admin/programs" element={<ProgramsPage />} />
+                  <Route path="/admin/campuses" element={<CampusesPage />} />
                   <Route path="/admin/logs" element={<LogsPage />} />
                 </Route>
 

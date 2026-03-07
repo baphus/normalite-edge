@@ -310,7 +310,7 @@ const ExamPerformancePage: React.FC = () => {
                     section: (typeof question.section === 'string'
                         ? question.section
                         : (question.section as any)?.title || ''
-                    ).trim() || 'General Section',
+                    ).trim() || 'Full Exam',
                     questionText: question.questionText?.trim() || 'No question text available.',
                     imageUrl: question.imageUrl || null,
                     selectedChoice: toChoiceLabel(selectedChoice),

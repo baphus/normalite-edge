@@ -2,6 +2,10 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
     ChevronRight,
+    ChevronUp,
+    ChevronDown,
+    Check,
+    GripVertical,
     Save,
     Plus,
     X,
@@ -11,7 +15,6 @@ import {
     Clock,
     FileUp,
     FileJson,
-    FileSpreadsheet,
     ImagePlus,
     CalendarClock,
 } from 'lucide-react';
@@ -33,7 +36,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
+import { parseCsvRecords } from '@/lib/parseCsvRecords';
+import { readUploadedText } from '@/lib/readUploadedText';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -109,10 +118,283 @@ const categoryOptions = [
 
 type CategoryValue = (typeof categoryOptions)[number]['value'];
 
+const DEFAULT_SECTION_TITLE = 'Main section';
+const NEW_SECTION_OPTION = '__NEW_SECTION_OPTION__';
+
+const ExcelTemplateIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
+        <rect x="3" y="4" width="8" height="16" rx="1.5" fill="#107C41" />
+        <path d="M6.2 9L7.9 12L6.2 15H7.8L8.8 13.1L9.8 15H11.4L9.7 12L11.4 9H9.8L8.8 10.9L7.8 9H6.2Z" fill="white" />
+        <path d="M10 6.5C10 5.67157 10.6716 5 11.5 5H18.5C19.3284 5 20 5.67157 20 6.5V17.5C20 18.3284 19.3284 19 18.5 19H11.5C10.6716 19 10 18.3284 10 17.5V6.5Z" fill="#33C481" />
+        <path d="M12.5 8H17.5M12.5 11H17.5M12.5 14H17.5M12.5 17H17.5" stroke="white" strokeWidth="1.25" strokeLinecap="round" opacity="0.95" />
+    </svg>
+);
+
+const normalizeSectionValue = (value?: string | null) => value?.trim() || DEFAULT_SECTION_TITLE;
+
+type AutoGrowTextareaProps = React.ComponentProps<typeof Textarea>;
+
+const AutoGrowTextarea: React.FC<AutoGrowTextareaProps> = ({ className, onInput, value, ...props }) => {
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    const syncHeight = () => {
+        const node = textareaRef.current;
+        if (!node) return;
+
+        node.style.height = '0px';
+        node.style.height = `${node.scrollHeight}px`;
+    };
+
+    useEffect(() => {
+        syncHeight();
+    }, [value]);
+
+    return (
+        <Textarea
+            {...props}
+            ref={textareaRef}
+            value={value}
+            onInput={(event) => {
+                syncHeight();
+                onInput?.(event);
+            }}
+            className={`${className || ''} overflow-hidden`}
+        />
+    );
+};
+
+interface SortableQuestionCardProps {
+    question: Question;
+    index: number;
+    totalVisibleQuestions: number;
+    totalQuestions: number;
+    onDuplicateQuestion: (question: Question) => void;
+    onOpenMoveQuestion: (question: Question) => void;
+    onDeleteQuestion: (questionId: string) => void;
+    onUpdateQuestion: (questionId: string, updates: Partial<Question>) => void;
+    onQuestionImageUpload: (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    onMoveQuestion: (questionId: string, direction: 'up' | 'down') => void;
+}
+
+const SortableQuestionCard: React.FC<SortableQuestionCardProps> = ({
+    question,
+    index,
+    totalVisibleQuestions,
+    totalQuestions,
+    onDuplicateQuestion,
+    onOpenMoveQuestion,
+    onDeleteQuestion,
+    onUpdateQuestion,
+    onQuestionImageUpload,
+    onMoveQuestion,
+}) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: question.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <Card
+            ref={setNodeRef}
+            style={style}
+            className={`rounded-2xl border-slate-100 shadow-sm overflow-hidden bg-white ${isDragging ? 'opacity-70 shadow-lg ring-2 ring-primary/20' : ''}`}
+        >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                    <button
+                        type="button"
+                        className="cursor-grab rounded-md p-1 text-slate-300 transition-colors hover:bg-white hover:text-primary active:cursor-grabbing"
+                        {...attributes}
+                        {...listeners}
+                        title="Drag to reorder"
+                    >
+                        <GripVertical size={14} />
+                    </button>
+                    <Badge className="border-none bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary">
+                        Q{index + 1}
+                    </Badge>
+                    <span className="truncate text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {normalizeSectionValue(question.section)}
+                    </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                    {totalQuestions > 1 && (
+                        <>
+                            <button
+                                type="button"
+                                className="rounded-md p-1 text-slate-300 transition-colors hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                                disabled={index === 0}
+                                onClick={() => onMoveQuestion(question.id, 'up')}
+                                title="Move up"
+                            >
+                                <ChevronUp size={13} />
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-md p-1 text-slate-300 transition-colors hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                                disabled={index === totalVisibleQuestions - 1}
+                                onClick={() => onMoveQuestion(question.id, 'down')}
+                                title="Move down"
+                            >
+                                <ChevronDown size={13} />
+                            </button>
+                        </>
+                    )}
+                    <button
+                        className="rounded-md p-1 text-slate-300 transition-colors hover:bg-white hover:text-primary"
+                        onClick={() => onDuplicateQuestion(question)}
+                        title="Duplicate"
+                    >
+                        <Copy size={13} />
+                    </button>
+                    <button
+                        className="rounded-md p-1 text-slate-300 transition-colors hover:bg-white hover:text-primary"
+                        onClick={() => onOpenMoveQuestion(question)}
+                        title="Move to section"
+                    >
+                        <ChevronRight size={13} />
+                    </button>
+                    <button
+                        className="rounded-md p-1 text-slate-300 transition-colors hover:bg-white hover:text-red-500"
+                        onClick={() => onDeleteQuestion(question.id)}
+                        title="Delete"
+                    >
+                        <Trash2 size={13} />
+                    </button>
+                </div>
+            </div>
+            <CardContent className="space-y-3 p-3">
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        Question
+                    </Label>
+                    <AutoGrowTextarea
+                        value={question.text}
+                        onChange={(e) => onUpdateQuestion(question.id, { text: e.target.value })}
+                        placeholder="Enter your question here..."
+                        className="min-h-14 rounded-xl border-slate-100 px-3 py-2 text-sm font-semibold leading-relaxed shadow-none focus:ring-primary/20 resize-none"
+                    />
+                </div>
+
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        Image <span className="lowercase font-medium text-slate-300">(optional)</span>
+                    </Label>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <label className={`flex h-8 items-center gap-2 rounded-lg border px-3 text-[10px] font-black uppercase tracking-wider transition-all ${question.imageUrl ? 'border-slate-200 bg-white text-slate-500 hover:border-slate-300' : 'border-dashed border-slate-200 bg-slate-50/50 text-slate-400 hover:bg-slate-50 hover:border-slate-300'}`}>
+                            <ImagePlus size={13} />
+                            {question.imageUrl ? 'Replace' : 'Upload Image'}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(event) => { void onQuestionImageUpload(question.id, event); }}
+                                className="hidden"
+                            />
+                        </label>
+                        {question.imageUrl && (
+                            <button
+                                type="button"
+                                className="text-[10px] font-black uppercase tracking-widest text-red-400 transition-colors hover:text-red-600"
+                                onClick={() => onUpdateQuestion(question.id, { imageUrl: '' })}
+                            >
+                                Remove
+                            </button>
+                        )}
+                    </div>
+                    {question.imageUrl && (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-2">
+                            <img
+                                src={question.imageUrl}
+                                alt="Question attachment"
+                                className="max-h-48 w-auto max-w-full rounded-lg border border-slate-100 object-contain bg-white"
+                            />
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                            Options
+                        </Label>
+                    </div>
+                    <RadioGroup
+                        value={question.correctOption.toString()}
+                        onValueChange={(val) => onUpdateQuestion(question.id, { correctOption: parseInt(val) })}
+                        className="grid grid-cols-1 md:grid-cols-2 gap-2"
+                    >
+                        {question.options.map((opt, optIdx) => (
+                            <div
+                                key={optIdx}
+                                className={`flex items-start gap-2.5 rounded-xl border p-2.5 transition-all ${question.correctOption === optIdx
+                                    ? 'bg-emerald-50/60 border-emerald-200 ring-1 ring-emerald-100'
+                                    : 'bg-white border-slate-100 hover:border-primary/20'
+                                    }`}
+                            >
+                                <RadioGroupItem
+                                    value={optIdx.toString()}
+                                    id={`q-${question.id}-opt-${optIdx}`}
+                                    className="mt-1 shrink-0 border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <label
+                                        htmlFor={`q-${question.id}-opt-${optIdx}`}
+                                        className={`text-[9px] font-black uppercase tracking-widest block mb-0.5 ${question.correctOption === optIdx ? 'text-emerald-600' : 'text-slate-300'}`}
+                                    >
+                                        {String.fromCharCode(65 + optIdx)}{question.correctOption === optIdx && ' · Correct'}
+                                    </label>
+                                    <AutoGrowTextarea
+                                        value={opt}
+                                        rows={1}
+                                        onChange={(e) => {
+                                            const newOpts = [...question.options];
+                                            newOpts[optIdx] = e.target.value;
+                                            onUpdateQuestion(question.id, { options: newOpts });
+                                        }}
+                                        placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                                        className={`min-h-0 w-full resize-none border-none bg-transparent p-0 text-sm font-semibold leading-5 focus:ring-0 ${question.correctOption === optIdx ? 'text-slate-900' : 'text-slate-500'}`}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </RadioGroup>
+                </div>
+
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Rationale <span className="lowercase font-medium text-slate-300">(optional)</span></Label>
+                    <AutoGrowTextarea
+                        value={question.rationale}
+                        onChange={(e) => onUpdateQuestion(question.id, { rationale: e.target.value })}
+                        placeholder="Explain why this is the correct answer..."
+                        className="min-h-12 resize-none rounded-xl border-slate-100 bg-slate-50/40 px-3 py-2 text-xs font-medium leading-relaxed shadow-none focus:ring-primary/20"
+                    />
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 const CreateExamPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const isEditing = !!id;
+    const { user } = useAuth();
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 6,
+            },
+        })
+    );
 
     const PRESET_DURATIONS = [30, 60, 90, 120, 180, 240];
 
@@ -129,10 +411,12 @@ const CreateExamPage: React.FC = () => {
     const [category, setCategory] = useState<CategoryValue>('NONE');
     const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
-    const [sections, setSections] = useState<string[]>([]);
-    const [activeSection, setActiveSection] = useState('General Section');
+    const [sections, setSections] = useState<string[]>([DEFAULT_SECTION_TITLE]);
+    const [activeSection, setActiveSection] = useState(DEFAULT_SECTION_TITLE);
     const [isAddingSection, setIsAddingSection] = useState(false);
     const [newSectionName, setNewSectionName] = useState('');
+    const [editingSection, setEditingSection] = useState<string | null>(null);
+    const [editingSectionName, setEditingSectionName] = useState('');
     const [programs, setPrograms] = useState<string[]>(['All Programs']);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingExam, setIsLoadingExam] = useState(false);
@@ -142,6 +426,9 @@ const CreateExamPage: React.FC = () => {
     const [importPreviewQuestions, setImportPreviewQuestions] = useState<Question[]>([]);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
+    const [moveQuestionTarget, setMoveQuestionTarget] = useState<Question | null>(null);
+    const [moveTargetSection, setMoveTargetSection] = useState<string>(DEFAULT_SECTION_TITLE);
+    const [moveTargetNewSection, setMoveTargetNewSection] = useState('');
     const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
     useEffect(() => {
@@ -234,7 +521,7 @@ const CreateExamPage: React.FC = () => {
                                 options: [q.choiceA || '', q.choiceB || '', q.choiceC || '', q.choiceD || ''],
                                 correctOption: correctIndex >= 0 ? correctIndex : 0,
                                 rationale: q.rationalization || '',
-                                section: resolvedSectionTitle || 'General Section',
+                                section: normalizeSectionValue(resolvedSectionTitle),
                             };
                         });
                     setQuestions(mapped);
@@ -243,19 +530,18 @@ const CreateExamPage: React.FC = () => {
                 const fetchedSections = (exam.sections || [])
                     .slice()
                     .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
-                    .map((section) => section.title?.trim())
+                    .map((section) => normalizeSectionValue(section.title))
                     .filter((section): section is string => Boolean(section));
-                const inferredSection = (exam.subject || '').trim() || 'General Section';
                 const nextSections = fetchedSections.length > 0
                     ? fetchedSections
                     : Array.from(new Set(
                         apiQuestions
-                            .map((q) => q.section?.title || sectionMap.get(q.sectionId || q.section?.id || '') || '')
+                            .map((q) => normalizeSectionValue(q.section?.title || sectionMap.get(q.sectionId || q.section?.id || '') || ''))
                             .filter(Boolean)
                     ));
-                const safeSections = nextSections.length > 0 ? nextSections : [inferredSection];
+                const safeSections = nextSections.length > 0 ? nextSections : [DEFAULT_SECTION_TITLE];
                 setSections(safeSections);
-                setActiveSection(safeSections[0]);
+                setActiveSection(safeSections[0] || DEFAULT_SECTION_TITLE);
             } catch (error) {
                 console.error('Failed to load exam for editing', error);
                 toast.error('Failed to load exam details.');
@@ -311,14 +597,71 @@ const CreateExamPage: React.FC = () => {
     };
 
     const removeSection = (section: string) => {
+        if (sections.length <= 1) {
+            toast.error('The exam must keep at least one section.');
+            return;
+        }
+
         const remainingSections = sections.filter((s) => s !== section);
         setSections(remainingSections);
+        setQuestions((prev) => prev.map((question) => {
+            if (normalizeSectionValue(question.section) !== section) {
+                return question;
+            }
+
+            return {
+                ...question,
+                section: remainingSections[0] || DEFAULT_SECTION_TITLE,
+            };
+        }));
         if (activeSection === section) {
-            setActiveSection(remainingSections[0] || 'General Section');
+            setActiveSection(remainingSections[0] || DEFAULT_SECTION_TITLE);
         }
     };
 
-    const addQuestion = () => {
+    const startRenameSection = (section: string) => {
+        setEditingSection(section);
+        setEditingSectionName(section);
+    };
+
+    const cancelRenameSection = () => {
+        setEditingSection(null);
+        setEditingSectionName('');
+    };
+
+    const confirmRenameSection = () => {
+        if (!editingSection) return;
+
+        const nextName = editingSectionName.trim();
+        if (!nextName) {
+            toast.error('Section name is required.');
+            return;
+        }
+
+        if (nextName !== editingSection && sections.includes(nextName)) {
+            toast.error('That section name already exists.');
+            return;
+        }
+
+        setSections((prev) => prev.map((section) => section === editingSection ? nextName : section));
+        setQuestions((prev) => prev.map((question) => (
+            normalizeSectionValue(question.section) === editingSection
+                ? { ...question, section: nextName }
+                : question
+        )));
+
+        if (activeSection === editingSection) {
+            setActiveSection(nextName);
+        }
+
+        if (moveTargetSection === editingSection) {
+            setMoveTargetSection(nextName);
+        }
+
+        cancelRenameSection();
+    };
+
+    const createQuestion = (targetSection?: string) => {
         const newQuestion: Question = {
             id: Date.now().toString(),
             text: '',
@@ -326,9 +669,13 @@ const CreateExamPage: React.FC = () => {
             options: ['', '', '', ''],
             correctOption: 0,
             rationale: '',
-            section: activeSection || sections[0] || 'General Section'
+            section: normalizeSectionValue(targetSection ?? activeSection ?? sections[0])
         };
-        setQuestions([...questions, newQuestion]);
+        setQuestions((prev) => [...prev, newQuestion]);
+    };
+
+    const addQuestion = () => {
+        createQuestion();
     };
 
     const updateQuestion = (id: string, updates: Partial<Question>) => {
@@ -351,19 +698,136 @@ const CreateExamPage: React.FC = () => {
         setQuestions([...questions, duplicate]);
     };
 
-    const handleQuestionImageUpload = async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        event.target.value = '';
-        if (!file) return;
+    const openMoveQuestionDialog = (question: Question) => {
+        setMoveQuestionTarget(question);
+        setMoveTargetSection(normalizeSectionValue(question.section));
+        setMoveTargetNewSection('');
+    };
 
+    const closeMoveQuestionDialog = () => {
+        setMoveQuestionTarget(null);
+        setMoveTargetSection(normalizeSectionValue(activeSection || sections[0]));
+        setMoveTargetNewSection('');
+    };
+
+    const confirmMoveQuestion = () => {
+        if (!moveQuestionTarget) {
+            return;
+        }
+
+        const trimmedNewSection = moveTargetNewSection.trim();
+        const nextSection = normalizeSectionValue(
+            trimmedNewSection || (moveTargetSection === NEW_SECTION_OPTION ? '' : moveTargetSection)
+        );
+
+        if (!trimmedNewSection && moveTargetSection === NEW_SECTION_OPTION) {
+            toast.error('Type a new section name to create it.');
+            return;
+        }
+
+        if (trimmedNewSection) {
+            if (!sections.includes(trimmedNewSection)) {
+                setSections((prev) => [...prev, trimmedNewSection]);
+            }
+            setActiveSection(trimmedNewSection);
+        }
+
+        setQuestions((prev) => prev.map((question) => (
+            question.id === moveQuestionTarget.id
+                ? { ...question, section: nextSection }
+                : question
+        )));
+
+        if (!trimmedNewSection && nextSection) {
+            setActiveSection(nextSection);
+        }
+
+        closeMoveQuestionDialog();
+    };
+
+    const isQuestionVisibleInCurrentView = (question: Question) => {
+        const normalizedSection = normalizeSectionValue(question.section);
+        return normalizedSection === normalizeSectionValue(activeSection || sections[0]);
+    };
+
+    const reorderVisibleQuestions = (items: Question[], fromIndex: number, toIndex: number) => {
+        const visibleQuestions = items.filter(isQuestionVisibleInCurrentView);
+        const reorderedVisibleQuestions = arrayMove(visibleQuestions, fromIndex, toIndex);
+        let visibleQuestionIndex = 0;
+
+        return items.map((question) => {
+            if (!isQuestionVisibleInCurrentView(question)) {
+                return question;
+            }
+
+            const nextQuestion = reorderedVisibleQuestions[visibleQuestionIndex];
+            visibleQuestionIndex += 1;
+            return nextQuestion;
+        });
+    };
+
+    const moveQuestion = (questionId: string, direction: 'up' | 'down') => {
+        setQuestions((prev) => {
+            const visibleIds = prev.filter(isQuestionVisibleInCurrentView).map((question) => question.id);
+
+            const currentVisibleIndex = visibleIds.indexOf(questionId);
+            if (currentVisibleIndex < 0) {
+                return prev;
+            }
+
+            const swapWithIndex = direction === 'up'
+                ? currentVisibleIndex - 1
+                : currentVisibleIndex + 1;
+
+            if (swapWithIndex < 0 || swapWithIndex >= visibleIds.length) {
+                return prev;
+            }
+
+            return reorderVisibleQuestions(prev, currentVisibleIndex, swapWithIndex);
+        });
+    };
+
+    const handleQuestionDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) {
+            return;
+        }
+
+        setQuestions((prev) => {
+            const visibleIds = prev.filter(isQuestionVisibleInCurrentView).map((question) => question.id);
+            const currentVisibleIndex = visibleIds.indexOf(String(active.id));
+            const targetVisibleIndex = visibleIds.indexOf(String(over.id));
+
+            if (currentVisibleIndex < 0 || targetVisibleIndex < 0) {
+                return prev;
+            }
+
+            return reorderVisibleQuestions(prev, currentVisibleIndex, targetVisibleIndex);
+        });
+    };
+
+    const validateImageFile = (file: File) => {
         if (!file.type.startsWith('image/')) {
             toast.error('Please select a valid image file.');
-            return;
+            return false;
         }
 
         const maxFileSizeInBytes = 3 * 1024 * 1024;
         if (file.size > maxFileSizeInBytes) {
             toast.error('Image must be 3MB or smaller.');
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleQuestionImageUpload = async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        if (!validateImageFile(file)) {
             return;
         }
 
@@ -373,6 +837,31 @@ const CreateExamPage: React.FC = () => {
             toast.success('Image attached successfully.');
         } catch (error) {
             console.error('Failed to attach question image', error);
+            toast.error('Failed to attach image. Please try again.');
+        }
+    };
+
+    const updateImportPreviewQuestion = (questionId: string, updates: Partial<Question>) => {
+        setImportPreviewQuestions((prev) => prev.map((question) => (
+            question.id === questionId ? { ...question, ...updates } : question
+        )));
+    };
+
+    const handleImportPreviewImageUpload = async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        if (!validateImageFile(file)) {
+            return;
+        }
+
+        try {
+            const secureUrl = await uploadImageToCloudinary(file, 'question-images');
+            updateImportPreviewQuestion(questionId, { imageUrl: secureUrl });
+            toast.success('Image attached to imported question.');
+        } catch (error) {
+            console.error('Failed to attach imported question image', error);
             toast.error('Failed to attach image. Please try again.');
         }
     };
@@ -409,29 +898,27 @@ const CreateExamPage: React.FC = () => {
         importFileRef.current?.click();
     };
 
+    const getImportTargetSection = () => {
+        return normalizeSectionValue(activeSection || sections[0]);
+    };
+
     const downloadTemplate = (format: 'csv' | 'json') => {
         const csvTemplate = [
-            '# correctAnswer supports A/B/C/D, 1/2/3/4, 0/1/2/3, or exact option text',
-            'questionText,imageUrl,choiceA,choiceB,choiceC,choiceD,correctAnswer,rationalization,section',
-            'What is 2 + 2?,https://example.com/question-image.png,2,3,4,5,C,4 is the correct sum,General Education',
+            'questionText,choiceA,choiceB,choiceC,choiceD,correctAnswer,rationalization',
+            'What is 2 + 2?,2,3,4,5,C,4 is the correct sum',
         ].join('\n');
 
-        const jsonTemplate = JSON.stringify({
-            _comment: 'correctAnswer supports A/B/C/D, 1/2/3/4, 0/1/2/3, or exact option text',
-            questions: [
-                {
-                    questionText: 'What is 2 + 2?',
-                    imageUrl: 'https://example.com/question-image.png',
-                    choiceA: '2',
-                    choiceB: '3',
-                    choiceC: '4',
-                    choiceD: '5',
-                    correctAnswer: 'C',
-                    rationalization: '4 is the correct sum',
-                    section: 'General Education',
-                },
-            ],
-        }, null, 2);
+        const jsonTemplate = JSON.stringify([
+            {
+                questionText: 'What is 2 + 2?',
+                choiceA: '2',
+                choiceB: '3',
+                choiceC: '4',
+                choiceD: '5',
+                correctAnswer: 'C',
+                rationalization: '4 is the correct sum',
+            },
+        ], null, 2);
 
         const content = format === 'csv' ? csvTemplate : jsonTemplate;
         const type = format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;';
@@ -446,37 +933,6 @@ const CreateExamPage: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-    };
-
-    const parseCsvLine = (line: string) => {
-        const values: string[] = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let index = 0; index < line.length; index += 1) {
-            const char = line[index];
-
-            if (char === '"') {
-                if (inQuotes && line[index + 1] === '"') {
-                    current += '"';
-                    index += 1;
-                } else {
-                    inQuotes = !inQuotes;
-                }
-                continue;
-            }
-
-            if (char === ',' && !inQuotes) {
-                values.push(current.trim());
-                current = '';
-                continue;
-            }
-
-            current += char;
-        }
-
-        values.push(current.trim());
-        return values;
     };
 
     const normalizeImportKey = (key: string) =>
@@ -528,30 +984,7 @@ const CreateExamPage: React.FC = () => {
             return;
         }
 
-        const getSectionValue = (record: Record<string, any>) => {
-            const explicitSection = pickImportValue(record, [
-                'section',
-                'sectionName',
-                'section_name',
-                'sectionTitle',
-                'section_title',
-            ]);
-
-            if (explicitSection !== undefined && explicitSection !== null && String(explicitSection).trim().length > 0) {
-                return String(explicitSection).trim();
-            }
-
-            const dynamicSectionEntry = Object.entries(toNormalizedRecord(record)).find(([key, value]) => {
-                const normalizedKey = key.replace(/\s+/g, '').toLowerCase();
-                return normalizedKey.includes('section') && value !== undefined && value !== null && String(value).trim().length > 0;
-            });
-
-            if (dynamicSectionEntry) {
-                return String(dynamicSectionEntry[1]).trim();
-            }
-
-            return '';
-        };
+        const targetSection = getImportTargetSection();
 
         const mappedQuestions: Question[] = records
             .map((record, index) => {
@@ -579,23 +1012,17 @@ const CreateExamPage: React.FC = () => {
                     ?? 'A';
 
                 const correctOption = normalizeCorrectOption(correctAnswerValue, options);
-                const section = getSectionValue(record)
-                    || activeSection
-                    || sections[0]
-                    || 'General Section';
 
                 return {
                     id: `${Date.now()}-${index}`,
                     text,
-                    imageUrl: String(
-                        pickImportValue(record, ['imageUrl', 'image_url', 'image', 'questionImage']) ?? ''
-                    ).trim(),
+                    imageUrl: '',
                     options,
                     correctOption,
                     rationale: String(
                         pickImportValue(record, ['rationalization', 'explanation', 'rationale']) ?? ''
                     ).trim(),
-                    section,
+                    section: normalizeSectionValue(targetSection),
                 } as Question;
             })
             .filter((item): item is Question => !!item);
@@ -605,12 +1032,7 @@ const CreateExamPage: React.FC = () => {
             return;
         }
 
-        const importSectionOrder = Array.from(
-            new Set(mappedQuestions.map((question) => question.section).filter(Boolean))
-        );
-        const previewSectionOrder = Array.from(new Set([...sections, ...importSectionOrder]));
-
-        const orderedMappedQuestions = orderQuestionsBySections(mappedQuestions, previewSectionOrder);
+        const orderedMappedQuestions = orderQuestionsBySections(mappedQuestions, sections);
 
         setImportPreviewQuestions(orderedMappedQuestions);
         setIsImportPreviewOpen(true);
@@ -622,11 +1044,7 @@ const CreateExamPage: React.FC = () => {
             return;
         }
 
-        const importedSections = Array.from(new Set(importPreviewQuestions.map((question) => question.section).filter(Boolean)));
-        const mergedSections = Array.from(new Set([...sections, ...importedSections]));
-
-        setSections(mergedSections);
-        setQuestions((prev) => orderQuestionsBySections([...prev, ...importPreviewQuestions], mergedSections));
+        setQuestions((prev) => orderQuestionsBySections([...prev, ...importPreviewQuestions], sections));
         setIsImportPreviewOpen(false);
         setImportPreviewQuestions([]);
         toast.success('Imported questions added successfully.');
@@ -644,7 +1062,7 @@ const CreateExamPage: React.FC = () => {
         }
 
         try {
-            const content = (await file.text()).replace(/^\uFEFF/, '');
+            const content = await readUploadedText(file);
 
             if (lowerName.endsWith('.json')) {
                 const parsed = JSON.parse(content);
@@ -659,24 +1077,12 @@ const CreateExamPage: React.FC = () => {
                 return;
             }
 
-            const lines = content
-                .split(/\r?\n/)
-                .map((line) => line.trim())
-                .filter((line) => line.length > 0 && !line.startsWith('#'));
+            const rows = parseCsvRecords(content);
 
-            if (lines.length < 2) {
+            if (rows.length === 0) {
                 toast.error('CSV file has no data rows.');
                 return;
             }
-
-            const headers = parseCsvLine(lines[0]).map((header) => header.replace(/^\uFEFF/, '').trim());
-            const rows = lines.slice(1).map((line) => {
-                const values = parseCsvLine(line);
-                return headers.reduce<Record<string, string>>((acc, header, index) => {
-                    acc[header] = values[index] || '';
-                    return acc;
-                }, {});
-            });
 
             processImportedRecords(rows);
         } catch (error) {
@@ -739,7 +1145,7 @@ const CreateExamPage: React.FC = () => {
                 choices,
                 correctAnswer: ['A', 'B', 'C', 'D'][question.correctOption],
                 explanation,
-                section: question.section?.trim() || 'General Section',
+                section: normalizeSectionValue(question.section),
                 hasAnyContent:
                     text.length > 0
                     || Boolean(imageUrl)
@@ -780,12 +1186,13 @@ const CreateExamPage: React.FC = () => {
 
         const normalizedSectionList = Array.from(new Set([
             ...sections.map((section) => section.trim()),
-            ...preparedQuestions.map((question) => question.section.trim()),
+            ...preparedQuestions.map((question) => normalizeSectionValue(question.section).trim()),
         ].filter(Boolean)));
+        const displaySubject = normalizedSectionList[0] || title.trim();
 
         const payload = {
             title: title.trim(),
-            subject: normalizedSectionList[0] || 'General Education',
+            subject: displaySubject,
             category: category === 'NONE' ? null : category,
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
@@ -817,7 +1224,12 @@ const CreateExamPage: React.FC = () => {
         }
     };
 
-    const filteredQuestions = questions.filter(q => q.section === activeSection);
+    const sectionTabs = sections;
+
+    const filteredQuestions = questions.filter((question) => {
+        const normalizedSection = normalizeSectionValue(question.section);
+        return normalizedSection === normalizeSectionValue(activeSection || sections[0]);
+    });
 
     if (isLoadingExam) {
         return <div className="p-6 font-lexend">Loading exam details...</div>;
@@ -872,12 +1284,170 @@ const CreateExamPage: React.FC = () => {
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Left Column - General Info */}
-                <div className="lg:col-span-1 space-y-6">
+                {/* Left Column - Question Management */}
+                <div className="lg:col-span-2 space-y-5 lg:order-1">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 text-primary">
+                                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-600">Question Management</h3>
+                                <Badge className="bg-slate-100 text-slate-500 border-none font-black text-[9px] px-2 py-1 rounded-md">
+                                    {questions.length} {questions.length === 1 ? 'item' : 'items'}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    ref={importFileRef}
+                                    type="file"
+                                    accept=".csv,.json,application/json,text/csv"
+                                    onChange={handleFileImport}
+                                    className="hidden"
+                                />
+                                <Button variant="outline" className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider" onClick={triggerImport}>
+                                    <FileUp size={12} /> Import
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider"
+                                    onClick={() => downloadTemplate('csv')}
+                                    title="Download template"
+                                >
+                                    <ExcelTemplateIcon /> Download Template
+                                </Button>
+                                {user?.role === 'ADMIN' && (
+                                    <Button
+                                        variant="outline"
+                                        className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2"
+                                        onClick={() => downloadTemplate('json')}
+                                        title="Download JSON template"
+                                    >
+                                        <FileJson size={13} />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Section Tabs */}
+                        <div className={`flex items-center justify-between gap-3 ${sectionTabs.length > 0 ? 'border-b border-slate-100 pb-px' : ''}`}>
+                            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+                                {sectionTabs.map((section) => (
+                                    <button
+                                        key={section}
+                                        onClick={() => setActiveSection(section)}
+                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${activeSection === section
+                                            ? 'border-primary text-primary'
+                                            : 'border-transparent text-slate-400 hover:text-slate-600'
+                                            }`}
+                                    >
+                                        {section}
+                                        <Badge className={`border-none text-[9px] px-1.5 py-0 ${activeSection === section ? 'bg-primary/10 text-primary' : 'bg-slate-50 text-slate-400'}`}>
+                                            {questions.filter((question) => {
+                                                const normalizedSection = normalizeSectionValue(question.section);
+                                                return normalizedSection === section;
+                                            }).length}
+                                        </Badge>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="shrink-0">
+                                {!isAddingSection ? (
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-all"
+                                        onClick={() => setIsAddingSection(true)}
+                                    >
+                                        <Plus size={10} /> Section
+                                    </button>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            autoFocus
+                                            value={newSectionName}
+                                            onChange={(e) => setNewSectionName(e.target.value)}
+                                            onKeyDown={handleAddSectionKeyDown}
+                                            placeholder="Section name"
+                                            className="h-7 w-32 rounded-lg border-slate-200 bg-white text-xs font-semibold"
+                                        />
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="h-7 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-wider"
+                                            onClick={confirmAddSection}
+                                        >
+                                            Add
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wider"
+                                            onClick={cancelAddSection}
+                                        >
+                                            <X size={12} />
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Questions List */}
+                        <div className="space-y-3">
+                            {filteredQuestions.length === 0 ? (
+                                <div className="py-16 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/30">
+                                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center mb-3">
+                                        <Library size={20} className="opacity-40 text-slate-600" />
+                                    </div>
+                                    <p className="font-black text-[10px] tracking-widest uppercase text-slate-400">No questions yet</p>
+                                    <p className="text-[11px] font-medium text-slate-400 mt-1">Add questions manually or import a file</p>
+                                    <Button
+                                        variant="outline"
+                                        className="mt-3 h-8 rounded-xl text-[10px] font-black uppercase tracking-widest border-slate-200 text-primary hover:bg-primary/5"
+                                        onClick={addQuestion}
+                                    >
+                                        <Plus size={12} className="mr-1" /> Add Question
+                                    </Button>
+                                </div>
+                            ) : (
+                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleQuestionDragEnd}>
+                                    <SortableContext items={filteredQuestions.map((question) => question.id)} strategy={verticalListSortingStrategy}>
+                                        <div className="space-y-3">
+                                            {filteredQuestions.map((q, index) => (
+                                                <SortableQuestionCard
+                                                    key={q.id}
+                                                    question={q}
+                                                    index={index}
+                                                    totalVisibleQuestions={filteredQuestions.length}
+                                                    totalQuestions={questions.length}
+                                                    onDuplicateQuestion={duplicateQuestion}
+                                                    onOpenMoveQuestion={openMoveQuestionDialog}
+                                                    onDeleteQuestion={deleteQuestion}
+                                                    onUpdateQuestion={updateQuestion}
+                                                    onQuestionImageUpload={handleQuestionImageUpload}
+                                                    onMoveQuestion={moveQuestion}
+                                                />
+                                            ))}
+                                        </div>
+                                    </SortableContext>
+                                </DndContext>
+                            )}
+
+                            <button
+                                onClick={addQuestion}
+                                className="group flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-100 py-3.5 text-slate-400 transition-all hover:border-primary/25 hover:bg-primary/1.5 hover:text-primary"
+                            >
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-100 bg-white shadow-sm transition-transform group-hover:scale-110">
+                                    <Plus size={14} className="text-primary" />
+                                </div>
+                                <span className="font-black text-[10px] uppercase tracking-widest">Add Question</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column - General Info */}
+                <div className="lg:col-span-1 space-y-6 lg:order-2 lg:self-start lg:sticky lg:top-5">
                     <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
                         <CardHeader className="px-5 pt-5 pb-3 border-b border-slate-50">
                             <div className="flex items-center gap-2.5 text-primary">
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-[9px] font-black">1</span>
                                 <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-600">General Information</CardTitle>
                             </div>
                         </CardHeader>
@@ -1085,15 +1655,45 @@ const CreateExamPage: React.FC = () => {
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Exam Sections</Label>
                                 <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/30 min-h-11">
                                     {sections.map((section) => (
-                                        <Badge
-                                            key={section}
-                                            className="bg-white text-slate-600 border border-slate-200 font-bold text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 hover:border-red-100 hover:text-red-500 transition-all cursor-default shadow-none"
-                                        >
-                                            {section}
-                                            <button onClick={() => removeSection(section)} className="hover:text-red-600 opacity-60 hover:opacity-100">
-                                                <X size={10} />
-                                            </button>
-                                        </Badge>
+                                        editingSection === section ? (
+                                            <div key={section} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-1">
+                                                <Input
+                                                    autoFocus
+                                                    value={editingSectionName}
+                                                    onChange={(event) => setEditingSectionName(event.target.value)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') {
+                                                            event.preventDefault();
+                                                            confirmRenameSection();
+                                                        }
+                                                        if (event.key === 'Escape') {
+                                                            event.preventDefault();
+                                                            cancelRenameSection();
+                                                        }
+                                                    }}
+                                                    className="h-7 w-36 border-none px-2 text-xs font-semibold shadow-none focus-visible:ring-0"
+                                                />
+                                                <button type="button" onClick={confirmRenameSection} className="text-slate-500 hover:text-primary">
+                                                    <Check size={12} />
+                                                </button>
+                                                <button type="button" onClick={cancelRenameSection} className="text-slate-500 hover:text-red-500">
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <Badge
+                                                key={section}
+                                                className="bg-white text-slate-600 border border-slate-200 font-bold text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-default shadow-none"
+                                            >
+                                                {section}
+                                                <button type="button" onClick={() => startRenameSection(section)} className="opacity-60 hover:opacity-100 hover:text-primary">
+                                                    Rename
+                                                </button>
+                                                <button type="button" onClick={() => removeSection(section)} className="hover:text-red-600 opacity-60 hover:opacity-100">
+                                                    <X size={10} />
+                                                </button>
+                                            </Badge>
+                                        )
                                     ))}
                                     {!isAddingSection ? (
                                         <button
@@ -1125,285 +1725,6 @@ const CreateExamPage: React.FC = () => {
                     </Card>
                 </div>
 
-                {/* Right Column - Question Management */}
-                <div className="lg:col-span-2 space-y-5">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5 text-primary">
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-[9px] font-black">2</span>
-                                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-600">Question Management</h3>
-                                <Badge className="bg-slate-100 text-slate-500 border-none font-black text-[9px] px-2 py-1 rounded-md">
-                                    {questions.length} {questions.length === 1 ? 'item' : 'items'}
-                                </Badge>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    ref={importFileRef}
-                                    type="file"
-                                    accept=".csv,.json,application/json,text/csv"
-                                    onChange={handleFileImport}
-                                    className="hidden"
-                                />
-                                <Button variant="outline" className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider" onClick={triggerImport}>
-                                    <FileUp size={12} /> Import
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2"
-                                    onClick={() => downloadTemplate('csv')}
-                                    title="Download CSV template"
-                                >
-                                    <FileSpreadsheet size={13} />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2"
-                                    onClick={() => downloadTemplate('json')}
-                                    title="Download JSON template"
-                                >
-                                    <FileJson size={13} />
-                                </Button>
-                            </div>
-                        </div>
-
-                        <p className="text-[10px] font-medium text-slate-400 -mt-1">
-                            Import tip: <span className="font-bold text-slate-500">correctAnswer</span> can be <span className="font-bold text-slate-500">A/B/C/D</span>, <span className="font-bold text-slate-500">1–4</span>, or the exact option text. Optional: <span className="font-bold text-slate-500">imageUrl</span>, <span className="font-bold text-slate-500">rationalization</span>, <span className="font-bold text-slate-500">section</span>.
-                        </p>
-
-                        {/* Section Tabs */}
-                        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-px">
-                            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-                                {[...sections, 'Uncategorized'].map((section) => (
-                                    <button
-                                        key={section}
-                                        onClick={() => setActiveSection(section)}
-                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${activeSection === section
-                                            ? 'border-primary text-primary'
-                                            : 'border-transparent text-slate-400 hover:text-slate-600'
-                                            }`}
-                                    >
-                                        {section}
-                                        <Badge className={`border-none text-[9px] px-1.5 py-0 ${activeSection === section ? 'bg-primary/10 text-primary' : 'bg-slate-50 text-slate-400'}`}>
-                                            {questions.filter(q => q.section === section).length}
-                                        </Badge>
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="shrink-0">
-                                {!isAddingSection ? (
-                                    <button
-                                        type="button"
-                                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-all"
-                                        onClick={() => setIsAddingSection(true)}
-                                    >
-                                        <Plus size={10} /> Section
-                                    </button>
-                                ) : (
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            autoFocus
-                                            value={newSectionName}
-                                            onChange={(e) => setNewSectionName(e.target.value)}
-                                            onKeyDown={handleAddSectionKeyDown}
-                                            placeholder="Section name"
-                                            className="h-7 w-32 rounded-lg border-slate-200 bg-white text-xs font-semibold"
-                                        />
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            className="h-7 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-wider"
-                                            onClick={confirmAddSection}
-                                        >
-                                            Add
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wider"
-                                            onClick={cancelAddSection}
-                                        >
-                                            <X size={12} />
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Questions List */}
-                        <div className="space-y-4">
-                            {filteredQuestions.length === 0 ? (
-                                <div className="py-16 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/30">
-                                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center mb-3">
-                                        <Library size={20} className="opacity-40 text-slate-600" />
-                                    </div>
-                                    <p className="font-black text-[10px] tracking-widest uppercase text-slate-400">No questions yet</p>
-                                    <p className="text-[11px] font-medium text-slate-400 mt-1">Add questions manually or import a file</p>
-                                    <Button
-                                        variant="outline"
-                                        className="mt-3 h-8 rounded-xl text-[10px] font-black uppercase tracking-widest border-slate-200 text-primary hover:bg-primary/5"
-                                        onClick={addQuestion}
-                                    >
-                                        <Plus size={12} className="mr-1" /> Add Question
-                                    </Button>
-                                </div>
-                            ) : (
-                                filteredQuestions.map((q, index) => (
-                                    <Card key={q.id} className="rounded-2xl border-slate-100 shadow-sm overflow-hidden bg-white">
-                                        <div className="bg-slate-50/60 px-4 py-2.5 border-b border-slate-100 flex justify-between items-center">
-                                            <div className="flex items-center gap-2.5">
-                                                <Badge className="bg-primary/10 text-primary border-none font-black text-[9px] uppercase tracking-widest px-2 py-1">
-                                                    Q{index + 1}
-                                                </Badge>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                    {q.section}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    className="p-1.5 text-slate-300 hover:text-primary transition-colors hover:bg-white rounded-lg"
-                                                    onClick={() => duplicateQuestion(q)}
-                                                    title="Duplicate"
-                                                >
-                                                    <Copy size={13} />
-                                                </button>
-                                                <button
-                                                    className="p-1.5 text-slate-300 hover:text-red-500 transition-colors hover:bg-white rounded-lg"
-                                                    onClick={() => deleteQuestion(q.id)}
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 size={13} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <CardContent className="p-4 space-y-4">
-                                            {/* Question Text */}
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                    Question
-                                                </Label>
-                                                <Textarea
-                                                    value={q.text}
-                                                    onChange={(e) => updateQuestion(q.id, { text: e.target.value })}
-                                                    placeholder="Enter your question here..."
-                                                    className="min-h-18 rounded-xl border-slate-100 shadow-none focus:ring-primary/20 font-semibold text-sm leading-relaxed resize-none"
-                                                />
-                                            </div>
-
-                                            {/* Question Image */}
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                    Image <span className="lowercase font-medium text-slate-300">(optional)</span>
-                                                </Label>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                                    <label className={`flex items-center gap-2 h-9 px-3 rounded-xl border cursor-pointer transition-all text-[10px] font-black uppercase tracking-wider ${q.imageUrl ? 'border-slate-200 bg-white text-slate-500 hover:border-slate-300' : 'border-dashed border-slate-200 bg-slate-50/50 text-slate-400 hover:bg-slate-50 hover:border-slate-300'}`}>
-                                                        <ImagePlus size={13} />
-                                                        {q.imageUrl ? 'Replace' : 'Upload Image'}
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            onChange={(event) => { void handleQuestionImageUpload(q.id, event); }}
-                                                            className="hidden"
-                                                        />
-                                                    </label>
-                                                    {q.imageUrl && (
-                                                        <button
-                                                            type="button"
-                                                            className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors"
-                                                            onClick={() => updateQuestion(q.id, { imageUrl: '' })}
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {q.imageUrl && (
-                                                    <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-2">
-                                                        <img
-                                                            src={q.imageUrl}
-                                                            alt="Question attachment"
-                                                            className="max-h-48 w-auto max-w-full rounded-lg border border-slate-100 object-contain bg-white"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Options */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                        Options
-                                                    </Label>
-                                                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest opacity-70">Click radio to set correct</span>
-                                                </div>
-                                                <RadioGroup
-                                                    value={q.correctOption.toString()}
-                                                    onValueChange={(val) => updateQuestion(q.id, { correctOption: parseInt(val) })}
-                                                    className="grid grid-cols-1 md:grid-cols-2 gap-2"
-                                                >
-                                                    {q.options.map((opt, optIdx) => (
-                                                        <div
-                                                            key={optIdx}
-                                                            className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all ${q.correctOption === optIdx
-                                                                ? 'bg-emerald-50/60 border-emerald-200 ring-1 ring-emerald-100'
-                                                                : 'bg-white border-slate-100 hover:border-primary/20'
-                                                                }`}
-                                                        >
-                                                            <RadioGroupItem
-                                                                value={optIdx.toString()}
-                                                                id={`q-${q.id}-opt-${optIdx}`}
-                                                                className="border-slate-300 text-emerald-500 focus:ring-emerald-500 shrink-0"
-                                                            />
-                                                            <div className="flex-1 min-w-0">
-                                                                <label
-                                                                    htmlFor={`q-${q.id}-opt-${optIdx}`}
-                                                                    className={`text-[9px] font-black uppercase tracking-widest block mb-0.5 ${q.correctOption === optIdx ? 'text-emerald-600' : 'text-slate-300'}`}
-                                                                >
-                                                                    {String.fromCharCode(65 + optIdx)}{q.correctOption === optIdx && ' · Correct'}
-                                                                </label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={opt}
-                                                                    onChange={(e) => {
-                                                                        const newOpts = [...q.options];
-                                                                        newOpts[optIdx] = e.target.value;
-                                                                        updateQuestion(q.id, { options: newOpts });
-                                                                    }}
-                                                                    placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
-                                                                    className={`w-full bg-transparent border-none p-0 text-sm font-semibold focus:ring-0 outline-none ${q.correctOption === optIdx ? 'text-slate-900' : 'text-slate-500'}`}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </RadioGroup>
-                                            </div>
-
-                                            {/* Rationale */}
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Rationale <span className="lowercase font-medium text-slate-300">(optional)</span></Label>
-                                                <Textarea
-                                                    value={q.rationale}
-                                                    onChange={(e) => updateQuestion(q.id, { rationale: e.target.value })}
-                                                    placeholder="Explain why this is the correct answer..."
-                                                    className="min-h-15 rounded-xl border-slate-100 shadow-none focus:ring-primary/20 font-medium text-xs leading-relaxed bg-slate-50/40 resize-none"
-                                                />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))
-                            )}
-
-                            <button
-                                onClick={addQuestion}
-                                className="w-full py-5 border-2 border-dashed border-slate-100 rounded-2xl flex items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/25 hover:bg-primary/1.5 transition-all group"
-                            >
-                                <div className="bg-white w-7 h-7 rounded-full shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform border border-slate-100">
-                                    <Plus size={14} className="text-primary" />
-                                </div>
-                                <span className="font-black text-[10px] uppercase tracking-widest">Add Question</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <Dialog open={isImportPreviewOpen} onOpenChange={setIsImportPreviewOpen}>
@@ -1411,28 +1732,120 @@ const CreateExamPage: React.FC = () => {
                     <DialogHeader>
                         <DialogTitle>Review Imported Questions</DialogTitle>
                         <DialogDescription>
-                            {importPreviewQuestions.length} parsed questions found. Review before adding to this exam.
+                            {importPreviewQuestions.length} parsed questions found. Review, edit, and upload images here before adding them to {getImportTargetSection() ? `${getImportTargetSection()}.` : 'the full exam.'}
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
                         {importPreviewQuestions.map((question, index) => (
-                            <div key={question.id} className="border border-gray-100 rounded-xl p-3 space-y-2">
+                            <div key={question.id} className="border border-gray-100 rounded-xl p-4 space-y-4 bg-white">
                                 <div className="flex items-center justify-between gap-3">
                                     <p className="text-xs font-black text-gray-600 uppercase tracking-widest">Question {index + 1}</p>
-                                    <Badge variant="outline" className="text-[10px]">{question.section}</Badge>
+                                    {normalizeSectionValue(question.section) && (
+                                        <Badge variant="outline" className="text-[10px]">{normalizeSectionValue(question.section)}</Badge>
+                                    )}
                                 </div>
-                                <p className="text-sm font-semibold text-gray-900">{question.text}</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {question.options.map((option, optionIndex) => (
-                                        <div
-                                            key={`${question.id}-${optionIndex}`}
-                                            className={`text-xs rounded-lg px-2.5 py-2 border ${question.correctOption === optionIndex ? 'border-green-300 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-600'}`}
-                                        >
-                                            <span className="font-black mr-1">{String.fromCharCode(65 + optionIndex)}.</span>
-                                            {option || '(empty)'}
+
+                                <div className="space-y-1">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Question</Label>
+                                    <AutoGrowTextarea
+                                        value={question.text}
+                                        onChange={(event) => updateImportPreviewQuestion(question.id, { text: event.target.value })}
+                                        placeholder="Enter your question here..."
+                                        className="min-h-14 resize-none rounded-xl border-slate-100 px-3 py-2 text-sm font-semibold leading-relaxed shadow-none focus:ring-primary/20"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                        Image <span className="lowercase font-medium text-slate-300">(optional)</span>
+                                    </Label>
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                        <label className={`flex items-center gap-2 h-9 px-3 rounded-xl border cursor-pointer transition-all text-[10px] font-black uppercase tracking-wider ${question.imageUrl ? 'border-slate-200 bg-white text-slate-500 hover:border-slate-300' : 'border-dashed border-slate-200 bg-slate-50/50 text-slate-400 hover:bg-slate-50 hover:border-slate-300'}`}>
+                                            <ImagePlus size={13} />
+                                            {question.imageUrl ? 'Replace' : 'Upload Image'}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(event) => { void handleImportPreviewImageUpload(question.id, event); }}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        {question.imageUrl && (
+                                            <button
+                                                type="button"
+                                                className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors"
+                                                onClick={() => updateImportPreviewQuestion(question.id, { imageUrl: '' })}
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                    {question.imageUrl && (
+                                        <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-2">
+                                            <img
+                                                src={question.imageUrl}
+                                                alt="Imported question attachment"
+                                                className="max-h-48 w-auto max-w-full rounded-lg border border-slate-100 object-contain bg-white"
+                                            />
                                         </div>
-                                    ))}
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Options</Label>
+                                    </div>
+                                    <RadioGroup
+                                        value={question.correctOption.toString()}
+                                        onValueChange={(value) => updateImportPreviewQuestion(question.id, { correctOption: parseInt(value) })}
+                                        className="grid grid-cols-1 md:grid-cols-2 gap-2"
+                                    >
+                                        {question.options.map((option, optionIndex) => (
+                                            <div
+                                                key={`${question.id}-${optionIndex}`}
+                                                className={`flex items-start gap-2.5 rounded-xl border p-2.5 transition-all ${question.correctOption === optionIndex
+                                                    ? 'bg-emerald-50/60 border-emerald-200 ring-1 ring-emerald-100'
+                                                    : 'bg-white border-slate-100 hover:border-primary/20'
+                                                    }`}
+                                            >
+                                                <RadioGroupItem
+                                                    value={optionIndex.toString()}
+                                                    id={`import-q-${question.id}-opt-${optionIndex}`}
+                                                    className="mt-1 shrink-0 border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <label
+                                                        htmlFor={`import-q-${question.id}-opt-${optionIndex}`}
+                                                        className={`text-[9px] font-black uppercase tracking-widest block mb-0.5 ${question.correctOption === optionIndex ? 'text-emerald-600' : 'text-slate-300'}`}
+                                                    >
+                                                        {String.fromCharCode(65 + optionIndex)}{question.correctOption === optionIndex && ' · Correct'}
+                                                    </label>
+                                                    <AutoGrowTextarea
+                                                        value={option}
+                                                        rows={1}
+                                                        onChange={(event) => {
+                                                            const nextOptions = [...question.options];
+                                                            nextOptions[optionIndex] = event.target.value;
+                                                            updateImportPreviewQuestion(question.id, { options: nextOptions });
+                                                        }}
+                                                        placeholder={`Option ${String.fromCharCode(65 + optionIndex)}`}
+                                                        className={`min-h-0 w-full resize-none border-none bg-transparent p-0 text-sm font-semibold leading-5 focus:ring-0 ${question.correctOption === optionIndex ? 'text-slate-900' : 'text-slate-500'}`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </RadioGroup>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Rationale <span className="lowercase font-medium text-slate-300">(optional)</span></Label>
+                                    <AutoGrowTextarea
+                                        value={question.rationale}
+                                        onChange={(event) => updateImportPreviewQuestion(question.id, { rationale: event.target.value })}
+                                        placeholder="Explain why this is the correct answer..."
+                                        className="min-h-12 resize-none rounded-xl border-slate-100 bg-slate-50/40 px-3 py-2 text-xs font-medium leading-relaxed shadow-none focus:ring-primary/20"
+                                    />
                                 </div>
                             </div>
                         ))}
@@ -1450,7 +1863,57 @@ const CreateExamPage: React.FC = () => {
                             Cancel
                         </Button>
                         <Button type="button" onClick={applyImportedQuestions}>
-                            Add Imported Questions
+                            Add to Current Section
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={Boolean(moveQuestionTarget)} onOpenChange={(open) => { if (!open) closeMoveQuestionDialog(); }}>
+                <DialogContent className="max-w-md rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Move Question</DialogTitle>
+                        <DialogDescription>
+                            Choose where to place this question, or create a new section for it.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Existing Section</Label>
+                            <Select value={moveTargetSection} onValueChange={setMoveTargetSection}>
+                                <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 text-sm font-semibold">
+                                    <SelectValue placeholder="Choose section" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {sections.map((section) => (
+                                        <SelectItem key={section} value={section}>{section}</SelectItem>
+                                    ))}
+                                    <SelectItem value={NEW_SECTION_OPTION}>Create a new section below</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Or Add New Section</Label>
+                            <Input
+                                value={moveTargetNewSection}
+                                onChange={(e) => setMoveTargetNewSection(e.target.value)}
+                                placeholder="Type a new section name"
+                                className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm"
+                            />
+                            <p className="text-[10px] font-medium text-slate-400">
+                                Rename the default Main section anytime, or type a new section name here to create one and move this question there.
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={closeMoveQuestionDialog}>
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={confirmMoveQuestion}>
+                            Move Question
                         </Button>
                     </DialogFooter>
                 </DialogContent>

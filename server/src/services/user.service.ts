@@ -54,6 +54,23 @@ export class UserService {
         return byNameOrCode;
     }
 
+    private async resolveActiveCampus(campusId?: string) {
+        if (!campusId) {
+            return undefined;
+        }
+
+        const campus = await prisma.campus.findFirst({
+            where: { id: campusId, isActive: true },
+            select: { id: true, name: true },
+        });
+
+        if (!campus) {
+            throw ApiError.badRequest('Selected campus is invalid or inactive');
+        }
+
+        return campus;
+    }
+
     /**
      * List all users with pagination and optional filters.
      */
@@ -63,6 +80,8 @@ export class UserService {
         role?: Role;
         status?: string;
         search?: string;
+        trackId?: string;
+        campusId?: string;
         requesterRole?: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
     }) {
         const page = params.page || 1;
@@ -75,6 +94,8 @@ export class UserService {
         } else if (params.role) {
             where.role = params.role;
         }
+        if (params.trackId) where.trackId = params.trackId;
+        if (params.campusId) where.campusId = params.campusId;
         if (params.status) where.status = toDbUserStatus(params.status);
         if (params.search) {
             where.OR = [
@@ -95,11 +116,15 @@ export class UserService {
                     role: true,
                     status: true,
                     trackId: true,
+                    campusId: true,
                     programTrack: true,
                     yearLevel: true,
                     section: true,
                     createdAt: true,
                     track: {
+                        select: { id: true, name: true, code: true },
+                    },
+                    campus: {
                         select: { id: true, name: true, code: true },
                     },
                 },
@@ -117,25 +142,41 @@ export class UserService {
             program: user.track?.name || user.programTrack || null,
             program_track: user.track?.name || user.programTrack || null,
             track_id: user.trackId || user.track?.id || null,
+            campus: user.campus?.name || null,
+            campus_id: user.campusId || user.campus?.id || null,
         }));
 
         return { users: normalized, total, page, limit };
     }
 
     async createUser(data: {
-        name: string;
+        name?: string;
+        firstName?: string;
+        lastName?: string;
+        middleInitial?: string;
+        suffix?: string;
         email: string;
         password: string;
         role: Role;
         status?: string;
         program_track?: string;
         track_id?: string;
+        campus_id?: string;
         major?: string;
         yearLevel?: string;
         section?: string;
     }) {
         const email = data.email.trim().toLowerCase();
-        const { firstName, lastName } = this.splitName(data.name);
+        const resolvedName = data.name
+            ? this.splitName(data.name)
+            : {
+                firstName: data.firstName?.trim() || 'User',
+                lastName: data.lastName?.trim() || 'Account',
+            };
+        const middleInitial = data.middleInitial?.trim()
+            ? data.middleInitial.trim()[0].toUpperCase()
+            : undefined;
+        const suffix = data.suffix?.trim() || undefined;
 
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) throw ApiError.conflict('User with this email already exists');
@@ -145,16 +186,20 @@ export class UserService {
             track_id: data.track_id,
             program_track: resolveProgramTrack({ program_track: data.program_track }),
         });
+        const resolvedCampus = await this.resolveActiveCampus(data.campus_id);
 
         const user = await prisma.user.create({
             data: {
-                firstName,
-                lastName,
+                firstName: resolvedName.firstName,
+                lastName: resolvedName.lastName,
+                middleInitial,
+                suffix,
                 email,
                 passwordHash,
                 role: data.role,
                 status: toDbUserStatus(data.status || 'ACTIVE') as any,
                 trackId: resolvedTrack?.id,
+                campusId: resolvedCampus?.id,
                 programTrack: resolvedTrack?.name,
                 yearLevel: data.yearLevel?.trim() || null,
                 section: data.section?.trim() || null,
@@ -165,14 +210,20 @@ export class UserService {
                 email: true,
                 firstName: true,
                 lastName: true,
+                middleInitial: true,
+                suffix: true,
                 role: true,
                 status: true,
                 trackId: true,
+                campusId: true,
                 programTrack: true,
                 yearLevel: true,
                 section: true,
                 createdAt: true,
                 track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
                     select: { id: true, name: true, code: true },
                 },
             },
@@ -185,6 +236,8 @@ export class UserService {
             program: user.track?.name || user.programTrack || null,
             program_track: user.track?.name || user.programTrack || null,
             track_id: user.trackId || user.track?.id || null,
+            campus: user.campus?.name || null,
+            campus_id: user.campusId || user.campus?.id || null,
         };
     }
 
@@ -248,11 +301,40 @@ export class UserService {
      * Delete a user.
      */
     async deleteUser(userId: string) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                role: true,
+                email: true,
+            },
+        });
         if (!user) throw ApiError.notFound('User not found');
 
-        await prisma.user.delete({ where: { id: userId } });
-        return { id: userId };
+        const [createdExams, createdDecks, hostedConferences] = await Promise.all([
+            prisma.exam.count({ where: { createdBy: userId } }),
+            prisma.studyDeck.count({ where: { createdBy: userId } }),
+            prisma.conference.count({ where: { hostId: userId } }),
+        ]);
+
+        if (createdExams > 0 || createdDecks > 0 || hostedConferences > 0) {
+            const ownershipNotes = [
+                createdExams > 0 ? `${createdExams} exam${createdExams === 1 ? '' : 's'}` : null,
+                createdDecks > 0 ? `${createdDecks} study deck${createdDecks === 1 ? '' : 's'}` : null,
+                hostedConferences > 0 ? `${hostedConferences} conference${hostedConferences === 1 ? '' : 's'}` : null,
+            ].filter(Boolean);
+
+            throw ApiError.conflict(
+                `Cannot delete this user because they still own ${ownershipNotes.join(', ')}. Reassign or remove that content first.`
+            );
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.auditLog.deleteMany({ where: { actorId: userId } });
+            await tx.user.delete({ where: { id: userId } });
+        });
+
+        return { id: userId, email: user.email, role: user.role };
     }
 
     /**

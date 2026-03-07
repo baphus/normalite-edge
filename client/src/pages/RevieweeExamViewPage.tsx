@@ -5,7 +5,6 @@ import {
     Calendar,
     CheckCircle2,
     Clock,
-    FileText,
     Grid2X2,
     Layers,
     Play,
@@ -152,7 +151,7 @@ const RevieweeExamViewPage: React.FC = () => {
             .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
             .map((s) => s.title?.trim())
             .filter((s): s is string => Boolean(s));
-        return titles.length ? titles.join(', ') : 'General Section';
+        return titles.length ? titles.join(', ') : 'Full Exam';
     }, [exam]);
 
     const creatorName = useMemo(() => {

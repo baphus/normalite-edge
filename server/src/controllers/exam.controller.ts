@@ -50,6 +50,38 @@ export const examController = {
         ApiResponse.success(res, exam);
     }),
 
+    exportExamToStudyDeck: catchAsync(async (req: Request, res: Response) => {
+        const deck = await examService.exportExamToStudyDeck(
+            req.params.id as string,
+            req.user!.userId,
+            req.user!.role as any,
+        );
+
+        await auditService.log({
+            actorId: req.user!.userId,
+            actorRole: req.user!.role as any,
+            action: 'CREATE',
+            entityType: 'study_deck',
+            entityId: deck.id,
+            summary: `Exported exam ${req.params.id as string} as study deck: ${deck.title}`,
+            metadata: {
+                sourceExamId: req.params.id as string,
+                title: deck.title,
+            },
+        });
+
+        ApiResponse.created(res, deck, 'Mock exam exported to study materials');
+    }),
+
+    getSubmissionAnalytics: catchAsync(async (req: Request, res: Response) => {
+        const analytics = await examService.getSubmissionAnalytics(
+            req.params.id as string,
+            req.user!.userId,
+            req.user!.role as any,
+        );
+        ApiResponse.success(res, analytics);
+    }),
+
     getExamForAttempt: catchAsync(async (req: Request, res: Response) => {
         const exam = await examService.getExamForAttempt(req.params.id as string);
         ApiResponse.success(res, exam);

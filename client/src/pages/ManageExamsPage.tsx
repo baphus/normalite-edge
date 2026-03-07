@@ -6,13 +6,12 @@ import {
     MoreHorizontal,
     Edit,
     Trash2,
-    Archive,
     Copy,
+    BookOpen,
     Eye,
     Clock,
     Calendar,
     CheckCircle2,
-    AlertCircle,
     Lock,
     Grid,
     LayoutGrid,
@@ -332,86 +331,6 @@ const ManageExamsPage: React.FC = () => {
         }
     };
 
-    const handleArchive = async (examId: string) => {
-        setActionExamId(examId);
-        try {
-            await api.put(`/exams/${examId}`, { status: 'ARCHIVED' });
-            setExams((prev) =>
-                prev.map((exam) =>
-                    exam.id === examId
-                        ? { ...exam, status: 'archived' }
-                        : exam
-                )
-            );
-            toast.success('Exam archived.');
-        } catch (error) {
-            console.error('Failed to archive exam', error);
-            toast.error('Failed to archive exam. Please try again.');
-        } finally {
-            setActionExamId(null);
-        }
-    };
-
-    const handleMoveToDraft = async (examId: string) => {
-        setActionExamId(examId);
-        try {
-            await api.put(`/exams/${examId}`, { status: 'DRAFT' });
-            setExams((prev) =>
-                prev.map((exam) =>
-                    exam.id === examId
-                        ? { ...exam, status: 'draft' }
-                        : exam
-                )
-            );
-            toast.success('Exam moved to drafts.');
-        } catch (error) {
-            console.error('Failed to move exam to drafts', error);
-            toast.error('Failed to move exam to drafts. Please try again.');
-        } finally {
-            setActionExamId(null);
-        }
-    };
-
-    const handleCloseExam = async (examId: string) => {
-        setActionExamId(examId);
-        try {
-            await api.put(`/exams/${examId}`, { status: 'CLOSED' });
-            setExams((prev) =>
-                prev.map((exam) =>
-                    exam.id === examId
-                        ? { ...exam, status: 'closed' }
-                        : exam
-                )
-            );
-            toast.success('Exam closed.');
-        } catch (error) {
-            console.error('Failed to close exam', error);
-            toast.error('Failed to close exam. Please try again.');
-        } finally {
-            setActionExamId(null);
-        }
-    };
-
-    const handleToggleCloseOnDeadline = async (exam: Exam) => {
-        setActionExamId(exam.id);
-        try {
-            await api.put(`/exams/${exam.id}`, { closeOnDeadline: !exam.closeOnDeadline });
-            setExams((prev) =>
-                prev.map((item) =>
-                    item.id === exam.id
-                        ? { ...item, closeOnDeadline: !item.closeOnDeadline }
-                        : item
-                )
-            );
-            toast.success('Close-on-deadline setting updated.');
-        } catch (error) {
-            console.error('Failed to update close-on-deadline setting', error);
-            toast.error('Failed to update close-on-deadline setting. Please try again.');
-        } finally {
-            setActionExamId(null);
-        }
-    };
-
     const closeStatusDialog = () => {
         setStatusDialogOpen(false);
         setStatusDialogExamId(null);
@@ -437,22 +356,12 @@ const ManageExamsPage: React.FC = () => {
         }
     };
 
-    const handleSetActive = (examId: string) => {
-        void handleUpdateExamStatus(examId, 'live');
-    };
-
     const handleStatusDialogConfirm = async () => {
         if (!statusDialogExamId) return;
         const success = await handleUpdateExamStatus(statusDialogExamId, statusDialogValue);
         if (success) {
             closeStatusDialog();
         }
-    };
-
-    const openStatusDialog = (exam: Exam) => {
-        setStatusDialogExamId(exam.id);
-        setStatusDialogValue(exam.status);
-        setStatusDialogOpen(true);
     };
 
     const handleDuplicate = async (examId: string) => {
@@ -463,7 +372,9 @@ const ManageExamsPage: React.FC = () => {
             const questions = exam.questions || [];
 
             const sectionMap = new Map(
-                (exam.sections || []).map((s) => [s.id, s.title?.trim() || 'General Section'])
+                (exam.sections || [])
+                    .map((s) => [s.id, s.title?.trim()])
+                    .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1]))
             );
 
             const sectionTitles = (exam.sections || [])
@@ -543,6 +454,23 @@ const ManageExamsPage: React.FC = () => {
         }
     };
 
+    const handleExportToStudyMaterial = async (examId: string) => {
+        setActionExamId(examId);
+        try {
+            const response = await api.post(`/exams/${examId}/export-to-deck`);
+            const deck = response.data?.data as { title?: string } | undefined;
+            toast.success(deck?.title
+                ? `Exported to study materials as "${deck.title}".`
+                : 'Mock exam exported to study materials.');
+        } catch (error: any) {
+            console.error('Failed to export exam to study materials', error);
+            const message = error?.response?.data?.message || 'Failed to export exam to study materials. Please try again.';
+            toast.error(message);
+        } finally {
+            setActionExamId(null);
+        }
+    };
+
     const canManageExam = (exam: Exam) => {
         if (user?.role === 'ADMIN') return true;
         return exam.authorId === user?.id;
@@ -564,7 +492,6 @@ const ManageExamsPage: React.FC = () => {
                 {(() => {
                     const isManageable = canManageExam(exam);
                     const isEditable = canEditExam(exam);
-                    const isPublished = exam.status === 'live';
 
                     return (
                         <>
@@ -608,6 +535,13 @@ const ManageExamsPage: React.FC = () => {
                                     <Copy size={14} /> Duplicate
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
+                                    className="gap-2 font-bold text-xs py-2.5"
+                                    onClick={() => handleExportToStudyMaterial(exam.id)}
+                                    disabled={actionExamId === exam.id}
+                                >
+                                    <BookOpen size={14} /> Export as Study Material
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                     className="gap-2 font-bold text-xs py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
                                     disabled={actionExamId === exam.id}
                                     onClick={() => {
@@ -641,7 +575,7 @@ const ManageExamsPage: React.FC = () => {
                         <p className="text-[10px] text-gray-500 font-medium truncate">Author: {getDisplayAuthorName(exam)}</p>
                     </div>
                     <p className="text-[10px] text-gray-500 font-medium truncate">
-                        Sections: {exam.sectionTitles.length > 0 ? exam.sectionTitles.join(', ') : 'General Section'}
+                        Sections: {exam.sectionTitles.length > 0 ? exam.sectionTitles.join(', ') : 'Full Exam'}
                     </p>
                 </div>
 

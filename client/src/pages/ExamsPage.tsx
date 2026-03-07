@@ -346,7 +346,7 @@ const ExamsPage: React.FC = () => {
                     <p className="text-[10px] text-gray-500 font-medium mb-2 truncate">
                         {sectionTitles.length > 0
                             ? sectionTitles.slice(0, 3).join(' · ') + (sectionTitles.length > 3 ? ` +${sectionTitles.length - 3}` : '')
-                            : 'General Section'}
+                            : 'Full Exam'}
                     </p>
 
                     <div className="grid grid-cols-2 gap-2 py-2 border-y border-gray-100 mb-2">
@@ -535,25 +535,59 @@ const ExamsPage: React.FC = () => {
                     </DropdownMenu>
 
                     <div className="flex items-center gap-0.5 rounded-md border border-gray-200 p-0.5 bg-white">
-                        <Button
+                        <button
                             type="button"
-                            variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                            className="h-7 px-2.5 rounded text-xs"
                             onClick={() => setViewMode('grid')}
+                            className={`h-7 px-2.5 rounded flex items-center transition-all ${viewMode === 'grid' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <LayoutGrid size={12} className="mr-1" /> Grid
-                        </Button>
-                        <Button
+                            <LayoutGrid size={12} />
+                        </button>
+                        <button
                             type="button"
-                            variant={viewMode === 'list' ? 'default' : 'ghost'}
-                            className="h-7 px-2.5 rounded text-xs"
                             onClick={() => setViewMode('list')}
+                            className={`h-7 px-2.5 rounded flex items-center transition-all ${viewMode === 'list' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            <List size={12} className="mr-1" /> List
-                        </Button>
+                            <List size={12} />
+                        </button>
                     </div>
                 </div>
             </header>
+
+            {/* ── Category pills ── */}
+            {!loading && categoryOptions.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+                    <button
+                        onClick={() => setCategoryFilter('all')}
+                        className={`shrink-0 h-8 px-3.5 rounded-full text-[11px] font-semibold border transition-all ${
+                            categoryFilter === 'all'
+                                ? 'bg-gray-900 text-white border-transparent'
+                                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
+                        }`}
+                    >
+                        All
+                    </button>
+                    {categoryOptions.map((cat) => (
+                        <button
+                            key={cat}
+                            onClick={() => setCategoryFilter(categoryFilter === cat ? 'all' : cat)}
+                            className={`shrink-0 h-8 px-3.5 rounded-full text-[11px] font-semibold border transition-all ${
+                                categoryFilter === cat
+                                    ? 'bg-gray-900 text-white border-transparent'
+                                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700'
+                            }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Results count ── */}
+            {!loading && (
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 -mt-1">
+                    {filteredAndSortedExams.length} {filteredAndSortedExams.length === 1 ? 'exam' : 'exams'}{activeFilterCount > 0 ? ' found' : ' available'}
+                </p>
+            )}
 
             {loading ? (
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1' : 'flex flex-col gap-2 mt-1'}>
@@ -650,7 +684,7 @@ const ExamsPage: React.FC = () => {
                                 {(viewingExam?.sections || [])
                                     .map((s) => s.title?.trim())
                                     .filter((t): t is string => Boolean(t))
-                                    .join(', ') || 'General Section'}
+                                    .join(', ') || 'Full Exam'}
                             </p>
                         </div>
                         {(() => {

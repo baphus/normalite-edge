@@ -6,13 +6,15 @@ import { auditService } from '../services/audit.service';
 
 export const userController = {
     listUsers: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, role, status, search } = req.query;
+        const { page, limit, role, status, search, trackId, campusId } = req.query;
         const result = await userService.listUsers({
             page: page ? parseInt(page as string) : undefined,
             limit: limit ? parseInt(limit as string) : undefined,
             role: role as any,
             status: status as any,
             search: search as string,
+            trackId: trackId as string,
+            campusId: campusId as string,
             requesterRole: req.user?.role as 'ADMIN' | 'REVIEWER' | 'REVIEWEE' | undefined,
         });
 

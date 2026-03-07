@@ -61,6 +61,7 @@ interface AttemptUser {
     name: string;
     email: string;
     programTrack: string | null;
+    campus?: string | null;
     yearLevel?: string | null;
     section?: string | null;
 }
@@ -89,6 +90,7 @@ interface StudentSummary {
     email: string;
     status: string;
     programTrack: string;
+    campus: string;
     yearLevel?: string;
     section?: string;
     attempts: number;
@@ -109,6 +111,7 @@ interface StudentUserItem {
     status?: string;
     program?: string | null;
     program_track?: string | null;
+    campus?: string | null;
     yearLevel?: string | null;
     section?: string | null;
 }
@@ -147,6 +150,7 @@ const StudentManagementPage: React.FC = () => {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [trackFilter, setTrackFilter] = useState('ALL');
+    const [campusFilter, setCampusFilter] = useState('ALL');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [yearLevelFilter, setYearLevelFilter] = useState('ALL');
     const [sectionFilter, setSectionFilter] = useState('ALL');
@@ -262,6 +266,7 @@ const StudentManagementPage: React.FC = () => {
                 email: student.email || first?.user?.email || 'N/A',
                 status: student.status || 'UNKNOWN',
                 programTrack: student.program || student.program_track || first?.user?.programTrack || 'Unassigned',
+                campus: student.campus || first?.user?.campus || 'Unassigned',
                 yearLevel: student.yearLevel || first?.user?.yearLevel || 'Unassigned',
                 section: student.section || first?.user?.section || 'Unassigned',
                 attempts: studentAttempts.length,
@@ -304,6 +309,7 @@ const StudentManagementPage: React.FC = () => {
                 email: first.user?.email || 'N/A',
                 status: 'UNKNOWN',
                 programTrack: first.user?.programTrack || 'Unassigned',
+                campus: first.user?.campus || 'Unassigned',
                 yearLevel: first.user?.yearLevel || 'Unassigned',
                 section: first.user?.section || 'Unassigned',
                 attempts: studentAttempts.length,
@@ -333,6 +339,10 @@ const StudentManagementPage: React.FC = () => {
         return Array.from(new Set(studentSummaries.map((student) => student.status || 'UNKNOWN'))).sort((a, b) => a.localeCompare(b));
     }, [studentSummaries]);
 
+    const campusOptions = useMemo(() => {
+        return Array.from(new Set(studentSummaries.map((student) => student.campus || 'Unassigned'))).sort((a, b) => a.localeCompare(b));
+    }, [studentSummaries]);
+
     const yearLevelOptions = useMemo(() => {
         return Array.from(new Set(studentSummaries.map((student) => student.yearLevel || 'Unassigned'))).sort((a, b) => a.localeCompare(b));
     }, [studentSummaries]);
@@ -350,18 +360,20 @@ const StudentManagementPage: React.FC = () => {
                     || student.name.toLowerCase().includes(normalizedSearch)
                     || student.email.toLowerCase().includes(normalizedSearch)
                     || student.programTrack.toLowerCase().includes(normalizedSearch)
+                    || (student.campus || '').toLowerCase().includes(normalizedSearch)
                     || (isAdmin && (student.status || '').toLowerCase().includes(normalizedSearch))
                     || (student.yearLevel || '').toLowerCase().includes(normalizedSearch)
                     || (student.section || '').toLowerCase().includes(normalizedSearch);
 
                 const matchesTrack = trackFilter === 'ALL' || student.programTrack === trackFilter;
+                const matchesCampus = campusFilter === 'ALL' || (student.campus || 'Unassigned') === campusFilter;
                 const matchesStatus = !isAdmin || statusFilter === 'ALL' || student.status === statusFilter;
                 const matchesYearLevel = yearLevelFilter === 'ALL' || (student.yearLevel || 'Unassigned') === yearLevelFilter;
                 const matchesSection = sectionFilter === 'ALL' || (student.section || 'Unassigned') === sectionFilter;
 
-                return matchesSearch && matchesTrack && matchesStatus && matchesYearLevel && matchesSection;
+                return matchesSearch && matchesTrack && matchesCampus && matchesStatus && matchesYearLevel && matchesSection;
             });
-    }, [isAdmin, search, studentSummaries, trackFilter, statusFilter, yearLevelFilter, sectionFilter]);
+    }, [isAdmin, search, studentSummaries, trackFilter, campusFilter, statusFilter, yearLevelFilter, sectionFilter]);
 
     const sortedStudents = useMemo(() => {
         const copy = [...filteredStudents];
@@ -396,7 +408,7 @@ const StudentManagementPage: React.FC = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [search, trackFilter, statusFilter, yearLevelFilter, sectionFilter]);
+    }, [search, trackFilter, campusFilter, statusFilter, yearLevelFilter, sectionFilter]);
 
     const handleSort = (key: SortKey) => {
         if (sortBy === key) {
@@ -415,6 +427,7 @@ const StudentManagementPage: React.FC = () => {
 
     const resetFilters = () => {
         setTrackFilter('ALL');
+        setCampusFilter('ALL');
         setStatusFilter('ALL');
         setYearLevelFilter('ALL');
         setSectionFilter('ALL');
@@ -467,7 +480,7 @@ const StudentManagementPage: React.FC = () => {
                         <Input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder={isAdmin ? 'Search name, email, program, status, year, section' : 'Search name, email, program, year, section'}
+                            placeholder={isAdmin ? 'Search name, email, program, campus, status, year, section' : 'Search name, email, program, campus, year, section'}
                             className="h-8 pl-9 rounded-md border-gray-200 text-xs"
                         />
                     </div>
@@ -510,6 +523,21 @@ const StudentManagementPage: React.FC = () => {
                                     </Select>
                                 </div>
                             )}
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Campus</Label>
+                                <Select value={campusFilter} onValueChange={setCampusFilter}>
+                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
+                                        <SelectValue placeholder="Filter campus" />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="ALL">All Campuses</SelectItem>
+                                        {campusOptions.map((campus) => (
+                                            <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Year Level</Label>
@@ -653,7 +681,8 @@ const StudentManagementPage: React.FC = () => {
                                         )}
                                         {visibleColumns.program && (
                                             <TableCell className="px-3 py-2.5 text-xs font-semibold text-gray-700 min-w-44">
-                                                {student.programTrack}
+                                                <p>{student.programTrack}</p>
+                                                <p className="text-[11px] text-gray-500 mt-0.5">{student.campus}</p>
                                             </TableCell>
                                         )}
                                         {visibleColumns.attempts && (
@@ -753,8 +782,8 @@ const StudentManagementPage: React.FC = () => {
                 <DialogContent className="sm:max-w-2xl rounded-lg font-lexend">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold text-gray-900">Student Details</DialogTitle>
-                        <DialogDescription className="text-sm text-gray-500">
-                            {selectedStudent?.name} â€¢ {selectedStudent?.programTrack}
+                            <DialogDescription className="text-sm text-gray-500">
+                                {selectedStudent?.name} â€¢ {selectedStudent?.programTrack} â€¢ {selectedStudent?.campus}
                         </DialogDescription>
                     </DialogHeader>
 

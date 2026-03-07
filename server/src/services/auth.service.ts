@@ -56,6 +56,23 @@ export class AuthService {
         return track;
     }
 
+    private async resolveActiveCampus(campusId?: string) {
+        if (!campusId) {
+            return undefined;
+        }
+
+        const campus = await prisma.campus.findFirst({
+            where: { id: campusId, isActive: true },
+            select: { id: true, name: true },
+        });
+
+        if (!campus) {
+            throw ApiError.badRequest('Selected campus is invalid or inactive');
+        }
+
+        return campus;
+    }
+
     private createVerificationLink(userId: string, email: string) {
         const token = generateEmailVerificationToken({
             userId,
@@ -89,6 +106,7 @@ export class AuthService {
         programTrack?: string;
         track_id?: string;
         major?: string;
+        campus_id?: string;
         yearLevel?: string;
         section?: string;
     }) {
@@ -98,6 +116,7 @@ export class AuthService {
             track_id: data.track_id,
             rawTrack: resolveProgramTrack(data),
         });
+        const resolvedCampus = await this.resolveActiveCampus(data.campus_id);
         const resolvedName = data.name
             ? this.splitName(data.name)
             : {
@@ -137,12 +156,16 @@ export class AuthService {
                 role: 'REVIEWEE',
                 status: 'ACTIVE',
                 trackId: resolvedTrack?.id,
+                campusId: resolvedCampus?.id,
                 programTrack: resolvedTrack?.name,
                 yearLevel,
                 section,
             },
             include: {
                 track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
                     select: { id: true, name: true, code: true },
                 },
             },
@@ -168,7 +191,17 @@ export class AuthService {
      */
     async login(email: string, password: string) {
         const normalizedEmail = email.trim().toLowerCase();
-        let user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+        let user = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            include: {
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
+                    select: { id: true, name: true, code: true },
+                },
+            },
+        });
 
         if (!user) {
             throw ApiError.unauthorized('Invalid email or password');
@@ -192,6 +225,14 @@ export class AuthService {
             user = await prisma.user.update({
                 where: { id: user.id },
                 data: { status: 'ACTIVE' },
+                include: {
+                    track: {
+                        select: { id: true, name: true, code: true },
+                    },
+                    campus: {
+                        select: { id: true, name: true, code: true },
+                    },
+                },
             });
         }
 
@@ -307,6 +348,14 @@ export class AuthService {
 
         let user = await prisma.user.findUnique({
             where: { id: decoded.userId },
+            include: {
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
+                    select: { id: true, name: true, code: true },
+                },
+            },
         });
 
         if (!user || !user.refreshTokenHash) {
@@ -317,6 +366,14 @@ export class AuthService {
             user = await prisma.user.update({
                 where: { id: user.id },
                 data: { status: 'ACTIVE' },
+                include: {
+                    track: {
+                        select: { id: true, name: true, code: true },
+                    },
+                    campus: {
+                        select: { id: true, name: true, code: true },
+                    },
+                },
             });
         }
 
@@ -363,6 +420,14 @@ export class AuthService {
     async getCurrentUser(userId: string) {
         let user = await prisma.user.findUnique({
             where: { id: userId },
+            include: {
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
+                    select: { id: true, name: true, code: true },
+                },
+            },
         });
 
         if (!user) throw ApiError.notFound('User not found');
@@ -371,6 +436,14 @@ export class AuthService {
             user = await prisma.user.update({
                 where: { id: user.id },
                 data: { status: 'ACTIVE' },
+                include: {
+                    track: {
+                        select: { id: true, name: true, code: true },
+                    },
+                    campus: {
+                        select: { id: true, name: true, code: true },
+                    },
+                },
             });
         }
 
@@ -391,6 +464,7 @@ export class AuthService {
         program_track?: string;
         programTrack?: string;
         track_id?: string;
+        campus_id?: string;
         yearLevel?: string;
         section?: string;
     }) {
@@ -415,6 +489,10 @@ export class AuthService {
                 }),
             })
             : undefined;
+        const hasCampusInput = data.campus_id !== undefined;
+        const resolvedCampus = hasCampusInput
+            ? await this.resolveActiveCampus(data.campus_id)
+            : undefined;
         const user = await prisma.user.update({
             where: { id: userId },
             data: {
@@ -424,12 +502,16 @@ export class AuthService {
                 suffix,
                 profilePicture: data.picture,
                 trackId: hasTrackInput ? resolvedTrack?.id || null : undefined,
+                campusId: hasCampusInput ? resolvedCampus?.id || null : undefined,
                 programTrack: hasTrackInput ? resolvedTrack?.name || null : undefined,
                 yearLevel: data.yearLevel !== undefined ? (data.yearLevel?.trim() || null) : undefined,
                 section: data.section !== undefined ? (data.section?.trim() || null) : undefined,
             },
             include: {
                 track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
                     select: { id: true, name: true, code: true },
                 },
             },
@@ -464,6 +546,8 @@ export class AuthService {
             program: resolvedProgram,
             program_track: resolvedProgram,
             track_id: sanitized.trackId || sanitized.track?.id || null,
+            campus: sanitized.campus?.name || null,
+            campus_id: sanitized.campusId || sanitized.campus?.id || null,
         };
     }
 }

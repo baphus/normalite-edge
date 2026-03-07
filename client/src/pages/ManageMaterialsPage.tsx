@@ -380,6 +380,11 @@ const ManageMaterialsPage: React.FC = () => {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="rounded-lg border-gray-100 shadow-lg w-40">
+                                            <Link to={`/materials/${deck.id}/view`}>
+                                                <DropdownMenuItem className="cursor-pointer text-xs font-semibold py-2 gap-2">
+                                                    <Eye size={13} /> View
+                                                </DropdownMenuItem>
+                                            </Link>
                                             <Link to={`/materials/${deck.id}/edit`}>
                                                 <DropdownMenuItem className="cursor-pointer text-xs font-semibold py-2 gap-2">
                                                     <Edit size={13} /> Manage Deck

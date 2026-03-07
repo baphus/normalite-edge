@@ -5,6 +5,7 @@ import { notificationService } from './notification.service';
 export class AttemptService {
     private readonly validChoices = new Set(['A', 'B', 'C', 'D']);
     private readonly defaultMultipleAttemptsLimit = 3;
+    private readonly defaultSectionTitle = 'Main section';
 
     private async getAllowMultipleAttempts() {
         try {
@@ -65,6 +66,7 @@ export class AttemptService {
             email: user.email,
             name: `${user.firstName} ${user.lastName}`.trim(),
             programTrack: user.programTrack || null,
+            campus: user.campus?.name || null,
             profilePicture: user.profilePicture || null,
         };
     }
@@ -76,7 +78,7 @@ export class AttemptService {
             text: question.questionText,
             imageUrl: question.imageUrl || null,
             choices: [question.choiceA, question.choiceB, question.choiceC, question.choiceD],
-            section: question.section?.title || null,
+            section: question.section?.title || this.defaultSectionTitle,
             sectionId: question.section?.id || null,
         }));
     }
@@ -113,6 +115,18 @@ export class AttemptService {
                 throw ApiError.badRequest('Answers contain invalid question IDs or choices');
             }
         }
+    }
+
+    private resolveAnsweredAt(existingAnswer: { selectedChoice: string; answeredAt: Date | null } | undefined, normalizedChoice: string) {
+        if (
+            existingAnswer
+            && existingAnswer.selectedChoice === normalizedChoice
+            && existingAnswer.answeredAt
+        ) {
+            return existingAnswer.answeredAt;
+        }
+
+        return new Date();
     }
 
     /**
@@ -287,6 +301,7 @@ export class AttemptService {
                         questions: true,
                     },
                 },
+                answers: true,
             },
         });
 
@@ -320,6 +335,8 @@ export class AttemptService {
                 if (!question) continue;
                 const normalizedChoice = String(selectedChoice || '').trim().toUpperCase();
                 if (!this.validChoices.has(normalizedChoice)) continue;
+                const existingAnswer = refreshedAttempt.answers.find((answer) => answer.questionId === questionId);
+                const answeredAt = this.resolveAnsweredAt(existingAnswer, normalizedChoice);
 
                 await tx.attemptAnswer.upsert({
                     where: {
@@ -331,14 +348,14 @@ export class AttemptService {
                     update: {
                         selectedChoice: normalizedChoice,
                         isCorrect: normalizedChoice === question.correctChoice,
-                        answeredAt: new Date(),
+                        answeredAt,
                     },
                     create: {
                         attemptId,
                         questionId,
                         selectedChoice: normalizedChoice,
                         isCorrect: normalizedChoice === question.correctChoice,
-                        answeredAt: new Date(),
+                        answeredAt,
                     },
                 });
             }
@@ -450,7 +467,10 @@ export class AttemptService {
 
         const latestAttempt = await prisma.attempt.findUnique({
             where: { id: attemptId },
-            include: { exam: { include: { questions: true } } },
+            include: {
+                exam: { include: { questions: true } },
+                answers: true,
+            },
         });
 
         if (!latestAttempt) throw ApiError.notFound('Attempt not found');
@@ -468,6 +488,8 @@ export class AttemptService {
                     if (!question) continue;
                     const normalizedChoice = String(selectedChoice || '').trim().toUpperCase();
                     if (!this.validChoices.has(normalizedChoice)) continue;
+                    const existingAnswer = latestAttempt.answers.find((answer) => answer.questionId === questionId);
+                    const answeredAt = this.resolveAnsweredAt(existingAnswer, normalizedChoice);
 
                     await tx.attemptAnswer.upsert({
                         where: {
@@ -479,14 +501,14 @@ export class AttemptService {
                         update: {
                             selectedChoice: normalizedChoice,
                             isCorrect: normalizedChoice === question.correctChoice,
-                            answeredAt: new Date(),
+                            answeredAt,
                         },
                         create: {
                             attemptId,
                             questionId,
                             selectedChoice: normalizedChoice,
                             isCorrect: normalizedChoice === question.correctChoice,
-                            answeredAt: new Date(),
+                            answeredAt,
                         },
                     });
                 }
@@ -559,7 +581,7 @@ export class AttemptService {
         const sectionBuckets = new Map<string, { sectionId: string | null; name: string; total: number; correct: number; answered: number }>();
 
         for (const question of questions) {
-            const sectionName = question.section?.title || 'General Section';
+            const sectionName = question.section?.title || this.defaultSectionTitle;
             const bucketKey = question.section?.id || sectionName;
 
             if (!sectionBuckets.has(bucketKey)) {
@@ -602,7 +624,7 @@ export class AttemptService {
             return {
                 id: question.id,
                 orderNo: question.orderNo,
-                section: question.section?.title || 'General Section',
+                section: question.section?.title || this.defaultSectionTitle,
                 questionText: question.questionText,
                 imageUrl: question.imageUrl || null,
                 choices: [question.choiceA, question.choiceB, question.choiceC, question.choiceD],
@@ -660,7 +682,19 @@ export class AttemptService {
                 where,
                 include: {
                     exam: { select: { id: true, title: true, subject: true, timeLimitMinutes: true } },
-                    user: { select: { id: true, firstName: true, lastName: true, email: true, programTrack: true, profilePicture: true } },
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            programTrack: true,
+                            profilePicture: true,
+                            campus: {
+                                select: { id: true, name: true, code: true },
+                            },
+                        },
+                    },
                     answers: true,
                 },
                 skip,
@@ -705,7 +739,19 @@ export class AttemptService {
                         },
                     },
                 },
-                user: { select: { id: true, firstName: true, lastName: true, email: true, programTrack: true, profilePicture: true } },
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        programTrack: true,
+                        profilePicture: true,
+                        campus: {
+                            select: { id: true, name: true, code: true },
+                        },
+                    },
+                },
                 answers: true,
             },
         });
@@ -718,18 +764,54 @@ export class AttemptService {
             throw ApiError.badRequest('Review is only available after submission');
         }
 
+        const elapsedSecondsByQuestionId = new Map<string, number | null>();
+        const sortedAnswers = [...attempt.answers]
+            .filter((answer) => Boolean(answer.answeredAt))
+            .sort((left, right) => {
+                const leftTime = left.answeredAt ? left.answeredAt.getTime() : 0;
+                const rightTime = right.answeredAt ? right.answeredAt.getTime() : 0;
+
+                if (leftTime === rightTime) {
+                    return left.questionId.localeCompare(right.questionId);
+                }
+
+                return leftTime - rightTime;
+            });
+
+        let previousAnsweredAt = attempt.startedAt.getTime();
+        for (const answer of sortedAnswers) {
+            const currentAnsweredAt = answer.answeredAt ? answer.answeredAt.getTime() : previousAnsweredAt;
+            elapsedSecondsByQuestionId.set(
+                answer.questionId,
+                Math.max(0, Math.round((currentAnsweredAt - previousAnsweredAt) / 1000))
+            );
+            previousAnsweredAt = currentAnsweredAt;
+        }
+
+        const answerMeta = Object.fromEntries(attempt.answers.map((answer) => {
+            const answeredAt = answer.answeredAt?.toISOString() || null;
+            const elapsedSeconds = elapsedSecondsByQuestionId.get(answer.questionId) ?? null;
+
+            return [answer.questionId, {
+                selectedChoice: answer.selectedChoice,
+                answeredAt,
+                elapsedSeconds,
+            }];
+        }));
+
         return {
             ...attempt,
             exam: {
                 ...attempt.exam,
                 questions: (attempt.exam?.questions || []).map((q: any) => ({
                     ...q,
-                    section: q.section?.title || null,
+                    section: q.section?.title || this.defaultSectionTitle,
                     sectionId: q.section?.id || q.sectionId || null,
                 })),
             },
             user: this.normalizeUser(attempt.user),
             answers: Object.fromEntries(attempt.answers.map((a) => [a.questionId, a.selectedChoice])),
+            answerMeta,
         };
     }
 }

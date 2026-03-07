@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 
 const registerSchema = z.object({
     firstName: z.string().trim().min(1, 'First name is required'),
@@ -22,6 +23,7 @@ const registerSchema = z.object({
         .refine((value) => value.length === 1, { message: 'Middle initial must be 1 character' }),
     suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
     trackId: z.string().trim().min(1, 'Program track is required'),
+    campusId: z.string().trim().min(1, 'Campus is required'),
     yearLevel: z.string().trim().min(1, 'Year is required'),
     section: z.string().trim().min(1, 'Section is required'),
     email: z.string().email('Invalid school email address').refine(
@@ -51,7 +53,9 @@ const RegisterPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
+    const [campuses, setCampuses] = useState<TrackOption[]>([]);
     const [tracksLoading, setTracksLoading] = useState(true);
+    const [campusesLoading, setCampusesLoading] = useState(true);
     const navigate = useNavigate();
     const { login } = useAuth();
 
@@ -67,6 +71,7 @@ const RegisterPage: React.FC = () => {
             middleInitial: '',
             suffix: '',
             trackId: '',
+            campusId: '',
             yearLevel: '',
             section: '',
         },
@@ -85,7 +90,20 @@ const RegisterPage: React.FC = () => {
             }
         };
 
+        const fetchCampuses = async () => {
+            try {
+                const response = await api.get('/campuses');
+                setCampuses(response.data?.data || []);
+            } catch (err) {
+                console.error('Failed to load campuses', err);
+                setError('Unable to load campuses. Please refresh and try again.');
+            } finally {
+                setCampusesLoading(false);
+            }
+        };
+
         fetchTracks();
+        fetchCampuses();
     }, []);
 
     const onSubmit = async (data: RegisterFormValues) => {
@@ -101,6 +119,7 @@ const RegisterPage: React.FC = () => {
                 email: data.email.trim().toLowerCase(),
                 password: data.password,
                 track_id: data.trackId.trim(),
+                campus_id: data.campusId.trim(),
                 yearLevel: data.yearLevel.trim(),
                 section: data.section.trim(),
             });
@@ -158,6 +177,7 @@ const RegisterPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-4">
                     <Input type="hidden" {...register('trackId')} />
+                    <Input type="hidden" {...register('campusId')} />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -185,7 +205,20 @@ const RegisterPage: React.FC = () => {
                         </div>
                         <div className="space-y-1.5">
                             <Label>Suffix (Optional)</Label>
-                            <Input {...register('suffix')} placeholder="Jr." />
+                            <Select
+                                value={watch('suffix') || NO_SUFFIX_VALUE}
+                                onValueChange={(value) => setValue('suffix', value === NO_SUFFIX_VALUE ? '' : value, { shouldValidate: true })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select suffix" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
+                                    {SUFFIX_OPTIONS.map((suffixOption) => (
+                                        <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             {errors.suffix && <p className="text-xs text-red-500">{errors.suffix.message}</p>}
                         </div>
                     </div>
@@ -211,6 +244,27 @@ const RegisterPage: React.FC = () => {
                         {errors.trackId && <p className="text-xs text-red-500">{errors.trackId.message}</p>}
                     </div>
 
+                    <div className="space-y-1.5">
+                        <Label>Campus</Label>
+                        <Select
+                            value={watch('campusId')}
+                            onValueChange={(value) => setValue('campusId', value, { shouldValidate: true })}
+                            disabled={campusesLoading || campuses.length === 0}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder={campusesLoading ? 'Loading campuses...' : 'Select campus'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {campuses.map((campus) => (
+                                    <SelectItem key={campus.id} value={campus.id}>
+                                        {campus.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {errors.campusId && <p className="text-xs text-red-500">{errors.campusId.message}</p>}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <Label>Year</Label>
@@ -222,9 +276,9 @@ const RegisterPage: React.FC = () => {
                                     <SelectValue placeholder="Select year level" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="3rd Year">3rd Year</SelectItem>
-                                    <SelectItem value="4th Year">4th Year</SelectItem>
-                                    <SelectItem value="Alumni">Alumni</SelectItem>
+                                    {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
+                                        <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                             {errors.yearLevel && <p className="text-xs text-red-500">{errors.yearLevel.message}</p>}

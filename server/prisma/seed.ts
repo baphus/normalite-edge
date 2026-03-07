@@ -19,6 +19,12 @@ const TRACK_SEEDS: Array<{ name: string; code: string }> = [
     { name: 'Diploma in Professional Education', code: 'DPE' },
 ];
 
+const CAMPUS_SEEDS: Array<{ name: string; code: string }> = [
+    { name: 'Cebu Normal University - Main Campus', code: 'CNU-MAIN' },
+    { name: 'Cebu Normal University - Balamban Campus', code: 'CNU-BALAMBAN' },
+    { name: 'Cebu Normal University - Medellin Campus', code: 'CNU-MEDELLIN' },
+];
+
 async function seed() {
     console.log('🌱 Seeding database...');
 
@@ -39,15 +45,38 @@ async function seed() {
         });
     }
 
+    for (const campus of CAMPUS_SEEDS) {
+        await prisma.campus.upsert({
+            where: { code: campus.code },
+            update: {
+                name: campus.name,
+                isActive: true,
+            },
+            create: {
+                name: campus.name,
+                code: campus.code,
+                isActive: true,
+            },
+        });
+    }
+
     const bsedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BSED' } });
     const beedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BEED' } });
+    const mainCampus = await prisma.campus.findUniqueOrThrow({ where: { code: 'CNU-MAIN' } });
 
     const admin = await prisma.user.upsert({
         where: { email: 'admin@cnu.edu.ph' },
-        update: {},
+        update: {
+            firstName: 'Admin',
+            lastName: 'User',
+            middleInitial: 'A',
+            suffix: 'Sr.',
+        },
         create: {
             firstName: 'Admin',
             lastName: 'User',
+            middleInitial: 'A',
+            suffix: 'Sr.',
             email: 'admin@cnu.edu.ph',
             passwordHash,
             role: Role.ADMIN,
@@ -58,15 +87,26 @@ async function seed() {
 
     const reviewer = await prisma.user.upsert({
         where: { email: 'reviewer@cnu.edu.ph' },
-        update: {},
+        update: {
+            firstName: 'Maria',
+            lastName: 'Santos',
+            middleInitial: 'L',
+            suffix: 'Jr.',
+            trackId: bsedTrack.id,
+            campusId: mainCampus.id,
+            programTrack: bsedTrack.name,
+        },
         create: {
             firstName: 'Maria',
             lastName: 'Santos',
+            middleInitial: 'L',
+            suffix: 'Jr.',
             email: 'reviewer@cnu.edu.ph',
             passwordHash,
             role: Role.REVIEWER,
             status: UserStatus.ACTIVE,
             trackId: bsedTrack.id,
+            campusId: mainCampus.id,
             programTrack: bsedTrack.name,
             createdByAdmin: true,
         },
@@ -74,15 +114,26 @@ async function seed() {
 
     const reviewee = await prisma.user.upsert({
         where: { email: 'reviewee@cnu.edu.ph' },
-        update: {},
+        update: {
+            firstName: 'Juan',
+            lastName: 'Dela Cruz',
+            middleInitial: 'R',
+            suffix: 'III',
+            trackId: beedTrack.id,
+            campusId: mainCampus.id,
+            programTrack: beedTrack.name,
+        },
         create: {
             firstName: 'Juan',
             lastName: 'Dela Cruz',
+            middleInitial: 'R',
+            suffix: 'III',
             email: 'reviewee@cnu.edu.ph',
             passwordHash,
             role: Role.REVIEWEE,
             status: UserStatus.ACTIVE,
             trackId: beedTrack.id,
+            campusId: mainCampus.id,
             programTrack: beedTrack.name,
             createdByAdmin: true,
         },

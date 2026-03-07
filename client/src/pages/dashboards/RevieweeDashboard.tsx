@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
+    CheckCircle2,
+    Lightbulb,
     Sparkles,
     Video,
+    XCircle,
     Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -10,8 +13,6 @@ import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
     Table,
     TableBody,
@@ -81,6 +82,14 @@ type MotivationalQuote = {
 };
 
 const QUOTE_STORAGE_KEY = 'reviewee-dashboard-daily-quote';
+const DAILY_ANSWER_STORAGE_KEY = 'reviewee-dashboard-daily-answer';
+
+type DailyAnswerCache = {
+    date: string;
+    userId: string;
+    questionId: string;
+    result: DailyAnswerResult;
+};
 
 interface RevieweeDashboardProps {
     stats: {
@@ -110,6 +119,8 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const [quoteError, setQuoteError] = useState('');
     const [isDailyModalOpen, setIsDailyModalOpen] = useState(false);
 
+    const todayKey = new Date().toISOString().slice(0, 10);
+
     const formatDateRange = (startAt: string, endAt: string) => {
         const start = new Date(startAt);
         const end = new Date(endAt);
@@ -132,18 +143,21 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         { text: 'It always seems impossible until it is done.', author: 'Nelson Mandela' },
     ];
 
-    const loadMotivationalQuote = async () => {
+    const loadMotivationalQuote = async (ignoreCache = false) => {
         try {
             setIsQuoteLoading(true);
             setQuoteError('');
 
             const todayKey = new Date().toISOString().slice(0, 10);
-            const cached = localStorage.getItem(QUOTE_STORAGE_KEY);
-            if (cached) {
-                const parsed = JSON.parse(cached) as { date: string; quote: MotivationalQuote };
-                if (parsed?.date === todayKey && parsed?.quote?.text) {
-                    setQuote(parsed.quote);
-                    return;
+            
+            if (!ignoreCache) {
+                const cached = localStorage.getItem(QUOTE_STORAGE_KEY);
+                if (cached) {
+                    const parsed = JSON.parse(cached) as { date: string; quote: MotivationalQuote };
+                    if (parsed?.date === todayKey && parsed?.quote?.text) {
+                        setQuote(parsed.quote);
+                        return;
+                    }
                 }
             }
 
@@ -170,7 +184,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     };
 
     const handleRequestAnotherQuote = () => {
-        setQuoteError('Quote of the Day updates once daily. Please come back tomorrow for a new one.');
+        loadMotivationalQuote(true);
     };
 
     useEffect(() => {
@@ -179,9 +193,34 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 setIsDailyLoading(true);
                 setDailyError('');
                 const response = await api.get('/dashboard/daily-question');
-                setDailyQuestion(response.data?.data || null);
+                const question = response.data?.data || null;
+                setDailyQuestion(question);
                 setSelectedChoice('');
                 setDailyResult(null);
+
+                if (!question || !user?.id) {
+                    return;
+                }
+
+                const cached = localStorage.getItem(DAILY_ANSWER_STORAGE_KEY);
+                if (!cached) {
+                    return;
+                }
+
+                try {
+                    const parsed = JSON.parse(cached) as DailyAnswerCache;
+                    const isMatch = parsed?.date === todayKey
+                        && parsed?.userId === user.id
+                        && parsed?.questionId === question.questionId
+                        && parsed?.result;
+
+                    if (isMatch) {
+                        setDailyResult(parsed.result);
+                        setSelectedChoice(parsed.result.selectedChoice);
+                    }
+                } catch {
+                    localStorage.removeItem(DAILY_ANSWER_STORAGE_KEY);
+                }
             } catch {
                 setDailyQuestion(null);
                 setDailyError('Failed to load daily question. Please try again.');
@@ -190,7 +229,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             }
         };
         loadDailyQuestion();
-    }, []);
+    }, [todayKey, user?.id]);
 
     useEffect(() => {
         loadMotivationalQuote();
@@ -208,7 +247,18 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 questionId: dailyQuestion.questionId,
                 selectedChoice,
             });
-            setDailyResult(response.data?.data || null);
+            const result = response.data?.data || null;
+            setDailyResult(result);
+
+            if (result && user?.id) {
+                const payload: DailyAnswerCache = {
+                    date: todayKey,
+                    userId: user.id,
+                    questionId: dailyQuestion.questionId,
+                    result,
+                };
+                localStorage.setItem(DAILY_ANSWER_STORAGE_KEY, JSON.stringify(payload));
+            }
         } catch {
             setDailyError('Unable to submit your answer right now. Please try again.');
         } finally {
@@ -227,15 +277,26 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             </header>
 
             {/* Daily Question — compact card */}
-            <Card className="border-gray-100 shadow-sm rounded-lg">
-                <CardContent className="p-3 flex items-center gap-3">
-                    <div className="shrink-0 p-2 rounded-md bg-primary/10 text-primary">
+            <Card className="border-0 shadow-sm rounded-xl overflow-hidden bg-linear-to-r from-primary/8 to-primary/5">
+                <CardContent className="p-3.5 flex items-center gap-3.5">
+                    <div className="shrink-0 p-2.5 rounded-xl bg-primary text-white shadow-sm">
                         <Zap size={15} />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Daily Question</p>
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Daily Challenge</p>
+                            {dailyResult && (
+                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
+                                    dailyResult.isCorrect ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                    {dailyResult.isCorrect
+                                        ? <><CheckCircle2 size={8} /> Correct</>
+                                        : <><XCircle size={8} /> Incorrect</>}
+                                </span>
+                            )}
+                        </div>
                         {isDailyLoading ? (
-                            <p className="text-xs text-gray-400">Loading...</p>
+                            <p className="text-xs text-gray-400">Loading today's question...</p>
                         ) : dailyQuestion ? (
                             <p className="text-xs font-semibold text-gray-800 truncate">{dailyQuestion.questionText}</p>
                         ) : (
@@ -245,7 +306,10 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                     {dailyQuestion && (
                         <Button
                             size="sm"
-                            className="shrink-0 h-7 px-3 text-xs font-semibold bg-primary hover:bg-primary/90 text-white gap-1"
+                            variant={dailyResult ? 'outline' : 'default'}
+                            className={`shrink-0 h-8 px-3.5 text-xs font-semibold rounded-lg gap-1 ${
+                                !dailyResult ? 'bg-primary hover:bg-primary/90 text-white border-0' : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                            }`}
                             onClick={() => { setIsDailyModalOpen(true); setDailyError(''); }}
                             disabled={isDailyLoading}
                         >
@@ -257,62 +321,139 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
 
             {/* Daily Question Modal */}
             <Dialog open={isDailyModalOpen} onOpenChange={(open) => { if (!isSubmittingDaily) setIsDailyModalOpen(open); }}>
-                <DialogContent className="sm:max-w-lg rounded-lg font-lexend">
-                    <DialogHeader>
-                        <div className="flex items-center justify-between gap-2">
-                            <DialogTitle className="text-sm font-bold text-gray-900">Daily Question</DialogTitle>
-                            <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase">Today</Badge>
+                <DialogContent className="sm:max-w-lg rounded-2xl font-lexend p-0 overflow-hidden gap-0">
+                    {/* Header */}
+                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-gray-100">
+                        <div className="flex items-center gap-2.5">
+                            <div className="shrink-0 p-1.5 rounded-lg bg-primary/10 text-primary">
+                                <Zap size={14} />
+                            </div>
+                            <DialogTitle className="text-sm font-bold text-gray-900">Daily Challenge</DialogTitle>
+                            <div className="ml-auto flex items-center gap-1.5">
+                                <Badge className="bg-gray-100 text-gray-400 border-none text-[9px] font-medium">
+                                    {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </Badge>
+                            </div>
                         </div>
                     </DialogHeader>
 
                     {dailyQuestion && (
-                        <div className="space-y-3">
-                            <p className="text-sm font-semibold text-gray-900 leading-snug">{dailyQuestion.questionText}</p>
+                        <div className="px-5 py-4 space-y-3.5">
+                            {/* Question text */}
+                            <div className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+                                <p className="text-sm font-semibold text-gray-900 leading-relaxed">{dailyQuestion.questionText}</p>
+                            </div>
 
-                            {!dailyResult && (
-                                <RadioGroup
-                                    value={selectedChoice}
-                                    onValueChange={(value) => { setSelectedChoice(value as 'A' | 'B' | 'C' | 'D'); setDailyError(''); }}
-                                    className="gap-2"
-                                >
-                                    {(['A', 'B', 'C', 'D'] as const).map((choiceKey) => (
-                                        <div key={choiceKey} className="flex items-start gap-2 rounded-lg border border-gray-200 p-2.5 transition-colors hover:bg-gray-50">
-                                            <RadioGroupItem value={choiceKey} id={`dq-${choiceKey}`} className="mt-0.5" />
-                                            <Label htmlFor={`dq-${choiceKey}`} className="cursor-pointer text-xs text-gray-700 leading-relaxed">
-                                                <span className="font-bold mr-1">{choiceKey}.</span>
-                                                {dailyQuestion.choices[choiceKey]}
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </RadioGroup>
-                            )}
-
+                            {/* Result banner */}
                             {dailyResult && (
-                                <div className={`rounded-lg border p-3 space-y-1.5 ${
-                                    dailyResult.isCorrect ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'
+                                <div className={`flex items-center gap-2.5 rounded-xl px-4 py-3 border ${
+                                    dailyResult.isCorrect
+                                        ? 'bg-green-50 border-green-200'
+                                        : 'bg-red-50 border-red-200'
                                 }`}>
-                                    <p className={`text-xs font-bold ${ dailyResult.isCorrect ? 'text-green-700' : 'text-amber-700'}`}>
-                                        {dailyResult.isCorrect ? '\u2713 Correct! Great job.' : '\u2717 Not quite this time.'}
-                                    </p>
-                                    <p className="text-xs text-gray-700"><span className="font-bold">Question:</span> {dailyQuestion.questionText}</p>
-                                    <p className="text-xs text-gray-700">Your answer: <span className="font-bold">{dailyResult.selectedChoice}</span></p>
-                                    <p className="text-xs text-gray-700">Correct answer: <span className="font-bold">{dailyResult.correctChoice}</span></p>
-                                    <p className="text-xs text-gray-600">
-                                        <span className="font-bold text-gray-700">Rationalization:</span>{' '}
-                                        {dailyResult.rationalization || 'No rationalization provided.'}
+                                    {dailyResult.isCorrect
+                                        ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                                        : <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                                    }
+                                    <p className={`text-xs font-bold ${dailyResult.isCorrect ? 'text-green-700' : 'text-red-600'}`}>
+                                        {dailyResult.isCorrect
+                                            ? 'Correct! Great job.'
+                                            : `Not quite. The correct answer was ${dailyResult.correctChoice}.`
+                                        }
                                     </p>
                                 </div>
                             )}
 
-                            {dailyError && <p className="text-xs text-red-600 font-medium">{dailyError}</p>}
+                            {/* Answer choices */}
+                            <div className="space-y-2">
+                                {(['A', 'B', 'C', 'D'] as const).map((choiceKey) => {
+                                    const isSelected = selectedChoice === choiceKey;
+                                    const isCorrectChoice = dailyResult?.correctChoice === choiceKey;
+                                    const isWrongSelection = dailyResult?.selectedChoice === choiceKey && !dailyResult.isCorrect;
+                                    const isAnswered = !!dailyResult;
 
+                                    let cardClass = 'border-gray-200 bg-white hover:border-primary/50 hover:bg-primary/5 cursor-pointer';
+                                    let letterClass = 'bg-gray-100 text-gray-600';
+                                    let textClass = 'text-gray-700 font-medium';
+
+                                    if (isAnswered) {
+                                        if (isCorrectChoice) {
+                                            cardClass = 'border-green-300 bg-green-50 cursor-default';
+                                            letterClass = 'bg-green-500 text-white';
+                                            textClass = 'text-green-800 font-semibold';
+                                        } else if (isWrongSelection) {
+                                            cardClass = 'border-red-300 bg-red-50 cursor-default';
+                                            letterClass = 'bg-red-400 text-white';
+                                            textClass = 'text-red-700 font-medium';
+                                        } else {
+                                            cardClass = 'border-gray-100 bg-gray-50 opacity-50 cursor-default';
+                                            letterClass = 'bg-gray-200 text-gray-400';
+                                            textClass = 'text-gray-400';
+                                        }
+                                    } else if (isSelected) {
+                                        cardClass = 'border-primary bg-primary/5 cursor-pointer ring-1 ring-primary/20';
+                                        letterClass = 'bg-primary text-white';
+                                        textClass = 'text-primary font-semibold';
+                                    }
+
+                                    return (
+                                        <button
+                                            key={choiceKey}
+                                            className={`w-full flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-all ${cardClass}`}
+                                            onClick={() => {
+                                                if (!isAnswered && !isSubmittingDaily) {
+                                                    setSelectedChoice(choiceKey);
+                                                    setDailyError('');
+                                                }
+                                            }}
+                                        >
+                                            <span className={`shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold transition-colors ${letterClass}`}>
+                                                {choiceKey}
+                                            </span>
+                                            <span className={`flex-1 text-xs leading-relaxed ${textClass}`}>
+                                                {dailyQuestion.choices[choiceKey]}
+                                            </span>
+                                            {isAnswered && isCorrectChoice && (
+                                                <CheckCircle2 className="ml-auto shrink-0 h-4 w-4 text-green-500" />
+                                            )}
+                                            {isAnswered && isWrongSelection && (
+                                                <XCircle className="ml-auto shrink-0 h-4 w-4 text-red-400" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Rationalization */}
+                            {dailyResult && (
+                                <div className="flex gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                                    <Lightbulb className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">Rationalization</p>
+                                        <p className="text-xs text-blue-800 leading-relaxed">
+                                            {dailyResult.rationalization || 'No rationalization provided for this question.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {dailyError && (
+                                <p className="text-xs text-red-600 font-medium">{dailyError}</p>
+                            )}
+
+                            {/* Submit */}
                             {!dailyResult && (
                                 <Button
                                     onClick={handleSubmitDailyAnswer}
                                     disabled={isSubmittingDaily || !selectedChoice}
-                                    className="w-full h-8 text-xs font-bold"
+                                    className="w-full h-9 text-xs font-bold rounded-xl"
                                 >
-                                    {isSubmittingDaily ? 'Submitting...' : 'Submit Answer'}
+                                    {isSubmittingDaily ? (
+                                        <span className="flex items-center gap-2">
+                                            <span className="animate-spin h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full inline-block" />
+                                            Submitting...
+                                        </span>
+                                    ) : 'Submit Answer'}
                                 </Button>
                             )}
                         </div>

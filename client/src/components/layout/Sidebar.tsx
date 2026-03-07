@@ -11,9 +11,12 @@ import {
     Users,
     LogOut,
     CalendarDays,
+    GraduationCap,
+    Building2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { formatUserDisplayName } from '@/lib/formatUserDisplayName';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -62,6 +65,8 @@ const navGroups: NavGroup[] = [
         label: 'Admin',
         roles: ['ADMIN'],
         items: [
+            { name: 'Programs', href: '/admin/programs', icon: GraduationCap, roles: ['ADMIN'] },
+            { name: 'Campuses', href: '/admin/campuses', icon: Building2, roles: ['ADMIN'] },
             { name: 'User Management', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
             { name: 'Audit Logs', href: '/admin/logs', icon: ShieldCheck, roles: ['ADMIN'] },
         ],
@@ -93,16 +98,47 @@ const Sidebar: React.FC = () => {
             .filter(group => group.items.length > 0);
     }, [user, normalizedRole]);
 
-    const userInitials = user?.name
-        ? user.name.trim().split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()
+    const displayName = formatUserDisplayName({
+        name: user?.name,
+        firstName: user?.firstName,
+        middleInitial: user?.middleInitial,
+        lastName: user?.lastName,
+        suffix: user?.suffix,
+    });
+
+    const userInitials = displayName
+        ? displayName.trim().split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()
         : 'U';
 
-    const roleLabel: Record<string, string> = { ADMIN: 'Admin', REVIEWER: 'Reviewer', REVIEWEE: 'Reviewee' };
+    const profileMeta = useMemo(() => {
+        if (!user) return { lineOne: '', lineTwo: '' };
+
+        if (normalizedRole === 'REVIEWEE') {
+            const lineOne = user.campus || 'Campus not set';
+            const lineTwo = [
+                user.program || user.programTrack || user.program_track || '',
+                [user.yearLevel, user.section ? `Section ${user.section}` : ''].filter(Boolean).join(' - '),
+            ]
+                .filter(Boolean)
+                .join(' • ');
+            return { lineOne, lineTwo };
+        }
+
+        if (normalizedRole === 'REVIEWER') {
+            return { lineOne: user.campus || 'Reviewer Portal', lineTwo: '' };
+        }
+
+        if (normalizedRole === 'ADMIN') {
+            return { lineOne: 'Admin Portal', lineTwo: '' };
+        }
+
+        return { lineOne: normalizedRole, lineTwo: '' };
+    }, [user, normalizedRole]);
 
     return (
-        <div className="flex flex-col w-[218px] shrink-0 h-screen bg-[#0d0f14] border-r border-white/[0.06]">
+        <div className="sticky top-0 flex h-screen w-54.5 shrink-0 flex-col self-start border-r border-white/6 bg-[#0d0f14]">
             {/* Brand */}
-            <Link to="/dashboard" className="flex items-center gap-2.5 px-4 h-12 border-b border-white/[0.06] shrink-0 hover:opacity-80 transition-opacity">
+            <Link to="/dashboard" className="flex items-center gap-2.5 px-4 h-12 border-b border-white/6 shrink-0 hover:opacity-80 transition-opacity">
                 <div className="h-6 w-6 overflow-hidden rounded-sm shrink-0">
                     <img
                         src="/NormaliteEdgeLogo.png"
@@ -130,7 +166,7 @@ const Sidebar: React.FC = () => {
                                             'relative flex items-center gap-2.5 px-2.5 h-8 text-[12.5px] rounded-md transition-colors font-medium',
                                             isActive
                                                 ? 'bg-white/10 text-white'
-                                                : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+                                                : 'text-white/50 hover:bg-white/6 hover:text-white/80'
                                         )
                                     }
                                 >
@@ -139,10 +175,10 @@ const Sidebar: React.FC = () => {
                                             {isActive && (
                                                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full bg-primary" />
                                             )}
-                                            <item.icon className="w-[14px] h-[14px] shrink-0" />
+                                            <item.icon className="h-3.5 w-3.5 shrink-0" />
                                             <span className="flex-1 truncate">{item.name}</span>
                                             {item.href === '/notifications' && unreadCount > 0 && (
-                                                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[9px] font-bold flex items-center justify-center">
+                                                <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-white">
                                                     {unreadCount > 99 ? '99+' : unreadCount}
                                                 </span>
                                             )}
@@ -156,13 +192,13 @@ const Sidebar: React.FC = () => {
             </nav>
 
             {/* User / Footer */}
-            <div className="shrink-0 border-t border-white/[0.06] p-2 space-y-0.5">
+            <div className="shrink-0 border-t border-white/6 p-3 space-y-2">
                 <NavLink
                     to="/profile"
                     className={({ isActive }) =>
                         cn(
-                            'flex items-center gap-2.5 px-2.5 h-10 rounded-md transition-colors w-full',
-                            isActive ? 'bg-white/10' : 'hover:bg-white/[0.06]'
+                            'flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors w-full',
+                            isActive ? 'bg-white/10' : 'hover:bg-white/6'
                         )
                     }
                 >
@@ -170,26 +206,29 @@ const Sidebar: React.FC = () => {
                         <img
                             src={user.picture}
                             alt="Profile"
-                            className="w-7 h-7 rounded-full object-cover ring-1 ring-white/20 shrink-0"
+                            className="mt-0.5 h-9 w-9 rounded-full object-cover ring-1 ring-white/20 shrink-0"
                             onError={() => setImgError(true)}
                         />
                     ) : (
-                        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                        <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white shrink-0">
                             {userInitials}
                         </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-white/90 truncate leading-tight">{user?.name}</p>
-                        <p className="text-[10px] text-white/35 font-medium leading-tight">
-                            {normalizedRole ? roleLabel[normalizedRole] ?? normalizedRole : ''}
-                        </p>
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="truncate text-[12px] font-semibold leading-tight text-white/95">{displayName}</p>
+                        {profileMeta.lineOne && (
+                            <p className="truncate text-[10px] font-medium leading-tight text-white/55">{profileMeta.lineOne}</p>
+                        )}
+                        {profileMeta.lineTwo && (
+                            <p className="line-clamp-2 text-[10px] font-medium leading-tight text-white/40">{profileMeta.lineTwo}</p>
+                        )}
                     </div>
                 </NavLink>
                 <button
                     onClick={logout}
-                    className="flex items-center gap-2.5 w-full px-2.5 h-8 text-[12px] font-medium text-white/40 hover:text-red-400 hover:bg-white/[0.04] rounded-md transition-colors"
+                    className="flex h-8 w-full items-center gap-2.5 rounded-lg px-3 text-[12px] font-medium text-white/45 transition-colors hover:bg-white/4 hover:text-red-400"
                 >
-                    <LogOut className="w-[14px] h-[14px] shrink-0" />
+                    <LogOut className="h-3.5 w-3.5 shrink-0" />
                     Sign out
                 </button>
             </div>

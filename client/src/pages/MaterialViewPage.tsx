@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Calendar, FolderOpen, UserRound } from 'lucide-react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, BookOpen, Brain, Calendar, FolderOpen, Sparkles, UserRound } from 'lucide-react';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +24,7 @@ interface DeckQuestion {
     choiceD?: string | null;
     correctChoice?: 'A' | 'B' | 'C' | 'D' | null;
     rationalization?: string | null;
+    explanation?: string | null;
 }
 
 interface DeckDetails {
@@ -46,6 +47,7 @@ interface DeckDetails {
 
 const MaterialViewPage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams<{ id: string }>();
     const { user } = useAuth();
 
@@ -98,6 +100,10 @@ const MaterialViewPage: React.FC = () => {
             .sort((first, second) => (first.orderNo || 0) - (second.orderNo || 0));
     }, [deck]);
 
+    const isStudyView = location.pathname.startsWith('/study/');
+    const backPath = isStudyView ? '/study' : '/materials';
+    const canManageDeck = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
+
     if (loading) {
         return (
             <div className="flex flex-col gap-5 font-lexend pb-8">
@@ -116,7 +122,7 @@ const MaterialViewPage: React.FC = () => {
                         variant="ghost"
                         size="icon"
                         className="rounded-full"
-                        onClick={() => navigate('/materials')}
+                        onClick={() => navigate(backPath)}
                     >
                         <ArrowLeft size={18} />
                     </Button>
@@ -125,7 +131,7 @@ const MaterialViewPage: React.FC = () => {
                         <p className="text-sm text-gray-500 font-medium tracking-tight">Full question and answer view for this study material.</p>
                     </div>
                 </div>
-                {deck ? (
+                {deck && canManageDeck ? (
                     <div className="flex items-center gap-2">
                         <Link to={`/materials/${deck.id}/edit`}>
                             <Button className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2">
@@ -140,8 +146,8 @@ const MaterialViewPage: React.FC = () => {
                 <Card className="rounded-2xl border-red-100 bg-red-50/40">
                     <CardContent className="p-6 flex items-center justify-between gap-4">
                         <p className="text-sm font-semibold text-red-700">{error}</p>
-                        <Button variant="outline" onClick={() => navigate('/materials')} className="border-red-200 text-red-700 hover:bg-red-50">
-                            Back to Materials
+                        <Button variant="outline" onClick={() => navigate(backPath)} className="border-red-200 text-red-700 hover:bg-red-50">
+                            {isStudyView ? 'Back to Study Hub' : 'Back to Materials'}
                         </Button>
                     </CardContent>
                 </Card>
@@ -209,8 +215,47 @@ const MaterialViewPage: React.FC = () => {
                         </CardContent>
                     </Card>
 
+                    <Card className="rounded-2xl border-gray-100 bg-white overflow-hidden">
+                        <div className="h-1.5 w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500" />
+                        <CardContent className="p-5 md:p-6 space-y-4">
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                                <div>
+                                    <p className="text-[10px] font-black text-sky-600 uppercase tracking-[0.18em]">Study Actions</p>
+                                    <h3 className="text-lg md:text-xl font-black text-gray-900 tracking-tight mt-1">Launch this deck instantly</h3>
+                                    <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">
+                                        Pick a mode and start right away. Quiz mode gives instant correctness feedback with explanations.
+                                    </p>
+                                </div>
+                                <Badge className="bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-black uppercase tracking-widest">
+                                    {deck.totalItems} questions
+                                </Badge>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Button
+                                    className="h-12 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2"
+                                    onClick={() => navigate(`/study/${deck.id}?mode=study`)}
+                                >
+                                    <Brain size={16} /> Begin Quiz
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl border-gray-200 text-gray-700 hover:border-primary/30 hover:text-primary font-black gap-2"
+                                    onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
+                                >
+                                    <BookOpen size={16} /> Study with Flashcards
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     <section className="space-y-3">
-                        <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">All Questions and Answers</h3>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">All Questions and Answers</h3>
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                <Sparkles size={12} /> Full View Mode
+                            </span>
+                        </div>
 
                         {questions.length === 0 ? (
                             <Card className="rounded-2xl border-gray-100 bg-white">
@@ -268,9 +313,15 @@ const MaterialViewPage: React.FC = () => {
                                                     })}
                                                 </div>
 
-                                                <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 font-medium leading-relaxed">
-                                                    <span className="font-black text-gray-800">Rationalization: </span>
-                                                    {question.rationalization || 'No explanation provided.'}
+                                                <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 font-medium leading-relaxed space-y-1.5">
+                                                    <p>
+                                                        <span className="font-black text-gray-800">Rationalization: </span>
+                                                        {question.rationalization || 'No rationalization provided.'}
+                                                    </p>
+                                                    <p>
+                                                        <span className="font-black text-gray-800">Explanation: </span>
+                                                        {question.explanation || question.rationalization || 'No explanation provided.'}
+                                                    </p>
                                                 </div>
                                             </CardContent>
                                         </Card>
