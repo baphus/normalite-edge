@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect } from 'react';
+﻿import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -16,6 +16,8 @@ import {
     CheckCircle2,
     RotateCcw,
     BookOpen,
+    ChevronDown,
+    ChevronRight,
 } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
@@ -67,6 +69,8 @@ interface Exam {
     createdAt?: string;
 }
 
+type ExamSectionKey = 'open' | 'submitted' | 'closed';
+
 const ExamsPage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -78,6 +82,16 @@ const ExamsPage: React.FC = () => {
     const [sortBy, setSortBy] = useState<'default' | 'most_recent'>('default');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [viewingExam, setViewingExam] = useState<Exam | null>(null);
+    const [collapsedSections, setCollapsedSections] = useState<Record<ExamSectionKey, boolean>>({
+        open: false,
+        submitted: false,
+        closed: false,
+    });
+    const sectionRefs = useRef<Record<ExamSectionKey, HTMLElement | null>>({
+        open: null,
+        submitted: null,
+        closed: null,
+    });
 
     useEffect(() => {
         const fetchExams = async () => {
@@ -156,6 +170,23 @@ const ExamsPage: React.FC = () => {
                       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
               )
             : filteredExams;
+
+    const sectionedExams = useMemo(() => {
+        return filteredAndSortedExams.reduce(
+            (acc, exam) => {
+                const { hasSubmitted, canTake } = getExamState(exam);
+                if (hasSubmitted) {
+                    acc.submitted.push(exam);
+                } else if (canTake) {
+                    acc.open.push(exam);
+                } else {
+                    acc.closed.push(exam);
+                }
+                return acc;
+            },
+            { open: [] as Exam[], submitted: [] as Exam[], closed: [] as Exam[] }
+        );
+    }, [filteredAndSortedExams]);
 
     const isDeadlineSoon = (deadline?: string) => {
         if (!deadline) return false;
@@ -442,6 +473,65 @@ const ExamsPage: React.FC = () => {
         );
     };
 
+    const getSectionForStatusFilter = (value: string): ExamSectionKey | null => {
+        if (value === 'submitted') return 'submitted';
+        if (value === 'locked') return 'closed';
+        if (value === 'available' || value === 'in_progress') return 'open';
+        return null;
+    };
+
+    useEffect(() => {
+        if (loading) return;
+        const targetSection = getSectionForStatusFilter(statusFilter);
+        if (!targetSection) return;
+        const target = sectionRefs.current[targetSection];
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [statusFilter, loading]);
+
+    const renderExamSection = (sectionKey: ExamSectionKey, title: string, items: Exam[], emptyMessage: string) => (
+        <section
+            className="space-y-2"
+            ref={(node) => {
+                sectionRefs.current[sectionKey] = node;
+            }}
+        >
+            <div className="flex items-center justify-between">
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gray-600 hover:text-gray-900 transition-colors"
+                    onClick={() =>
+                        setCollapsedSections((prev) => ({
+                            ...prev,
+                            [sectionKey]: !prev[sectionKey],
+                        }))
+                    }
+                    aria-expanded={!collapsedSections[sectionKey]}
+                    aria-controls={`exam-section-${sectionKey}`}
+                >
+                    {collapsedSections[sectionKey] ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                    {title}
+                </button>
+                <Badge variant="outline" className="text-[10px] font-semibold text-gray-500 border-gray-200 bg-white">
+                    {items.length}
+                </Badge>
+            </div>
+            {!collapsedSections[sectionKey] && (
+                <div id={`exam-section-${sectionKey}`}>
+                    {items.length > 0 ? (
+                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' : 'flex flex-col gap-2'}>
+                            {items.map((exam) => renderExamCard(exam))}
+                        </div>
+                    ) : (
+                        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-5 text-center">
+                            <p className="text-xs font-medium text-gray-500">{emptyMessage}</p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </section>
+    );
+
     return (
         <div className="flex flex-col gap-3 font-lexend pb-6">
             <header className="flex items-center justify-between gap-4">
@@ -637,8 +727,10 @@ const ExamsPage: React.FC = () => {
                     )}
                 </div>
             ) : (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1' : 'flex flex-col gap-2 mt-1'}>
-                    {filteredAndSortedExams.map((exam) => renderExamCard(exam))}
+                <div className="space-y-5 mt-1">
+                    {renderExamSection('open', 'Open Exams', sectionedExams.open, 'No open exams right now.')}
+                    {renderExamSection('submitted', 'Submitted Exams', sectionedExams.submitted, 'No submitted exams yet.')}
+                    {renderExamSection('closed', 'Closed Exams', sectionedExams.closed, 'No closed exams yet.')}
                 </div>
             )}
 

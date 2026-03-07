@@ -47,9 +47,9 @@ const SECTION_DOTS: Record<string, string> = {
     'Major Subject': 'bg-orange-500',
 };
 
-const formatDuration = (seconds?: number | null) => {
+const formatDuration = (seconds?: number | null, fallback = 'No timing data') => {
     const numeric = Math.max(0, Math.round(Number(seconds || 0)));
-    if (!numeric) return 'N/A';
+    if (!numeric) return fallback;
 
     const minutes = Math.floor(numeric / 60);
     const remainingSeconds = numeric % 60;
@@ -200,6 +200,10 @@ const ExamReviewPage: React.FC = () => {
     const correctPercent = (metrics.correct / safeTotal) * 100;
     const incorrectPercent = (metrics.incorrect / safeTotal) * 100;
     const skippedPercent = (metrics.skipped / safeTotal) * 100;
+    const showCorrectMetric = metrics.correct > 0;
+    const showIncorrectMetric = metrics.incorrect > 0;
+    const showSkippedMetric = metrics.skipped > 0;
+    const hasOutcomeMetrics = showCorrectMetric || showIncorrectMetric || showSkippedMetric;
     const pieChartStyle: React.CSSProperties = {
         background: `conic-gradient(
             #16a34a 0deg ${correctPercent * 3.6}deg,
@@ -216,10 +220,26 @@ const ExamReviewPage: React.FC = () => {
         return matchesStatus && matchesSection;
     });
 
-    const mostDwelledQuestion = useMemo(() => {
-        return questions
-            .filter((question) => typeof question.elapsedSeconds === 'number')
-            .sort((left, right) => (right.elapsedSeconds || 0) - (left.elapsedSeconds || 0))[0] || null;
+    const hardestQuestion = useMemo(() => {
+        // For a single-attempt review, "hardest" prioritizes incorrect answers,
+        // then uses longest answer time as the tie-breaker.
+        const incorrectQuestions = questions.filter((question) => (
+            Boolean(question.userAnswer) && question.userAnswer !== question.correctAnswer
+        ));
+
+        const sortByDifficulty = (left: QuestionReview, right: QuestionReview) => {
+            const leftTime = left.elapsedSeconds || 0;
+            const rightTime = right.elapsedSeconds || 0;
+
+            if (rightTime !== leftTime) return rightTime - leftTime;
+            return left.orderNo - right.orderNo;
+        };
+
+        if (incorrectQuestions.length > 0) {
+            return incorrectQuestions.slice().sort(sortByDifficulty)[0] || null;
+        }
+
+        return questions.slice().sort(sortByDifficulty)[0] || null;
     }, [questions]);
 
     const toggleExpand = (questionId: string) => {
@@ -268,18 +288,28 @@ const ExamReviewPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-                        <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
-                            <CheckCircle2 size={12} /> {metrics.correct}
-                        </span>
-                        <span className="text-gray-200">|</span>
-                        <span className="flex items-center gap-1 text-xs font-bold text-red-600">
-                            <XCircle size={12} /> {metrics.incorrect}
-                        </span>
-                        <span className="text-gray-200">|</span>
-                        <span className="flex items-center gap-1 text-xs font-bold text-amber-700">
-                            <MinusCircle size={12} /> {metrics.skipped}
-                        </span>
-                        <span className="text-gray-200">|</span>
+                        {showCorrectMetric && (
+                            <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
+                                <CheckCircle2 size={12} /> {metrics.correct}
+                            </span>
+                        )}
+                        {showIncorrectMetric && (
+                            <>
+                                {showCorrectMetric && <span className="text-gray-200">|</span>}
+                                <span className="flex items-center gap-1 text-xs font-bold text-red-600">
+                                    <XCircle size={12} /> {metrics.incorrect}
+                                </span>
+                            </>
+                        )}
+                        {showSkippedMetric && (
+                            <>
+                                {(showCorrectMetric || showIncorrectMetric) && <span className="text-gray-200">|</span>}
+                                <span className="flex items-center gap-1 text-xs font-bold text-amber-700">
+                                    <MinusCircle size={12} /> {metrics.skipped}
+                                </span>
+                            </>
+                        )}
+                        {hasOutcomeMetrics && <span className="text-gray-200">|</span>}
                         <span className="text-xs font-bold text-gray-500">{metrics.accuracy}%</span>
                     </div>
                     {submittedAttempts.length > 1 && (
@@ -355,7 +385,7 @@ const ExamReviewPage: React.FC = () => {
                                     <p className="flex-1 text-xs font-medium text-gray-800 truncate min-w-0">{q.text}</p>
                                     {!isExpanded && (
                                         <div className="flex items-center gap-1.5 shrink-0">
-                                            {typeof q.elapsedSeconds === 'number' && (
+                                            {typeof q.elapsedSeconds === 'number' && q.elapsedSeconds > 0 && (
                                                 <span className="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded">{formatDuration(q.elapsedSeconds)}</span>
                                             )}
                                             {!isCorrect && !isSkipped && (<span className="text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{q.userAnswer} → {q.correctAnswer}</span>)}
@@ -443,29 +473,35 @@ const ExamReviewPage: React.FC = () => {
                                 <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Summary</h3>
                             </div>
                             <div className="divide-y divide-gray-100">
-                                <div className="flex items-center justify-between px-4 py-2.5">
-                                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                        <CheckCircle2 size={14} className="text-emerald-600" /> Correct
+                                {showCorrectMetric && (
+                                    <div className="flex items-center justify-between px-4 py-2.5">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                            <CheckCircle2 size={14} className="text-emerald-600" /> Correct
+                                        </div>
+                                        <span className="text-sm font-black text-emerald-700">{metrics.correct}</span>
                                     </div>
-                                    <span className="text-sm font-black text-emerald-700">{metrics.correct}</span>
-                                </div>
-                                <div className="flex items-center justify-between px-4 py-2.5">
-                                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                        <XCircle size={14} className="text-red-500" /> Incorrect
+                                )}
+                                {showIncorrectMetric && (
+                                    <div className="flex items-center justify-between px-4 py-2.5">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                            <XCircle size={14} className="text-red-500" /> Incorrect
+                                        </div>
+                                        <span className="text-sm font-black text-red-600">{metrics.incorrect}</span>
                                     </div>
-                                    <span className="text-sm font-black text-red-600">{metrics.incorrect}</span>
-                                </div>
-                                <div className="flex items-center justify-between px-4 py-2.5">
-                                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                        <MinusCircle size={14} className="text-amber-500" /> Skipped
+                                )}
+                                {showSkippedMetric && (
+                                    <div className="flex items-center justify-between px-4 py-2.5">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                            <MinusCircle size={14} className="text-amber-500" /> Skipped
+                                        </div>
+                                        <span className="text-sm font-black text-amber-700">{metrics.skipped}</span>
                                     </div>
-                                    <span className="text-sm font-black text-amber-700">{metrics.skipped}</span>
-                                </div>
+                                )}
                                 <div className="flex items-center justify-between px-4 py-2.5">
                                     <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
                                         <Clock3 size={14} className="text-gray-400" /> Attempt Time
                                     </div>
-                                    <span className="text-sm font-black text-gray-700">{formatDuration(reviewMeta?.timeSpentSeconds)}</span>
+                                    <span className="text-sm font-black text-gray-700">{formatDuration(reviewMeta?.timeSpentSeconds, '--')}</span>
                                 </div>
                             </div>
                         </Card>
@@ -480,44 +516,52 @@ const ExamReviewPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="w-full space-y-2">
-                                    <div className="flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold">
-                                        <div className="flex items-center gap-2 text-emerald-700">
-                                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Correct
+                                    {showCorrectMetric && (
+                                        <div className="flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold">
+                                            <div className="flex items-center gap-2 text-emerald-700">
+                                                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Correct
+                                            </div>
+                                            <span className="font-black text-emerald-700">{metrics.correct} · {correctPercent.toFixed(0)}%</span>
                                         </div>
-                                        <span className="font-black text-emerald-700">{metrics.correct} · {correctPercent.toFixed(0)}%</span>
-                                    </div>
-                                    <div className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold">
-                                        <div className="flex items-center gap-2 text-red-600">
-                                            <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Incorrect
+                                    )}
+                                    {showIncorrectMetric && (
+                                        <div className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold">
+                                            <div className="flex items-center gap-2 text-red-600">
+                                                <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Incorrect
+                                            </div>
+                                            <span className="font-black text-red-600">{metrics.incorrect} · {incorrectPercent.toFixed(0)}%</span>
                                         </div>
-                                        <span className="font-black text-red-600">{metrics.incorrect} · {incorrectPercent.toFixed(0)}%</span>
-                                    </div>
-                                    <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold">
-                                        <div className="flex items-center gap-2 text-amber-700">
-                                            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Skipped
+                                    )}
+                                    {showSkippedMetric && (
+                                        <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold">
+                                            <div className="flex items-center gap-2 text-amber-700">
+                                                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Skipped
+                                            </div>
+                                            <span className="font-black text-amber-700">{metrics.skipped} · {skippedPercent.toFixed(0)}%</span>
                                         </div>
-                                        <span className="font-black text-amber-700">{metrics.skipped} · {skippedPercent.toFixed(0)}%</span>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         </Card>
 
                         <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
                             <div className="px-4 py-3 border-b border-gray-100">
-                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Most Time Dwelled</h3>
+                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Hardest Question</h3>
                             </div>
                             <div className="p-4 space-y-2">
                                 <p className="text-sm font-black text-gray-900">
-                                    {mostDwelledQuestion ? `Question ${mostDwelledQuestion.orderNo}` : 'N/A'}
+                                    {hardestQuestion ? `Question ${hardestQuestion.orderNo}` : '--'}
                                 </p>
                                 <p className="text-xs font-semibold text-gray-600 leading-relaxed">
-                                    {mostDwelledQuestion ? mostDwelledQuestion.text : 'No answer timing data available for this attempt.'}
+                                    {hardestQuestion ? hardestQuestion.text : 'No questions available for this attempt.'}
                                 </p>
                                 <p className="text-xs font-black text-gray-700">
-                                    {mostDwelledQuestion ? `${formatDuration(mostDwelledQuestion.elapsedSeconds)} before answering` : 'N/A'}
+                                    {hardestQuestion
+                                        ? `You thought ${formatDuration(hardestQuestion.elapsedSeconds, '0s')} for this question.`
+                                        : 'No timing data available.'}
                                 </p>
                                 <p className="text-[10px] font-medium text-gray-400">
-                                    Based on the recorded answer timestamp for this submitted attempt.
+                                    Based on incorrect answers first, then time spent.
                                 </p>
                             </div>
                         </Card>

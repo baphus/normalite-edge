@@ -554,7 +554,7 @@ const ManageExamsPage: React.FC = () => {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <Link to={`/manage-exams/${exam.id}/submissions`}>
+                            <Link to={`/manage-exams/${exam.id}/view`}>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-400">
                                     <BarChart3 size={16} />
                                 </Button>

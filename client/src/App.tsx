@@ -32,7 +32,6 @@ import DeckEditorPage from './pages/StudyMaterialEditorPage';
 import LogsPage from './pages/LogsPage';
 import CreateExamPage from './pages/CreateExamPage';
 import ManageExamViewPage from './pages/ManageExamViewPage';
-import ManageExamSubmissionsPage from './pages/ManageExamSubmissionsPage';
 import RevieweeExamViewPage from './pages/RevieweeExamViewPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ZoomMeetingPage from './pages/ZoomMeetingPage';
@@ -46,7 +45,13 @@ import CalendarPage from './pages/CalendarPage';
 function LegacyManageExamAnalyticsRedirect() {
   const { id } = useParams<{ id: string }>();
   if (!id) return <Navigate to="/manage-exams" replace />;
-  return <Navigate to={`/manage-exams/${id}/submissions`} replace />;
+  return <Navigate to={`/manage-exams/${id}/view`} replace />;
+}
+
+function LegacyManageExamSubmissionsRedirect() {
+  const { id } = useParams<{ id: string }>();
+  if (!id) return <Navigate to="/manage-exams" replace />;
+  return <Navigate to={`/manage-exams/${id}/view`} replace />;
 }
 
 function App() {
@@ -90,7 +95,7 @@ function App() {
                   <Route path="/manage-exams" element={<ManageExamsPage />} />
                   <Route path="/manage-exams/create" element={<CreateExamPage />} />
                   <Route path="/manage-exams/:id/view" element={<ManageExamViewPage />} />
-                  <Route path="/manage-exams/:id/submissions" element={<ManageExamSubmissionsPage />} />
+                  <Route path="/manage-exams/:id/submissions" element={<LegacyManageExamSubmissionsRedirect />} />
                   <Route path="/manage-exams/:id/edit" element={<CreateExamPage />} />
                   <Route path="/manage-exams/:id/analytics" element={<LegacyManageExamAnalyticsRedirect />} />
                   <Route path="/students" element={<StudentManagementPage />} />
