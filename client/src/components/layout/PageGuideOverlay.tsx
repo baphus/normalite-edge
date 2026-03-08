@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { BookOpenCheck, Compass, X } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
-import { resolvePageGuide } from '@/lib/pageGuides';
+import { resolvePageGuide } from '../../lib/pageGuides';
 
 type Rect = {
     top: number;

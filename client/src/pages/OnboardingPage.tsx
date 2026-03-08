@@ -22,7 +22,7 @@ const OnboardingPage: React.FC = () => {
         if (user?.role === 'ADMIN') {
             return 'Configure your admin identity and continue to your management workspace.';
         }
-        return 'Finish your profile setup so your study journey feels personal from day one.';
+        return 'Set up your learner profile so your study sessions and exams are personalized from day one.';
     }, [user?.role]);
 
     const completeOnboarding = async (skipPhoto = false) => {

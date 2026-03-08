@@ -46,7 +46,9 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
                     title: 'Overview cards',
                     description: role === 'REVIEWER'
                         ? 'Track your created exams, decks, student attempts, and upcoming conferences here.'
-                        : 'This area surfaces your most important stats for fast decision-making.',
+                        : role === 'REVIEWEE'
+                            ? 'Track your study progress, exam readiness, and today\'s key tasks from this panel.'
+                            : 'This area surfaces your most important stats for fast decision-making.',
                     selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
                 },
                 ...baseSteps.slice(2),
@@ -54,19 +56,75 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
         }),
     },
     {
-        matcher: /^\/(materials|study)(\/.*)?$/,
-        build: (role) => ({
+        matcher: /^\/study$/,
+        build: () => ({
+            id: 'guide-study-hub',
+            title: 'Study hub walkthrough',
+            steps: [
+                {
+                    title: 'Study hub access',
+                    description: 'Start here to browse study materials and continue learning sessions.',
+                    selectors: ['[data-guide-nav="/study"]', '[data-guide="sidebar-nav"]'],
+                },
+                {
+                    title: 'Learning workspace',
+                    description: 'Use this page to pick materials, resume sessions, and stay organized.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/study\/[^/]+\/view$/,
+        build: () => ({
+            id: 'guide-study-material-view',
+            title: 'Material view walkthrough',
+            steps: [
+                {
+                    title: 'Material details',
+                    description: 'Review this material content carefully before starting a session.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                {
+                    title: 'Next action',
+                    description: 'Use available actions here to start or continue your study flow.',
+                    selectors: ['[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/study\/[^/]+$/,
+        build: () => ({
+            id: 'guide-study-session',
+            title: 'Study session walkthrough',
+            steps: [
+                {
+                    title: 'Active session',
+                    description: 'This page is your active study mode for focused learning.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                {
+                    title: 'Session controls',
+                    description: 'Use the controls on this page to navigate and track your progress.',
+                    selectors: ['[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/materials(\/.*)?$/,
+        build: () => ({
             id: 'guide-materials',
-            title: role === 'REVIEWEE' ? 'Study hub walkthrough' : 'Materials walkthrough',
+            title: 'Materials walkthrough',
             steps: [
                 {
                     title: 'Open this section',
-                    description: role === 'REVIEWEE'
-                        ? 'Study Hub is where you browse and continue your learning sessions.'
-                        : 'Materials is where you create and maintain study deck content.',
-                    selectors: role === 'REVIEWEE'
-                        ? ['[data-guide-nav="/study"]', '[data-guide="sidebar-nav"]']
-                        : ['[data-guide-nav="/materials"]', '[data-guide="sidebar-nav"]'],
+                    description: 'Materials is where you create and maintain study deck content.',
+                    selectors: ['[data-guide-nav="/materials"]', '[data-guide="sidebar-nav"]'],
                 },
                 {
                     title: 'Content area',
@@ -78,19 +136,115 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
         }),
     },
     {
-        matcher: /^\/(manage-exams|exams)(\/.*)?$/,
-        build: (role) => ({
-            id: 'guide-exams',
+        matcher: /^\/exams$/,
+        build: () => ({
+            id: 'guide-exams-list',
+            title: 'Exams list walkthrough',
+            steps: [
+                {
+                    title: 'Exams access',
+                    description: 'Open this section to view your assigned and available exams.',
+                    selectors: ['[data-guide-nav="/exams"]', '[data-guide="sidebar-nav"]'],
+                },
+                {
+                    title: 'Exam list panel',
+                    description: 'Use this page to start, continue, and monitor exam attempts.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/exams\/[^/]+\/view$/,
+        build: () => ({
+            id: 'guide-exam-view',
+            title: 'Exam preview walkthrough',
+            steps: [
+                {
+                    title: 'Exam overview',
+                    description: 'Review exam details and readiness notes before taking the exam.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                {
+                    title: 'Start guidance',
+                    description: 'Use available actions to begin when you are prepared.',
+                    selectors: ['[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/exams\/[^/]+\/take$/,
+        build: () => ({
+            id: 'guide-exam-take',
+            title: 'Exam taking walkthrough',
+            steps: [
+                {
+                    title: 'Focused exam mode',
+                    description: 'This is your active exam environment. Stay focused and answer carefully.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                {
+                    title: 'Navigation and submit',
+                    description: 'Use question navigation and submit controls to complete your attempt.',
+                    selectors: ['[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/exams\/[^/]+\/result$/,
+        build: () => ({
+            id: 'guide-exam-result',
+            title: 'Exam result walkthrough',
+            steps: [
+                {
+                    title: 'Result summary',
+                    description: 'Review your score and high-level performance insights here.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                {
+                    title: 'What to improve next',
+                    description: 'Use your results to identify weak areas for your next study session.',
+                    selectors: ['[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/exams\/[^/]+\/review$/,
+        build: () => ({
+            id: 'guide-exam-review',
+            title: 'Exam review walkthrough',
+            steps: [
+                {
+                    title: 'Answer review',
+                    description: 'Inspect each question here to understand mistakes and corrections.',
+                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                },
+                {
+                    title: 'Learning feedback',
+                    description: 'Use rationales and feedback to improve future performance.',
+                    selectors: ['[data-guide="page-content"]'],
+                },
+                ...baseSteps.slice(2),
+            ],
+        }),
+    },
+    {
+        matcher: /^\/manage-exams(\/.*)?$/,
+        build: () => ({
+            id: 'guide-manage-exams',
             title: 'Exam workspace walkthrough',
             steps: [
                 {
                     title: 'Open exams',
-                    description: role === 'REVIEWEE'
-                        ? 'Use this to view, take, and review your assigned exams.'
-                        : 'Use this to manage your exam lifecycle from draft to published.',
-                    selectors: role === 'REVIEWEE'
-                        ? ['[data-guide-nav="/exams"]', '[data-guide="sidebar-nav"]']
-                        : ['[data-guide-nav="/manage-exams"]', '[data-guide="sidebar-nav"]'],
+                    description: 'Use this to manage your exam lifecycle from draft to published.',
+                    selectors: ['[data-guide-nav="/manage-exams"]', '[data-guide="sidebar-nav"]'],
                 },
                 {
                     title: 'Exam panel',

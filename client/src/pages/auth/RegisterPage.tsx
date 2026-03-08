@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { isAxiosError } from 'axios';
-import { Mail, Lock, ArrowRight, ShieldCheck, UserRound, Camera, Sparkles } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck, UserRound, Camera } from 'lucide-react';
 import api from '@/lib/axios';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
@@ -171,7 +171,7 @@ const RegisterPage: React.FC = () => {
                         Create your account
                     </h1>
                     <p className="text-gray-500 text-sm md:text-base">
-                        Join Normalite EDGE for LET preparation.
+                        Join Normalite EDGE for LET preparation as a reviewee.
                     </p>
                 </div>
 
@@ -184,12 +184,11 @@ const RegisterPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-4">
                     <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
-                        <p className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-                            <Sparkles size={15} className="text-primary" />
-                            SaaS-style quick setup
+                        <p className="text-sm font-semibold text-gray-800">
+                            Profile photo (optional)
                         </p>
                         <p className="mt-1 text-xs text-gray-600">
-                            Add an optional profile picture now so your teammates can recognize you faster.
+                            Add your picture now if you want a personalized learner profile.
                         </p>
                         <div className="mt-3 flex items-center gap-4">
                             {avatarPreview ? (

@@ -23,7 +23,6 @@ import UserManagementPage from './pages/UserManagementPage';
 import ManageMaterialsPage from './pages/ManageMaterialsPage';
 import MaterialViewPage from './pages/MaterialViewPage';
 import RevieweeMaterialViewPage from './pages/RevieweeMaterialViewPage';
-import AchievementsPage from './pages/AchievementsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
@@ -85,7 +84,6 @@ function App() {
                   <Route path="/exams/:id/take" element={<TakeExamPage />} />
                   <Route path="/exams/:id/result" element={<ExamResultPage />} />
                   <Route path="/exams/:id/review" element={<ExamReviewPage />} />
-                  <Route path="/achievements" element={<AchievementsPage />} />
                 </Route>
 
                 {/* Reviewer/Admin Routes */}
