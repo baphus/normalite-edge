@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: normalite-edge-api
+    env: node
+    plan: standard
+    region: ohio
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    preDeployCommand: npx prisma migrate deploy
+    envVars:
+      - key: NODE_ENV
+        scope: all
+        value: production
