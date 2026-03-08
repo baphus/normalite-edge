@@ -39,4 +39,9 @@ export const dashboardController = {
 
         ApiResponse.success(res, result);
     }),
+    
+    getRevieweeProfilePerformance: catchAsync(async (req: Request, res: Response) => {
+        const stats = await dashboardService.getRevieweeProfilePerformance(req.user!.userId);
+        ApiResponse.success(res, stats);
+    }),
 };

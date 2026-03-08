@@ -218,7 +218,7 @@ const ExamResultPage: React.FC = () => {
     return (
         <div className="flex flex-col gap-5 pb-10 max-w-6xl">
             {/* Header */}
-            <header className="flex items-center justify-between gap-3 flex-wrap">
+            <header data-guide="exam-result-header" className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2.5 min-w-0">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/exams')} className="h-8 w-8 rounded-lg shrink-0">
                         <ArrowLeft size={16} className="text-gray-500" />
@@ -231,10 +231,10 @@ const ExamResultPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div data-guide="exam-result-actions" className="flex items-center gap-2 shrink-0">
                     {submittedAttempts.length > 1 && (
                         <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
-                            <SelectTrigger className="h-8 text-xs font-semibold rounded-lg border-gray-200 w-44">
+                            <SelectTrigger data-guide="exam-result-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-gray-200 w-44">
                                 <SelectValue placeholder="Select attempt" />
                             </SelectTrigger>
                             <SelectContent>
@@ -265,7 +265,7 @@ const ExamResultPage: React.FC = () => {
             </header>
 
             {/* Score Hero */}
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div data-guide="exam-result-score-hero" className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <div className="text-5xl font-black leading-none text-gray-900">
                         {results.score}
@@ -295,7 +295,7 @@ const ExamResultPage: React.FC = () => {
 
                     {/* Section Breakdown */}
                     {sections.length > 0 && (
-                        <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
+                        <Card data-guide="exam-result-section-breakdown" className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
                             <div className="px-4 py-3 border-b border-gray-100">
                                 <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Section Breakdown</h3>
                             </div>
@@ -327,7 +327,7 @@ const ExamResultPage: React.FC = () => {
                     )}
 
                     {/* Question Snapshot */}
-                    <section className="space-y-3">
+                    <section data-guide="exam-result-question-snapshot" className="space-y-3">
                         <header className="flex items-center justify-between">
                             <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Question Snapshot</h3>
                             <span className="text-[10px] text-gray-400 font-medium">{questionDetails.length} questions</span>
@@ -373,7 +373,7 @@ const ExamResultPage: React.FC = () => {
                 {/* Right: Stat Cards */}
                 <aside className="lg:col-span-4 lg:sticky lg:top-5 lg:self-start lg:h-fit">
                     <div className="flex flex-col gap-3">
-                        <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
+                        <Card data-guide="exam-result-summary" className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
                             <div className="px-4 py-3 border-b border-gray-100">
                                 <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Summary</h3>
                             </div>
@@ -417,7 +417,7 @@ const ExamResultPage: React.FC = () => {
                             </div>
                         </Card>
 
-                        <Card className="border-gray-200 shadow-sm rounded-xl p-4 space-y-4">
+                        <Card data-guide="exam-result-answer-breakdown" className="border-gray-200 shadow-sm rounded-xl p-4 space-y-4">
                             <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Answer Breakdown</h3>
                             <div className="flex flex-col items-center gap-4">
                                 <div className="relative flex h-44 w-44 items-center justify-center rounded-full" style={pieChartStyle}>

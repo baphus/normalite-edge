@@ -12,19 +12,6 @@ export type PageGuide = {
     steps: PageGuideStep[];
 };
 
-const baseSteps: PageGuideStep[] = [
-    {
-        title: 'Primary navigation',
-        description: 'Use the left sidebar to jump between sections without losing context.',
-        selectors: ['[data-guide="sidebar-nav"]'],
-    },
-    {
-        title: 'Your current workspace',
-        description: 'This main area updates by page and contains the core content and actions.',
-        selectors: ['[data-guide="page-content"]'],
-    },
-];
-
 const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
     {
         matcher: /^\/dashboard$/,
@@ -34,18 +21,18 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             steps: [
                 {
                     title: 'Main navigation',
-                    description: 'Use the left sidebar to move across Dashboard, study, exams, and other modules.',
+                    description: 'This is your main route switcher. Start here to jump between Dashboard, Study, and Exams.',
                     selectors: ['[data-guide="sidebar-nav"]', '[data-guide-nav="/dashboard"]'],
                 },
                 {
-                    title: 'Overview cards',
-                    description: 'Track your study progress, exam readiness, and today\'s key tasks from this panel.',
-                    selectors: ['[data-guide="dashboard-daily-challenge"]', '[data-guide="dashboard-primary-panel"]'],
+                    title: 'Daily challenge',
+                    description: 'Use this card to quickly start your recommended challenge for today.',
+                    selectors: ['[data-guide="dashboard-daily-challenge"]'],
                 },
                 {
-                    title: 'Your main workspace',
-                    description: 'Use this panel to focus on the most important tasks for this role.',
-                    selectors: ['[data-guide="dashboard-primary-panel"]', '[data-guide="page-content"]'],
+                    title: 'Learning activity panels',
+                    description: 'Track recent attempts and continue where you left off from this main panel area.',
+                    selectors: ['[data-guide="dashboard-primary-panel"]', '[data-guide="dashboard-side-panel"]'],
                 },
             ],
         }),
@@ -57,19 +44,19 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Study hub walkthrough',
             steps: [
                 {
-                    title: 'Study hub access',
-                    description: 'Start here to browse study materials and continue learning sessions.',
+                    title: 'Study navigation',
+                    description: 'Open Study from the sidebar whenever you need to browse decks or continue sessions.',
                     selectors: ['[data-guide-nav="/study"]', '[data-guide="sidebar-nav"]'],
                 },
                 {
-                    title: 'Learning workspace',
-                    description: 'Use this page to pick materials, resume sessions, and stay organized.',
-                    selectors: ['[data-guide="study-results"]', '[data-guide="study-header"]'],
+                    title: 'Study search',
+                    description: 'Type keywords here to find a specific deck or topic quickly.',
+                    selectors: ['[data-guide="study-search"]'],
                 },
                 {
-                    title: 'Search and filters',
-                    description: 'Find the right deck quickly with search and smart filters.',
-                    selectors: ['[data-guide="study-search"]', '[data-guide="study-filters"]'],
+                    title: 'Filters and results',
+                    description: 'Use these filters to narrow materials, then pick a card from the results to open or resume.',
+                    selectors: ['[data-guide="study-filters"]', '[data-guide="study-results"]'],
                 },
             ],
         }),
@@ -81,16 +68,20 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Material view walkthrough',
             steps: [
                 {
-                    title: 'Material details',
-                    description: 'Review this material content carefully before starting a session.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    title: 'Material overview',
+                    description: 'Read the title and overview first so you know what this deck covers.',
+                    selectors: ['[data-guide="material-header"]'],
                 },
                 {
-                    title: 'Next action',
-                    description: 'Use available actions here to start or continue your study flow.',
-                    selectors: ['[data-guide="page-content"]'],
+                    title: 'Start studying',
+                    description: 'Use this button to begin or continue your study session for this material.',
+                    selectors: ['[data-guide="material-start-btn"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Deck metadata and questions',
+                    description: 'Check deck details and scan the question list before you begin.',
+                    selectors: ['[data-guide="material-meta"]', '[data-guide="material-question-list"]'],
+                },
             ],
         }),
     },
@@ -101,16 +92,25 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Study session walkthrough',
             steps: [
                 {
-                    title: 'Active session',
-                    description: 'This page is your active study mode for focused learning.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    title: 'Session header',
+                    description: 'Use this header to confirm where you are and leave the session if needed.',
+                    selectors: ['[data-guide="session-header"]'],
                 },
                 {
-                    title: 'Session controls',
-                    description: 'Use the controls on this page to navigate and track your progress.',
-                    selectors: ['[data-guide="page-content"]'],
+                    title: 'Progress tracking',
+                    description: 'This progress bar shows how far you are in the current session.',
+                    selectors: ['[data-guide="session-progress"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Question and answers',
+                    description: 'Read the current question here and choose your answer option below.',
+                    selectors: ['[data-guide="session-question-card"]', '[data-guide="session-answer-options"]'],
+                },
+                {
+                    title: 'Move through cards',
+                    description: 'Use previous/next controls to navigate, and note keyboard shortcuts for faster review.',
+                    selectors: ['[data-guide="session-nav-controls"]', '[data-guide="session-keyboard-hint"]'],
+                },
             ],
         }),
     },
@@ -121,19 +121,19 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Exams list walkthrough',
             steps: [
                 {
-                    title: 'Exams access',
-                    description: 'Open this section to view your assigned and available exams.',
+                    title: 'Exams navigation',
+                    description: 'Open Exams from the sidebar to find available tests and attempt history.',
                     selectors: ['[data-guide-nav="/exams"]', '[data-guide="sidebar-nav"]'],
                 },
                 {
-                    title: 'Exam list panel',
-                    description: 'Use this page to start, continue, and monitor exam attempts.',
-                    selectors: ['[data-guide="exams-results"]', '[data-guide="exams-header"]'],
+                    title: 'Find the right exam',
+                    description: 'Use search and filters to quickly locate exams by title, status, or category.',
+                    selectors: ['[data-guide="exams-search"]', '[data-guide="exams-filters"]'],
                 },
                 {
-                    title: 'Search and filters',
-                    description: 'Narrow your exam list by category, status, and publication date.',
-                    selectors: ['[data-guide="exams-search"]', '[data-guide="exams-filters"]'],
+                    title: 'Exam actions',
+                    description: 'Use action buttons on each exam card to view details, continue attempts, or start.',
+                    selectors: ['[data-guide="exam-card-actions"]', '[data-guide^="exams-section-"]', '[data-guide="exams-results"]'],
                 },
             ],
         }),
@@ -145,16 +145,20 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Exam preview walkthrough',
             steps: [
                 {
-                    title: 'Exam overview',
-                    description: 'Review exam details and readiness notes before taking the exam.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    title: 'Exam preview header',
+                    description: 'Confirm the exam title and context here before starting.',
+                    selectors: ['[data-guide="exam-preview-header"]'],
                 },
                 {
-                    title: 'Start guidance',
-                    description: 'Use available actions to begin when you are prepared.',
-                    selectors: ['[data-guide="page-content"]'],
+                    title: 'Exam details and requirements',
+                    description: 'Review metadata and guidance so you know the rules and expectations.',
+                    selectors: ['[data-guide="exam-preview-metadata"]', '[data-guide="exam-preview-social-proof"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Start action',
+                    description: 'Use this action area to begin your attempt once you are ready.',
+                    selectors: ['[data-guide="exam-preview-actions"]', '[data-guide="exam-preview-start-btn"]'],
+                },
             ],
         }),
     },
@@ -165,16 +169,25 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Exam taking walkthrough',
             steps: [
                 {
-                    title: 'Focused exam mode',
-                    description: 'This is your active exam environment. Stay focused and answer carefully.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    title: 'Exam control bar',
+                    description: 'Monitor time and progress from the top while taking the exam.',
+                    selectors: ['[data-guide="exam-take-header"]', '[data-guide="exam-take-timer"]', '[data-guide="exam-take-progress"]'],
                 },
                 {
-                    title: 'Navigation and submit',
-                    description: 'Use question navigation and submit controls to complete your attempt.',
-                    selectors: ['[data-guide="page-content"]'],
+                    title: 'Question workspace',
+                    description: 'Read each question and select an answer choice in this main panel.',
+                    selectors: ['[data-guide="exam-take-question"]', '[data-guide="exam-take-choices"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Question navigation',
+                    description: 'Move between questions here, or jump directly using the question navigator.',
+                    selectors: ['[data-guide="exam-take-question-nav"]', '[data-guide="exam-take-navigator"]'],
+                },
+                {
+                    title: 'Submit attempt',
+                    description: 'Use this submit button only after checking unanswered items in the navigator.',
+                    selectors: ['[data-guide="exam-take-submit-btn"]'],
+                },
             ],
         }),
     },
@@ -185,16 +198,25 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Exam result walkthrough',
             steps: [
                 {
-                    title: 'Result summary',
-                    description: 'Review your score and high-level performance insights here.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    title: 'Result header and attempts',
+                    description: 'Use this header to switch attempts and compare your performance history.',
+                    selectors: ['[data-guide="exam-result-header"]', '[data-guide="exam-result-attempt-selector"]'],
                 },
                 {
-                    title: 'What to improve next',
-                    description: 'Use your results to identify weak areas for your next study session.',
-                    selectors: ['[data-guide="page-content"]'],
+                    title: 'Score snapshot',
+                    description: 'Read this score hero for your quick summary: score, correct/incorrect, and pacing.',
+                    selectors: ['[data-guide="exam-result-score-hero"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Performance analysis',
+                    description: 'Use section and question breakdowns to identify weak areas and specific mistakes.',
+                    selectors: ['[data-guide="exam-result-section-breakdown"]', '[data-guide="exam-result-question-snapshot"]'],
+                },
+                {
+                    title: 'Next step actions',
+                    description: 'Use Review Answers for detailed feedback, or Retake when you are ready to retry.',
+                    selectors: ['[data-guide="exam-result-actions"]', '[data-guide="exam-result-summary"]', '[data-guide="exam-result-answer-breakdown"]'],
+                },
             ],
         }),
     },
@@ -205,16 +227,20 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
             title: 'Exam review walkthrough',
             steps: [
                 {
-                    title: 'Answer review',
-                    description: 'Inspect each question here to understand mistakes and corrections.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    title: 'Review header and attempt picker',
+                    description: 'Use the attempt selector to compare how your answers changed across tries.',
+                    selectors: ['[data-guide="exam-review-header"]', '[data-guide="exam-review-attempt-selector"]'],
                 },
                 {
-                    title: 'Learning feedback',
-                    description: 'Use rationales and feedback to improve future performance.',
-                    selectors: ['[data-guide="page-content"]'],
+                    title: 'Filter reviewed questions',
+                    description: 'Use these filters to focus on wrong answers, skipped items, or a specific section.',
+                    selectors: ['[data-guide="exam-review-filters"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Detailed answer analysis',
+                    description: 'Inspect each question card to review your choice, the correct answer, and explanation.',
+                    selectors: ['[data-guide="exam-review-list"]'],
+                },
             ],
         }),
     },
@@ -230,11 +256,10 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
                     selectors: ['[data-guide-nav="/calendar"]', '[data-guide="sidebar-nav"]'],
                 },
                 {
-                    title: 'Schedule view',
-                    description: 'Plan ahead from this panel to prevent conflicts and missed deadlines.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    title: 'Schedule workspace',
+                    description: 'Plan your week from this view to avoid conflicts and missed deadlines.',
+                    selectors: ['[data-guide="page-content"]'],
                 },
-                ...baseSteps.slice(2),
             ],
         }),
     },
@@ -252,9 +277,8 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
                 {
                     title: 'Session panel',
                     description: 'Review upcoming meetings and conference details in this panel.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    selectors: ['[data-guide="page-content"]'],
                 },
-                ...baseSteps.slice(2),
             ],
         }),
     },
@@ -272,9 +296,8 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
                 {
                     title: 'Notification feed',
                     description: 'Prioritize unread items from this feed to stay current.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    selectors: ['[data-guide="page-content"]'],
                 },
-                ...baseSteps.slice(2),
             ],
         }),
     },
@@ -292,9 +315,8 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
                 {
                     title: 'Configuration panel',
                     description: 'Use this panel to update defaults, preferences, and controls.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    selectors: ['[data-guide="page-content"]'],
                 },
-                ...baseSteps.slice(2),
             ],
         }),
     },
@@ -312,9 +334,8 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
                 {
                     title: 'Profile details area',
                     description: 'Keep your profile photo and details accurate for better collaboration.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    selectors: ['[data-guide="page-content"]'],
                 },
-                ...baseSteps.slice(0, 2),
             ],
         }),
     },

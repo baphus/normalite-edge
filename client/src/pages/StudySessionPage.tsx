@@ -320,7 +320,7 @@ const StudySessionPage: React.FC = () => {
     return (
         <div className="flex flex-col -mx-5 -mt-4 h-screen overflow-hidden bg-gray-50 font-lexend">
             {/* Header */}
-            <header className="bg-white border-b border-gray-100 px-5 h-14 flex items-center justify-between shrink-0 gap-4">
+            <header data-guide="session-header" className="bg-white border-b border-gray-100 px-5 h-14 flex items-center justify-between shrink-0 gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                     <Button
                         variant="ghost"
@@ -351,7 +351,7 @@ const StudySessionPage: React.FC = () => {
             </header>
 
             {/* Progress */}
-            <div className="bg-white border-b border-gray-100 px-5 py-2.5 shrink-0">
+            <div data-guide="session-progress" className="bg-white border-b border-gray-100 px-5 py-2.5 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
@@ -436,7 +436,7 @@ const StudySessionPage: React.FC = () => {
                         </>
                     ) : (
                         /* ── QUIZ MODE ── */
-                        <Card className="border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden">
+                        <Card data-guide="session-question-card" className="border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden">
                             <div className="h-1.5 w-full bg-gradient-to-r from-violet-400 to-violet-300" />
                             <CardContent className="p-5 md:p-7 space-y-5">
                                 <div className="flex items-center justify-center">
@@ -467,7 +467,7 @@ const StudySessionPage: React.FC = () => {
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div data-guide="session-answer-options" className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     {currentItem.options.map((option, idx) => {
                                         const isSelected = userAnswers[currentIndex] === idx;
                                         const isCorrect = idx === currentItem.answer;
@@ -510,7 +510,7 @@ const StudySessionPage: React.FC = () => {
                     )}
 
                     {/* Navigation */}
-                    <div className="flex items-center gap-2">
+                    <div data-guide="session-nav-controls" className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             onClick={handlePrev}
@@ -562,7 +562,7 @@ const StudySessionPage: React.FC = () => {
                     )}
 
                     {/* Keyboard hint */}
-                    <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray-300 font-medium">
+                    <div data-guide="session-keyboard-hint" className="flex items-center justify-center gap-1.5 text-[10px] text-gray-300 font-medium">
                         <Keyboard size={11} />
                         {isStudyMode ? 'A B C D to answer · ← → to navigate' : 'Space to flip · ← → to navigate'}
                     </div>

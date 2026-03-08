@@ -271,7 +271,7 @@ const ExamReviewPage: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-4 pb-10 max-w-6xl">
-            <header className="flex items-center justify-between gap-3 flex-wrap">
+            <header data-guide="exam-review-header" className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2.5 min-w-0">
                     <Button
                         variant="ghost"
@@ -314,7 +314,7 @@ const ExamReviewPage: React.FC = () => {
                     </div>
                     {submittedAttempts.length > 1 && (
                         <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
-                            <SelectTrigger className="h-8 text-xs font-semibold rounded-lg border-gray-200 w-44">
+                            <SelectTrigger data-guide="exam-review-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-gray-200 w-44">
                                 <SelectValue placeholder="Select attempt" />
                             </SelectTrigger>
                             <SelectContent>
@@ -329,7 +329,11 @@ const ExamReviewPage: React.FC = () => {
                 </div>
             </header>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            {submittedAttempts.length > 1 && (
+                <div data-guide="exam-review-attempt-selector" className="sr-only" aria-hidden="true" />
+            )}
+
+            <div data-guide="exam-review-filters" className="flex items-center gap-2 flex-wrap">
                 {(['all', 'correct', 'incorrect'] as const).map((status) => {
                     const labels = { all: 'All', correct: 'Correct', incorrect: 'Incorrect' };
                     const counts = { all: questions.length, correct: metrics.correct, incorrect: metrics.incorrect };
@@ -362,7 +366,7 @@ const ExamReviewPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <div data-guide="exam-review-list" className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <main className="lg:col-span-8 space-y-3">
                     <header className="flex items-center justify-between">
                         <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Answer Snapshot</h3>

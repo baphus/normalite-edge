@@ -10,6 +10,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/stats', dashboardController.getStats);
+router.get('/profile-performance', authorize('REVIEWEE'), dashboardController.getRevieweeProfilePerformance);
 router.get('/daily-question', authorize('REVIEWEE'), dashboardController.getDailyQuestion);
 router.post(
 	'/daily-question/answer',

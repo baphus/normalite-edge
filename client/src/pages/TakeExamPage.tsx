@@ -975,7 +975,7 @@ const TakeExamPage: React.FC = () => {
     return (
         <div className="fixed inset-y-0 right-0 left-54.5 z-50 flex flex-col overflow-hidden bg-gray-50">
             {/* Header */}
-            <header className="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center justify-between shrink-0">
+            <header data-guide="exam-take-header" className="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
                         <h2 className="text-sm font-bold text-gray-900 truncate leading-tight">{exam.title}</h2>
@@ -988,7 +988,7 @@ const TakeExamPage: React.FC = () => {
                         {isOffline ? 'Offline' : 'Online'}
                     </span>
                     <span className="text-[10px] font-semibold text-gray-400 hidden sm:block">{saveLabel}</span>
-                    <div className="flex items-center gap-1.5 bg-gray-900 text-white px-3 py-1.5 rounded-lg">
+                    <div data-guide="exam-take-timer" className="flex items-center gap-1.5 bg-gray-900 text-white px-3 py-1.5 rounded-lg">
                         <Timer size={13} className="opacity-70" />
                         <span className="font-mono font-bold text-sm tracking-tight">
                             {formatTime(timeLeft)}
@@ -1002,7 +1002,7 @@ const TakeExamPage: React.FC = () => {
                 <main className="flex-1 overflow-y-auto p-4 md:p-6">
                     <div className="max-w-3xl mx-auto space-y-4">
                         {/* Progress bar row */}
-                        <div className="flex items-center gap-3">
+                        <div data-guide="exam-take-progress" className="flex items-center gap-3">
                             <span className="text-xs font-semibold text-gray-400 shrink-0">
                                 {currentQuestionNo} / {exam.questions.length}
                             </span>
@@ -1012,7 +1012,7 @@ const TakeExamPage: React.FC = () => {
                             </span>
                         </div>
 
-                        <Card className="border border-gray-200 shadow-sm overflow-hidden rounded-xl bg-white">
+                        <Card data-guide="exam-take-question" className="border border-gray-200 shadow-sm overflow-hidden rounded-xl bg-white">
                             <CardContent className="p-5">
                                 <p className="text-sm md:text-base font-medium text-gray-900 leading-relaxed mb-5">
                                     {currentQuestion.text}
@@ -1028,7 +1028,7 @@ const TakeExamPage: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className="grid gap-2">
+                                <div data-guide="exam-take-choices" className="grid gap-2">
                                     {(currentQuestion.choices || []).map((option, idx) => {
                                         const optionLabel = CHOICE_LABELS[idx] || 'A';
                                         const isSelected = answers[currentQuestion.id] === optionLabel;
@@ -1060,7 +1060,7 @@ const TakeExamPage: React.FC = () => {
                                     })}
                                 </div>
 
-                                <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+                                <div data-guide="exam-take-question-nav" className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
                                     <Button
                                         variant="ghost"
                                         size="sm"
@@ -1101,7 +1101,7 @@ const TakeExamPage: React.FC = () => {
                 </main>
 
                 {/* Right Sidebar - Navigator */}
-                <aside className="w-64 border-l border-gray-200 bg-white flex-col shrink-0 hidden lg:flex">
+                <aside data-guide="exam-take-navigator" className="w-64 border-l border-gray-200 bg-white flex-col shrink-0 hidden lg:flex">
                     <div className="p-4 border-b border-gray-100">
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em]">Navigator</span>
@@ -1169,6 +1169,7 @@ const TakeExamPage: React.FC = () => {
 
                     <div className="p-4 border-t border-gray-100">
                         <Button
+                            data-guide="exam-take-submit-btn"
                             onClick={handleSubmitClick}
                             disabled={isSubmitting}
                             size="sm"

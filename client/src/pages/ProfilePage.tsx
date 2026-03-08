@@ -1,16 +1,200 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Mail, Smartphone, Save } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    BarChart3,
+    Camera,
+    CheckCircle2,
+    Clock3,
+    Mail,
+    Save,
+    Timer,
+    Trophy,
+    XCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
 import { formatUserDisplayName } from '@/lib/formatUserDisplayName';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
+
+type ProfilePerformanceStats = {
+    totalExamsAnswered: number;
+    averageScore: number;
+    averageCompletionSeconds: number;
+    averageTimePerAnsweredQuestionSeconds: number;
+    accuracy: number;
+    totals: {
+        correctAnswers: number;
+        wrongAnswers: number;
+        answeredQuestions: number;
+        skippedQuestions: number;
+        questionsServed: number;
+    };
+    highestScore: {
+        percentage: number;
+        score: number;
+        examId: string;
+        examTitle: string;
+        submittedAt: string | null;
+    } | null;
+    fastestCompletion: {
+        seconds: number;
+        examId: string;
+        examTitle: string;
+        submittedAt: string | null;
+    } | null;
+    recentAttempts: Array<{
+        id: string;
+        examId: string;
+        examTitle: string;
+        percentage: number;
+        score: number;
+        timeSpentSeconds: number;
+        submittedAt: string | null;
+    }>;
+};
+
+type AttemptResultPayload = {
+    id: string;
+    percentage: number;
+    score: number;
+    submittedAt: string | null;
+    timeSpentSeconds: number;
+    exam?: {
+        id: string;
+        title: string;
+    };
+    stats?: {
+        totalQuestions: number;
+        correct: number;
+        incorrect: number;
+        skipped: number;
+        answered: number;
+    };
+};
+
+const formatDuration = (seconds: number) => {
+    if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
+    const total = Math.round(seconds);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const remainingSeconds = total % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+        return `${minutes}m ${remainingSeconds}s`;
+    }
+    return `${remainingSeconds}s`;
+};
+
+const formatPercent = (value: number) => `${Number(value || 0).toFixed(2)}%`;
+
+const buildPerformanceFromAttemptResults = (results: AttemptResultPayload[]): ProfilePerformanceStats => {
+    const submittedAttempts = results
+        .filter((item) => item && item.exam?.id && item.exam?.title)
+        .map((item) => ({
+            id: item.id,
+            percentage: Number(item.percentage || 0),
+            score: Number(item.score || 0),
+            submittedAt: item.submittedAt || null,
+            timeSpentSeconds: Math.max(0, Number(item.timeSpentSeconds || 0)),
+            exam: {
+                id: String(item.exam?.id || ''),
+                title: String(item.exam?.title || 'Untitled Exam'),
+            },
+            stats: {
+                totalQuestions: Math.max(0, Number(item.stats?.totalQuestions || 0)),
+                correct: Math.max(0, Number(item.stats?.correct || 0)),
+                incorrect: Math.max(0, Number(item.stats?.incorrect || 0)),
+                answered: Math.max(0, Number(item.stats?.answered || 0)),
+            },
+        }));
+
+    const totalExamsAnswered = submittedAttempts.length;
+    const totalScore = submittedAttempts.reduce((sum, attempt) => sum + attempt.percentage, 0);
+    const totalTimeSpentSeconds = submittedAttempts.reduce((sum, attempt) => sum + attempt.timeSpentSeconds, 0);
+
+    const totalCorrectAnswers = submittedAttempts.reduce((sum, attempt) => sum + attempt.stats.correct, 0);
+    const totalWrongAnswers = submittedAttempts.reduce((sum, attempt) => sum + attempt.stats.incorrect, 0);
+    const totalAnsweredQuestions = submittedAttempts.reduce((sum, attempt) => sum + attempt.stats.answered, 0);
+    const totalQuestionsServed = submittedAttempts.reduce((sum, attempt) => sum + attempt.stats.totalQuestions, 0);
+    const totalSkippedQuestions = Math.max(totalQuestionsServed - totalAnsweredQuestions, 0);
+
+    const highestScoreAttempt = submittedAttempts.reduce<typeof submittedAttempts[number] | null>((best, current) => {
+        if (!best) return current;
+        return current.percentage > best.percentage ? current : best;
+    }, null);
+
+    const fastestCompletion = submittedAttempts.reduce<typeof submittedAttempts[number] | null>((best, current) => {
+        if (!best) return current;
+        return current.timeSpentSeconds < best.timeSpentSeconds ? current : best;
+    }, null);
+
+    const averageScore = totalExamsAnswered > 0 ? Math.round((totalScore / totalExamsAnswered) * 100) / 100 : 0;
+    const averageCompletionSeconds = totalExamsAnswered > 0 ? Math.round(totalTimeSpentSeconds / totalExamsAnswered) : 0;
+    const averageTimePerAnsweredQuestionSeconds = totalAnsweredQuestions > 0
+        ? Math.round(totalTimeSpentSeconds / totalAnsweredQuestions)
+        : 0;
+    const accuracy = totalAnsweredQuestions > 0
+        ? Math.round((totalCorrectAnswers / totalAnsweredQuestions) * 10000) / 100
+        : 0;
+
+    return {
+        totalExamsAnswered,
+        averageScore,
+        averageCompletionSeconds,
+        averageTimePerAnsweredQuestionSeconds,
+        accuracy,
+        totals: {
+            correctAnswers: totalCorrectAnswers,
+            wrongAnswers: totalWrongAnswers,
+            answeredQuestions: totalAnsweredQuestions,
+            skippedQuestions: totalSkippedQuestions,
+            questionsServed: totalQuestionsServed,
+        },
+        highestScore: highestScoreAttempt
+            ? {
+                percentage: Math.round(highestScoreAttempt.percentage * 100) / 100,
+                score: highestScoreAttempt.score,
+                examId: highestScoreAttempt.exam.id,
+                examTitle: highestScoreAttempt.exam.title,
+                submittedAt: highestScoreAttempt.submittedAt,
+            }
+            : null,
+        fastestCompletion: fastestCompletion
+            ? {
+                seconds: fastestCompletion.timeSpentSeconds,
+                examId: fastestCompletion.exam.id,
+                examTitle: fastestCompletion.exam.title,
+                submittedAt: fastestCompletion.submittedAt,
+            }
+            : null,
+        recentAttempts: submittedAttempts
+            .sort((a, b) => {
+                const left = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                const right = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+                return right - left;
+            })
+            .slice(0, 5)
+            .map((attempt) => ({
+                id: attempt.id,
+                examId: attempt.exam.id,
+                examTitle: attempt.exam.title,
+                percentage: Math.round(attempt.percentage * 100) / 100,
+                score: attempt.score,
+                timeSpentSeconds: attempt.timeSpentSeconds,
+                submittedAt: attempt.submittedAt,
+            })),
+    };
+};
 
 const ProfilePage: React.FC = () => {
     const { user, updateUser } = useAuth();
@@ -31,6 +215,10 @@ const ProfilePage: React.FC = () => {
     const [campusesLoading, setCampusesLoading] = useState(false);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isUploadingPicture, setIsUploadingPicture] = useState(false);
+    const [performance, setPerformance] = useState<ProfilePerformanceStats | null>(null);
+    const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
+    const [performanceError, setPerformanceError] = useState('');
+
     const profileImageInputRef = useRef<HTMLInputElement | null>(null);
     const isReviewee = user?.role === 'REVIEWEE';
     const isReviewer = user?.role === 'REVIEWER';
@@ -91,6 +279,59 @@ const ProfilePage: React.FC = () => {
         void fetchTracks();
     }, [isReviewee]);
 
+    useEffect(() => {
+        if (!isReviewee) return;
+
+        const fetchProfilePerformance = async () => {
+            try {
+                setIsPerformanceLoading(true);
+                setPerformanceError('');
+                const response = await api.get('/dashboard/profile-performance');
+                setPerformance(response.data?.data || null);
+            } catch (error) {
+                console.error('Failed to fetch profile performance', error);
+                try {
+                    const attemptsResponse = await api.get('/attempts', {
+                        params: {
+                            page: 1,
+                            limit: 200,
+                        },
+                    });
+
+                    const attempts = (attemptsResponse.data?.data || []) as Array<{ id: string; status: string }>;
+                    const submittedAttemptIds = attempts
+                        .filter((attempt) => attempt.status === 'SUBMITTED')
+                        .map((attempt) => attempt.id)
+                        .slice(0, 60);
+
+                    if (submittedAttemptIds.length === 0) {
+                        setPerformance(buildPerformanceFromAttemptResults([]));
+                        return;
+                    }
+
+                    const resultResponses = await Promise.allSettled(
+                        submittedAttemptIds.map((attemptId) => api.get(`/attempts/${attemptId}/result`))
+                    );
+
+                    const validResults = resultResponses
+                        .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+                        .map((result) => result.value?.data?.data as AttemptResultPayload)
+                        .filter(Boolean);
+
+                    setPerformance(buildPerformanceFromAttemptResults(validResults));
+                } catch (fallbackError) {
+                    console.error('Failed to build profile performance from fallback endpoints', fallbackError);
+                    setPerformance(null);
+                    setPerformanceError('Unable to load exam analytics right now.');
+                }
+            } finally {
+                setIsPerformanceLoading(false);
+            }
+        };
+
+        void fetchProfilePerformance();
+    }, [isReviewee]);
+
     const displayName = formatUserDisplayName({
         name: user?.name,
         firstName,
@@ -99,26 +340,32 @@ const ProfilePage: React.FC = () => {
         suffix,
     });
 
-    const userInitials = displayName
-        .split(' ')
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase())
-        .join('')
-        .slice(0, 2);
+    const userInitials = useMemo(
+        () => displayName
+            .split(' ')
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase())
+            .join('')
+            .slice(0, 2),
+        [displayName]
+    );
 
     const handleProfilePictureSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = '';
         if (!file) return;
+
         if (!file.type.startsWith('image/')) {
             toast.error('Please select a valid image file.');
             return;
         }
+
         const maxFileSizeInBytes = 3 * 1024 * 1024;
         if (file.size > maxFileSizeInBytes) {
             toast.error('Image must be 3MB or smaller.');
             return;
         }
+
         try {
             setIsUploadingPicture(true);
             const secureUrl = await uploadImageToCloudinary(file, 'profile-pics');
@@ -154,26 +401,32 @@ const ProfilePage: React.FC = () => {
             toast.error('First name is required.');
             return;
         }
+
         if (!lastName.trim()) {
             toast.error('Last name is required.');
             return;
         }
+
         if (canEditCampus && !campusId.trim()) {
             toast.error('Campus is required.');
             return;
         }
+
         if (isReviewee && !trackId.trim()) {
             toast.error('Program track is required.');
             return;
         }
+
         if (isReviewee && !yearLevel.trim()) {
             toast.error('Year is required.');
             return;
         }
+
         if (isReviewee && !section.trim()) {
             toast.error('Section is required.');
             return;
         }
+
         try {
             setIsSavingProfile(true);
             const payload: Record<string, string | undefined> = {
@@ -189,6 +442,7 @@ const ProfilePage: React.FC = () => {
                 payload.yearLevel = yearLevel.trim() || undefined;
                 payload.section = section.trim() || undefined;
             }
+
             if (canEditCampus) {
                 payload.campus_id = campusId.trim() || undefined;
             }
@@ -206,51 +460,83 @@ const ProfilePage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-8 font-lexend pb-10">
-            <header className="flex flex-col gap-1">
-                <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Profile</h1>
-                <p className="text-gray-500 font-medium tracking-tight">Update your personal details and how others see you.</p>
+        <div className="flex flex-col gap-3 font-lexend pb-6">
+            <header className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Profile</h1>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Keep your account details updated and track your exam performance.</p>
+                </div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold rounded-md border border-gray-200 bg-white px-2.5 py-1 text-gray-500">
+                    {user?.role || 'User'}
+                </div>
             </header>
-            <Card className="rounded-[2.5rem] border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden bg-white">
-                <CardHeader className="p-8 pb-4">
-                    <CardTitle className="text-xl font-black">Personal Information</CardTitle>
-                    <CardDescription className="font-medium italic">Update your personal details and how others see you.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-8 space-y-8">
-                    <div className="flex items-center gap-6">
-                        <div className="relative group">
-                            {picture && !imgError ? (
-                                <img
-                                    src={picture}
-                                    alt="Profile"
-                                    className="w-24 h-24 rounded-[2rem] object-cover ring-4 ring-white shadow-lg border border-gray-100"
-                                    onError={() => setImgError(true)}
-                                />
-                            ) : (
-                                <div className="w-24 h-24 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary text-3xl font-black ring-4 ring-white shadow-lg">
-                                    {userInitials}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                <Card className="lg:col-span-4 border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
+                    <CardContent className="p-0">
+
+                        {/* ── Header Band ─────────────────────────────── */}
+                        <div className="bg-primary px-4 py-3.5">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <p className="text-[8px] font-medium text-white/60 tracking-[0.2em] uppercase leading-none">Republic of the Philippines</p>
+                                    <p className="text-[15px] font-black text-white tracking-tight leading-tight mt-1">NORMALITE EDGE</p>
+                                    <p className="text-[10px] font-semibold text-white/80 leading-snug mt-0.5">Cebu Normal University</p>
+                                    <p className="text-[8px] font-medium text-white/50 tracking-[0.18em] uppercase mt-2">Student Identification Card</p>
                                 </div>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => profileImageInputRef.current?.click()}
-                                className="absolute -bottom-2 -right-2 bg-white p-2 rounded-xl shadow-md border border-gray-100 text-gray-400 group-hover:text-primary transition-colors"
-                            >
-                                <Smartphone size={16} />
-                            </button>
+                                <div className="border border-white/30 rounded px-2 py-1 shrink-0 mt-0.5">
+                                    <p className="text-[9px] uppercase tracking-wider font-bold text-white">{user?.role || 'Reviewee'}</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-1">
-                            <p className="font-black text-gray-900 uppercase tracking-tight">{displayName}</p>
-                            {user?.campus && (
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                    {user.campus}
-                                </p>
-                            )}
-                            {user?.program && (
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                    {user.program}{user.major ? ` • ${user.major}` : ''}
-                                </p>
-                            )}
+
+                        {/* ── Body ────────────────────────────────────── */}
+                        <div className="px-4 pt-4 pb-4 space-y-4">
+
+                            {/* Photo + identity */}
+                            <div className="flex gap-4 items-start">
+                                <div className="relative group shrink-0">
+                                    {picture && !imgError ? (
+                                        <img
+                                            src={picture}
+                                            alt="Profile"
+                                            className="h-24 w-[72px] object-cover border-2 border-primary"
+                                            onError={() => setImgError(true)}
+                                        />
+                                    ) : (
+                                        <div className="h-24 w-[72px] bg-primary/10 text-primary font-black text-xl flex items-center justify-center border-2 border-primary">
+                                            {userInitials}
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => profileImageInputRef.current?.click()}
+                                        className="absolute -bottom-2 -right-2 h-6 w-6 border border-gray-200 bg-white text-gray-400 flex items-center justify-center group-hover:text-primary transition-colors shadow-sm"
+                                    >
+                                        <Camera size={12} />
+                                    </button>
+                                </div>
+
+                                <div className="min-w-0 flex-1 space-y-2">
+                                    <div>
+                                        <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-gray-400 leading-none">Name</p>
+                                        <p className="text-sm font-black text-gray-900 break-words leading-snug mt-0.5">{displayName}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-gray-400 leading-none">Email</p>
+                                        <p className="text-[10px] font-medium text-gray-600 break-all leading-snug mt-0.5">{email || '—'}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => profileImageInputRef.current?.click()}
+                                        disabled={isUploadingPicture}
+                                        className="text-[10px] font-semibold text-primary disabled:opacity-50"
+                                    >
+                                        {isUploadingPicture ? 'Uploading...' : 'Update photo →'}
+                                    </button>
+                                </div>
+                            </div>
+
                             <input
                                 ref={profileImageInputRef}
                                 type="file"
@@ -260,57 +546,97 @@ const ProfilePage: React.FC = () => {
                                 }}
                                 className="hidden"
                             />
-                            <Button
-                                type="button"
-                                variant="link"
-                                className="p-0 h-auto text-primary text-xs font-black uppercase tracking-widest"
-                                onClick={() => profileImageInputRef.current?.click()}
-                                disabled={isUploadingPicture}
-                            >
-                                {isUploadingPicture ? 'Uploading...' : 'Change Photo'}
-                            </Button>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">First Name</Label>
-                            <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Last Name</Label>
-                            <Input value={lastName} onChange={(event) => setLastName(event.target.value)} className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Middle Initial</Label>
-                            <Input value={middleInitial} onChange={(event) => setMiddleInitial(event.target.value.slice(0, 1).toUpperCase())} placeholder="M" className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" maxLength={1} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Suffix</Label>
-                            <Select value={suffix || NO_SUFFIX_VALUE} onValueChange={(value) => setSuffix(value === NO_SUFFIX_VALUE ? '' : value)}>
-                                <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20">
-                                    <SelectValue placeholder="Select suffix" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
-                                    {SUFFIX_OPTIONS.map((suffixOption) => (
-                                        <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Email Address</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                                <Input value={email} disabled className="pl-12 h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
+
+                            {/* Divider */}
+                            <div className="border-t border-dashed border-gray-200" />
+
+                            {/* Info rows */}
+                            <div className="space-y-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Campus</p>
+                                    <p className="text-[11px] font-semibold text-gray-800 text-right leading-snug">{user?.campus || '—'}</p>
+                                </div>
+                                <div className="flex items-start justify-between gap-3">
+                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Track</p>
+                                    <p className="text-[11px] font-semibold text-gray-800 text-right leading-snug">{user?.program || user?.program_track || '—'}</p>
+                                </div>
+                                <div className="flex items-start justify-between gap-3">
+                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Year Level</p>
+                                    <p className="text-[11px] font-semibold text-gray-800 text-right">{user?.yearLevel || '—'}</p>
+                                </div>
+                                <div className="flex items-start justify-between gap-3">
+                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Section</p>
+                                    <p className="text-[11px] font-semibold text-gray-800 text-right">{user?.section || '—'}</p>
+                                </div>
+                            </div>
+
+                            {/* ID code footer row */}
+                            <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
+                                <p className="font-mono text-[9px] tracking-[0.14em] text-gray-400 uppercase">
+                                    {(user?.id || '00000000').toString().slice(0, 8).toUpperCase()}-NE
+                                </p>
+                                <p className="text-[9px] uppercase tracking-widest font-black text-primary">{new Date().getFullYear()}</p>
                             </div>
                         </div>
-                        {canEditCampus && (
-                            <>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Campus</Label>
+
+                        {/* ── Bottom accent stripe ─────────────────────── */}
+                        <div className="h-1.5 bg-primary" />
+
+                    </CardContent>
+                </Card>
+
+                <Card className="lg:col-span-8 border-gray-100 rounded-lg bg-white">
+                    <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-sm font-bold text-gray-900">Personal Information</CardTitle>
+                        <CardDescription className="text-[11px] text-gray-400">Update profile details used across the platform.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">First Name</Label>
+                                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="h-9 rounded-md border-gray-200 text-xs" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Last Name</Label>
+                                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} className="h-9 rounded-md border-gray-200 text-xs" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Middle Initial</Label>
+                                <Input
+                                    value={middleInitial}
+                                    onChange={(event) => setMiddleInitial(event.target.value.slice(0, 1).toUpperCase())}
+                                    placeholder="M"
+                                    className="h-9 rounded-md border-gray-200 text-xs"
+                                    maxLength={1}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Suffix</Label>
+                                <Select value={suffix || NO_SUFFIX_VALUE} onValueChange={(value) => setSuffix(value === NO_SUFFIX_VALUE ? '' : value)}>
+                                    <SelectTrigger className="h-9 rounded-md border-gray-200 text-xs">
+                                        <SelectValue placeholder="Select suffix" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
+                                        {SUFFIX_OPTIONS.map((suffixOption) => (
+                                            <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Email Address</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" size={14} />
+                                    <Input value={email} disabled className="pl-8 h-9 rounded-md border-gray-200 text-xs bg-gray-50" />
+                                </div>
+                            </div>
+
+                            {canEditCampus && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Campus</Label>
                                     <Select value={campusId} onValueChange={setCampusId} disabled={campusesLoading || campuses.length === 0}>
-                                        <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20">
+                                        <SelectTrigger className="h-9 rounded-md border-gray-200 text-xs">
                                             <SelectValue placeholder={campusesLoading ? 'Loading campuses...' : 'Select campus'} />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -322,53 +648,150 @@ const ProfilePage: React.FC = () => {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            </>
-                        )}
-                        {isReviewee && (
-                            <>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Program Track</Label>
-                                    <Select value={trackId} onValueChange={setTrackId} disabled={tracksLoading || tracks.length === 0}>
-                                        <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20">
-                                            <SelectValue placeholder={tracksLoading ? 'Loading tracks...' : 'Select program track'} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {tracks.map((track) => (
-                                                <SelectItem key={track.id} value={track.id}>
-                                                    {track.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Year</Label>
-                                    <Select value={yearLevel} onValueChange={setYearLevel}>
-                                        <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20">
-                                            <SelectValue placeholder="Select year level" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
-                                                <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Section</Label>
-                                    <Input value={section} onChange={(event) => setSection(event.target.value)} placeholder="A" className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20" />
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-            <div className="flex justify-end gap-3">
-                <Button variant="outline" className="h-12 rounded-2xl px-8 font-black border-gray-100" onClick={handleCancel}>Cancel</Button>
-                <Button onClick={() => void handleSaveProfile()} disabled={isSavingProfile || isUploadingPicture} className="h-12 rounded-2xl px-8 bg-primary hover:bg-primary/95 text-white font-black shadow-lg shadow-primary/20 gap-2">
-                    <Save size={18} /> {isSavingProfile ? 'Saving...' : 'Save Profile'}
-                </Button>
+                            )}
+
+                            {isReviewee && (
+                                <>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Program Track</Label>
+                                        <Select value={trackId} onValueChange={setTrackId} disabled={tracksLoading || tracks.length === 0}>
+                                            <SelectTrigger className="h-9 rounded-md border-gray-200 text-xs">
+                                                <SelectValue placeholder={tracksLoading ? 'Loading tracks...' : 'Select program track'} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {tracks.map((track) => (
+                                                    <SelectItem key={track.id} value={track.id}>
+                                                        {track.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Year</Label>
+                                        <Select value={yearLevel} onValueChange={setYearLevel}>
+                                            <SelectTrigger className="h-9 rounded-md border-gray-200 text-xs">
+                                                <SelectValue placeholder="Select year level" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
+                                                    <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Section</Label>
+                                        <Input value={section} onChange={(event) => setSection(event.target.value)} placeholder="A" className="h-9 rounded-md border-gray-200 text-xs" />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-1">
+                            <Button variant="outline" className="h-8 rounded-md px-3 text-xs font-semibold border-gray-200" onClick={handleCancel}>Cancel</Button>
+                            <Button
+                                onClick={() => void handleSaveProfile()}
+                                disabled={isSavingProfile || isUploadingPicture}
+                                className="h-8 rounded-md px-3 bg-primary hover:bg-primary/95 text-white font-semibold gap-1.5 text-xs"
+                            >
+                                <Save size={13} /> {isSavingProfile ? 'Saving...' : 'Save Profile'}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
+
+            {isReviewee && (
+                <Card className="border-gray-100 rounded-lg bg-white">
+                    <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-sm font-bold text-gray-900">Exam Performance</CardTitle>
+                        <CardDescription className="text-[11px] text-gray-400">A quick, profile-level summary of your exam progress and speed.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2 space-y-3">
+                        {isPerformanceLoading && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                {Array.from({ length: 8 }).map((_, idx) => (
+                                    <Skeleton key={idx} className="h-18 rounded-md" />
+                                ))}
+                            </div>
+                        )}
+
+                        {!isPerformanceLoading && performanceError && (
+                            <p className="text-xs font-medium text-red-600">{performanceError}</p>
+                        )}
+
+                        {!isPerformanceLoading && !performanceError && performance && (
+                            <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5"><Trophy size={12} /> Highest Score</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{performance.highestScore ? formatPercent(performance.highestScore.percentage) : 'N/A'}</p>
+                                        <p className="text-[11px] text-gray-500 truncate">{performance.highestScore?.examTitle || 'No submitted exams yet'}</p>
+                                    </div>
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5"><BarChart3 size={12} /> Average Score</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{formatPercent(performance.averageScore)}</p>
+                                        <p className="text-[11px] text-gray-500">Across {performance.totalExamsAnswered} exam(s)</p>
+                                    </div>
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5"><Timer size={12} /> Fastest Completion</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{performance.fastestCompletion ? formatDuration(performance.fastestCompletion.seconds) : 'N/A'}</p>
+                                        <p className="text-[11px] text-gray-500 truncate">{performance.fastestCompletion?.examTitle || 'No submitted exams yet'}</p>
+                                    </div>
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5"><Clock3 size={12} /> Avg Time / Question</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{formatDuration(performance.averageTimePerAnsweredQuestionSeconds)}</p>
+                                        <p className="text-[11px] text-gray-500">Based on answered items</p>
+                                    </div>
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Exams Answered</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{performance.totalExamsAnswered}</p>
+                                        <p className="text-[11px] text-gray-500">Submitted attempts</p>
+                                    </div>
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Accuracy</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{formatPercent(performance.accuracy)}</p>
+                                        <p className="text-[11px] text-gray-500">Correct out of answered</p>
+                                    </div>
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5"><CheckCircle2 size={12} className="text-green-600" /> Correct Answers</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{performance.totals.correctAnswers}</p>
+                                        <p className="text-[11px] text-gray-500">Total correct selections</p>
+                                    </div>
+                                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5"><XCircle size={12} className="text-red-500" /> Wrong Answers</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{performance.totals.wrongAnswers}</p>
+                                        <p className="text-[11px] text-gray-500">Total incorrect selections</p>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-md border border-gray-200 bg-white">
+                                    <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                                        <p className="text-xs font-semibold text-gray-700">Recent Attempts</p>
+                                        <p className="text-[11px] text-gray-400">Avg completion: {formatDuration(performance.averageCompletionSeconds)}</p>
+                                    </div>
+                                    <div className="divide-y divide-gray-100">
+                                        {performance.recentAttempts.length === 0 && (
+                                            <div className="px-3 py-4 text-xs text-gray-500">No submitted attempts yet.</div>
+                                        )}
+                                        {performance.recentAttempts.map((attempt) => (
+                                            <div key={attempt.id} className="px-3 py-2.5 grid grid-cols-12 items-center gap-2">
+                                                <div className="col-span-6 min-w-0">
+                                                    <p className="text-xs font-semibold text-gray-800 truncate">{attempt.examTitle}</p>
+                                                    <p className="text-[11px] text-gray-400">{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : 'No date'}</p>
+                                                </div>
+                                                <div className="col-span-2 text-right text-xs font-semibold text-gray-700">{formatPercent(attempt.percentage)}</div>
+                                                <div className="col-span-4 text-right text-xs font-semibold text-gray-500">{formatDuration(attempt.timeSpentSeconds)}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 };

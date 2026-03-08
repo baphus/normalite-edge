@@ -94,7 +94,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="flex items-center justify-between gap-3 flex-wrap">
+            <header data-guide="material-header" className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                     <Button
                         variant="ghost"
@@ -110,6 +110,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
                     </div>
                 </div>
                 <Button
+                    data-guide="material-start-btn"
                     className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2"
                     onClick={() => navigate(`/study/${id}?mode=study`)}
                 >
@@ -132,14 +133,14 @@ const RevieweeMaterialViewPage: React.FC = () => {
                 </Card>
             ) : (
                 <>
-                    <Card className="rounded-2xl border-gray-100 bg-white">
+                    <Card data-guide="material-meta" className="rounded-2xl border-gray-100 bg-white">
                         <CardContent className="p-5 space-y-1.5">
                             <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">{deck.title}</h2>
                             <p className="text-sm text-gray-600 font-medium">{deck.description || 'No description provided.'}</p>
                         </CardContent>
                     </Card>
 
-                    <section className="space-y-3">
+                    <section data-guide="material-question-list" className="space-y-3">
                         <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">Question List</h3>
 
                         {questions.length === 0 ? (

@@ -193,6 +193,144 @@ export class DashboardService {
     }
 
     /**
+     * Get compact exam performance metrics used on the reviewee profile page.
+     */
+    async getRevieweeProfilePerformance(userId: string) {
+        const submittedAttempts = await prisma.attempt.findMany({
+            where: {
+                userId,
+                status: 'SUBMITTED',
+            },
+            select: {
+                id: true,
+                percentage: true,
+                score: true,
+                timeSpentSeconds: true,
+                submittedAt: true,
+                exam: {
+                    select: {
+                        id: true,
+                        title: true,
+                        _count: {
+                            select: {
+                                questions: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                submittedAt: 'desc',
+            },
+        });
+
+        const [correctAnswers, wrongAnswers, answeredQuestions] = await Promise.all([
+            prisma.attemptAnswer.count({
+                where: {
+                    isCorrect: true,
+                    attempt: {
+                        userId,
+                        status: 'SUBMITTED',
+                    },
+                },
+            }),
+            prisma.attemptAnswer.count({
+                where: {
+                    isCorrect: false,
+                    attempt: {
+                        userId,
+                        status: 'SUBMITTED',
+                    },
+                },
+            }),
+            prisma.attemptAnswer.count({
+                where: {
+                    attempt: {
+                        userId,
+                        status: 'SUBMITTED',
+                    },
+                },
+            }),
+        ]);
+
+        const totalExamsAnswered = submittedAttempts.length;
+        const totalScore = submittedAttempts.reduce((sum, attempt) => sum + Number(attempt.percentage || 0), 0);
+        const totalTimeSpentSeconds = submittedAttempts.reduce((sum, attempt) => sum + Math.max(0, attempt.timeSpentSeconds || 0), 0);
+        const totalQuestionsServed = submittedAttempts.reduce(
+            (sum, attempt) => sum + Math.max(0, attempt.exam?._count?.questions || 0),
+            0,
+        );
+
+        const averageScore = totalExamsAnswered > 0
+            ? Math.round((totalScore / totalExamsAnswered) * 100) / 100
+            : 0;
+
+        const highestScoreAttempt = submittedAttempts.reduce<typeof submittedAttempts[number] | null>((best, current) => {
+            if (!best) return current;
+            return Number(current.percentage || 0) > Number(best.percentage || 0) ? current : best;
+        }, null);
+
+        const fastestAttempt = submittedAttempts.reduce<typeof submittedAttempts[number] | null>((best, current) => {
+            if (!best) return current;
+            return Math.max(0, current.timeSpentSeconds || 0) < Math.max(0, best.timeSpentSeconds || 0) ? current : best;
+        }, null);
+
+        const averageCompletionSeconds = totalExamsAnswered > 0
+            ? Math.round(totalTimeSpentSeconds / totalExamsAnswered)
+            : 0;
+
+        const averageTimePerAnsweredQuestionSeconds = answeredQuestions > 0
+            ? Math.round(totalTimeSpentSeconds / answeredQuestions)
+            : 0;
+
+        const totalSkippedQuestions = Math.max(totalQuestionsServed - answeredQuestions, 0);
+        const accuracy = answeredQuestions > 0
+            ? Math.round((correctAnswers / answeredQuestions) * 10000) / 100
+            : 0;
+
+        return {
+            totalExamsAnswered,
+            averageScore,
+            averageCompletionSeconds,
+            averageTimePerAnsweredQuestionSeconds,
+            accuracy,
+            totals: {
+                correctAnswers,
+                wrongAnswers,
+                answeredQuestions,
+                skippedQuestions: totalSkippedQuestions,
+                questionsServed: totalQuestionsServed,
+            },
+            highestScore: highestScoreAttempt
+                ? {
+                    percentage: Math.round(Number(highestScoreAttempt.percentage || 0) * 100) / 100,
+                    score: highestScoreAttempt.score,
+                    examId: highestScoreAttempt.exam.id,
+                    examTitle: highestScoreAttempt.exam.title,
+                    submittedAt: highestScoreAttempt.submittedAt,
+                }
+                : null,
+            fastestCompletion: fastestAttempt
+                ? {
+                    seconds: Math.max(0, fastestAttempt.timeSpentSeconds || 0),
+                    examId: fastestAttempt.exam.id,
+                    examTitle: fastestAttempt.exam.title,
+                    submittedAt: fastestAttempt.submittedAt,
+                }
+                : null,
+            recentAttempts: submittedAttempts.slice(0, 5).map((attempt) => ({
+                id: attempt.id,
+                examId: attempt.exam.id,
+                examTitle: attempt.exam.title,
+                percentage: Math.round(Number(attempt.percentage || 0) * 100) / 100,
+                score: attempt.score,
+                timeSpentSeconds: Math.max(0, attempt.timeSpentSeconds || 0),
+                submittedAt: attempt.submittedAt,
+            })),
+        };
+    }
+
+    /**
      * Get dashboard stats for a reviewer.
      */
     async getReviewerStats(userId: string) {

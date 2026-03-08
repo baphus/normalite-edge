@@ -212,7 +212,7 @@ const RevieweeExamViewPage: React.FC = () => {
     return (
         <div className="flex flex-col gap-3 font-lexend pb-6">
             {/* Header */}
-            <header className="flex items-center gap-2.5">
+            <header data-guide="exam-preview-header" className="flex items-center gap-2.5">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -252,7 +252,7 @@ const RevieweeExamViewPage: React.FC = () => {
             ) : (
                 <>
                     {/* Exam Metadata */}
-                    <Card className="rounded-lg border-gray-100 bg-white">
+                    <Card data-guide="exam-preview-metadata" className="rounded-lg border-gray-100 bg-white">
                         <CardContent className="p-5 space-y-4">
                             <div className="flex flex-wrap items-center gap-2">
                                 <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] uppercase tracking-widest">
@@ -356,7 +356,7 @@ const RevieweeExamViewPage: React.FC = () => {
                     </Card>
 
                     {/* Recent Submitters — no scores */}
-                    <Card className="rounded-lg border-gray-100 bg-white">
+                    <Card data-guide="exam-preview-social-proof" className="rounded-lg border-gray-100 bg-white">
                         <CardContent className="p-4 space-y-3">
                             <div className="flex items-center justify-between gap-3">
                                 <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
@@ -410,7 +410,7 @@ const RevieweeExamViewPage: React.FC = () => {
                     </Card>
 
                     {/* Action Footer */}
-                    <Card className="rounded-lg border-gray-100 bg-white">
+                    <Card data-guide="exam-preview-actions" className="rounded-lg border-gray-100 bg-white">
                         <CardContent className="p-4 flex items-center justify-between gap-4">
                             <p className="text-xs font-semibold text-gray-500">
                                 {hasSubmitted
@@ -446,6 +446,7 @@ const RevieweeExamViewPage: React.FC = () => {
                                     </Button>
                                 ) : (
                                     <Button
+                                        data-guide="exam-preview-start-btn"
                                         className="h-8 rounded-md bg-primary hover:bg-primary/90 text-white font-semibold text-xs gap-1.5"
                                         disabled={!canTake}
                                         onClick={() => navigate(`/exams/${exam.id}/take`)}

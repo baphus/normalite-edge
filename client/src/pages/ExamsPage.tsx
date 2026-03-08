@@ -317,7 +317,7 @@ const ExamsPage: React.FC = () => {
                             )}
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div data-guide="exam-card-actions" className="flex items-center gap-1.5 shrink-0">
                             {hasSubmitted ? (
                                 <Button
                                     size="sm"
@@ -470,7 +470,7 @@ const ExamsPage: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="mt-auto">
+                    <div data-guide="exam-card-actions" className="mt-auto">
                         {hasSubmitted ? (
                             <Button
                                 className="h-8 w-full rounded-md font-semibold text-xs gap-1.5 bg-green-600 hover:bg-green-700 text-white"
@@ -525,6 +525,7 @@ const ExamsPage: React.FC = () => {
     const renderExamSection = (sectionKey: ExamSectionKey, title: string, items: Exam[], emptyMessage: string) => (
         <section
             className="space-y-2"
+            data-guide={`exams-section-${sectionKey}`}
             ref={(node) => {
                 sectionRefs.current[sectionKey] = node;
             }}
