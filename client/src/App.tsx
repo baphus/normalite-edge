@@ -38,6 +38,7 @@ import ZoomMeetingPage from './pages/ZoomMeetingPage';
 import StudentManagementPage from './pages/StudentManagementPage';
 import ProgramsPage from './pages/ProgramsPage';
 import CampusesPage from './pages/CampusesPage';
+import OnboardingPage from './pages/OnboardingPage';
 
 import LandingPage from './pages/LandingPage';
 import CalendarPage from './pages/CalendarPage';
@@ -70,6 +71,7 @@ function App() {
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
 

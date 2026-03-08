@@ -6,6 +6,8 @@ import {
 	registerSchema,
 	loginSchema,
 	resendVerificationSchema,
+	completeOnboardingSchema,
+	completeTourSchema,
 	updateProfileSchema,
 	verifyEmailSchema,
 } from '../../validators/auth.validator';
@@ -23,5 +25,7 @@ router.post('/refresh', authController.refreshToken);
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getMe);
 router.patch('/me/profile', authenticate, validate(updateProfileSchema), authController.updateProfile);
+router.post('/onboarding', authenticate, validate(completeOnboardingSchema), authController.completeOnboarding);
+router.post('/me/tours', authenticate, validate(completeTourSchema), authController.completeTour);
 
 export default router;

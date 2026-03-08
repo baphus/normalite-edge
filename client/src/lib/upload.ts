@@ -10,10 +10,11 @@ const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) 
 export const uploadImageToCloudinary = async (file: File, folder: 'profile-pics' | 'question-images') => {
     const fileDataUrl = await readFileAsDataUrl(file);
 
-    const response = await api.post('/uploads/image', {
-        fileDataUrl,
-        folder,
-    });
+    const isPublicProfileUpload = folder === 'profile-pics' && !localStorage.getItem('accessToken');
+    const endpoint = isPublicProfileUpload ? '/uploads/public-profile-image' : '/uploads/image';
+    const payload = isPublicProfileUpload ? { fileDataUrl } : { fileDataUrl, folder };
+
+    const response = await api.post(endpoint, payload);
 
     const secureUrl = String(response.data?.data?.secureUrl || '');
     if (!secureUrl) {

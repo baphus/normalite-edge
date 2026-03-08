@@ -97,6 +97,8 @@ model User {
   yearLevel        String?    @map("year_level")
   section          String?
   profilePicture   String?    @map("profile_picture")
+  isOnboarded      Boolean    @default(false) @map("is_onboarded")
+  completedTours   String[]   @default([]) @map("completed_tours")
   createdByAdmin   Boolean    @default(false) @map("created_by_admin")
   isExternalEmail  Boolean    @default(false) @map("is_external_email")
   createdAt        DateTime   @default(now()) @map("created_at")

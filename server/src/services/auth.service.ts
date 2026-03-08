@@ -109,6 +109,7 @@ export class AuthService {
         campus_id?: string;
         yearLevel?: string;
         section?: string;
+        picture?: string;
     }) {
         const { password } = data;
         const email = data.email.trim().toLowerCase();
@@ -160,6 +161,7 @@ export class AuthService {
                 programTrack: resolvedTrack?.name,
                 yearLevel,
                 section,
+                profilePicture: data.picture,
             },
             include: {
                 track: {
@@ -494,6 +496,94 @@ export class AuthService {
             summary: `Profile updated: ${user.email}`,
             metadata: {
                 title: user.email,
+            },
+        });
+
+        return this.sanitizeUser(user);
+    }
+
+    async completeOnboarding(userId: string, data: { picture?: string }) {
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                isOnboarded: true,
+                profilePicture: data.picture !== undefined ? data.picture : undefined,
+            },
+            include: {
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
+                    select: { id: true, name: true, code: true },
+                },
+            },
+        });
+
+        await auditService.log({
+            actorId: user.id,
+            actorRole: user.role,
+            action: 'UPDATE',
+            entityType: 'user',
+            entityId: user.id,
+            summary: `Onboarding completed: ${user.email}`,
+            metadata: {
+                title: user.email,
+            },
+        });
+
+        return this.sanitizeUser(user);
+    }
+
+    async completeTour(userId: string, tourId: string) {
+        const normalizedTourId = tourId.trim();
+
+        if (!normalizedTourId) {
+            throw ApiError.badRequest('tourId is required');
+        }
+
+        const existing = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { completedTours: true },
+        });
+
+        if (!existing) {
+            throw ApiError.notFound('User not found');
+        }
+
+        if (existing.completedTours?.includes(normalizedTourId)) {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                include: {
+                    track: {
+                        select: { id: true, name: true, code: true },
+                    },
+                    campus: {
+                        select: { id: true, name: true, code: true },
+                    },
+                },
+            });
+
+            if (!user) {
+                throw ApiError.notFound('User not found');
+            }
+
+            return this.sanitizeUser(user);
+        }
+
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                completedTours: {
+                    push: normalizedTourId,
+                },
+            },
+            include: {
+                track: {
+                    select: { id: true, name: true, code: true },
+                },
+                campus: {
+                    select: { id: true, name: true, code: true },
+                },
             },
         });
 

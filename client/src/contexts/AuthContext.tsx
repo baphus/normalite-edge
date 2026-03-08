@@ -22,6 +22,8 @@ interface User {
     major?: string;
     yearLevel?: string;
     section?: string;
+    isOnboarded?: boolean;
+    completedTours?: string[];
 }
 
 interface AuthContextType {

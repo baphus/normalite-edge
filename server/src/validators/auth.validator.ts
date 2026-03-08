@@ -16,6 +16,7 @@ export const registerSchema = z.object({
         { message: 'Only @cnu.edu.ph emails are allowed' }
     ),
     password: z.string().min(6, 'Password must be at least 6 characters'),
+    picture: z.string().url('picture must be a valid URL').optional(),
     track_id: z.string().uuid('Invalid track id').optional(),
     campus_id: z.string().uuid('Invalid campus id'),
     program: z.string().min(1, 'Program is required').optional(),
@@ -75,4 +76,16 @@ export const updateProfileSchema = z.object({
     major: z.string().optional(),
     yearLevel: z.string().trim().min(1, 'Year is required').optional(),
     section: z.string().trim().min(1, 'Section is required').optional(),
+});
+
+export const completeOnboardingSchema = z.object({
+    picture: z.string().url('picture must be a valid URL').optional(),
+});
+
+export const completeTourSchema = z.object({
+    tourId: z
+        .string()
+        .trim()
+        .min(1, 'tourId is required')
+        .max(120, 'tourId is too long'),
 });

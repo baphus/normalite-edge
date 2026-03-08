@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { isAxiosError } from 'axios';
-import { Mail, Lock, ArrowRight, ShieldCheck, UserRound } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck, UserRound, Camera, Sparkles } from 'lucide-react';
 import api from '@/lib/axios';
+import { uploadImageToCloudinary } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,6 +52,8 @@ type TrackOption = {
 const RegisterPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [campuses, setCampuses] = useState<TrackOption[]>([]);
     const [tracksLoading, setTracksLoading] = useState(true);
@@ -109,6 +112,11 @@ const RegisterPage: React.FC = () => {
         setError(null);
 
         try {
+            let uploadedPicture: string | undefined;
+            if (avatarFile) {
+                uploadedPicture = await uploadImageToCloudinary(avatarFile, 'profile-pics');
+            }
+
             const response = await api.post('/auth/register', {
                 firstName: data.firstName.trim(),
                 lastName: data.lastName.trim(),
@@ -116,6 +124,7 @@ const RegisterPage: React.FC = () => {
                 suffix: data.suffix?.trim() || undefined,
                 email: data.email.trim().toLowerCase(),
                 password: data.password,
+                picture: uploadedPicture,
                 track_id: data.trackId.trim(),
                 campus_id: data.campusId.trim(),
                 yearLevel: data.yearLevel.trim(),
@@ -174,6 +183,42 @@ const RegisterPage: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-4">
+                    <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+                        <p className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <Sparkles size={15} className="text-primary" />
+                            SaaS-style quick setup
+                        </p>
+                        <p className="mt-1 text-xs text-gray-600">
+                            Add an optional profile picture now so your teammates can recognize you faster.
+                        </p>
+                        <div className="mt-3 flex items-center gap-4">
+                            {avatarPreview ? (
+                                <img src={avatarPreview} alt="Avatar preview" className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/15" />
+                            ) : (
+                                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-400 ring-1 ring-gray-200">
+                                    <Camera size={20} />
+                                </div>
+                            )}
+                            <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0] || null;
+                                    if (avatarPreview) {
+                                        URL.revokeObjectURL(avatarPreview);
+                                    }
+                                    setAvatarFile(file);
+                                    if (file) {
+                                        setAvatarPreview(URL.createObjectURL(file));
+                                    } else {
+                                        setAvatarPreview(null);
+                                    }
+                                }}
+                                className="text-xs"
+                            />
+                        </div>
+                    </div>
+
                     <Input type="hidden" {...register('trackId')} />
                     <Input type="hidden" {...register('campusId')} />
 

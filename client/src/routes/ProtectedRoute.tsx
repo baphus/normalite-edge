@@ -1,9 +1,10 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedRoute: React.FC = () => {
     const { user, loading } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return <div className="flex items-center justify-center h-screen">Loading...</div>;
@@ -21,6 +22,15 @@ const ProtectedRoute: React.FC = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         return <Navigate to="/login" replace />;
+    }
+
+    const isOnboardingPage = location.pathname === '/onboarding';
+    if (user.isOnboarded === false && !isOnboardingPage) {
+        return <Navigate to="/onboarding" replace />;
+    }
+
+    if (user.isOnboarded && isOnboardingPage) {
+        return <Navigate to="/dashboard" replace />;
     }
 
     return <Outlet />;

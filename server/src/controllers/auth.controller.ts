@@ -94,4 +94,20 @@ export const authController = {
         const user = await authService.updateProfile(req.user!.userId, req.body);
         ApiResponse.success(res, user, 'Profile updated');
     }),
+
+    /**
+     * POST /api/v1/auth/onboarding
+     */
+    completeOnboarding: catchAsync(async (req: Request, res: Response) => {
+        const user = await authService.completeOnboarding(req.user!.userId, req.body);
+        ApiResponse.success(res, user, 'Onboarding completed');
+    }),
+
+    /**
+     * POST /api/v1/auth/me/tours
+     */
+    completeTour: catchAsync(async (req: Request, res: Response) => {
+        const user = await authService.completeTour(req.user!.userId, req.body.tourId);
+        ApiResponse.success(res, user, 'Tour marked as completed');
+    }),
 };

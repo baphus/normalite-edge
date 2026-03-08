@@ -136,7 +136,7 @@ const Sidebar: React.FC = () => {
     }, [user, normalizedRole]);
 
     return (
-        <div className="sticky top-0 flex h-screen w-54.5 shrink-0 flex-col self-start border-r border-white/6 bg-[#0d0f14]">
+        <div data-guide="sidebar-nav" className="sticky top-0 flex h-screen w-54.5 shrink-0 flex-col self-start border-r border-white/6 bg-[#0d0f14]">
             {/* Brand */}
             <Link to="/dashboard" className="flex items-center gap-2.5 px-4 h-12 border-b border-white/6 shrink-0 hover:opacity-80 transition-opacity">
                 <div className="h-6 w-6 overflow-hidden rounded-sm shrink-0">
@@ -161,6 +161,7 @@ const Sidebar: React.FC = () => {
                                 <NavLink
                                     key={item.href}
                                     to={item.href}
+                                    data-guide-nav={item.href}
                                     className={({ isActive }) =>
                                         cn(
                                             'relative flex items-center gap-2.5 px-2.5 h-8 text-[12.5px] rounded-md transition-colors font-medium',
@@ -195,6 +196,7 @@ const Sidebar: React.FC = () => {
             <div className="shrink-0 border-t border-white/6 p-3 space-y-2">
                 <NavLink
                     to="/profile"
+                    data-guide="profile-entry"
                     className={({ isActive }) =>
                         cn(
                             'flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors w-full',
