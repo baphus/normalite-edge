@@ -5,6 +5,7 @@ import {
     ArrowLeft,
     ArrowRight,
     Send,
+    AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,10 +42,17 @@ interface Exam {
 interface AttemptStartResponse {
     id: string;
     status: 'IN_PROGRESS' | 'SUBMITTED';
+    enforceExamSingleTab?: boolean;
+    tabSwitchGraceSeconds?: number;
+    startedAt?: string;
+    endsAt?: string;
     remainingSeconds: number | null;
+    currentQuestionIndex?: number;
+    lastActivityAt?: string | null;
     lastSavedAt?: string | null;
     exam: Exam;
     answers: Record<string, string>;
+    answerMeta?: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>;
 }
 
 interface ExamTakeResponse {
@@ -72,12 +80,15 @@ interface ExamTakeResponse {
 interface LocalDraft {
     attemptId: string;
     answers: Record<string, string>;
+    answerMeta?: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>;
+    questionElapsedMs?: Record<string, number>;
     currentIndex: number;
     timeLeft: number;
     updatedAt: number;
 }
 
 const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
+
 const TakeExamPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -85,15 +96,34 @@ const TakeExamPage: React.FC = () => {
     const [attemptId, setAttemptId] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [answerMeta, setAnswerMeta] = useState<Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>>({});
     const [timeLeft, setTimeLeft] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'pending' | 'error'>('idle');
     const [showConfirm, setShowConfirm] = useState(false);
+    const [enforceExamSingleTab, setEnforceExamSingleTab] = useState(false);
+    const [hasReviewedInstructions, setHasReviewedInstructions] = useState(false);
+    const [preflightSingleTabEnabled, setPreflightSingleTabEnabled] = useState(false);
+    const [tabSwitchGraceSeconds, setTabSwitchGraceSeconds] = useState(5);
+    const [preflightTabSwitchGraceSeconds, setPreflightTabSwitchGraceSeconds] = useState(5);
+    const [preflightLoading, setPreflightLoading] = useState(true);
 
     const answersRef = useRef<Record<string, string>>({});
+    const answerMetaRef = useRef<Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>>({});
+    const questionElapsedMsRef = useRef<Record<string, number>>({});
+    const activeQuestionIdRef = useRef<string | null>(null);
+    const activeQuestionStartedAtRef = useRef<number | null>(null);
+    const isDocumentVisibleRef = useRef(true);
+    const tabViolationInFlightRef = useRef(false);
+    const originalDocumentTitleRef = useRef('');
+    const tabViolationDeadlineMsRef = useRef<number | null>(null);
+    const tabViolationTitleIntervalRef = useRef<number | null>(null);
+    const tabViolationTimeoutRef = useRef<number | null>(null);
+    const tabViolationResetHandlerRef = useRef<() => void>(() => {});
     const timeLeftRef = useRef(0);
+    const endsAtMsRef = useRef<number | null>(null);
     const dirtyRef = useRef(false);
 
     const draftKey = useMemo(() => (id ? `exam-draft:${id}` : ''), [id]);
@@ -101,6 +131,11 @@ const TakeExamPage: React.FC = () => {
     const getTimeSpent = useCallback((durationMinutes: number, remaining: number) => {
         const totalSeconds = Math.max(durationMinutes, 0) * 60;
         return Math.max(0, totalSeconds - Math.max(remaining, 0));
+    }, []);
+
+    const computeRemainingFromEndsAt = useCallback((endsAtMs: number | null) => {
+        if (!endsAtMs || !Number.isFinite(endsAtMs)) return null;
+        return Math.max(0, Math.floor((endsAtMs - Date.now()) / 1000));
     }, []);
 
     const sanitizeAnswersMap = useCallback((rawAnswers: Record<string, string> = {}, questions: Question[] = []) => {
@@ -115,6 +150,86 @@ const TakeExamPage: React.FC = () => {
         }
 
         return safeAnswers;
+    }, []);
+
+    const sanitizeAnswerMeta = useCallback((
+        rawMeta: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }> = {},
+        elapsedMsByQuestionId: Record<string, number> = {},
+        questions: Question[] = [],
+        safeAnswers: Record<string, string> = {},
+    ) => {
+        const validQuestionIds = new Set((questions || []).map((question) => question.id));
+        const safeMeta: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }> = {};
+        const trackedQuestionIds = new Set<string>([
+            ...Object.keys(safeAnswers || {}),
+            ...Object.keys(rawMeta || {}),
+        ]);
+
+        for (const questionId of trackedQuestionIds) {
+            if (!validQuestionIds.has(questionId)) continue;
+
+            const selectedChoice = safeAnswers?.[questionId];
+            const isAnswered = CHOICE_LABELS.includes(String(selectedChoice || '').trim().toUpperCase());
+
+            const value = rawMeta?.[questionId] || {};
+
+            const viewedAtRaw = value?.viewedAt;
+            const viewedAt = (() => {
+                if (typeof viewedAtRaw !== 'string' || !viewedAtRaw.trim()) return null;
+                const parsed = new Date(viewedAtRaw);
+                if (Number.isNaN(parsed.getTime())) return null;
+                return parsed.toISOString();
+            })();
+
+            const answeredAtRaw = value?.answeredAt;
+            const answeredAt = (() => {
+                if (typeof answeredAtRaw !== 'string' || !answeredAtRaw.trim()) return null;
+                const parsed = new Date(answeredAtRaw);
+                if (Number.isNaN(parsed.getTime())) return null;
+                return parsed.toISOString();
+            })();
+
+            const elapsedFromMeta = Number(value?.elapsedSeconds);
+            const elapsedFromMetaSafe = Number.isFinite(elapsedFromMeta) && elapsedFromMeta >= 0
+                ? Math.round(elapsedFromMeta)
+                : 0;
+
+            const elapsedFromTracker = Math.max(0, Math.round(Number(elapsedMsByQuestionId?.[questionId] || 0) / 1000));
+            const elapsedSeconds = Math.max(elapsedFromMetaSafe, elapsedFromTracker);
+
+            if (!isAnswered && !viewedAt && elapsedSeconds <= 0) {
+                continue;
+            }
+
+            safeMeta[questionId] = {
+                viewedAt,
+                answeredAt,
+                elapsedSeconds,
+            };
+        }
+
+        return safeMeta;
+    }, []);
+
+    const flushActiveQuestionTime = useCallback(() => {
+        if (!isDocumentVisibleRef.current) return;
+
+        const activeQuestionId = activeQuestionIdRef.current;
+        const activeQuestionStartedAt = activeQuestionStartedAtRef.current;
+        if (!activeQuestionId || activeQuestionStartedAt === null) return;
+
+        const now = Date.now();
+        const deltaMs = Math.max(0, now - activeQuestionStartedAt);
+        if (deltaMs > 0) {
+            questionElapsedMsRef.current[activeQuestionId] = (questionElapsedMsRef.current[activeQuestionId] || 0) + deltaMs;
+
+            // Persist elapsed timing changes for answered questions even if the choice did not change.
+            if (answersRef.current[activeQuestionId]) {
+                dirtyRef.current = true;
+            }
+        }
+
+        activeQuestionStartedAtRef.current = now;
     }, []);
 
     const getResumeIndex = useCallback((questions: Question[] = [], savedAnswers: Record<string, string> = {}) => {
@@ -179,8 +294,93 @@ const TakeExamPage: React.FC = () => {
         localStorage.removeItem(draftKey);
     }, [draftKey]);
 
+    const clearTabViolationTimers = useCallback(() => {
+        if (tabViolationTitleIntervalRef.current !== null) {
+            window.clearInterval(tabViolationTitleIntervalRef.current);
+            tabViolationTitleIntervalRef.current = null;
+        }
+
+        if (tabViolationTimeoutRef.current !== null) {
+            window.clearTimeout(tabViolationTimeoutRef.current);
+            tabViolationTimeoutRef.current = null;
+        }
+    }, []);
+
+    const restoreDocumentTitle = useCallback(() => {
+        const fallbackTitle = originalDocumentTitleRef.current || 'Normalite EDGE';
+        document.title = fallbackTitle;
+    }, []);
+
+    const stopTabViolationCountdown = useCallback(() => {
+        clearTabViolationTimers();
+        tabViolationDeadlineMsRef.current = null;
+        restoreDocumentTitle();
+    }, [clearTabViolationTimers, restoreDocumentTitle]);
+
+    const updateTabViolationTitle = useCallback(() => {
+        const deadlineMs = tabViolationDeadlineMsRef.current;
+        if (!deadlineMs) return;
+
+        const remainingMs = Math.max(0, deadlineMs - Date.now());
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        const baseTitle = originalDocumentTitleRef.current || 'Normalite EDGE';
+
+        document.title = `Return in ${remainingSeconds}s | ${baseTitle}`;
+    }, []);
+
+    const startTabViolationCountdown = useCallback(() => {
+        if (tabViolationInFlightRef.current) return;
+
+        clearTabViolationTimers();
+
+        const safeGraceSeconds = Math.max(1, Math.min(30, Math.round(Number(tabSwitchGraceSeconds || 5))));
+
+        tabViolationDeadlineMsRef.current = Date.now() + safeGraceSeconds * 1000;
+        updateTabViolationTitle();
+
+        tabViolationTitleIntervalRef.current = window.setInterval(() => {
+            updateTabViolationTitle();
+        }, 250);
+
+        tabViolationTimeoutRef.current = window.setTimeout(() => {
+            if (document.visibilityState === 'hidden') {
+                tabViolationResetHandlerRef.current();
+            }
+        }, safeGraceSeconds * 1000);
+    }, [clearTabViolationTimers, tabSwitchGraceSeconds, updateTabViolationTitle]);
+
+    useEffect(() => {
+        if (!originalDocumentTitleRef.current) {
+            originalDocumentTitleRef.current = document.title || 'Normalite EDGE';
+        }
+
+        return () => {
+            stopTabViolationCountdown();
+        };
+    }, [stopTabViolationCountdown]);
+
+    useEffect(() => {
+        const loadPreflightSettings = async () => {
+            setPreflightLoading(true);
+            try {
+                const response = await api.get('/settings/system');
+                setPreflightSingleTabEnabled(Boolean(response.data?.data?.enforceExamSingleTab));
+                setPreflightTabSwitchGraceSeconds(Math.max(1, Math.min(30, Math.round(Number(response.data?.data?.tabSwitchGraceSeconds || 5)))));
+            } catch {
+                setPreflightSingleTabEnabled(false);
+                setPreflightTabSwitchGraceSeconds(5);
+            } finally {
+                setPreflightLoading(false);
+            }
+        };
+
+        void loadPreflightSettings();
+    }, []);
+
     const saveAttempt = useCallback(async (force = false) => {
         if (!attemptId || !exam || isSubmitting) return;
+
+        flushActiveQuestionTime();
         if (!force && !dirtyRef.current) return;
 
         if (!navigator.onLine) {
@@ -191,20 +391,91 @@ const TakeExamPage: React.FC = () => {
         try {
             setSaveStatus('saving');
             const safeAnswers = sanitizeAnswersMap(answersRef.current, exam.questions || []);
-            await api.patch(`/attempts/${attemptId}/save`, {
+            const response = await api.patch(`/attempts/${attemptId}/save`, {
                 answers: safeAnswers,
+                answerMeta: sanitizeAnswerMeta(answerMetaRef.current, questionElapsedMsRef.current, exam.questions || [], safeAnswers),
+                currentQuestionIndex: currentIndex,
                 timeSpent: getTimeSpent(exam.timeLimit, timeLeftRef.current),
                 remainingSeconds: Math.max(0, timeLeftRef.current),
             });
+
+            const saved = response.data?.data as AttemptStartResponse | undefined;
+            if (saved?.endsAt) {
+                const parsedEndsAtMs = new Date(saved.endsAt).getTime();
+                if (Number.isFinite(parsedEndsAtMs)) {
+                    endsAtMsRef.current = parsedEndsAtMs;
+                    const recomputedRemaining = computeRemainingFromEndsAt(parsedEndsAtMs);
+                    if (typeof recomputedRemaining === 'number') {
+                        setTimeLeft(recomputedRemaining);
+                        timeLeftRef.current = recomputedRemaining;
+                    }
+                }
+            }
+
+            if (typeof saved?.currentQuestionIndex === 'number') {
+                const boundedIndex = Math.min(
+                    Math.max(0, saved.currentQuestionIndex),
+                    Math.max((exam.questions || []).length - 1, 0),
+                );
+                setCurrentIndex(boundedIndex);
+            }
+
             dirtyRef.current = false;
             setSaveStatus('saved');
         } catch {
             setSaveStatus('error');
         }
-    }, [attemptId, exam, getTimeSpent, isSubmitting, sanitizeAnswersMap]);
+    }, [attemptId, computeRemainingFromEndsAt, currentIndex, exam, flushActiveQuestionTime, getTimeSpent, isSubmitting, sanitizeAnswerMeta, sanitizeAnswersMap]);
+
+    const handleTabViolationReset = useCallback(async () => {
+        if (!attemptId || !exam || tabViolationInFlightRef.current) return;
+
+        tabViolationInFlightRef.current = true;
+        stopTabViolationCountdown();
+        dirtyRef.current = false;
+        clearDraft();
+        setSaveStatus('idle');
+
+        try {
+            const response = await api.post(`/attempts/${attemptId}/tab-violation`);
+            const payload = response.data.data as AttemptStartResponse;
+
+            const safeAnswers = sanitizeAnswersMap(payload.answers || {}, exam.questions || []);
+            const safeMeta = sanitizeAnswerMeta(payload.answerMeta || {}, {}, exam.questions || [], safeAnswers);
+
+            questionElapsedMsRef.current = {};
+            setAnswers(safeAnswers);
+            answersRef.current = safeAnswers;
+            setAnswerMeta(safeMeta);
+            answerMetaRef.current = safeMeta;
+
+            setCurrentIndex(0);
+
+            const resetTimeLeft = Math.max(0, payload.remainingSeconds ?? exam.timeLimit * 60);
+            setTimeLeft(resetTimeLeft);
+            timeLeftRef.current = resetTimeLeft;
+
+            toast.error('Tab switch detected. Your attempt was reset and all answers were cleared.');
+        } catch {
+            toast.error('Tab switch detected, but reset failed. Return to Exams and retry.');
+            navigate('/exams');
+        } finally {
+            tabViolationInFlightRef.current = false;
+        }
+    }, [attemptId, clearDraft, exam, navigate, sanitizeAnswerMeta, sanitizeAnswersMap, stopTabViolationCountdown]);
+
+    useEffect(() => {
+        tabViolationResetHandlerRef.current = () => {
+            void handleTabViolationReset();
+        };
+    }, [handleTabViolationReset]);
 
     useEffect(() => {
         const fetchAttempt = async () => {
+            if (!hasReviewedInstructions) {
+                return;
+            }
+
             if (!id) {
                 setError('Missing exam id.');
                 setLoading(false);
@@ -212,9 +483,17 @@ const TakeExamPage: React.FC = () => {
             }
 
             try {
+                setLoading(true);
                 setError(null);
                 const response = await api.post('/attempts', { examId: id });
                 const payload = response.data.data as AttemptStartResponse;
+                setEnforceExamSingleTab(Boolean(payload?.enforceExamSingleTab));
+                setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Math.round(Number(payload?.tabSwitchGraceSeconds || preflightTabSwitchGraceSeconds || 5)))));
+
+                if (payload?.status === 'SUBMITTED') {
+                    navigate(`/exams/${id}/result?attemptId=${payload.id}`, { replace: true });
+                    return;
+                }
 
                 let normalizedQuestions = normalizeQuestions((payload as any)?.exam?.questions || []);
 
@@ -230,7 +509,14 @@ const TakeExamPage: React.FC = () => {
                 };
 
                 const serverAnswers = sanitizeAnswersMap(payload.answers || {}, normalizedQuestions);
-                const serverTimeLeft = payload.remainingSeconds ?? normalizedExam.timeLimit * 60;
+                const serverAnswerMeta = sanitizeAnswerMeta(payload.answerMeta || {}, {}, normalizedQuestions, serverAnswers);
+                const parsedEndsAtMs = payload.endsAt ? new Date(payload.endsAt).getTime() : null;
+                endsAtMsRef.current = Number.isFinite(parsedEndsAtMs) ? parsedEndsAtMs : null;
+                const computedFromEndsAt = computeRemainingFromEndsAt(endsAtMsRef.current);
+                const serverTimeLeft = computedFromEndsAt ?? payload.remainingSeconds ?? normalizedExam.timeLimit * 60;
+                const serverCurrentIndex = typeof payload.currentQuestionIndex === 'number'
+                    ? Math.min(Math.max(payload.currentQuestionIndex, 0), Math.max(normalizedExam.questions.length - 1, 0))
+                    : null;
 
                 setAttemptId(payload.id);
                 setExam(normalizedExam);
@@ -240,19 +526,44 @@ const TakeExamPage: React.FC = () => {
 
                 if (sameAttemptDraft) {
                     const safeDraftAnswers = sanitizeAnswersMap(draft.answers || {}, normalizedQuestions);
+                    const safeDraftMeta = sanitizeAnswerMeta(
+                        draft.answerMeta || {},
+                        draft.questionElapsedMs || {},
+                        normalizedQuestions,
+                        safeDraftAnswers,
+                    );
                     const mergedAnswers = {
                         ...serverAnswers,
                         ...safeDraftAnswers,
                     };
+                    const mergedAnswerMeta = sanitizeAnswerMeta(
+                        {
+                            ...serverAnswerMeta,
+                            ...safeDraftMeta,
+                        },
+                        draft.questionElapsedMs || {},
+                        normalizedQuestions,
+                        mergedAnswers,
+                    );
+
+                    questionElapsedMsRef.current = Object.fromEntries(
+                        Object.entries(mergedAnswerMeta).map(([questionId, meta]) => [
+                            questionId,
+                            Math.max(0, Math.round(Number(meta?.elapsedSeconds || 0) * 1000)),
+                        ])
+                    );
 
                     setAnswers(mergedAnswers);
                     answersRef.current = mergedAnswers;
+                    setAnswerMeta(mergedAnswerMeta);
+                    answerMetaRef.current = mergedAnswerMeta;
 
                     const draftIndex = Math.min(Math.max(draft.currentIndex, 0), Math.max(normalizedExam.questions.length - 1, 0));
                     const resumeFromAnswersIndex = getResumeIndex(normalizedExam.questions, mergedAnswers);
+                    const baseIndex = serverCurrentIndex ?? resumeFromAnswersIndex;
                     const safeIndex = Object.keys(safeDraftAnswers || {}).length > 0
-                        ? Math.max(draftIndex, resumeFromAnswersIndex)
-                        : resumeFromAnswersIndex;
+                        ? Math.max(baseIndex, Math.max(draftIndex, resumeFromAnswersIndex))
+                        : baseIndex;
                     setCurrentIndex(safeIndex);
 
                     const resolvedTimeLeft = Math.max(0, Math.min(serverTimeLeft, draft.timeLeft));
@@ -263,10 +574,19 @@ const TakeExamPage: React.FC = () => {
                         dirtyRef.current = true;
                     }
                 } else {
+                    questionElapsedMsRef.current = Object.fromEntries(
+                        Object.entries(serverAnswerMeta).map(([questionId, meta]) => [
+                            questionId,
+                            Math.max(0, Math.round(Number(meta?.elapsedSeconds || 0) * 1000)),
+                        ])
+                    );
+
                     setAnswers(serverAnswers);
                     answersRef.current = serverAnswers;
+                    setAnswerMeta(serverAnswerMeta);
+                    answerMetaRef.current = serverAnswerMeta;
 
-                    setCurrentIndex(getResumeIndex(normalizedExam.questions, serverAnswers));
+                    setCurrentIndex(serverCurrentIndex ?? getResumeIndex(normalizedExam.questions, serverAnswers));
 
                     const safeTimeLeft = Math.max(0, serverTimeLeft);
                     setTimeLeft(safeTimeLeft);
@@ -281,11 +601,15 @@ const TakeExamPage: React.FC = () => {
         };
 
         fetchAttempt();
-    }, [getResumeIndex, id, normalizeQuestions, readDraft, sanitizeAnswersMap]);
+    }, [computeRemainingFromEndsAt, getResumeIndex, hasReviewedInstructions, id, navigate, normalizeQuestions, preflightTabSwitchGraceSeconds, readDraft, sanitizeAnswerMeta, sanitizeAnswersMap]);
 
     useEffect(() => {
         answersRef.current = answers;
     }, [answers]);
+
+    useEffect(() => {
+        answerMetaRef.current = answerMeta;
+    }, [answerMeta]);
 
     useEffect(() => {
         timeLeftRef.current = timeLeft;
@@ -294,28 +618,34 @@ const TakeExamPage: React.FC = () => {
     useEffect(() => {
         if (!attemptId || !draftKey || !exam) return;
 
+        flushActiveQuestionTime();
+
         writeDraft({
             attemptId,
             answers,
+            answerMeta,
+            questionElapsedMs: questionElapsedMsRef.current,
             currentIndex,
             timeLeft,
             updatedAt: Date.now(),
         });
-    }, [attemptId, answers, currentIndex, draftKey, exam, timeLeft, writeDraft]);
+    }, [attemptId, answerMeta, answers, currentIndex, draftKey, exam, flushActiveQuestionTime, timeLeft, writeDraft]);
 
     useEffect(() => {
         if (!exam || loading || isSubmitting) return;
 
-        if (timeLeft <= 0) {
-            return;
-        }
-
         const timer = setInterval(() => {
+            const derivedRemaining = computeRemainingFromEndsAt(endsAtMsRef.current);
+            if (typeof derivedRemaining === 'number') {
+                setTimeLeft(derivedRemaining);
+                return;
+            }
+
             setTimeLeft((prev) => Math.max(0, prev - 1));
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [exam, loading, isSubmitting, timeLeft]);
+    }, [computeRemainingFromEndsAt, exam, loading, isSubmitting]);
 
     useEffect(() => {
         if (!attemptId || !exam || loading) return;
@@ -334,7 +664,29 @@ const TakeExamPage: React.FC = () => {
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
+                flushActiveQuestionTime();
+                isDocumentVisibleRef.current = false;
+                activeQuestionStartedAtRef.current = null;
+
+                if (enforceExamSingleTab) {
+                    startTabViolationCountdown();
+                    return;
+                }
+
                 saveAttempt(true);
+            } else {
+                isDocumentVisibleRef.current = true;
+                activeQuestionStartedAtRef.current = Date.now();
+
+                const deadlineMs = tabViolationDeadlineMsRef.current;
+                if (enforceExamSingleTab && deadlineMs) {
+                    if (Date.now() >= deadlineMs) {
+                        void handleTabViolationReset();
+                        return;
+                    }
+
+                    stopTabViolationCountdown();
+                }
             }
         };
 
@@ -343,6 +695,8 @@ const TakeExamPage: React.FC = () => {
             writeDraft({
                 attemptId,
                 answers: answersRef.current,
+                answerMeta: answerMetaRef.current,
+                questionElapsedMs: questionElapsedMsRef.current,
                 currentIndex,
                 timeLeft: timeLeftRef.current,
                 updatedAt: Date.now(),
@@ -358,7 +712,7 @@ const TakeExamPage: React.FC = () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [attemptId, currentIndex, exam, saveAttempt, writeDraft]);
+    }, [attemptId, currentIndex, enforceExamSingleTab, exam, flushActiveQuestionTime, handleTabViolationReset, saveAttempt, startTabViolationCountdown, stopTabViolationCountdown, writeDraft]);
 
     const formatTime = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
@@ -369,6 +723,8 @@ const TakeExamPage: React.FC = () => {
 
     const handleFinish = useCallback(async (autoSubmitted = false) => {
         if (!attemptId || !exam || isSubmitting) return;
+
+        flushActiveQuestionTime();
 
         if (!navigator.onLine && !autoSubmitted) {
             toast.warning('You are offline. Reconnect first to submit. Your progress is saved locally.');
@@ -382,6 +738,8 @@ const TakeExamPage: React.FC = () => {
 
             await api.put(`/attempts/${attemptId}`, {
                 answers: safeAnswers,
+                answerMeta: sanitizeAnswerMeta(answerMetaRef.current, questionElapsedMsRef.current, exam.questions || [], safeAnswers),
+                currentQuestionIndex: currentIndex,
                 timeSpent: getTimeSpent(exam.timeLimit, timeLeftRef.current),
                 autoSubmitted,
                 remainingSeconds: Math.max(0, timeLeftRef.current),
@@ -396,7 +754,7 @@ const TakeExamPage: React.FC = () => {
         } finally {
             setIsSubmitting(false);
         }
-    }, [attemptId, clearDraft, exam, getTimeSpent, isSubmitting, navigate, sanitizeAnswersMap]);
+    }, [attemptId, clearDraft, currentIndex, exam, flushActiveQuestionTime, getTimeSpent, isSubmitting, navigate, sanitizeAnswerMeta, sanitizeAnswersMap]);
 
     useEffect(() => {
         if (!exam || loading || isSubmitting) return;
@@ -450,6 +808,97 @@ const TakeExamPage: React.FC = () => {
         return new Map((exam?.questions || []).map((question, index) => [question.id, index + 1]));
     }, [exam?.questions]);
 
+    const currentQuestionId = useMemo(() => {
+        return exam?.questions?.[currentIndex]?.id || null;
+    }, [exam?.questions, currentIndex]);
+
+    useEffect(() => {
+        if (!attemptId || !exam || loading || isSubmitting) return;
+
+        dirtyRef.current = true;
+        setSaveStatus((previous) => (previous === 'saving' ? previous : 'pending'));
+    }, [attemptId, currentIndex, exam, isSubmitting, loading]);
+
+    useEffect(() => {
+        if (!attemptId || !exam || loading || isSubmitting || !currentQuestionId) return;
+
+        flushActiveQuestionTime();
+        activeQuestionIdRef.current = currentQuestionId;
+
+        setAnswerMeta((prev) => {
+            if (prev[currentQuestionId]?.viewedAt) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                [currentQuestionId]: {
+                    ...prev[currentQuestionId],
+                    viewedAt: new Date().toISOString(),
+                },
+            };
+        });
+
+        if (isDocumentVisibleRef.current) {
+            activeQuestionStartedAtRef.current = Date.now();
+        }
+    }, [attemptId, currentQuestionId, exam, flushActiveQuestionTime, isSubmitting, loading]);
+
+    if (!hasReviewedInstructions) {
+        return (
+            <div className="p-6 md:p-8">
+                <div className="max-w-2xl mx-auto rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100">
+                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">Exam Instructions</p>
+                        <h1 className="text-2xl font-black text-gray-900 mt-1">Are You Ready to Start?</h1>
+                        <p className="text-sm text-gray-500 font-medium mt-2">
+                            Read these reminders before continuing. Your timer starts once you click <strong>Start Exam</strong>.
+                        </p>
+                    </div>
+
+                    <div className="p-6 space-y-3">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-gray-800">1. Make sure your internet connection is stable.</p>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-gray-800">2. Do not close or refresh this page while taking the exam.</p>
+                        </div>
+                        <div className={`rounded-xl border px-4 py-3 ${preflightSingleTabEnabled ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+                            <div className="flex items-start gap-2">
+                                <AlertTriangle size={16} className={preflightSingleTabEnabled ? 'text-red-600 mt-0.5' : 'text-amber-600 mt-0.5'} />
+                                <div>
+                                    <p className={`text-sm font-black ${preflightSingleTabEnabled ? 'text-red-700' : 'text-amber-700'}`}>
+                                        Tab-Switch Policy
+                                    </p>
+                                    {preflightLoading ? (
+                                        <p className="text-xs font-medium text-gray-500 mt-1">Checking policy...</p>
+                                    ) : preflightSingleTabEnabled ? (
+                                        <p className="text-sm font-semibold text-red-700 mt-1">
+                                            Switching to another browser tab gives you {preflightTabSwitchGraceSeconds}s to return, then the exam resets to the beginning and voids all your answers.
+                                        </p>
+                                    ) : (
+                                        <p className="text-sm font-semibold text-amber-700 mt-1">
+                                            If this policy is enabled by admins, switching to another browser tab only gives a short countdown before resetting your exam and clearing all answers.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-gray-50/60">
+                        <Button variant="outline" onClick={() => navigate('/exams')}>
+                            Back to Exams
+                        </Button>
+                        <Button onClick={() => setHasReviewedInstructions(true)}>
+                            Start Exam
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) {
         return <div className="p-6 text-sm text-gray-500">Loading exam attempt...</div>;
     }
@@ -486,10 +935,25 @@ const TakeExamPage: React.FC = () => {
 
     const handleOptionSelect = (optionIndex: number) => {
         const selectedChoice = CHOICE_LABELS[optionIndex] || 'A';
+        const questionId = currentQuestion.id;
         setAnswers((prev) => ({
             ...prev,
-            [currentQuestion.id]: selectedChoice,
+            [questionId]: selectedChoice,
         }));
+        setAnswerMeta((prev) => {
+            const previousChoice = answersRef.current[questionId];
+            if (previousChoice === selectedChoice && prev[questionId]?.answeredAt) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                [questionId]: {
+                    viewedAt: prev[questionId]?.viewedAt || new Date().toISOString(),
+                    answeredAt: new Date().toISOString(),
+                },
+            };
+        });
         dirtyRef.current = true;
         setSaveStatus('pending');
     };

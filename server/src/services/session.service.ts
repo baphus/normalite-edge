@@ -29,7 +29,7 @@ export class SessionService {
             prisma.conference.findMany({
                 where,
                 include: {
-                    host: { select: { id: true, firstName: true, lastName: true } },
+                    host: { select: { id: true, firstName: true, lastName: true, email: true, profilePicture: true } },
                 },
                 skip,
                 take: limit,
@@ -57,7 +57,7 @@ export class SessionService {
     async getSession(id: string) {
         const session = await prisma.conference.findUnique({
             where: { id },
-            include: { host: { select: { id: true, firstName: true, lastName: true } } },
+            include: { host: { select: { id: true, firstName: true, lastName: true, email: true, profilePicture: true } } },
         });
         if (!session) throw ApiError.notFound('Session not found');
         return {
@@ -74,6 +74,7 @@ export class SessionService {
         title: string;
         description?: string;
         meetingLink: string;
+        recordingLink?: string;
         platform: string;
         scheduledDate: Date;
         startTime: string;
@@ -86,12 +87,13 @@ export class SessionService {
                 title: data.title,
                 description: data.description,
                 meetingLink: data.meetingLink,
+                recordingLink: data.recordingLink,
                 hostId: data.createdBy,
                 startAt: this.combineDateTime(data.scheduledDate, data.startTime),
                 endAt: this.combineDateTime(data.scheduledDate, data.endTime),
                 programTrack: data.programTrack,
             },
-            include: { host: { select: { id: true, firstName: true, lastName: true } } },
+            include: { host: { select: { id: true, firstName: true, lastName: true, email: true, profilePicture: true } } },
         });
 
         const recipientUserIds = await notificationService.getActiveRevieweeIds(session.programTrack || undefined);
@@ -113,6 +115,7 @@ export class SessionService {
         title?: string;
         description?: string;
         meetingLink?: string;
+        recordingLink?: string;
         platform?: string;
         scheduledDate?: Date;
         startTime?: string;
@@ -138,11 +141,12 @@ export class SessionService {
                 title: data.title,
                 description: data.description,
                 meetingLink: data.meetingLink,
+                recordingLink: data.recordingLink,
                 programTrack: data.programTrack,
                 startAt,
                 endAt,
             },
-            include: { host: { select: { id: true, firstName: true, lastName: true } } },
+            include: { host: { select: { id: true, firstName: true, lastName: true, email: true, profilePicture: true } } },
         });
 
         const recipientUserIds = await notificationService.getActiveRevieweeIds(updated.programTrack || undefined);

@@ -144,7 +144,7 @@ export class AuthService {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user with ACTIVE status
+        // New self-registered reviewees must verify email first.
         const user = await prisma.user.create({
             data: {
                 firstName: resolvedName.firstName,
@@ -154,7 +154,7 @@ export class AuthService {
                 email: email.toLowerCase(),
                 passwordHash: hashedPassword,
                 role: 'REVIEWEE',
-                status: 'ACTIVE',
+                status: 'PENDING',
                 trackId: resolvedTrack?.id,
                 campusId: resolvedCampus?.id,
                 programTrack: resolvedTrack?.name,
@@ -183,7 +183,13 @@ export class AuthService {
             },
         });
 
-        return this.sanitizeUser(user);
+        const verification = this.createVerificationLink(user.id, user.email);
+        console.log(`[Auth] Verification link for ${user.email}: ${verification.verificationUrl}`);
+
+        return {
+            user: this.sanitizeUser(user),
+            verificationUrl: verification.verificationUrl,
+        };
     }
 
     /**
@@ -220,20 +226,8 @@ export class AuthService {
             throw ApiError.unauthorized('Invalid email or password');
         }
 
-        // Auto-activate legacy pending accounts (verification flow disabled)
         if (user.status === 'PENDING') {
-            user = await prisma.user.update({
-                where: { id: user.id },
-                data: { status: 'ACTIVE' },
-                include: {
-                    track: {
-                        select: { id: true, name: true, code: true },
-                    },
-                    campus: {
-                        select: { id: true, name: true, code: true },
-                    },
-                },
-            });
+            throw ApiError.forbidden('Please verify your email before logging in');
         }
 
         const currentStatus = user.status as string;
@@ -363,18 +357,7 @@ export class AuthService {
         }
 
         if (user.status === 'PENDING') {
-            user = await prisma.user.update({
-                where: { id: user.id },
-                data: { status: 'ACTIVE' },
-                include: {
-                    track: {
-                        select: { id: true, name: true, code: true },
-                    },
-                    campus: {
-                        select: { id: true, name: true, code: true },
-                    },
-                },
-            });
+            throw ApiError.forbidden('Please verify your email before continuing');
         }
 
         const refreshTokenHash = user.refreshTokenHash;
@@ -431,21 +414,6 @@ export class AuthService {
         });
 
         if (!user) throw ApiError.notFound('User not found');
-
-        if (user.status === 'PENDING') {
-            user = await prisma.user.update({
-                where: { id: user.id },
-                data: { status: 'ACTIVE' },
-                include: {
-                    track: {
-                        select: { id: true, name: true, code: true },
-                    },
-                    campus: {
-                        select: { id: true, name: true, code: true },
-                    },
-                },
-            });
-        }
 
         return this.sanitizeUser(user);
     }

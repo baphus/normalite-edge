@@ -87,6 +87,7 @@ interface WizardState {
     title: string;
     description: string;
     meetingLink: string;
+    recordingLink: string;
     programTracks: string[];
     allPrograms: boolean;
 }
@@ -98,6 +99,7 @@ const INITIAL_WIZARD: WizardState = {
     title: '',
     description: '',
     meetingLink: '',
+    recordingLink: '',
     programTracks: [],
     allPrograms: true,
 };
@@ -137,6 +139,12 @@ const normalizeMeetingLink = (v: string) => {
     const t = v.trim();
     if (!t) return '';
     return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+};
+
+const normalizeOptionalLink = (v: string) => {
+    const t = v.trim();
+    if (!t) return undefined;
+    return normalizeMeetingLink(t);
 };
 
 const toUtcIso = (date: Date) => {
@@ -423,6 +431,7 @@ const CalendarPage: React.FC = () => {
                 title: s.title ?? '',
                 description: s.description ?? '',
                 meetingLink: s.meetingLink ?? '',
+                recordingLink: s.recordingLink ?? '',
                 programTracks: s.programTrack ? [s.programTrack] : [],
                 allPrograms: !s.programTrack,
             });
@@ -445,6 +454,13 @@ const CalendarPage: React.FC = () => {
         if (wizardStep === 3) {
             if (!wizard.title.trim()) errs.title = 'Title is required.';
             if (!wizard.meetingLink.trim()) errs.meetingLink = 'Meeting link is required.';
+            if (wizard.recordingLink.trim()) {
+                try {
+                    new URL(normalizeMeetingLink(wizard.recordingLink));
+                } catch {
+                    errs.recordingLink = 'Recording link must be a valid URL.';
+                }
+            }
             if (!wizard.allPrograms && wizard.programTracks.length === 0)
                 errs.programTracks = 'Select at least one program or choose All Programs.';
         }
@@ -470,6 +486,7 @@ const CalendarPage: React.FC = () => {
                 endTime: wizard.endTime,
                 platform: 'custom',
                 meetingLink: normalizeMeetingLink(wizard.meetingLink),
+                recordingLink: normalizeOptionalLink(wizard.recordingLink),
                 programTrack: wizard.allPrograms ? undefined : wizard.programTracks[0] ?? undefined,
                 programTracks: wizard.allPrograms ? undefined : wizard.programTracks,
                 allPrograms: wizard.allPrograms,
@@ -973,6 +990,22 @@ const CalendarPage: React.FC = () => {
                                 {wizardErrors.meetingLink && <p className="text-xs text-rose-500">{wizardErrors.meetingLink}</p>}
                             </div>
                             <div className="space-y-1.5">
+                                <Label htmlFor="conf-recording-link" className="text-xs font-medium text-gray-600">
+                                    Recording Link <span className="text-gray-400 font-normal">(optional)</span>
+                                </Label>
+                                <div className="relative">
+                                    <LinkIcon size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <Input
+                                        id="conf-recording-link"
+                                        placeholder="https://drive.google.com/..."
+                                        value={wizard.recordingLink}
+                                        onChange={e => setWizard(w => ({ ...w, recordingLink: e.target.value }))}
+                                        className="h-9 text-sm pl-8 rounded-lg"
+                                    />
+                                </div>
+                                {wizardErrors.recordingLink && <p className="text-xs text-rose-500">{wizardErrors.recordingLink}</p>}
+                            </div>
+                            <div className="space-y-1.5">
                                 <Label htmlFor="conf-desc" className="text-xs font-medium text-gray-600">
                                     Description <span className="text-gray-400 font-normal">(optional)</span>
                                 </Label>
@@ -1145,6 +1178,17 @@ const EventCard: React.FC<EventCardProps> = ({
                             <ExternalLink size={11} />
                         </a>
                     ) : null}
+                    {event.type === 'conference' && event.meta?.recordingLink ? (
+                        <a
+                            href={String(event.meta.recordingLink)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-6 w-6 rounded flex items-center justify-center text-gray-300 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                            title="View recording"
+                        >
+                            <Video size={11} />
+                        </a>
+                    ) : null}
                     {event.type === 'conference' && canManage && conferenceId && (
                         <>
                             <button
@@ -1183,6 +1227,16 @@ const EventCard: React.FC<EventCardProps> = ({
                     ) : null}
                     {event.meta?.description ? (
                         <p className="text-[10px] text-gray-400 leading-relaxed">{String(event.meta.description)}</p>
+                    ) : null}
+                    {event.meta?.recordingLink ? (
+                        <a
+                            href={String(event.meta.recordingLink)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-semibold text-violet-600 hover:text-violet-700 hover:underline inline-flex items-center gap-1"
+                        >
+                            <ExternalLink size={9} /> View recording
+                        </a>
                     ) : null}
                 </div>
             )}

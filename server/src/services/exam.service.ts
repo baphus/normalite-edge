@@ -440,6 +440,7 @@ export class ExamService {
                                 questionId: true,
                                 isCorrect: true,
                                 answeredAt: true,
+                                elapsedSeconds: true,
                             },
                         },
                     },
@@ -489,6 +490,41 @@ export class ExamService {
             ? Math.round(durationSamples.reduce((sum, value) => sum + value, 0) / durationSamples.length)
             : 0;
 
+        const attemptAnswerAnalytics = exam.attempts.map((attempt) => {
+            const answersByQuestionId = new Map(
+                attempt.answers.map((answer) => [answer.questionId, answer])
+            );
+
+            const elapsedSecondsByQuestionId = new Map<string, number>();
+            const sortedAnswers = [...attempt.answers]
+                .filter((answer) => Boolean(answer.answeredAt))
+                .sort((left, right) => {
+                    const leftTime = left.answeredAt ? left.answeredAt.getTime() : 0;
+                    const rightTime = right.answeredAt ? right.answeredAt.getTime() : 0;
+
+                    if (leftTime === rightTime) {
+                        return left.questionId.localeCompare(right.questionId);
+                    }
+
+                    return leftTime - rightTime;
+                });
+
+            let previousAnsweredAt = attempt.startedAt.getTime();
+            for (const answer of sortedAnswers) {
+                const currentAnsweredAt = answer.answeredAt ? answer.answeredAt.getTime() : previousAnsweredAt;
+                elapsedSecondsByQuestionId.set(
+                    answer.questionId,
+                    Math.max(0, Math.round((currentAnsweredAt - previousAnsweredAt) / 1000)),
+                );
+                previousAnsweredAt = currentAnsweredAt;
+            }
+
+            return {
+                answersByQuestionId,
+                elapsedSecondsByQuestionId,
+            };
+        });
+
         const questionStats = exam.questions.map((question) => {
             let rightCount = 0;
             let wrongCount = 0;
@@ -496,8 +532,8 @@ export class ExamService {
             let answeredCount = 0;
             const answerTimeSamples: number[] = [];
 
-            for (const attempt of exam.attempts) {
-                const answer = attempt.answers.find((item) => item.questionId === question.id);
+            for (const attempt of attemptAnswerAnalytics) {
+                const answer = attempt.answersByQuestionId.get(question.id);
                 if (!answer) {
                     continue;
                 }
@@ -511,13 +547,13 @@ export class ExamService {
                     wrongCount += 1;
                 }
 
-                if (answer.answeredAt) {
-                    const secondsToAnswer = Math.max(
-                        0,
-                        Math.round((answer.answeredAt.getTime() - attempt.startedAt.getTime()) / 1000),
-                    );
-                    answerTimeSamples.push(secondsToAnswer);
+                const secondsToAnswer = typeof answer.elapsedSeconds === 'number'
+                    ? Math.max(0, Math.round(answer.elapsedSeconds))
+                    : (answer.answeredAt ? attempt.elapsedSecondsByQuestionId.get(question.id) : undefined);
+                if (typeof secondsToAnswer !== 'number') {
+                    continue;
                 }
+                answerTimeSamples.push(secondsToAnswer);
             }
 
             const averageAnswerSeconds = answerTimeSamples.length > 0
@@ -539,7 +575,20 @@ export class ExamService {
 
         const slowestQuestion = questionStats
             .filter((question) => question.averageAnswerSeconds !== null)
-            .sort((left, right) => (right.averageAnswerSeconds || 0) - (left.averageAnswerSeconds || 0))[0] || null;
+            .sort((left, right) => {
+                const rightTime = right.averageAnswerSeconds ?? -1;
+                const leftTime = left.averageAnswerSeconds ?? -1;
+
+                if (rightTime !== leftTime) {
+                    return rightTime - leftTime;
+                }
+
+                if (right.answeredCount !== left.answeredCount) {
+                    return right.answeredCount - left.answeredCount;
+                }
+
+                return left.orderNo - right.orderNo;
+            })[0] || null;
 
         return {
             examStatus: {

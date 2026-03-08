@@ -14,6 +14,7 @@ router.get('/', attemptController.listAttempts);
 router.get('/:id/result', attemptController.getAttemptResult);
 router.get('/:id', attemptController.getAttemptReview);
 router.post('/', authorize('REVIEWEE'), validate(startAttemptSchema), attemptController.startAttempt);
+router.post('/:id/tab-violation', authorize('REVIEWEE'), attemptController.resetAttemptForTabViolation);
 router.patch('/:id/save', authorize('REVIEWEE'), validate(saveAttemptSchema), attemptController.saveAttempt);
 router.put('/:id', authorize('REVIEWEE'), validate(submitAttemptSchema), attemptController.submitAttempt);
 

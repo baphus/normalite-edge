@@ -54,6 +54,16 @@ const LoginPage: React.FC = () => {
         } catch (err: unknown) {
             if (isAxiosError<ApiErrorResponse>(err)) {
                 const message = err.response?.data?.message ?? err.message;
+                const isPendingVerification = err.response?.status === 403
+                    && message.toLowerCase().includes('verify your email');
+
+                if (isPendingVerification) {
+                    navigate('/pending', {
+                        state: { email: data.email.trim().toLowerCase() },
+                    });
+                    return;
+                }
+
                 setError(message);
             } else if (err instanceof Error) {
                 setError(err.message);

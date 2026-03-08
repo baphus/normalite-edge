@@ -441,13 +441,15 @@ const ManageExamViewPage: React.FC = () => {
     const enrichedQuestionStats = useMemo(() => {
         return questionStats
             .map((question) => {
+                const attemptedCount = question.rightCount + question.wrongCount;
                 const totalResponses = question.rightCount + question.wrongCount + question.unansweredCount;
-                const wrongRate = totalResponses > 0 ? (question.wrongCount / totalResponses) * 100 : 0;
-                const correctRate = totalResponses > 0 ? (question.rightCount / totalResponses) * 100 : 0;
+                const wrongRate = attemptedCount > 0 ? (question.wrongCount / attemptedCount) * 100 : 0;
+                const correctRate = attemptedCount > 0 ? (question.rightCount / attemptedCount) * 100 : 0;
                 const unansweredRate = totalResponses > 0 ? (question.unansweredCount / totalResponses) * 100 : 0;
 
                 return {
                     ...question,
+                    attemptedCount,
                     totalResponses,
                     wrongRate,
                     correctRate,
@@ -458,11 +460,19 @@ const ManageExamViewPage: React.FC = () => {
 
     const rankedQuestionStats = useMemo(() => {
         return enrichedQuestionStats.slice().sort((left, right) => {
+            const rightHasAnswers = right.attemptedCount > 0 ? 1 : 0;
+            const leftHasAnswers = left.attemptedCount > 0 ? 1 : 0;
+            if (rightHasAnswers !== leftHasAnswers) {
+                return rightHasAnswers - leftHasAnswers;
+            }
             if (right.wrongRate !== left.wrongRate) {
                 return right.wrongRate - left.wrongRate;
             }
             if (right.wrongCount !== left.wrongCount) {
                 return right.wrongCount - left.wrongCount;
+            }
+            if (right.attemptedCount !== left.attemptedCount) {
+                return right.attemptedCount - left.attemptedCount;
             }
             if (left.correctRate !== right.correctRate) {
                 return left.correctRate - right.correctRate;
@@ -478,16 +488,24 @@ const ManageExamViewPage: React.FC = () => {
 
         if (questionSortMode === 'slowest') {
             return enrichedQuestionStats.slice().sort((left, right) => {
-                const rightTime = right.averageAnswerSeconds || 0;
-                const leftTime = left.averageAnswerSeconds || 0;
+                const rightTime = typeof right.averageAnswerSeconds === 'number' ? right.averageAnswerSeconds : -1;
+                const leftTime = typeof left.averageAnswerSeconds === 'number' ? left.averageAnswerSeconds : -1;
                 if (rightTime !== leftTime) {
                     return rightTime - leftTime;
+                }
+                const rightHasAnswers = right.attemptedCount > 0 ? 1 : 0;
+                const leftHasAnswers = left.attemptedCount > 0 ? 1 : 0;
+                if (rightHasAnswers !== leftHasAnswers) {
+                    return rightHasAnswers - leftHasAnswers;
                 }
                 if (right.wrongRate !== left.wrongRate) {
                     return right.wrongRate - left.wrongRate;
                 }
                 if (right.wrongCount !== left.wrongCount) {
                     return right.wrongCount - left.wrongCount;
+                }
+                if (right.attemptedCount !== left.attemptedCount) {
+                    return right.attemptedCount - left.attemptedCount;
                 }
                 if (left.correctRate !== right.correctRate) {
                     return left.correctRate - right.correctRate;
@@ -499,7 +517,7 @@ const ManageExamViewPage: React.FC = () => {
         return rankedQuestionStats;
     }, [enrichedQuestionStats, questionSortMode, rankedQuestionStats]);
 
-    const hardestQuestion = rankedQuestionStats[0] || null;
+    const hardestQuestion = rankedQuestionStats.find((question) => question.attemptedCount > 0) || null;
 
     const submissionBreakdown = useMemo(() => {
         const total = attempts.length || 1;
@@ -1023,7 +1041,7 @@ const ManageExamViewPage: React.FC = () => {
                                 </div>
 
                                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Hardest Questions Snapshot</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Hardest Questions (Answered Attempts)</p>
                                     <div className="mt-2 space-y-1.5">
                                         {questionDifficultySnapshot.length === 0 ? (
                                             <p className="text-xs font-semibold text-gray-500">No question analytics yet.</p>
@@ -1032,7 +1050,7 @@ const ManageExamViewPage: React.FC = () => {
                                                 <div key={question.questionId} className="space-y-1">
                                                     <div className="flex items-center justify-between text-[11px]">
                                                         <span className="font-black text-gray-700">Q{question.orderNo}</span>
-                                                        <span className="font-black text-rose-700">{question.wrongRate.toFixed(0)}% wrong</span>
+                                                        <span className="font-black text-rose-700">{question.wrongRate.toFixed(0)}% wrong of answered</span>
                                                     </div>
                                                     <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                                                         <div className="h-full bg-rose-500" style={{ width: `${Math.min(question.wrongRate, 100)}%` }} />
@@ -1182,7 +1200,7 @@ const ManageExamViewPage: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div className="rounded-xl border border-gray-100 p-3 bg-gray-50/60">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Hardest Question Right Now</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Hardest Question Right Now (Answered Attempts)</p>
                                     <p className="text-sm font-black text-gray-900 mt-1">
                                         {hardestQuestion ? `Question ${hardestQuestion.orderNo}` : 'N/A'}
                                     </p>
@@ -1190,13 +1208,13 @@ const ManageExamViewPage: React.FC = () => {
                                         {hardestQuestion ? truncateQuestion(hardestQuestion.questionText, 88) : 'No submitted question analytics yet.'}
                                     </p>
                                     <p className="text-xs font-black text-rose-700 mt-2">
-                                        {hardestQuestion ? `${hardestQuestion.wrongRate.toFixed(1)}% wrong answers` : 'N/A'}
+                                        {hardestQuestion ? `${hardestQuestion.wrongRate.toFixed(1)}% wrong of answered attempts` : 'N/A'}
                                     </p>
                                 </div>
                                 <div className="rounded-xl border border-gray-100 p-3 bg-gray-50/60">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">How To Read This</p>
                                     <p className="text-xs font-semibold text-gray-600 mt-1 leading-relaxed">
-                                        Each row shows the exact count of students who answered correctly, answered incorrectly, or skipped the question, plus a visual distribution bar.
+                                        Hardest ranking uses wrong rate among answered attempts only. Each row still shows the full mix: right, wrong, and unanswered counts.
                                     </p>
                                 </div>
                             </div>

@@ -52,6 +52,8 @@ const SettingsPage: React.FC = () => {
 
     // System settings state
     const [allowMultipleAttempts, setAllowMultipleAttempts] = useState(false);
+    const [enforceExamSingleTab, setEnforceExamSingleTab] = useState(false);
+    const [tabSwitchGraceSeconds, setTabSwitchGraceSeconds] = useState(5);
     const [systemLoading, setSystemLoading] = useState(false);
     const [systemSaving, setSystemSaving] = useState(false);
     const [settingsUpdatedAt, setSettingsUpdatedAt] = useState<string | null>(null);
@@ -63,6 +65,8 @@ const SettingsPage: React.FC = () => {
             try {
                 const response = await api.get('/settings/system');
                 setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
+                setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
+                setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
                 setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
             } catch (error) {
                 console.error('Failed to fetch system settings', error);
@@ -78,14 +82,71 @@ const SettingsPage: React.FC = () => {
         setAllowMultipleAttempts(checked);
         setSystemSaving(true);
         try {
-            const response = await api.patch('/settings/system', { allowMultipleAttempts: checked });
+            const response = await api.patch('/settings/system', {
+                allowMultipleAttempts: checked,
+                enforceExamSingleTab,
+                tabSwitchGraceSeconds,
+            });
             setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
+            setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
+            setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
             setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
             toast.success(checked ? 'Multiple attempts enabled.' : 'Multiple attempts disabled.');
         } catch (error) {
             console.error('Failed to update multiple attempts setting', error);
             setAllowMultipleAttempts(previousValue);
             toast.error('Failed to update multiple attempts setting. Please try again.');
+        } finally {
+            setSystemSaving(false);
+        }
+    };
+
+    const handleToggleEnforceExamSingleTab = async (checked: boolean) => {
+        const previousValue = enforceExamSingleTab;
+        setEnforceExamSingleTab(checked);
+        setSystemSaving(true);
+        try {
+            const response = await api.patch('/settings/system', {
+                allowMultipleAttempts,
+                enforceExamSingleTab: checked,
+                tabSwitchGraceSeconds,
+            });
+            setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
+            setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
+            setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
+            setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
+            toast.success(checked ? 'Exam focus lock enabled.' : 'Exam focus lock disabled.');
+        } catch (error) {
+            console.error('Failed to update exam focus lock setting', error);
+            setEnforceExamSingleTab(previousValue);
+            toast.error('Failed to update exam focus lock setting. Please try again.');
+        } finally {
+            setSystemSaving(false);
+        }
+    };
+
+    const handleTabSwitchGraceSecondsChange = (raw: string) => {
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return;
+        setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Math.round(parsed))));
+    };
+
+    const handleTabSwitchGraceSecondsBlur = async () => {
+        setSystemSaving(true);
+        try {
+            const response = await api.patch('/settings/system', {
+                allowMultipleAttempts,
+                enforceExamSingleTab,
+                tabSwitchGraceSeconds,
+            });
+            setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
+            setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
+            setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
+            setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
+            toast.success('Tab switch countdown updated.');
+        } catch (error) {
+            console.error('Failed to update tab switch countdown', error);
+            toast.error('Failed to update tab switch countdown. Please try again.');
         } finally {
             setSystemSaving(false);
         }
@@ -426,7 +487,7 @@ const SettingsPage: React.FC = () => {
                                         </div>
                                     ) : (
                                         <div className="p-5">
-                                            <div className="flex items-start justify-between gap-6">
+                                            <div className="flex items-start justify-between gap-6 pb-5 border-b border-gray-100">
                                                 <div className="space-y-1.5 flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <ToggleRight size={15} className="text-gray-400 shrink-0" />
@@ -465,6 +526,64 @@ const SettingsPage: React.FC = () => {
                                                     disabled={systemLoading || systemSaving}
                                                     className="data-[state=checked]:bg-primary shrink-0 mt-1"
                                                 />
+                                            </div>
+
+                                            <div className="flex items-start justify-between gap-6 pt-5">
+                                                <div className="space-y-1.5 flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <MonitorSmartphone size={15} className="text-gray-400 shrink-0" />
+                                                        <p className="text-sm font-black text-gray-900">Enforce Single-Tab Exam Focus</p>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 font-medium leading-relaxed pl-5">
+                                                        When <strong>enabled</strong>, switching to another browser tab during an exam immediately resets the current attempt to the beginning and clears all saved answers.
+                                                    </p>
+                                                    <div className="flex items-center gap-2 pl-5 pt-1">
+                                                        <Badge
+                                                            className={cn(
+                                                                'border-none font-black text-[9px] uppercase tracking-widest px-2 py-1',
+                                                                enforceExamSingleTab
+                                                                    ? 'bg-red-50 text-red-600'
+                                                                    : 'bg-gray-100 text-gray-500',
+                                                            )}
+                                                        >
+                                                            {enforceExamSingleTab ? 'Enabled' : 'Disabled'}
+                                                        </Badge>
+                                                        {systemSaving && (
+                                                            <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-widest text-gray-400">
+                                                                <RefreshCw size={9} className="animate-spin" /> Saving...
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <Switch
+                                                    checked={enforceExamSingleTab}
+                                                    onCheckedChange={(v) => void handleToggleEnforceExamSingleTab(v)}
+                                                    disabled={systemLoading || systemSaving}
+                                                    className="data-[state=checked]:bg-red-600 shrink-0 mt-1"
+                                                />
+                                            </div>
+
+                                            <div className="pt-5 mt-5 border-t border-gray-100">
+                                                <div className="space-y-2">
+                                                    <p className="text-sm font-black text-gray-900">Tab Switch Countdown (Seconds)</p>
+                                                    <p className="text-xs text-gray-500 font-medium">
+                                                        Set how long reviewees have to return to the exam tab before their attempt resets.
+                                                    </p>
+                                                    <div className="max-w-45">
+                                                        <Input
+                                                            type="number"
+                                                            min={1}
+                                                            max={30}
+                                                            step={1}
+                                                            value={tabSwitchGraceSeconds}
+                                                            onChange={(e) => handleTabSwitchGraceSecondsChange(e.target.value)}
+                                                            onBlur={() => void handleTabSwitchGraceSecondsBlur()}
+                                                            disabled={systemLoading || systemSaving}
+                                                            className="h-10"
+                                                        />
+                                                    </div>
+                                                    <p className="text-[11px] text-gray-400 font-medium">Allowed range: 1 to 30 seconds.</p>
+                                                </div>
                                             </div>
                                         </div>
                                     )}

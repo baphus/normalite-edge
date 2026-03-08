@@ -27,6 +27,14 @@ export const attemptController = {
         ApiResponse.success(res, attempt, 'Attempt progress saved');
     }),
 
+    resetAttemptForTabViolation: catchAsync(async (req: Request, res: Response) => {
+        const attempt = await attemptService.resetAttemptForTabViolation(
+            req.params.id as string,
+            req.user!.userId,
+        );
+        ApiResponse.success(res, attempt, 'Attempt reset due to tab switch violation');
+    }),
+
     listAttempts: catchAsync(async (req: Request, res: Response) => {
         const { page, limit, examId } = req.query;
         const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'REVIEWER';

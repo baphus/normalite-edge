@@ -11,7 +11,7 @@ export const authController = {
      */
     register: catchAsync(async (req: Request, res: Response) => {
         const result = await authService.register(req.body);
-        ApiResponse.created(res, result, 'Registration successful. Your account is now active.');
+        ApiResponse.created(res, result, 'Registration successful. Please verify your email to activate your account.');
     }),
 
     /**

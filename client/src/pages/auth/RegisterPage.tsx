@@ -6,7 +6,6 @@ import * as z from 'zod';
 import { isAxiosError } from 'axios';
 import { Mail, Lock, ArrowRight, ShieldCheck, UserRound } from 'lucide-react';
 import api from '@/lib/axios';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,7 +56,6 @@ const RegisterPage: React.FC = () => {
     const [tracksLoading, setTracksLoading] = useState(true);
     const [campusesLoading, setCampusesLoading] = useState(true);
     const navigate = useNavigate();
-    const { login } = useAuth();
 
     const {
         register,
@@ -111,7 +109,7 @@ const RegisterPage: React.FC = () => {
         setError(null);
 
         try {
-            await api.post('/auth/register', {
+            const response = await api.post('/auth/register', {
                 firstName: data.firstName.trim(),
                 lastName: data.lastName.trim(),
                 middleInitial: data.middleInitial?.trim() || undefined,
@@ -124,13 +122,13 @@ const RegisterPage: React.FC = () => {
                 section: data.section.trim(),
             });
 
-            const loginResponse = await api.post('/auth/login', {
-                email: data.email.trim().toLowerCase(),
-                password: data.password,
+            const verificationUrl = response.data?.data?.verificationUrl as string | undefined;
+            navigate('/pending', {
+                state: {
+                    email: data.email.trim().toLowerCase(),
+                    verificationUrl,
+                },
             });
-            const { accessToken, user } = loginResponse.data.data;
-            login(accessToken, user);
-            navigate('/dashboard');
         } catch (err: unknown) {
             if (isAxiosError<ApiErrorResponse>(err)) {
                 setError(err.response?.data?.message ?? err.message);

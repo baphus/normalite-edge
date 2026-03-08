@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -38,11 +39,12 @@ interface Session {
     title: string;
     description?: string;
     meetingLink?: string;
+    recordingLink?: string;
     scheduledDate: string;
     startTime: string;
     endTime: string;
     programTrack?: string | null;
-    creator?: { id?: string; name: string };
+    creator?: { id?: string; name: string; email?: string | null; profilePicture?: string | null };
 }
 
 /* ------------------------------------------------------------------ */
@@ -75,6 +77,7 @@ interface WizardState {
     title: string;
     description: string;
     meetingLink: string;
+    recordingLink: string;
     programTracks: string[];
     allPrograms: boolean;
 }
@@ -86,6 +89,7 @@ const INITIAL_WIZARD: WizardState = {
     title: '',
     description: '',
     meetingLink: '',
+    recordingLink: '',
     programTracks: [],
     allPrograms: true,
 };
@@ -113,6 +117,7 @@ const mapSession = (s: any): Session => {
         title: s.title,
         description: s.description,
         meetingLink: s.meetingLink,
+        recordingLink: s.recordingLink,
         scheduledDate,
         startTime: startAt
             ? `${startAt.getHours().toString().padStart(2, '0')}:${startAt.getMinutes().toString().padStart(2, '0')}`
@@ -152,6 +157,14 @@ const calcDuration = (start: string, end: string): string => {
     return `${h}h ${m}m`;
 };
 
+const initialsFromName = (name?: string) => {
+    if (!name) return 'NA';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'NA';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+};
+
 const isValidTimeHHMM = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
 const normalizeMeetingLink = (value: string) => {
@@ -159,6 +172,12 @@ const normalizeMeetingLink = (value: string) => {
     if (!trimmed) return '';
     const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
     return withProtocol;
+};
+
+const normalizeOptionalLink = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    return normalizeMeetingLink(trimmed);
 };
 
 const toUtcMidnightIso = (date: Date) => {
@@ -374,16 +393,17 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, dimmed, canManage, c
                     {session.programTrack}
                 </Badge>
             )}
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onView}
+                className="h-8 rounded-md text-xs font-semibold gap-1.5 px-3"
+            >
+                <Eye size={12} /> View
+            </Button>
             {canManage && (
                 <div className="flex items-center gap-0.5">
-                    <button
-                        type="button"
-                        onClick={onView}
-                        title="View details"
-                        className="h-7 w-7 rounded-md flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/8 transition-colors"
-                    >
-                        <Eye size={13} />
-                    </button>
                     <button
                         type="button"
                         onClick={onEdit}
@@ -557,6 +577,7 @@ const VideoConferencePage: React.FC = () => {
             title: session.title,
             description: session.description || '',
             meetingLink: session.meetingLink || '',
+            recordingLink: session.recordingLink || '',
             programTracks: tracks,
             allPrograms: tracks.length === 0,
         });
@@ -597,11 +618,21 @@ const VideoConferencePage: React.FC = () => {
         }
 
         const normalizedMeetingLink = normalizeMeetingLink(wizard.meetingLink);
+        const normalizedRecordingLink = normalizeOptionalLink(wizard.recordingLink);
         try {
             new URL(normalizedMeetingLink);
         } catch {
             setCreateError('Please enter a valid meeting link (e.g. https://meet.google.com/...).');
             return;
+        }
+
+        if (normalizedRecordingLink) {
+            try {
+                new URL(normalizedRecordingLink);
+            } catch {
+                setCreateError('Please enter a valid recording link (e.g. https://drive.google.com/...).');
+                return;
+            }
         }
 
         setCreating(true);
@@ -615,6 +646,7 @@ const VideoConferencePage: React.FC = () => {
                 title: wizard.title.trim(),
                 description: wizard.description.trim() || undefined,
                 meetingLink: normalizedMeetingLink,
+                recordingLink: normalizedRecordingLink,
                 platform: 'ONLINE',
                 scheduledDate: scheduledDateIso,
                 startTime: wizard.startTime,
@@ -883,6 +915,24 @@ const VideoConferencePage: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* Recording Link */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                        Recording Link{' '}
+                                        <span className="text-gray-300 font-medium normal-case tracking-normal">(optional)</span>
+                                    </Label>
+                                    <div className="relative">
+                                        <LinkIcon size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                        <Input
+                                            type="url"
+                                            value={wizard.recordingLink}
+                                            onChange={(e) => setWizard((prev) => ({ ...prev, recordingLink: e.target.value }))}
+                                            placeholder="https://drive.google.com/..."
+                                            className="h-9 rounded-md text-sm pl-8"
+                                        />
+                                    </div>
+                                </div>
+
                                 {/* Description */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
@@ -1041,9 +1091,27 @@ const VideoConferencePage: React.FC = () => {
 
                                 {/* Host */}
                                 {viewingSession?.creator?.name && (
-                                    <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500">
-                                        <Users2 size={11} />
-                                        Hosted by <span className="font-semibold text-gray-700">{viewingSession.creator.id && user?.role === 'REVIEWER' && viewingSession.creator.id === user?.id ? 'You' : viewingSession.creator.name}</span>
+                                    <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2.5">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Author</p>
+                                        <div className="flex items-center gap-2.5">
+                                            <Avatar className="h-8 w-8 border border-gray-200">
+                                                <AvatarImage
+                                                    src={viewingSession.creator.profilePicture ?? undefined}
+                                                    alt={viewingSession.creator.name}
+                                                />
+                                                <AvatarFallback className="text-[10px] font-semibold">
+                                                    {initialsFromName(viewingSession.creator.name)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <p className="text-[12px] font-semibold text-gray-700 truncate">
+                                                    {viewingSession.creator.id && user?.role === 'REVIEWER' && viewingSession.creator.id === user?.id ? 'You' : viewingSession.creator.name}
+                                                </p>
+                                                {viewingSession.creator.email && (
+                                                    <p className="text-[11px] text-gray-500 truncate">{viewingSession.creator.email}</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
@@ -1078,6 +1146,21 @@ const VideoConferencePage: React.FC = () => {
                                         </a>
                                     </div>
                                 )}
+
+                                {/* Recording Link */}
+                                {viewingSession?.recordingLink && (
+                                    <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2">
+                                        <LinkIcon size={11} className="text-gray-400 shrink-0" />
+                                        <a
+                                            href={viewingSession.recordingLink}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-[11px] font-semibold text-primary hover:underline truncate"
+                                        >
+                                            {viewingSession.recordingLink}
+                                        </a>
+                                    </div>
+                                )}
                             </div>
                         </DialogDescription>
                     </DialogHeader>
@@ -1094,6 +1177,13 @@ const VideoConferencePage: React.FC = () => {
                             <a href={viewingSession.meetingLink} target="_blank" rel="noreferrer">
                                 <Button size="sm" className="h-8 rounded-md bg-primary hover:bg-primary/90 text-white font-semibold text-xs gap-1.5 px-3">
                                     Join <ExternalLink size={12} />
+                                </Button>
+                            </a>
+                        )}
+                        {viewingSession?.recordingLink && (
+                            <a href={viewingSession.recordingLink} target="_blank" rel="noreferrer">
+                                <Button variant="outline" size="sm" className="h-8 rounded-md text-xs font-semibold gap-1.5 px-3">
+                                    Recording <ExternalLink size={12} />
                                 </Button>
                             </a>
                         )}

@@ -7,29 +7,45 @@ export class AttemptService {
     private readonly defaultMultipleAttemptsLimit = 3;
     private readonly defaultSectionTitle = 'Main section';
 
-    private async getAllowMultipleAttempts() {
+    private async getSystemSettings() {
         try {
-            const rows = await prisma.$queryRaw<Array<{ allow_multiple_attempts: boolean }>>`
-                SELECT allow_multiple_attempts
+            const rows = await prisma.$queryRaw<Array<{
+                allow_multiple_attempts: boolean;
+                enforce_exam_single_tab: boolean;
+                tab_switch_grace_seconds: number;
+            }>>`
+                SELECT allow_multiple_attempts, enforce_exam_single_tab, tab_switch_grace_seconds
                 FROM system_settings
                 WHERE id = 1
                 LIMIT 1
             `;
 
             if (rows.length > 0) {
-                return Boolean(rows[0].allow_multiple_attempts);
+                return {
+                    allowMultipleAttempts: Boolean(rows[0].allow_multiple_attempts),
+                    enforceExamSingleTab: Boolean(rows[0].enforce_exam_single_tab),
+                    tabSwitchGraceSeconds: Math.max(1, Math.min(30, Math.round(Number(rows[0].tab_switch_grace_seconds || 5)))),
+                };
             }
 
             await prisma.$executeRaw`
-                INSERT INTO system_settings (id, allow_multiple_attempts)
-                VALUES (1, false)
+                INSERT INTO system_settings (id, allow_multiple_attempts, enforce_exam_single_tab, tab_switch_grace_seconds)
+                VALUES (1, false, false, 5)
                 ON CONFLICT (id) DO NOTHING
             `;
 
-            return false;
+            return {
+                allowMultipleAttempts: false,
+                enforceExamSingleTab: false,
+                tabSwitchGraceSeconds: 5,
+            };
         } catch (error) {
-            console.error('Failed to read system settings, defaulting allowMultipleAttempts=false', error);
-            return false;
+            console.error('Failed to read system settings, defaulting to safe values', error);
+            return {
+                allowMultipleAttempts: false,
+                enforceExamSingleTab: false,
+                tabSwitchGraceSeconds: 5,
+            };
         }
     }
 
@@ -47,6 +63,26 @@ export class AttemptService {
                 status: 'CLOSED',
             },
         });
+    }
+
+    private computeRemainingSeconds(endsAt: Date) {
+        return Math.max(0, Math.floor((endsAt.getTime() - Date.now()) / 1000));
+    }
+
+    private computeTimeSpentSeconds(startedAt: Date, endsAt: Date) {
+        const cappedNow = Math.min(Date.now(), endsAt.getTime());
+        return Math.max(0, Math.round((cappedNow - startedAt.getTime()) / 1000));
+    }
+
+    private clampCurrentQuestionIndex(currentQuestionIndex: unknown, questionCount: number) {
+        const numeric = Number(currentQuestionIndex);
+        if (!Number.isFinite(numeric)) return null;
+
+        const rounded = Math.round(numeric);
+        if (rounded < 0) return 0;
+        if (questionCount <= 0) return 0;
+
+        return Math.min(rounded, Math.max(questionCount - 1, 0));
     }
 
     private normalizeExam(exam: any) {
@@ -83,8 +119,22 @@ export class AttemptService {
         }));
     }
 
-    private normalizeAttemptPayload(attempt: any) {
+    private normalizeAttemptPayload(
+        attempt: any,
+        options?: { enforceExamSingleTab?: boolean; tabSwitchGraceSeconds?: number },
+    ) {
+        const computedRemainingSeconds = attempt.status === 'IN_PROGRESS'
+            ? this.computeRemainingSeconds(attempt.endsAt)
+            : Math.max(0, Number(attempt.remainingSeconds || 0));
         const answersMap = Object.fromEntries((attempt.answers || []).map((answer: any) => [answer.questionId, answer.selectedChoice]));
+        const answerMeta = Object.fromEntries((attempt.answers || []).map((answer: any) => [
+            answer.questionId,
+            {
+                viewedAt: answer.viewedAt ? answer.viewedAt.toISOString() : null,
+                answeredAt: answer.answeredAt ? answer.answeredAt.toISOString() : null,
+                elapsedSeconds: typeof answer.elapsedSeconds === 'number' ? answer.elapsedSeconds : null,
+            },
+        ]));
 
         return {
             id: attempt.id,
@@ -93,9 +143,12 @@ export class AttemptService {
             attemptNo: attempt.attemptNo,
             status: attempt.status,
             startedAt: attempt.startedAt,
+            endsAt: attempt.endsAt,
             submittedAt: attempt.submittedAt,
             lastSavedAt: attempt.lastSavedAt,
-            remainingSeconds: attempt.remainingSeconds,
+            lastActivityAt: attempt.lastActivityAt,
+            currentQuestionIndex: attempt.currentQuestionIndex,
+            remainingSeconds: computedRemainingSeconds,
             timeSpentSeconds: attempt.timeSpentSeconds,
             score: attempt.score,
             percentage: Number(attempt.percentage || 0),
@@ -105,6 +158,9 @@ export class AttemptService {
                 questions: this.normalizeAttemptQuestions(attempt.exam?.questions || []),
             },
             answers: answersMap,
+            answerMeta,
+            enforceExamSingleTab: Boolean(options?.enforceExamSingleTab),
+            tabSwitchGraceSeconds: Math.max(1, Math.min(30, Math.round(Number(options?.tabSwitchGraceSeconds || 5)))),
         };
     }
 
@@ -117,7 +173,149 @@ export class AttemptService {
         }
     }
 
-    private resolveAnsweredAt(existingAnswer: { selectedChoice: string; answeredAt: Date | null } | undefined, normalizedChoice: string) {
+    private parseClientAnsweredAt(raw: unknown, startedAt: Date) {
+        if (typeof raw !== 'string' || !raw.trim()) return null;
+
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) return null;
+
+        const startedAtMs = startedAt.getTime() - 5000;
+        const nowMs = Date.now() + 5000;
+        const parsedMs = parsed.getTime();
+
+        if (parsedMs < startedAtMs || parsedMs > nowMs) return null;
+        return parsed;
+    }
+
+    private parseClientViewedAt(raw: unknown, startedAt: Date) {
+        if (typeof raw !== 'string' || !raw.trim()) return null;
+
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) return null;
+
+        const startedAtMs = startedAt.getTime() - 5000;
+        const nowMs = Date.now() + 5000;
+        const parsedMs = parsed.getTime();
+
+        if (parsedMs < startedAtMs || parsedMs > nowMs) return null;
+        return parsed;
+    }
+
+    private parseClientElapsedSeconds(raw: unknown) {
+        const numeric = Number(raw);
+        if (!Number.isFinite(numeric)) return null;
+
+        const rounded = Math.round(numeric);
+        if (rounded < 0) return null;
+
+        return rounded;
+    }
+
+    private resolveElapsedSeconds(
+        existingAnswer: { elapsedSeconds?: number | null } | undefined,
+        clientElapsedSeconds: number | null,
+    ) {
+        const currentElapsed = typeof existingAnswer?.elapsedSeconds === 'number'
+            ? Math.max(0, Math.round(existingAnswer.elapsedSeconds))
+            : null;
+
+        if (typeof clientElapsedSeconds === 'number') {
+            return currentElapsed !== null
+                ? Math.max(currentElapsed, clientElapsedSeconds)
+                : clientElapsedSeconds;
+        }
+
+        return currentElapsed;
+    }
+
+    private resolveViewedAt(
+        existingAnswer: { viewedAt?: Date | null } | undefined,
+        clientViewedAt: Date | null,
+    ) {
+        if (existingAnswer?.viewedAt) return existingAnswer.viewedAt;
+        return clientViewedAt;
+    }
+
+    private async autoSubmitExpiredAttempt(attemptId: string) {
+        const attempt = await prisma.attempt.findUnique({
+            where: { id: attemptId },
+            include: {
+                exam: { include: { questions: true } },
+                answers: true,
+            },
+        });
+
+        if (!attempt) {
+            throw ApiError.notFound('Attempt not found');
+        }
+
+        if (attempt.status !== 'IN_PROGRESS') {
+            return attempt;
+        }
+
+        const answersByQuestionId = new Map(attempt.answers.map((answer) => [answer.questionId, answer]));
+        const correctCount = attempt.exam.questions.reduce((sum, question) => {
+            const answer = answersByQuestionId.get(question.id);
+            if (!answer) {
+                return sum;
+            }
+
+            const isCorrect = String(answer.selectedChoice || '').toUpperCase() === String(question.correctChoice || '').toUpperCase();
+            return sum + (isCorrect ? 1 : 0);
+        }, 0);
+        const percentage = attempt.exam.questions.length > 0
+            ? (correctCount / attempt.exam.questions.length) * 100
+            : 0;
+
+        await prisma.$transaction(async (tx) => {
+            for (const answer of attempt.answers) {
+                const question = attempt.exam.questions.find((q) => q.id === answer.questionId);
+                if (!question) continue;
+
+                await tx.attemptAnswer.update({
+                    where: { id: answer.id },
+                    data: {
+                        isCorrect: String(answer.selectedChoice || '').toUpperCase() === String(question.correctChoice || '').toUpperCase(),
+                    },
+                });
+            }
+
+            await tx.attempt.update({
+                where: { id: attempt.id },
+                data: {
+                    status: 'SUBMITTED',
+                    submissionType: 'AUTO',
+                    submittedAt: new Date(),
+                    lastSavedAt: new Date(),
+                    lastActivityAt: new Date(),
+                    score: correctCount,
+                    percentage: Math.round(percentage * 100) / 100,
+                    remainingSeconds: 0,
+                    timeSpentSeconds: this.computeTimeSpentSeconds(attempt.startedAt, attempt.endsAt),
+                },
+            });
+        });
+
+        const finalizedAttempt = await prisma.attempt.findUnique({
+            where: { id: attempt.id },
+            include: {
+                exam: { include: { questions: true } },
+                answers: true,
+            },
+        });
+
+        if (!finalizedAttempt) {
+            throw ApiError.notFound('Attempt not found');
+        }
+
+        return finalizedAttempt;
+    }
+
+    private resolveAnsweredAt(
+        existingAnswer: { selectedChoice: string; answeredAt: Date | null } | undefined,
+        normalizedChoice: string,
+        clientAnsweredAt: Date | null,
+    ) {
         if (
             existingAnswer
             && existingAnswer.selectedChoice === normalizedChoice
@@ -126,7 +324,7 @@ export class AttemptService {
             return existingAnswer.answeredAt;
         }
 
-        return new Date();
+        return clientAnsweredAt || new Date();
     }
 
     /**
@@ -134,7 +332,8 @@ export class AttemptService {
      */
     async startAttempt(userId: string, examId: string) {
         await this.closeExamIfExpired(examId);
-        const allowMultipleAttempts = await this.getAllowMultipleAttempts();
+        const settings = await this.getSystemSettings();
+        const allowMultipleAttempts = settings.allowMultipleAttempts;
 
         const exam = await prisma.exam.findUnique({
             where: { id: examId },
@@ -199,7 +398,18 @@ export class AttemptService {
             });
 
             if (existing) {
-                return this.normalizeAttemptPayload(existing);
+                if (this.computeRemainingSeconds(existing.endsAt) <= 0) {
+                    const expiredSubmission = await this.autoSubmitExpiredAttempt(existing.id);
+                    return this.normalizeAttemptPayload(expiredSubmission, {
+                        enforceExamSingleTab: settings.enforceExamSingleTab,
+                        tabSwitchGraceSeconds: settings.tabSwitchGraceSeconds,
+                    });
+                }
+
+                return this.normalizeAttemptPayload(existing, {
+                    enforceExamSingleTab: settings.enforceExamSingleTab,
+                    tabSwitchGraceSeconds: settings.tabSwitchGraceSeconds,
+                });
             }
 
             const latestAttempt = await tx.attempt.findFirst({
@@ -233,7 +443,10 @@ export class AttemptService {
                     examId,
                     attemptNo: nextAttemptNo,
                     status: 'IN_PROGRESS',
+                    endsAt: new Date(Date.now() + exam.timeLimitMinutes * 60 * 1000),
                     lastSavedAt: new Date(),
+                    lastActivityAt: new Date(),
+                    currentQuestionIndex: 0,
                     remainingSeconds: exam.timeLimitMinutes * 60,
                 },
                 include: {
@@ -264,8 +477,110 @@ export class AttemptService {
                 },
             });
 
-            return this.normalizeAttemptPayload(createdAttempt);
+            return this.normalizeAttemptPayload(createdAttempt, {
+                enforceExamSingleTab: settings.enforceExamSingleTab,
+                tabSwitchGraceSeconds: settings.tabSwitchGraceSeconds,
+            });
         });
+    }
+
+    async resetAttemptForTabViolation(attemptId: string, userId: string) {
+        const attempt = await prisma.attempt.findUnique({
+            where: { id: attemptId },
+            include: {
+                exam: {
+                    include: {
+                        questions: {
+                            orderBy: { orderNo: 'asc' },
+                            include: {
+                                section: {
+                                    select: {
+                                        id: true,
+                                        title: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: true,
+            },
+        });
+
+        if (!attempt) throw ApiError.notFound('Attempt not found');
+        if (attempt.userId !== userId) throw ApiError.forbidden('Not your attempt');
+        if (attempt.status !== 'IN_PROGRESS') throw ApiError.badRequest('Cannot reset a submitted attempt');
+
+        await this.closeExamIfExpired(attempt.examId);
+
+        const refreshed = await prisma.attempt.findUnique({
+            where: { id: attemptId },
+            include: {
+                exam: {
+                    include: {
+                        questions: {
+                            orderBy: { orderNo: 'asc' },
+                            include: {
+                                section: {
+                                    select: {
+                                        id: true,
+                                        title: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: true,
+            },
+        });
+
+        if (!refreshed) throw ApiError.notFound('Attempt not found');
+        if (refreshed.exam.status !== 'LIVE') {
+            throw ApiError.forbidden('This exam is not accepting resets right now');
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.attemptAnswer.deleteMany({ where: { attemptId } });
+
+            await tx.attempt.update({
+                where: { id: attemptId },
+                data: {
+                    lastSavedAt: new Date(),
+                    lastActivityAt: new Date(),
+                    currentQuestionIndex: 0,
+                    score: 0,
+                    percentage: 0,
+                    submissionType: 'MANUAL',
+                    submittedAt: null,
+                    remainingSeconds: this.computeRemainingSeconds(refreshed.endsAt),
+                },
+            });
+        });
+
+        const resetAttempt = await prisma.attempt.findUnique({
+            where: { id: attemptId },
+            include: {
+                exam: {
+                    include: {
+                        questions: {
+                            orderBy: { orderNo: 'asc' },
+                            include: {
+                                section: {
+                                    select: {
+                                        id: true,
+                                        title: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: true,
+            },
+        });
+
+        return this.normalizeAttemptPayload(resetAttempt);
     }
 
     /**
@@ -273,6 +588,8 @@ export class AttemptService {
      */
     async submitAttempt(attemptId: string, userId: string, data: {
         answers: Record<string, string>;
+        answerMeta?: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>;
+        currentQuestionIndex?: number;
         timeSpent?: number;
         autoSubmitted?: boolean;
         remainingSeconds?: number;
@@ -308,7 +625,23 @@ export class AttemptService {
         if (!refreshedAttempt) throw ApiError.notFound('Attempt not found');
 
         if (refreshedAttempt.userId !== userId) throw ApiError.forbidden('Not your attempt');
-        if (refreshedAttempt.status !== 'IN_PROGRESS') throw ApiError.badRequest('Attempt already submitted');
+        if (refreshedAttempt.status !== 'IN_PROGRESS') {
+            return {
+                ...refreshedAttempt,
+                exam: this.normalizeExam(refreshedAttempt.exam),
+                answers: Object.fromEntries((refreshedAttempt.answers || []).map((a) => [a.questionId, a.selectedChoice])),
+            };
+        }
+
+        if (this.computeRemainingSeconds(refreshedAttempt.endsAt) <= 0) {
+            const finalized = await this.autoSubmitExpiredAttempt(attemptId);
+            return {
+                ...finalized,
+                exam: this.normalizeExam(finalized.exam),
+                answers: Object.fromEntries((finalized.answers || []).map((a) => [a.questionId, a.selectedChoice])),
+            };
+        }
+
         if (refreshedAttempt.exam.status === 'CLOSED') throw ApiError.forbidden('Submissions are closed for this exam');
         if (refreshedAttempt.exam.status !== 'LIVE') throw ApiError.forbidden('This exam is not accepting submissions');
 
@@ -336,7 +669,15 @@ export class AttemptService {
                 const normalizedChoice = String(selectedChoice || '').trim().toUpperCase();
                 if (!this.validChoices.has(normalizedChoice)) continue;
                 const existingAnswer = refreshedAttempt.answers.find((answer) => answer.questionId === questionId);
-                const answeredAt = this.resolveAnsweredAt(existingAnswer, normalizedChoice);
+                const clientViewedAtRaw = data.answerMeta?.[questionId]?.viewedAt;
+                const clientViewedAt = this.parseClientViewedAt(clientViewedAtRaw, refreshedAttempt.startedAt);
+                const clientAnsweredAtRaw = data.answerMeta?.[questionId]?.answeredAt;
+                const clientAnsweredAt = this.parseClientAnsweredAt(clientAnsweredAtRaw, refreshedAttempt.startedAt);
+                const clientElapsedSecondsRaw = data.answerMeta?.[questionId]?.elapsedSeconds;
+                const clientElapsedSeconds = this.parseClientElapsedSeconds(clientElapsedSecondsRaw);
+                const viewedAt = this.resolveViewedAt(existingAnswer, clientViewedAt);
+                const answeredAt = this.resolveAnsweredAt(existingAnswer, normalizedChoice, clientAnsweredAt);
+                const elapsedSeconds = this.resolveElapsedSeconds(existingAnswer, clientElapsedSeconds);
 
                 await tx.attemptAnswer.upsert({
                     where: {
@@ -348,29 +689,40 @@ export class AttemptService {
                     update: {
                         selectedChoice: normalizedChoice,
                         isCorrect: normalizedChoice === question.correctChoice,
+                        viewedAt,
                         answeredAt,
+                        elapsedSeconds,
                     },
                     create: {
                         attemptId,
                         questionId,
                         selectedChoice: normalizedChoice,
                         isCorrect: normalizedChoice === question.correctChoice,
+                        viewedAt,
                         answeredAt,
+                        elapsedSeconds,
                     },
                 });
             }
+
+            const currentQuestionIndex = this.clampCurrentQuestionIndex(
+                data.currentQuestionIndex,
+                refreshedAttempt.exam.questions.length,
+            );
 
             await tx.attempt.update({
                 where: { id: attemptId },
                 data: {
                     score: correctCount,
                     percentage: Math.round(percentage * 100) / 100,
-                    timeSpentSeconds: Math.max(0, data.timeSpent || 0),
+                    timeSpentSeconds: this.computeTimeSpentSeconds(refreshedAttempt.startedAt, refreshedAttempt.endsAt),
                     submissionType: data.autoSubmitted ? 'AUTO' : 'MANUAL',
                     status: 'SUBMITTED',
                     submittedAt: new Date(),
                     lastSavedAt: new Date(),
-                    remainingSeconds: Math.max(0, data.remainingSeconds || 0),
+                    lastActivityAt: new Date(),
+                    currentQuestionIndex: currentQuestionIndex ?? refreshedAttempt.currentQuestionIndex,
+                    remainingSeconds: this.computeRemainingSeconds(refreshedAttempt.endsAt),
                 },
             });
         });
@@ -450,6 +802,8 @@ export class AttemptService {
 
     async saveAttempt(attemptId: string, userId: string, data: {
         answers?: Record<string, string>;
+        answerMeta?: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>;
+        currentQuestionIndex?: number;
         timeSpent?: number;
         remainingSeconds?: number;
     }) {
@@ -474,6 +828,11 @@ export class AttemptService {
         });
 
         if (!latestAttempt) throw ApiError.notFound('Attempt not found');
+        if (this.computeRemainingSeconds(latestAttempt.endsAt) <= 0) {
+            await this.autoSubmitExpiredAttempt(attemptId);
+            throw ApiError.badRequest('Attempt time expired and was auto-submitted');
+        }
+
         if (latestAttempt.exam.status === 'CLOSED') throw ApiError.forbidden('This exam is already closed');
         if (latestAttempt.exam.status !== 'LIVE') throw ApiError.forbidden('This exam is not accepting saves right now');
 
@@ -489,7 +848,15 @@ export class AttemptService {
                     const normalizedChoice = String(selectedChoice || '').trim().toUpperCase();
                     if (!this.validChoices.has(normalizedChoice)) continue;
                     const existingAnswer = latestAttempt.answers.find((answer) => answer.questionId === questionId);
-                    const answeredAt = this.resolveAnsweredAt(existingAnswer, normalizedChoice);
+                    const clientViewedAtRaw = data.answerMeta?.[questionId]?.viewedAt;
+                    const clientViewedAt = this.parseClientViewedAt(clientViewedAtRaw, latestAttempt.startedAt);
+                    const clientAnsweredAtRaw = data.answerMeta?.[questionId]?.answeredAt;
+                    const clientAnsweredAt = this.parseClientAnsweredAt(clientAnsweredAtRaw, latestAttempt.startedAt);
+                    const clientElapsedSecondsRaw = data.answerMeta?.[questionId]?.elapsedSeconds;
+                    const clientElapsedSeconds = this.parseClientElapsedSeconds(clientElapsedSecondsRaw);
+                    const viewedAt = this.resolveViewedAt(existingAnswer, clientViewedAt);
+                    const answeredAt = this.resolveAnsweredAt(existingAnswer, normalizedChoice, clientAnsweredAt);
+                    const elapsedSeconds = this.resolveElapsedSeconds(existingAnswer, clientElapsedSeconds);
 
                     await tx.attemptAnswer.upsert({
                         where: {
@@ -501,25 +868,36 @@ export class AttemptService {
                         update: {
                             selectedChoice: normalizedChoice,
                             isCorrect: normalizedChoice === question.correctChoice,
+                            viewedAt,
                             answeredAt,
+                            elapsedSeconds,
                         },
                         create: {
                             attemptId,
                             questionId,
                             selectedChoice: normalizedChoice,
                             isCorrect: normalizedChoice === question.correctChoice,
+                            viewedAt,
                             answeredAt,
+                            elapsedSeconds,
                         },
                     });
                 }
             }
 
+            const currentQuestionIndex = this.clampCurrentQuestionIndex(
+                data.currentQuestionIndex,
+                latestAttempt.exam.questions.length,
+            );
+
             await tx.attempt.update({
                 where: { id: attemptId },
                 data: {
-                    timeSpentSeconds: Math.max(0, data.timeSpent ?? latestAttempt.timeSpentSeconds),
-                    remainingSeconds: Math.max(0, data.remainingSeconds ?? latestAttempt.remainingSeconds ?? 0),
+                    timeSpentSeconds: this.computeTimeSpentSeconds(latestAttempt.startedAt, latestAttempt.endsAt),
+                    remainingSeconds: this.computeRemainingSeconds(latestAttempt.endsAt),
                     lastSavedAt: new Date(),
+                    lastActivityAt: new Date(),
+                    currentQuestionIndex: currentQuestionIndex ?? latestAttempt.currentQuestionIndex,
                 },
             });
         });
@@ -532,11 +910,7 @@ export class AttemptService {
             },
         });
 
-        return {
-            ...savedAttempt,
-            exam: this.normalizeExam(savedAttempt?.exam),
-            answers: Object.fromEntries((savedAttempt?.answers || []).map((a) => [a.questionId, a.selectedChoice])),
-        };
+        return this.normalizeAttemptPayload(savedAttempt);
     }
 
     async getAttemptResult(attemptId: string, userId: string, isAdmin = false) {
@@ -765,6 +1139,13 @@ export class AttemptService {
         }
 
         const elapsedSecondsByQuestionId = new Map<string, number | null>();
+
+        for (const answer of attempt.answers) {
+            if (typeof answer.elapsedSeconds === 'number') {
+                elapsedSecondsByQuestionId.set(answer.questionId, Math.max(0, Math.round(answer.elapsedSeconds)));
+            }
+        }
+
         const sortedAnswers = [...attempt.answers]
             .filter((answer) => Boolean(answer.answeredAt))
             .sort((left, right) => {
@@ -780,6 +1161,11 @@ export class AttemptService {
 
         let previousAnsweredAt = attempt.startedAt.getTime();
         for (const answer of sortedAnswers) {
+            if (elapsedSecondsByQuestionId.has(answer.questionId)) {
+                previousAnsweredAt = answer.answeredAt ? answer.answeredAt.getTime() : previousAnsweredAt;
+                continue;
+            }
+
             const currentAnsweredAt = answer.answeredAt ? answer.answeredAt.getTime() : previousAnsweredAt;
             elapsedSecondsByQuestionId.set(
                 answer.questionId,
@@ -789,11 +1175,13 @@ export class AttemptService {
         }
 
         const answerMeta = Object.fromEntries(attempt.answers.map((answer) => {
+            const viewedAt = answer.viewedAt?.toISOString() || null;
             const answeredAt = answer.answeredAt?.toISOString() || null;
             const elapsedSeconds = elapsedSecondsByQuestionId.get(answer.questionId) ?? null;
 
             return [answer.questionId, {
                 selectedChoice: answer.selectedChoice,
+                viewedAt,
                 answeredAt,
                 elapsedSeconds,
             }];

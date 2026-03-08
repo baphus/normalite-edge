@@ -206,6 +206,7 @@ model ExamQuestion {
   answers AttemptAnswer[]
 
   @@unique([sectionId, orderNo])
+  @@index([examId])
   @@map("exam_questions")
 }
 
@@ -216,8 +217,11 @@ model Attempt {
   attemptNo        Int            @map("attempt_no")
   status           AttemptStatus  @default(IN_PROGRESS)
   startedAt        DateTime       @default(now()) @map("started_at")
+  endsAt           DateTime       @map("ends_at")
   submittedAt      DateTime?      @map("submitted_at")
   lastSavedAt      DateTime?      @map("last_saved_at")
+  lastActivityAt   DateTime       @default(now()) @map("last_activity_at")
+  currentQuestionIndex Int        @default(0) @map("current_question_index")
   remainingSeconds Int?           @map("remaining_seconds")
   submissionType   SubmissionType @default(MANUAL) @map("submission_type")
   timeSpentSeconds Int            @default(0) @map("time_spent_seconds")
@@ -232,6 +236,7 @@ model Attempt {
 
   @@unique([examId, userId, attemptNo])
   @@index([userId, examId, startedAt(sort: Desc)])
+  @@index([userId, status, updatedAt(sort: Desc)])
   @@map("exam_attempts")
 }
 
@@ -241,12 +246,15 @@ model AttemptAnswer {
   questionId     String    @map("question_id") @db.Uuid
   selectedChoice String    @map("selected_choice") @db.Char(1)
   isCorrect      Boolean   @map("is_correct")
+  viewedAt       DateTime? @map("viewed_at")
   answeredAt     DateTime? @map("answered_at")
+  elapsedSeconds Int?      @map("elapsed_seconds")
 
   attempt  Attempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([attemptId, questionId])
+  @@index([attemptId])
   @@map("attempt_answers")
 }
 
@@ -392,6 +400,7 @@ model Conference {
   startAt      DateTime @map("start_at")
   endAt        DateTime @map("end_at")
   meetingLink  String   @map("meeting_link")
+  recordingLink String? @map("recording_link")
   hostId       String   @map("host_id") @db.Uuid
   programTrack String?  @map("program_track")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -423,6 +432,8 @@ model AuditLog {
 model SystemSetting {
   id                   Int      @id @default(1)
   allowMultipleAttempts Boolean  @default(false) @map("allow_multiple_attempts")
+  enforceExamSingleTab  Boolean  @default(false) @map("enforce_exam_single_tab")
+  tabSwitchGraceSeconds Int      @default(5) @map("tab_switch_grace_seconds")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 

@@ -61,6 +61,12 @@ export const updateExamSchema = z.object({
 
 export const submitAttemptSchema = z.object({
     answers: z.record(z.string(), z.string()),
+    answerMeta: z.record(z.string(), z.object({
+        viewedAt: z.string().datetime().nullable().optional(),
+        answeredAt: z.string().datetime().nullable().optional(),
+        elapsedSeconds: z.number().int().min(0).nullable().optional(),
+    })).optional(),
+    currentQuestionIndex: z.number().int().min(0).optional(),
     timeSpent: z.number().int().optional(),
     autoSubmitted: z.boolean().optional(),
     remainingSeconds: z.number().int().optional(),
@@ -68,6 +74,12 @@ export const submitAttemptSchema = z.object({
 
 export const saveAttemptSchema = z.object({
     answers: z.record(z.string(), z.string()).optional(),
+    answerMeta: z.record(z.string(), z.object({
+        viewedAt: z.string().datetime().nullable().optional(),
+        answeredAt: z.string().datetime().nullable().optional(),
+        elapsedSeconds: z.number().int().min(0).nullable().optional(),
+    })).optional(),
+    currentQuestionIndex: z.number().int().min(0).optional(),
     timeSpent: z.number().int().optional(),
     remainingSeconds: z.number().int().optional(),
 });

@@ -64,6 +64,7 @@ interface Exam {
     latestSubmittedAttemptId?: string | null;
     latestSubmittedScore?: number | null;
     deadline?: string;
+    scheduledDate?: string;
     lastScore?: number;
     sections?: Array<{ id?: string; title?: string; orderNo?: number }>;
     createdAt?: string;
@@ -79,7 +80,8 @@ const ExamsPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [sortBy, setSortBy] = useState<'default' | 'most_recent'>('default');
+    const [publishedFilter, setPublishedFilter] = useState<'all' | 'last_7_days' | 'last_30_days'>('all');
+    const [sortBy, setSortBy] = useState<'default' | 'published_newest' | 'published_oldest'>('default');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [viewingExam, setViewingExam] = useState<Exam | null>(null);
     const [collapsedSections, setCollapsedSections] = useState<Record<ExamSectionKey, boolean>>({
@@ -144,9 +146,10 @@ const ExamsPage: React.FC = () => {
         if (statusFilter !== 'all') count++;
         if (categoryFilter !== 'all') count++;
         if (search.trim().length > 0) count++;
+        if (publishedFilter !== 'all') count++;
         if (sortBy !== 'default') count++;
         return count;
-    }, [statusFilter, categoryFilter, search, sortBy]);
+    }, [statusFilter, categoryFilter, search, publishedFilter, sortBy]);
 
     const filteredExams = visibleExams.filter((exam) => {
         const matchesSearch =
@@ -160,16 +163,26 @@ const ExamsPage: React.FC = () => {
             (statusFilter === 'submitted' && hasSubmitted) ||
             (statusFilter === 'in_progress' && exam.userAttemptStatus === 'IN_PROGRESS') ||
             (statusFilter === 'locked' && !hasSubmitted && exam.status !== 'LIVE');
-        return matchesSearch && matchesCategory && matchesStatus;
+        const publishedTimestamp = new Date(exam.scheduledDate || exam.createdAt || 0).getTime();
+        const sevenDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
+        const thirtyDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
+        const matchesPublishedFilter =
+            publishedFilter === 'all'
+            || (publishedFilter === 'last_7_days' && publishedTimestamp >= sevenDaysAgo)
+            || (publishedFilter === 'last_30_days' && publishedTimestamp >= thirtyDaysAgo);
+
+        return matchesSearch && matchesCategory && matchesStatus && matchesPublishedFilter;
     });
 
-    const filteredAndSortedExams =
-        sortBy === 'most_recent'
-            ? [...filteredExams].sort(
-                  (a, b) =>
-                      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-              )
-            : filteredExams;
+    const filteredAndSortedExams = [...filteredExams].sort((a, b) => {
+        if (sortBy === 'published_newest') {
+            return new Date(b.scheduledDate || b.createdAt || 0).getTime() - new Date(a.scheduledDate || a.createdAt || 0).getTime();
+        }
+        if (sortBy === 'published_oldest') {
+            return new Date(a.scheduledDate || a.createdAt || 0).getTime() - new Date(b.scheduledDate || b.createdAt || 0).getTime();
+        }
+        return 0;
+    });
 
     const sectionedExams = useMemo(() => {
         return filteredAndSortedExams.reduce(
@@ -197,6 +210,11 @@ const ExamsPage: React.FC = () => {
     const formatDeadline = (deadline: string) =>
         new Date(deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    const formatPublishedDate = (publishedDate?: string) =>
+        publishedDate
+            ? new Date(publishedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : 'Not published';
+
     const getScoreColor = (score: number) => {
         if (score >= 75) return 'text-green-600';
         if (score >= 50) return 'text-amber-600';
@@ -222,6 +240,7 @@ const ExamsPage: React.FC = () => {
             .map((s) => s.title?.trim())
             .filter((t): t is string => Boolean(t));
         const deadlineSoon = isDeadlineSoon(exam.deadline);
+        const publishedDate = exam.scheduledDate || exam.createdAt;
 
         if (viewMode === 'list') {
             return (
@@ -288,6 +307,12 @@ const ExamsPage: React.FC = () => {
                                 <div className="text-center">
                                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Deadline</p>
                                     <p className={`text-xs font-bold ${deadlineSoon ? 'text-red-500' : 'text-gray-700'}`}>{formatDeadline(exam.deadline)}</p>
+                                </div>
+                            )}
+                            {publishedDate && (
+                                <div className="text-center">
+                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Date Published</p>
+                                    <p className="text-xs font-bold text-gray-700">{formatPublishedDate(publishedDate)}</p>
                                 </div>
                             )}
                         </div>
@@ -413,6 +438,14 @@ const ExamsPage: React.FC = () => {
                                 </span>
                             </div>
                         )}
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                <Calendar size={10} className="text-blue-500" /> Date Published
+                            </span>
+                            <span className="text-[11px] font-semibold text-gray-700">
+                                {formatPublishedDate(publishedDate)}
+                            </span>
+                        </div>
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
                                 <Calendar size={10} className={deadlineSoon ? 'text-red-500' : 'text-gray-400'} /> Deadline
@@ -595,14 +628,28 @@ const ExamsPage: React.FC = () => {
                                 </Select>
                             </div>
                             <div className="space-y-2">
+                                <Label className="text-xs">Date Published</Label>
+                                <Select value={publishedFilter} onValueChange={(v) => setPublishedFilter(v as 'all' | 'last_7_days' | 'last_30_days')}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Date Published" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Dates</SelectItem>
+                                        <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                                        <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
                                 <Label className="text-xs">Sort By</Label>
-                                <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'default' | 'most_recent')}>
+                                <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'default' | 'published_newest' | 'published_oldest')}>
                                     <SelectTrigger className="h-8 text-xs">
                                         <SelectValue placeholder="Default" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="default">Default</SelectItem>
-                                        <SelectItem value="most_recent">Most Recent</SelectItem>
+                                        <SelectItem value="published_newest">Date Published: Newest</SelectItem>
+                                        <SelectItem value="published_oldest">Date Published: Oldest</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -614,6 +661,7 @@ const ExamsPage: React.FC = () => {
                                     onClick={() => {
                                         setStatusFilter('all');
                                         setCategoryFilter('all');
+                                        setPublishedFilter('all');
                                         setSearch('');
                                         setSortBy('default');
                                     }}
@@ -720,7 +768,7 @@ const ExamsPage: React.FC = () => {
                             variant="outline"
                             size="sm"
                             className="h-8 text-xs font-semibold border-gray-200"
-                            onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setSortBy('default'); }}
+                            onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setPublishedFilter('all'); setSortBy('default'); }}
                         >
                             Clear All Filters
                         </Button>
@@ -768,6 +816,12 @@ const ExamsPage: React.FC = () => {
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Attempts Left</p>
                             <p className={`text-xs font-semibold ${(viewingExam?.attempts_remaining ?? 0) > 0 ? 'text-primary' : 'text-red-500'}`}>
                                 {viewingExam?.attempts_remaining ?? 0}
+                            </p>
+                        </div>
+                        <div className="space-y-0.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Date Published</p>
+                            <p className="text-xs font-semibold text-gray-800">
+                                {formatPublishedDate(viewingExam?.scheduledDate || viewingExam?.createdAt)}
                             </p>
                         </div>
                         <div className="space-y-0.5">

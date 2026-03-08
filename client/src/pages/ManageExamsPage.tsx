@@ -64,6 +64,7 @@ interface Exam {
     duration: number;
     status: 'live' | 'draft' | 'archived' | 'closed';
     maxAttempts: number;
+    publishedAt?: string;
     deadline?: string;
     closeOnDeadline: boolean;
     authorId: string;
@@ -88,6 +89,7 @@ interface ManagedExamApi {
     status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
     maxAttempts?: number | null;
     scheduledDate?: string | null;
+    createdAt?: string;
     deadline?: string | null;
     closeOnDeadline?: boolean;
     subject?: string;
@@ -147,6 +149,8 @@ const ManageExamsPage: React.FC = () => {
     const [authorFilter, setAuthorFilter] = useState('all');
     const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'mine' | 'others'>('all');
     const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'with-deadline' | 'without-deadline'>('all');
+    const [publishedFilter, setPublishedFilter] = useState<'all' | 'last_7_days' | 'last_30_days'>('all');
+    const [sortBy, setSortBy] = useState<'default' | 'published_newest' | 'published_oldest'>('default');
     const [autoCloseFilter, setAutoCloseFilter] = useState<'all' | 'on' | 'off'>('all');
     const [myExamsOpen, setMyExamsOpen] = useState(true);
     const [othersOpen, setOthersOpen] = useState(true);
@@ -216,6 +220,7 @@ const ManageExamsPage: React.FC = () => {
                                 ? 'closed'
                                 : 'draft',
                     maxAttempts: exam.maxAttempts ?? 1,
+                    publishedAt: exam.scheduledDate || exam.createdAt || undefined,
                     deadline: exam.deadline || exam.scheduledDate || undefined,
                     closeOnDeadline: Boolean(exam.closeOnDeadline),
                     tracks: exam.tracks || [],
@@ -297,11 +302,27 @@ const ManageExamsPage: React.FC = () => {
         const matchesDeadline = deadlineFilter === 'all'
             || (deadlineFilter === 'with-deadline' && Boolean(exam.deadline))
             || (deadlineFilter === 'without-deadline' && !exam.deadline);
+        const publishedTimestamp = new Date(exam.publishedAt || 0).getTime();
+        const sevenDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
+        const thirtyDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
+        const matchesPublishedFilter = publishedFilter === 'all'
+            || (publishedFilter === 'last_7_days' && publishedTimestamp >= sevenDaysAgo)
+            || (publishedFilter === 'last_30_days' && publishedTimestamp >= thirtyDaysAgo);
         const matchesAutoClose = autoCloseFilter === 'all'
             || (autoCloseFilter === 'on' && exam.closeOnDeadline)
             || (autoCloseFilter === 'off' && !exam.closeOnDeadline);
 
-        return matchesOwnership && matchesStatus && matchesSearch && matchesCategory && matchesProgram && matchesAuthor && matchesDeadline && matchesAutoClose;
+        return matchesOwnership && matchesStatus && matchesSearch && matchesCategory && matchesProgram && matchesAuthor && matchesDeadline && matchesPublishedFilter && matchesAutoClose;
+    });
+
+    const filteredAndSortedExams = [...filteredExams].sort((a, b) => {
+        if (sortBy === 'published_newest') {
+            return new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime();
+        }
+        if (sortBy === 'published_oldest') {
+            return new Date(a.publishedAt || 0).getTime() - new Date(b.publishedAt || 0).getTime();
+        }
+        return 0;
     });
 
     const activeFilterCount = useMemo(() => {
@@ -311,10 +332,12 @@ const ManageExamsPage: React.FC = () => {
         if (programFilter !== 'all') count += 1;
         if (authorFilter !== 'all') count += 1;
         if (deadlineFilter !== 'all') count += 1;
+        if (publishedFilter !== 'all') count += 1;
         if (autoCloseFilter !== 'all') count += 1;
         if (search.trim().length > 0) count += 1;
+        if (sortBy !== 'default') count += 1;
         return count;
-    }, [statusFilter, categoryFilter, programFilter, authorFilter, ownershipFilter, deadlineFilter, autoCloseFilter, search, user?.role]);
+    }, [statusFilter, categoryFilter, programFilter, authorFilter, ownershipFilter, deadlineFilter, publishedFilter, autoCloseFilter, search, sortBy, user?.role]);
 
     const handleDelete = async () => {
         if (examToDelete) {
@@ -431,6 +454,7 @@ const ManageExamsPage: React.FC = () => {
                 duration: created.timeLimit || payload.timeLimit,
                 status: 'draft',
                 maxAttempts: created.maxAttempts ?? 1,
+                publishedAt: created.scheduledDate || created.createdAt || undefined,
                 deadline: created.deadline || created.scheduledDate || undefined,
                 closeOnDeadline: Boolean(created.closeOnDeadline),
                 tracks: created.tracks || [],
@@ -484,6 +508,15 @@ const ManageExamsPage: React.FC = () => {
     const getDisplayAuthorName = (exam: Exam) => {
         if (user?.role === 'REVIEWER' && exam.authorId === user.id) return 'You';
         return exam.authorName;
+    };
+
+    const formatPublishedDate = (publishedDate?: string) => {
+        if (!publishedDate) return 'Not published';
+        return new Date(publishedDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        });
     };
 
     const renderExamCard = (exam: Exam) => (
@@ -602,6 +635,14 @@ const ManageExamsPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                             <span className="text-[11px] font-semibold text-gray-900">{exam.maxAttempts}</span>
                         </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                            <Calendar size={11} className="text-blue-500" /> Date Published
+                        </span>
+                        <span className="text-[11px] font-semibold text-gray-900">
+                            {formatPublishedDate(exam.publishedAt)}
+                        </span>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
@@ -775,6 +816,32 @@ const ManageExamsPage: React.FC = () => {
                                 </Select>
                             </div>
                             <div className="space-y-2">
+                                <Label>Date Published</Label>
+                                <Select value={publishedFilter} onValueChange={(value) => setPublishedFilter(value as typeof publishedFilter)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Date Published" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Dates</SelectItem>
+                                        <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                                        <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Sort By</Label>
+                                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Sort By" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="default">Default</SelectItem>
+                                        <SelectItem value="published_newest">Date Published: Newest</SelectItem>
+                                        <SelectItem value="published_oldest">Date Published: Oldest</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
                                 <Label>Close on Deadline</Label>
                                 <Select value={autoCloseFilter} onValueChange={(value) => setAutoCloseFilter(value as typeof autoCloseFilter)}>
                                     <SelectTrigger>
@@ -798,7 +865,9 @@ const ManageExamsPage: React.FC = () => {
                                         setAuthorFilter('all');
                                         setOwnershipFilter('all');
                                         setDeadlineFilter('all');
+                                        setPublishedFilter('all');
                                         setAutoCloseFilter('all');
+                                        setSortBy('default');
                                         setSearch('');
                                     }}
                                 >
@@ -882,8 +951,8 @@ const ManageExamsPage: React.FC = () => {
                 );
 
                 if (user?.role === 'REVIEWER') {
-                    const myExams = filteredExams.filter((e) => e.authorId === user.id);
-                    const otherExams = filteredExams.filter((e) => e.authorId !== user.id);
+                    const myExams = filteredAndSortedExams.filter((e) => e.authorId === user.id);
+                    const otherExams = filteredAndSortedExams.filter((e) => e.authorId !== user.id);
                     return (
                         <div className="flex flex-col gap-5 mt-1">
                             {/* My Exams */}
@@ -944,7 +1013,7 @@ const ManageExamsPage: React.FC = () => {
                                 <CardContent className="p-4 text-xs text-gray-400 font-medium">Loading exams...</CardContent>
                             </Card>
                         )}
-                        {filteredExams.map(renderExamCard)}
+                        {filteredAndSortedExams.map(renderExamCard)}
                         <CreateCard />
                     </div>
                 );
