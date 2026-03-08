@@ -2,8 +2,12 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import PageGuideOverlay from './PageGuideOverlay';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DashboardLayout: React.FC = () => {
+    const { user } = useAuth();
+    const showGuideOverlay = user?.role === 'REVIEWEE';
+
     return (
         <div className="flex min-h-screen items-start bg-[#f4f5f7] font-lexend">
             <Sidebar />
@@ -12,7 +16,7 @@ const DashboardLayout: React.FC = () => {
                     <Outlet />
                 </div>
             </main>
-            <PageGuideOverlay />
+            {showGuideOverlay ? <PageGuideOverlay /> : null}
         </div>
     );
 };

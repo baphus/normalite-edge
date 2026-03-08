@@ -23,35 +23,30 @@ const baseSteps: PageGuideStep[] = [
         description: 'This main area updates by page and contains the core content and actions.',
         selectors: ['[data-guide="page-content"]'],
     },
-    {
-        title: 'Your profile shortcut',
-        description: 'Open your profile quickly from here to update your photo and details.',
-        selectors: ['[data-guide="profile-entry"]'],
-    },
 ];
 
-const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGuide }> = [
+const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
     {
         matcher: /^\/dashboard$/,
-        build: (role) => ({
+        build: () => ({
             id: 'guide-dashboard',
             title: 'Dashboard walkthrough',
             steps: [
                 {
-                    title: 'Dashboard access',
-                    description: 'Start from Dashboard to see high-level metrics and quick actions.',
-                    selectors: ['[data-guide-nav="/dashboard"]', '[data-guide="sidebar-nav"]'],
+                    title: 'Main navigation',
+                    description: 'Use the left sidebar to move across Dashboard, study, exams, and other modules.',
+                    selectors: ['[data-guide="sidebar-nav"]', '[data-guide-nav="/dashboard"]'],
                 },
                 {
                     title: 'Overview cards',
-                    description: role === 'REVIEWER'
-                        ? 'Track your created exams, decks, student attempts, and upcoming conferences here.'
-                        : role === 'REVIEWEE'
-                            ? 'Track your study progress, exam readiness, and today\'s key tasks from this panel.'
-                            : 'This area surfaces your most important stats for fast decision-making.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    description: 'Track your study progress, exam readiness, and today\'s key tasks from this panel.',
+                    selectors: ['[data-guide="dashboard-daily-challenge"]', '[data-guide="dashboard-primary-panel"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Your main workspace',
+                    description: 'Use this panel to focus on the most important tasks for this role.',
+                    selectors: ['[data-guide="dashboard-primary-panel"]', '[data-guide="page-content"]'],
+                },
             ],
         }),
     },
@@ -69,9 +64,13 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
                 {
                     title: 'Learning workspace',
                     description: 'Use this page to pick materials, resume sessions, and stay organized.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    selectors: ['[data-guide="study-results"]', '[data-guide="study-header"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Search and filters',
+                    description: 'Find the right deck quickly with search and smart filters.',
+                    selectors: ['[data-guide="study-search"]', '[data-guide="study-filters"]'],
+                },
             ],
         }),
     },
@@ -116,26 +115,6 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
         }),
     },
     {
-        matcher: /^\/materials(\/.*)?$/,
-        build: () => ({
-            id: 'guide-materials',
-            title: 'Materials walkthrough',
-            steps: [
-                {
-                    title: 'Open this section',
-                    description: 'Materials is where you create and maintain study deck content.',
-                    selectors: ['[data-guide-nav="/materials"]', '[data-guide="sidebar-nav"]'],
-                },
-                {
-                    title: 'Content area',
-                    description: 'Use filters, search, and content cards in this area to stay organized.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
-                },
-                ...baseSteps.slice(2),
-            ],
-        }),
-    },
-    {
         matcher: /^\/exams$/,
         build: () => ({
             id: 'guide-exams-list',
@@ -149,9 +128,13 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
                 {
                     title: 'Exam list panel',
                     description: 'Use this page to start, continue, and monitor exam attempts.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
+                    selectors: ['[data-guide="exams-results"]', '[data-guide="exams-header"]'],
                 },
-                ...baseSteps.slice(2),
+                {
+                    title: 'Search and filters',
+                    description: 'Narrow your exam list by category, status, and publication date.',
+                    selectors: ['[data-guide="exams-search"]', '[data-guide="exams-filters"]'],
+                },
             ],
         }),
     },
@@ -230,46 +213,6 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
                     title: 'Learning feedback',
                     description: 'Use rationales and feedback to improve future performance.',
                     selectors: ['[data-guide="page-content"]'],
-                },
-                ...baseSteps.slice(2),
-            ],
-        }),
-    },
-    {
-        matcher: /^\/manage-exams(\/.*)?$/,
-        build: () => ({
-            id: 'guide-manage-exams',
-            title: 'Exam workspace walkthrough',
-            steps: [
-                {
-                    title: 'Open exams',
-                    description: 'Use this to manage your exam lifecycle from draft to published.',
-                    selectors: ['[data-guide-nav="/manage-exams"]', '[data-guide="sidebar-nav"]'],
-                },
-                {
-                    title: 'Exam panel',
-                    description: 'This panel is your working area for exam actions, status, and progress.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
-                },
-                ...baseSteps.slice(2),
-            ],
-        }),
-    },
-    {
-        matcher: /^\/students(\/.*)?$/,
-        build: () => ({
-            id: 'guide-students',
-            title: 'Students walkthrough',
-            steps: [
-                {
-                    title: 'Students section',
-                    description: 'Access student management here to monitor progress and intervention needs.',
-                    selectors: ['[data-guide-nav="/students"]', '[data-guide="sidebar-nav"]'],
-                },
-                {
-                    title: 'Student records area',
-                    description: 'Use this area to inspect learner data and make support decisions.',
-                    selectors: ['[data-guide="page-content"] h1', '[data-guide="page-content"]'],
                 },
                 ...baseSteps.slice(2),
             ],
@@ -378,6 +321,10 @@ const pageGuideMap: Array<{ matcher: RegExp; build: (role: GuideRole) => PageGui
 ];
 
 export const resolvePageGuide = (pathname: string, role: GuideRole): PageGuide | null => {
+    if (role !== 'REVIEWEE') {
+        return null;
+    }
+
     const item = pageGuideMap.find((entry) => entry.matcher.test(pathname));
-    return item ? item.build(role) : null;
+    return item ? item.build() : null;
 };

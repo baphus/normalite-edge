@@ -268,7 +268,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
 
     return (
         <div className="flex flex-col gap-3 font-lexend pb-6">
-            <header className="flex items-center justify-between">
+            <header data-guide="dashboard-header" className="flex items-center justify-between">
                 <div>
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Dashboard</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">{programTrack}</p>
@@ -277,7 +277,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             </header>
 
             {/* Daily Question — compact card */}
-            <Card className="border-0 shadow-sm rounded-xl overflow-hidden bg-linear-to-r from-primary/8 to-primary/5">
+            <Card data-guide="dashboard-daily-challenge" className="border-0 shadow-sm rounded-xl overflow-hidden bg-linear-to-r from-primary/8 to-primary/5">
                 <CardContent className="p-3.5 flex items-center gap-3.5">
                     <div className="shrink-0 p-2.5 rounded-xl bg-primary text-white shadow-sm">
                         <Zap size={15} />
@@ -463,7 +463,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
                 {/* Left 2/3 — recent attempts */}
-                <section className="xl:col-span-2">
+                <section data-guide="dashboard-primary-panel" className="xl:col-span-2">
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">My Recent Exam Attempts</h2>
                         <Link to="/exams">
@@ -518,7 +518,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </section>
 
                 {/* Right sidebar */}
-                <div className="flex flex-col gap-3">
+                <div data-guide="dashboard-side-panel" className="flex flex-col gap-3">
                     {/* Upcoming Conferences */}
                     <div>
                         <div className="flex items-center justify-between mb-2">

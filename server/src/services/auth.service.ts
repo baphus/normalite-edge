@@ -503,6 +503,19 @@ export class AuthService {
     }
 
     async completeOnboarding(userId: string, data: { picture?: string }) {
+        const existing = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true },
+        });
+
+        if (!existing) {
+            throw ApiError.notFound('User not found');
+        }
+
+        if (existing.role !== 'REVIEWEE') {
+            throw ApiError.forbidden('Onboarding is only available for reviewees');
+        }
+
         const user = await prisma.user.update({
             where: { id: userId },
             data: {
@@ -543,11 +556,15 @@ export class AuthService {
 
         const existing = await prisma.user.findUnique({
             where: { id: userId },
-            select: { completedTours: true },
+            select: { role: true, completedTours: true },
         });
 
         if (!existing) {
             throw ApiError.notFound('User not found');
+        }
+
+        if (existing.role !== 'REVIEWEE') {
+            throw ApiError.forbidden('Guided tours are only available for reviewees');
         }
 
         if (existing.completedTours?.includes(normalizedTourId)) {

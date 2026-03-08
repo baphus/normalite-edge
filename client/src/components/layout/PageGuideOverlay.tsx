@@ -31,18 +31,19 @@ const findGuideTarget = (selectors: string[]) => {
 const PageGuideOverlay: React.FC = () => {
     const location = useLocation();
     const { user, updateUser } = useAuth();
+    const isReviewee = user?.role === 'REVIEWEE';
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [stepIndex, setStepIndex] = useState(0);
     const [targetRect, setTargetRect] = useState<Rect | null>(null);
 
     const guide = useMemo(() => {
-        if (!user?.role) {
+        if (!user?.role || !isReviewee) {
             return null;
         }
 
         return resolvePageGuide(location.pathname, user.role);
-    }, [location.pathname, user?.role]);
+    }, [isReviewee, location.pathname, user?.role]);
 
     const currentStep = useMemo(() => {
         if (!guide || !guide.steps.length) {
@@ -97,6 +98,23 @@ const PageGuideOverlay: React.FC = () => {
         };
     }, [open, currentStep]);
 
+    useEffect(() => {
+        if (!open || !currentStep) {
+            return;
+        }
+
+        const target = findGuideTarget(currentStep.selectors);
+        if (!target) {
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }, 80);
+
+        return () => window.clearTimeout(timeout);
+    }, [open, currentStep, stepIndex]);
+
     const markAsCompleted = async () => {
         if (!guide?.id || saving) {
             return;
@@ -116,7 +134,7 @@ const PageGuideOverlay: React.FC = () => {
         }
     };
 
-    if (!open || !guide) {
+    if (!isReviewee || !open || !guide) {
         return null;
     }
 
@@ -139,7 +157,7 @@ const PageGuideOverlay: React.FC = () => {
             <div className="fixed inset-0 z-40 bg-black/40" />
             {targetRect && (
                 <div
-                    className="pointer-events-none fixed z-50 rounded-xl border-2 border-emerald-300/90 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]"
+                    className="pointer-events-none fixed z-50 rounded-xl border-2 border-emerald-300/90 shadow-[0_0_0_9999px_rgba(2,6,23,0.45),0_0_0_3px_rgba(16,185,129,0.25)]"
                     style={{
                         top: targetRect.top,
                         left: targetRect.left,

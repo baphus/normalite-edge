@@ -567,13 +567,13 @@ const ExamsPage: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-3 font-lexend pb-6">
-            <header className="flex items-center justify-between gap-4">
+            <header data-guide="exams-header" className="flex items-center justify-between gap-4">
                 <div>
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Mock Exams</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">Browse and take practice exams for your LET preparation.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative w-full sm:w-52 group">
+                    <div data-guide="exams-search" className="relative w-full sm:w-52 group">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={13} />
                         <Input
                             placeholder="Search exams..."
@@ -587,6 +587,7 @@ const ExamsPage: React.FC = () => {
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
+                                data-guide="exams-filters"
                                 className="h-8 rounded-md border-gray-200 font-semibold gap-1.5 text-xs bg-white"
                             >
                                 <SlidersHorizontal size={13} /> Filters
@@ -775,7 +776,7 @@ const ExamsPage: React.FC = () => {
                     )}
                 </div>
             ) : (
-                <div className="space-y-5 mt-1">
+                <div data-guide="exams-results" className="space-y-5 mt-1">
                     {renderExamSection('open', 'Open Exams', sectionedExams.open, 'No open exams right now.')}
                     {renderExamSection('submitted', 'Submitted Exams', sectionedExams.submitted, 'No submitted exams yet.')}
                     {renderExamSection('closed', 'Closed Exams', sectionedExams.closed, 'No closed exams yet.')}

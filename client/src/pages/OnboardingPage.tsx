@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, CheckCircle2, Rocket } from 'lucide-react';
 import api from '@/lib/axios';
@@ -15,15 +15,16 @@ const OnboardingPage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const roleMessage = useMemo(() => {
-        if (user?.role === 'REVIEWER') {
-            return 'Set up your reviewer workspace and start guiding learners with a polished profile.';
+    const roleMessage = useMemo(
+        () => 'Set up your learner profile so your study sessions and exams are personalized from day one.',
+        []
+    );
+
+    useEffect(() => {
+        if (user && user.role !== 'REVIEWEE') {
+            navigate('/dashboard', { replace: true });
         }
-        if (user?.role === 'ADMIN') {
-            return 'Configure your admin identity and continue to your management workspace.';
-        }
-        return 'Set up your learner profile so your study sessions and exams are personalized from day one.';
-    }, [user?.role]);
+    }, [navigate, user]);
 
     const completeOnboarding = async (skipPhoto = false) => {
         setSubmitting(true);

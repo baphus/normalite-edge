@@ -293,13 +293,13 @@ const StudyHubPage: React.FC = () => {
         <div className="flex flex-col gap-3 font-lexend pb-6">
 
             {/* ── Page header ── */}
-            <header className="flex items-center justify-between gap-4">
+            <header data-guide="study-header" className="flex items-center justify-between gap-4">
                 <div>
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Study Hub</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">Browse flashcard decks and sharpen your LET preparation.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative w-full sm:w-52 group">
+                    <div data-guide="study-search" className="relative w-full sm:w-52 group">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={13} />
                         <Input
                             placeholder="Search decks or topics..."
@@ -321,6 +321,7 @@ const StudyHubPage: React.FC = () => {
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
+                                data-guide="study-filters"
                                 className="h-8 rounded-md border-gray-200 font-semibold gap-1.5 text-xs bg-white"
                             >
                                 <SlidersHorizontal size={13} /> Filters
@@ -487,7 +488,7 @@ const StudyHubPage: React.FC = () => {
                     )}
                 </div>
             ) : (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' : 'flex flex-col gap-2'}>
+                <div data-guide="study-results" className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' : 'flex flex-col gap-2'}>
                     {filteredDecks.map((deck) => viewMode === 'grid' ? renderGridCard(deck) : renderListCard(deck))}
                 </div>
             )}

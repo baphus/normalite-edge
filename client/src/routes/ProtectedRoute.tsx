@@ -25,11 +25,17 @@ const ProtectedRoute: React.FC = () => {
     }
 
     const isOnboardingPage = location.pathname === '/onboarding';
-    if (user.isOnboarded === false && !isOnboardingPage) {
+    const isReviewee = user.role === 'REVIEWEE';
+
+    if (!isReviewee && isOnboardingPage) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    if (isReviewee && user.isOnboarded === false && !isOnboardingPage) {
         return <Navigate to="/onboarding" replace />;
     }
 
-    if (user.isOnboarded && isOnboardingPage) {
+    if (isReviewee && user.isOnboarded && isOnboardingPage) {
         return <Navigate to="/dashboard" replace />;
     }
 

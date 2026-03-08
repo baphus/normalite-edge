@@ -70,7 +70,9 @@ function App() {
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route element={<RoleRoute allowedRoles={['REVIEWEE']} />}>
+                <Route path="/onboarding" element={<OnboardingPage />} />
+              </Route>
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
 

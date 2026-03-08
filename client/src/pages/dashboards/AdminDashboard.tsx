@@ -175,7 +175,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
     return (
         <div className="flex flex-col gap-3 pb-6">
             {/* Page header */}
-            <div className="flex items-center justify-between">
+            <div data-guide="dashboard-header" className="flex items-center justify-between">
                 <div>
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Dashboard</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">Operations overview for administrators.</p>
@@ -197,7 +197,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
             </div>
 
             {/* Stat strip */}
-            <div className="grid grid-cols-3 gap-2.5">
+            <div data-guide="dashboard-stat-strip" className="grid grid-cols-3 gap-2.5">
                 {adminStats.map((stat, i) => (
                     <div key={i} className="bg-white rounded-lg border border-gray-100 px-4 py-3 flex items-center gap-3 shadow-sm">
                         <div className={`p-2 rounded-md ${stat.bg} ${stat.color} shrink-0`}>
@@ -212,7 +212,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
             </div>
 
             {/* Main content grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+            <div data-guide="dashboard-primary-panel" className="grid grid-cols-1 xl:grid-cols-3 gap-3">
                 {/* Left 2/3 - three column card row */}
                 <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
                     {/* Recent Exams */}
