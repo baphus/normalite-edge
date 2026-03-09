@@ -7,12 +7,9 @@ import {
     RotateCcw,
     Trophy,
     Info,
-    ChevronLeft,
-    ChevronRight,
     Repeat2,
     CheckCircle2,
     XCircle,
-    Keyboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';

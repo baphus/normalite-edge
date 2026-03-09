@@ -30,7 +30,8 @@ console.log('\n🔐 NORMALITE EDGE - PRODUCTION ENVIRONMENT SETUP\n');
 const renderVars = [
     { key: 'NODE_ENV', value: 'production' },
     { key: 'PORT', value: '3000' },
-    { key: 'DATABASE_URL', value: 'postgresql://user:password@host:port/db?sslmode=require' },
+    { key: 'DATABASE_URL', value: 'postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require' },
+    { key: 'DIRECT_URL', value: 'postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require' },
     { key: 'JWT_ACCESS_SECRET', value: accessSecret },
     { key: 'JWT_REFRESH_SECRET', value: refreshSecret },
     { key: 'JWT_ACCESS_EXPIRES_IN', value: '15m' },
@@ -61,6 +62,7 @@ console.log('4. Required fields (marked mandatory):');
 console.log('   - NODE_ENV (Render)');
 console.log('   - PORT (Render)');
 console.log('   - DATABASE_URL (Render) - from Supabase');
+console.log('   - DIRECT_URL (Render) - from Supabase direct host');
 console.log('   - JWT_ACCESS_SECRET (Render) - generated above');
 console.log('   - JWT_REFRESH_SECRET (Render) - generated above');
 console.log('   - CLIENT_URL (Render) - your Vercel domain');

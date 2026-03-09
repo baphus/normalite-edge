@@ -31,12 +31,18 @@ This guide walks you through deploying Normalite EDGE to production using:
 ### 1.2 Get Connection String
 
 1. Go to **Project Settings** → **Database** → **Connection Pooling**
-2. Copy the connection string (Pooler mode)
+2. Copy the connection string for **Transaction mode** pooler
 3. Replace `[YOUR-PASSWORD]` with your actual database password
 4. Format:
    ```
-   postgresql://postgres:[PASSWORD]@[HOST]:[PORT]/postgres?sslmode=require
+   postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require
    ```
+
+Also copy your direct database connection string (for Prisma direct operations):
+
+```
+postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require
+```
 
 ### 1.3 Test Connection Locally (Optional)
 
@@ -80,6 +86,7 @@ In Render → Your Service → **Environment** tab, add:
 NODE_ENV=production
 PORT=3000
 DATABASE_URL=[YOUR_SUPABASE_CONNECTION_STRING]
+DIRECT_URL=[YOUR_SUPABASE_DIRECT_CONNECTION_STRING]
 JWT_ACCESS_SECRET=[GENERATE_WITH: openssl rand -hex 32]
 JWT_REFRESH_SECRET=[GENERATE_WITH: openssl rand -hex 32]
 JWT_ACCESS_EXPIRES_IN=15m
@@ -254,6 +261,7 @@ After Render deployment completes:
 |----------|---------|----------|-------|
 | `NODE_ENV` | `production` | Yes | Must be `production` in Render |
 | `DATABASE_URL` | `postgresql://...` | Yes | From Supabase |
+| `DIRECT_URL` | `postgresql://...` | Yes | Direct DB host (not pooler) |
 | `JWT_ACCESS_SECRET` | 64-char hex | Yes | Generate with openssl rand -hex 32 |
 | `JWT_REFRESH_SECRET` | 64-char hex | Yes | Generate with openssl rand -hex 32 |
 | `CLIENT_URL` | `https://app.vercel.app` | Yes | Your Vercel domain |

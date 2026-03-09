@@ -33,9 +33,10 @@ Use this checklist to ensure all steps are completed before deploying to product
 - [ ] Create new project with strong password
 - [ ] Wait for provisioning to complete (~2 min)
 - [ ] Go to Settings → Database → Connection Pooling
-- [ ] Copy connection string (Pooler mode)
+- [ ] Copy connection string (Transaction mode pooler)
 - [ ] Save securely (don't share or commit to git)
-- [ ] Connection string format verified: `postgresql://user:password@host:port/db?sslmode=require`
+- [ ] Connection string format verified: `postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require`
+- [ ] Direct DB format verified: `postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require`
 
 ---
 
@@ -90,6 +91,7 @@ Copy-paste this template and fill in YOUR values:
 NODE_ENV=production
 PORT=3000
 DATABASE_URL=[PASTE_SUPABASE_CONNECTION_STRING]
+DIRECT_URL=[PASTE_SUPABASE_DIRECT_CONNECTION_STRING]
 JWT_ACCESS_SECRET=[PASTE_GENERATED_SECRET_1]
 JWT_REFRESH_SECRET=[PASTE_GENERATED_SECRET_2]
 JWT_ACCESS_EXPIRES_IN=15m
@@ -104,6 +106,7 @@ CLOUDINARY_API_SECRET=[YOUR_CLOUDINARY_API_SECRET]
 
 - [ ] All environment variables entered
 - [ ] DATABASE_URL is Supabase connection string
+- [ ] DIRECT_URL is Supabase direct DB host
 - [ ] JWT secrets are unique and strong
 - [ ] CLIENT_URL will be your Vercel domain (update after frontend deploy)
 - [ ] Optional vars (Google, Cloudinary) filled if applicable

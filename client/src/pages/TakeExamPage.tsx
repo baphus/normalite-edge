@@ -922,8 +922,6 @@ const TakeExamPage: React.FC = () => {
 
     const currentQuestion = exam.questions[currentIndex] || { id: '', orderNo: 0, text: '', choices: [], section: '' };
 
-    const currentQuestionNo = questionNumberById.get(currentQuestion.id) || currentIndex + 1;
-
     const skippedQuestions = exam.questions
         .map((q, idx) => ({ q, idx }))
         .filter(({ q }) => !answers[q.id]);

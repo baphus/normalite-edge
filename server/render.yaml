@@ -11,3 +11,9 @@ services:
       - key: NODE_ENV
         scope: all
         value: production
+      - key: DATABASE_URL
+        scope: all
+        sync: false
+      - key: DIRECT_URL
+        scope: all
+        sync: false
