@@ -29,8 +29,8 @@ export class AttemptService {
             }
 
             await prisma.$executeRaw`
-                INSERT INTO system_settings (id, allow_multiple_attempts, enforce_exam_single_tab, tab_switch_grace_seconds)
-                VALUES (1, false, false, 5)
+                INSERT INTO system_settings (id, allow_multiple_attempts, enforce_exam_single_tab, tab_switch_grace_seconds, updated_at)
+                VALUES (1, false, false, 5, NOW())
                 ON CONFLICT (id) DO NOTHING
             `;
 

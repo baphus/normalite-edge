@@ -2,6 +2,7 @@ import app from './app';
 import { env } from './config/env';
 import prisma from './config/db';
 import { logger } from './utils/logger';
+import { startKeepAlive } from './utils/keepAlive';
 
 async function main() {
     try {
@@ -14,6 +15,11 @@ async function main() {
             logger.info(`Server running on http://localhost:${env.PORT}`);
             logger.info(`API available at http://localhost:${env.PORT}/api/v1`);
             logger.info(`Environment: ${env.NODE_ENV}`);
+            
+            // Start Keep-Alive Service for Render Free Tier
+            if (env.NODE_ENV === 'production') {
+                startKeepAlive();
+            }
         });
     } catch (error) {
         logger.error('Failed to start server:', error);

@@ -22,8 +22,8 @@ export class ExamService {
             }
 
             await prisma.$executeRaw`
-                INSERT INTO system_settings (id, allow_multiple_attempts)
-                VALUES (1, false)
+                INSERT INTO system_settings (id, allow_multiple_attempts, updated_at)
+                VALUES (1, false, NOW())
                 ON CONFLICT (id) DO NOTHING
             `;
 
