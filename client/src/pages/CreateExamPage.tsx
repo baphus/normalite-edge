@@ -1200,7 +1200,7 @@ const CreateExamPage: React.FC = () => {
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
             closeOnDeadline: closeOnDeadline && Boolean(deadline),
             isPublished: publish,
-            status: isEditing ? examStatus : undefined,
+            status: isEditing ? (publish ? 'LIVE' : examStatus) : undefined,
             sections: normalizedSectionList,
             questions: preparedQuestions,
         };
@@ -1274,7 +1274,7 @@ const CreateExamPage: React.FC = () => {
                             onClick={() => handleSubmitIntent(true)}
                             disabled={isSubmitting}
                         >
-                            {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Publish'}
+                            {isSubmitting ? 'Saving...' : isEditing ? 'Publish Exam' : 'Publish'}
                         </Button>
                     </div>
                 </div>

@@ -854,9 +854,7 @@ export class ExamService {
 
             if (typeof data.isPublished === 'boolean') {
                 updateData.status = data.isPublished ? 'LIVE' : 'DRAFT';
-            }
-
-            if (data.status) {
+            } else if (data.status) {
                 updateData.status = data.status === 'PUBLISHED' ? 'LIVE' : data.status;
             }
 
