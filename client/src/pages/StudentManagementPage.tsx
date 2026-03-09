@@ -3,7 +3,6 @@ import {
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
-    Calendar,
     ChevronLeft,
     ChevronRight,
     Columns3,
@@ -14,7 +13,6 @@ import {
     Search,
     Trash2,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,13 +24,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
@@ -156,7 +147,7 @@ const StudentManagementPage: React.FC = () => {
     const [sectionFilter, setSectionFilter] = useState('ALL');
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
-    const [selectedStudent, setSelectedStudent] = useState<StudentSummary | null>(null);
+    
     const [sortBy, setSortBy] = useState<SortKey>('lastActivity');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [mutatingId, setMutatingId] = useState<string | null>(null);
@@ -434,7 +425,7 @@ const StudentManagementPage: React.FC = () => {
         setPage(1);
     };
 
-    const handleEditStudent = (_student: StudentSummary) => {
+    const handleEditStudent = () => {
         if (!isAdmin) return;
         navigate('/admin/users');
     };
@@ -721,12 +712,12 @@ const StudentManagementPage: React.FC = () => {
                                                 <DropdownMenuContent align="end" className="font-lexend min-w-36">
                                                     <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-gray-500">Actions</DropdownMenuLabel>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => setSelectedStudent(student)} className="font-semibold gap-2 text-xs">
+                                                    <DropdownMenuItem onClick={() => navigate(`/student/${student.id}/profile`, { state: { student } })} className="font-semibold gap-2 text-xs">
                                                         <Eye className="w-4 h-4" /> View
                                                     </DropdownMenuItem>
                                                     {isAdmin && (
                                                         <>
-                                                            <DropdownMenuItem onClick={() => handleEditStudent(student)} className="font-semibold gap-2 text-xs">
+                                                            <DropdownMenuItem onClick={handleEditStudent} className="font-semibold gap-2 text-xs">
                                                                 <Edit className="w-4 h-4" /> Edit
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
@@ -777,71 +768,6 @@ const StudentManagementPage: React.FC = () => {
                     </div>
                 </div>
             </section>
-
-            <Dialog open={Boolean(selectedStudent)} onOpenChange={(open) => !open && setSelectedStudent(null)}>
-                <DialogContent className="sm:max-w-2xl rounded-lg font-lexend">
-                    <DialogHeader>
-                        <DialogTitle className="text-base font-bold text-gray-900">Student Details</DialogTitle>
-                            <DialogDescription className="text-sm text-gray-500">
-                                {selectedStudent?.name} â€¢ {selectedStudent?.programTrack} â€¢ {selectedStudent?.campus}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {selectedStudent && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                <Card className="rounded-md border-gray-100">
-                                    <CardContent className="p-2.5">
-                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Attempts</p>
-                                        <p className="text-base font-bold text-gray-900">{selectedStudent.attempts}</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="rounded-md border-gray-100">
-                                    <CardContent className="p-2.5">
-                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Completed</p>
-                                        <p className="text-base font-bold text-green-700">{selectedStudent.completedAttempts}</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="rounded-md border-gray-100">
-                                    <CardContent className="p-2.5">
-                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Average</p>
-                                        <p className="text-base font-bold text-indigo-700">{selectedStudent.avgPercentage.toFixed(1)}%</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="rounded-md border-gray-100">
-                                    <CardContent className="p-2.5">
-                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Best</p>
-                                        <p className="text-base font-bold text-primary">{selectedStudent.bestPercentage.toFixed(1)}%</p>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            <div className="rounded-md border border-gray-100 overflow-hidden">
-                                <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/70 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                    Recent attempts
-                                </div>
-                                <div className="divide-y divide-gray-100">
-                                    {selectedStudent.recentAttempts.map((attempt) => (
-                                        <div key={attempt.id} className="px-3 py-2 flex items-center justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-gray-900 truncate">{attempt.exam?.title || 'Untitled Exam'}</p>
-                                                <p className="text-[11px] text-gray-500 truncate">Attempt #{attempt.attemptNo} â€¢ {attempt.status.replace('_', ' ')}</p>
-                                            </div>
-                                            <div className="text-right shrink-0">
-                                                <p className="text-xs font-semibold text-gray-700">{Number(attempt.percentage || 0).toFixed(1)}%</p>
-                                                <p className="text-[11px] text-gray-500 flex items-center gap-1 justify-end">
-                                                    <Calendar className="w-3 h-3" />
-                                                    {formatDate(attempt.submittedAt || attempt.startedAt)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
 
             <ConfirmDialog
                 open={deleteStudentTarget !== null}

@@ -127,47 +127,92 @@ const LandingPage: React.FC = () => {
                 </div>
 
                 {/* Features Section */}
-                <div className="flex flex-col items-center justify-center py-20 bg-background-light dark:bg-background-dark" id="features">
-                    <div className="layout-content-container flex flex-col max-w-[960px] w-full px-6">
-                        <div className="mb-16 flex flex-col gap-3 text-center">
+                <div className="flex flex-col items-center justify-center py-24 bg-background-light dark:bg-background-dark" id="features">
+                    <div className="layout-content-container flex flex-col max-w-[1200px] w-full px-6">
+                        <div className="mb-20 flex flex-col gap-3 text-center">
                             <h2 className="text-primary text-sm font-bold uppercase tracking-[0.2em]">Built for Reviewees</h2>
                             <h3 className="text-[#1d0c0c] dark:text-white text-3xl font-extrabold leading-tight md:text-4xl">
                                 Everything you need to prepare and pass
                             </h3>
-                            <div className="h-1 w-20 bg-secondary mx-auto mt-2"></div>
+                            <div className="h-1 w-20 bg-secondary mx-auto mt-4"></div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <div className="group flex flex-col items-center text-center gap-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-[#2a1212] p-8 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
-                                <div className="flex size-16 items-center justify-center rounded-full bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                                    <span className="material-symbols-outlined text-3xl">edit_note</span>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Timed Mock Exams</h4>
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                                        Take exams with multiple sections and clear rationalizations to strengthen your test strategy.
+
+                        <div className="flex flex-col gap-24">
+                            {/* Feature 1: Mock Exams */}
+                            <div className="flex flex-col lg:flex-row items-center gap-12">
+                                <div className="flex-1 flex flex-col gap-6">
+                                    <div className="inline-flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                        <span className="material-symbols-outlined text-3xl">edit_note</span>
+                                    </div>
+                                    <h4 className="text-[#1d0c0c] dark:text-white text-2xl md:text-3xl font-bold">Timed Mock Exams</h4>
+                                    <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
+                                        Take comprehensive exams with multiple sections and clear rationalizations. Build your test strategy under real time constraints, and rest easy knowing your progress is auto-saved.
                                     </p>
+                                    <ul className="flex flex-col gap-3 mt-2">
+                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
+                                            Autosave & Resume support
+                                        </li>
+                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
+                                            Detailed rationalizations for every question
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
+                                    <img src="/mock-exams-screenshot.png" alt="Mock Exams Feature" className="w-full h-full object-cover object-top" />
                                 </div>
                             </div>
-                            <div className="group flex flex-col items-center text-center gap-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-[#2a1212] p-8 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
-                                <div className="flex size-16 items-center justify-center rounded-full bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                                    <span className="material-symbols-outlined text-3xl">auto_stories</span>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Autosave + Resume</h4>
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                                        Continue where you left off after interruptions with automatic saving and resume support.
+
+                            {/* Feature 2: Calendar */}
+                            <div className="flex flex-col lg:flex-row-reverse items-center gap-12">
+                                <div className="flex-1 flex flex-col gap-6">
+                                    <div className="inline-flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                        <span className="material-symbols-outlined text-3xl">calendar_month</span>
+                                    </div>
+                                    <h4 className="text-[#1d0c0c] dark:text-white text-2xl md:text-3xl font-bold">Stay Organized with Calendar</h4>
+                                    <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
+                                        Keep track of your review schedule. View upcoming mock exams, zoom conferences, and study milestones all in one centralized interactive calendar.
                                     </p>
+                                    <ul className="flex flex-col gap-3 mt-2">
+                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
+                                            Never miss a study session
+                                        </li>
+                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
+                                            Track your deadlines and activities
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
+                                    <img src="/calendar-screenshot.png" alt="Calendar Feature" className="w-full h-full object-cover object-top" />
                                 </div>
                             </div>
-                            <div className="group flex flex-col items-center text-center gap-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-[#2a1212] p-8 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
-                                <div className="flex size-16 items-center justify-center rounded-full bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                                    <span className="material-symbols-outlined text-3xl">insights</span>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-xl font-bold">Materials, Conferences, Results</h4>
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                                        Access program-track materials, join conference links, and view your own exam performance.
+
+                            {/* Feature 3: Materials & Results */}
+                            <div className="flex flex-col lg:flex-row items-center gap-12">
+                                <div className="flex-1 flex flex-col gap-6">
+                                    <div className="inline-flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                        <span className="material-symbols-outlined text-3xl">insights</span>
+                                    </div>
+                                    <h4 className="text-[#1d0c0c] dark:text-white text-2xl md:text-3xl font-bold">Materials, Conferences, Results</h4>
+                                    <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
+                                        Access program-track materials tailored to your major, easily join scheduled video conferences, and monitor your exam performance with intuitive analytics.
                                     </p>
+                                    <ul className="flex flex-col gap-3 mt-2">
+                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
+                                            Program-specific study guides
+                                        </li>
+                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
+                                            Detailed performance analytics
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
+                                    <img src="/materials-results-screenshot.png" alt="Materials and Results Feature" className="w-full h-full object-cover object-top" />
                                 </div>
                             </div>
                         </div>

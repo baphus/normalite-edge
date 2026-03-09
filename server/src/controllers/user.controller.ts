@@ -25,6 +25,11 @@ export const userController = {
         });
     }),
 
+    getStudentProfile: catchAsync(async (req: Request, res: Response) => {
+        const profile = await userService.getStudentProfile(req.params.id as string);
+        ApiResponse.success(res, profile);
+    }),
+
     createUser: catchAsync(async (req: Request, res: Response) => {
         const user = await userService.createUser(req.body);
 

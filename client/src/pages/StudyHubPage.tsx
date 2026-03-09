@@ -44,12 +44,12 @@ interface StudyDeck {
 
 type SortOption = 'default' | 'most_cards' | 'least_cards';
 
-const CATEGORY_STYLES: Record<string, { accent: string; bg: string; text: string; border: string }> = {
-    'Professional Education': { accent: 'from-amber-400 to-orange-400', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-    'General Education':      { accent: 'from-blue-400 to-sky-400',    bg: 'bg-blue-50',  text: 'text-blue-700',   border: 'border-blue-200'  },
-    'Specialization':         { accent: 'from-violet-400 to-purple-400', bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+const CATEGORY_STYLES: Record<string, { accent: string; bg: string; text: string; border: string; buttonBg: string; buttonBorder: string; sideBar: string }> = {
+    'Professional Education': { accent: 'from-amber-400 to-orange-400', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', buttonBg: 'bg-amber-500', buttonBorder: 'border-amber-700', sideBar: 'bg-amber-400' },
+    'General Education':      { accent: 'from-blue-400 to-sky-400',    bg: 'bg-blue-50',  text: 'text-blue-700',   border: 'border-blue-200', buttonBg: 'bg-blue-500', buttonBorder: 'border-blue-700', sideBar: 'bg-blue-400' },
+    'Specialization':         { accent: 'from-violet-400 to-purple-400', bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', buttonBg: 'bg-violet-500', buttonBorder: 'border-violet-700', sideBar: 'bg-violet-400' },
 };
-const DEFAULT_STYLE = { accent: 'from-emerald-400 to-teal-400', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
+const DEFAULT_STYLE = { accent: 'from-emerald-400 to-teal-400', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', buttonBg: 'bg-emerald-500', buttonBorder: 'border-emerald-700', sideBar: 'bg-emerald-400' };
 
 const getCategoryStyle = (category: string) => CATEGORY_STYLES[category] ?? DEFAULT_STYLE;
 
@@ -140,76 +140,75 @@ const StudyHubPage: React.FC = () => {
     const renderGridCard = (deck: StudyDeck) => {
         const style = getCategoryStyle(deck.category);
         return (
-            <Card
+            <div
                 key={deck.id}
-                className="group border-gray-100 hover:border-primary/20 hover:shadow-md transition-all duration-200 bg-white rounded-lg overflow-hidden flex flex-col"
+                className={`group border-2 hover:shadow-md hover:-translate-y-1 transition-all duration-200 rounded-2xl overflow-hidden flex flex-col ${style.bg} ${style.border}`}
             >
-                <div className={`h-1 w-full bg-gradient-to-r ${style.accent} shrink-0`} />
-                <CardContent className="p-4 flex flex-col flex-1">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                        <Badge className={`text-[9px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5 border shadow-none ${style.bg} ${style.text} ${style.border}`}>
+                <div className="p-5 flex flex-col flex-1 relative z-10">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                        <span className={`text-[10px] font-black uppercase tracking-widest rounded-md px-2 py-1 bg-white/60 shadow-sm ${style.text}`}>
                             {deck.category}
-                        </Badge>
+                        </span>
                         <button
                             onClick={(e) => { e.stopPropagation(); toggleBookmark(deck.id); }}
-                            className={`shrink-0 p-1 rounded transition-all hover:scale-110 ${deck.isBookmarked ? 'text-primary' : 'text-gray-200 hover:text-gray-400'}`}
+                            className={`shrink-0 p-1.5 rounded-full transition-all bg-white/60 shadow-sm hover:scale-110 ${deck.isBookmarked ? style.text : 'text-gray-400 hover:text-gray-600'}`}
                             title={deck.isBookmarked ? 'Remove bookmark' : 'Bookmark'}
                         >
-                            <Bookmark size={14} fill={deck.isBookmarked ? 'currentColor' : 'none'} />
+                            <Bookmark size={16} fill={deck.isBookmarked ? 'currentColor' : 'none'} />
                         </button>
                     </div>
 
-                    <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors leading-snug mb-1.5 line-clamp-2">
+                    <h3 className="text-lg font-black text-gray-900 group-hover:text-primary transition-colors leading-tight mb-2 line-clamp-2">
                         {deck.title}
                     </h3>
 
-                    <p className="text-[10px] text-gray-500 font-medium mb-2 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-gray-600 font-semibold mb-3 line-clamp-2 leading-relaxed">
                         {deck.description}
                     </p>
 
                     {deck.tracks.length > 0 && (
-                        <p className="text-[10px] text-gray-400 font-medium mb-2 truncate">
+                        <p className={`text-[10px] font-bold mb-3 truncate opacity-80 ${style.text}`}>
                             {deck.tracks.slice(0, 2).join(' · ')}{deck.tracks.length > 2 ? ` +${deck.tracks.length - 2}` : ''}
                         </p>
                     )}
 
                     <div className="mt-auto">
-                        <div className="flex items-center gap-1.5 py-2 border-y border-gray-100 mb-2">
-                            <GalleryHorizontalEnd size={12} className="text-gray-400" />
-                            <span className="text-xs font-bold text-gray-700">{deck.cardCount}</span>
-                            <span className="text-[10px] font-semibold text-gray-400">items</span>
+                        <div className="flex items-center gap-2 py-3 border-y border-black/5 mb-3">
+                            <GalleryHorizontalEnd size={14} className={style.text} />
+                            <span className="text-sm font-black text-gray-800">{deck.cardCount}</span>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">cards</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-1.5">
+                        <div className="grid grid-cols-3 gap-2">
                             <Button
                                 variant="outline"
-                                className="h-8 rounded-md font-semibold text-xs border-gray-200 text-gray-600 hover:text-primary hover:border-primary/30"
+                                className={`h-10 rounded-xl font-bold text-xs bg-white border-2 border-transparent hover:border-black/10 ${style.text} shadow-sm transition-all`}
                                 onClick={() => navigate(`/study/${deck.id}/view`)}
                                 title="View deck details"
                                 aria-label="View deck details"
                             >
-                                <Eye size={13} />
+                                <Eye size={16} />
                             </Button>
                             <Button
                                 variant="outline"
-                                className="h-8 rounded-md font-semibold text-xs border-gray-200 text-gray-600 hover:text-primary hover:border-primary/30"
+                                className={`h-10 rounded-xl font-bold text-xs bg-white border-2 border-transparent hover:border-black/10 ${style.text} shadow-sm transition-all`}
                                 onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
                                 title="Study with flashcards"
                                 aria-label="Study with flashcards"
                             >
-                                <BookOpen size={13} />
+                                <BookOpen size={16} />
                             </Button>
                             <Button
-                                className="h-8 rounded-md font-semibold text-xs bg-primary hover:bg-primary/90 text-white"
+                                className={`h-10 rounded-xl font-black text-xs text-white shadow-sm transition-all border-b-4 hover:-translate-y-0.5 active:translate-y-0 active:border-b-0 ${style.buttonBg} ${style.buttonBorder} hover:brightness-110`}
                                 onClick={() => navigate(`/study/${deck.id}?mode=study`)}
                                 title="Begin quiz"
                                 aria-label="Begin quiz"
                             >
-                                <Brain size={13} />
+                                <Brain size={16} />
                             </Button>
                         </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         );
     };
 
@@ -217,75 +216,69 @@ const StudyHubPage: React.FC = () => {
     const renderListCard = (deck: StudyDeck) => {
         const style = getCategoryStyle(deck.category);
         return (
-            <Card
+            <div
                 key={deck.id}
-                className="group border-gray-100 hover:border-primary/20 hover:shadow-sm transition-all duration-200 bg-white rounded-md overflow-hidden"
+                className={`group border-2 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 rounded-2xl overflow-hidden bg-white`}
             >
                 <div className="flex items-center gap-0 pr-4">
-                    <div className={`w-1 self-stretch bg-gradient-to-b ${style.accent} rounded-l-full`} />
+                    <div className={`w-3 self-stretch rounded-l-2xl ${style.sideBar}`} />
                     <div className="flex items-center gap-4 flex-1 min-w-0 px-4 py-3">
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <span className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border}`}>
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${style.bg} ${style.text}`}>
                                     {deck.category}
                                 </span>
                                 {deck.tracks.length > 0 && (
-                                    <span className="text-[10px] text-gray-400 font-medium truncate hidden sm:block">
+                                    <span className="text-[10px] text-gray-400 font-bold truncate hidden sm:block">
                                         {deck.tracks.slice(0, 2).join(' · ')}
                                     </span>
                                 )}
                             </div>
-                            <p className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors leading-snug truncate mt-0.5">
+                            <p className="text-base font-black text-gray-900 group-hover:text-primary transition-colors leading-snug truncate">
                                 {deck.title}
                             </p>
                         </div>
 
-                        <div className="hidden md:flex items-center gap-1.5 shrink-0">
-                            <GalleryHorizontalEnd size={12} className="text-gray-400" />
-                            <span className="text-xs font-bold text-gray-700">{deck.cardCount}</span>
-                            <span className="text-[10px] font-semibold text-gray-400">items</span>
+                        <div className="hidden md:flex items-center gap-2 shrink-0">
+                            <GalleryHorizontalEnd size={14} className="text-gray-400" />
+                            <span className="text-sm font-black text-gray-800">{deck.cardCount}</span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">cards</span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 ml-4">
                             <button
                                 onClick={(e) => { e.stopPropagation(); toggleBookmark(deck.id); }}
-                                className={`h-7 w-7 flex items-center justify-center rounded transition-colors ${deck.isBookmarked ? 'text-primary bg-primary/5' : 'text-gray-200 hover:text-gray-400'}`}
+                                className={`h-10 w-10 flex items-center justify-center rounded-xl transition-all ${style.bg} hover:brightness-95 ${deck.isBookmarked ? style.text : 'text-gray-400'}`}
                             >
-                                <Bookmark size={13} fill={deck.isBookmarked ? 'currentColor' : 'none'} />
+                                <Bookmark size={16} fill={deck.isBookmarked ? 'currentColor' : 'none'} />
                             </button>
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 w-8 p-0 text-xs rounded-md font-semibold border-gray-200"
+                                className={`h-10 w-10 p-0 rounded-xl font-bold bg-white border-2 border-gray-100 ${style.text} hover:border-gray-200`}
                                 onClick={() => navigate(`/study/${deck.id}/view`)}
-                                title="View deck details"
-                                aria-label="View deck details"
                             >
-                                <Eye size={12} />
+                                <Eye size={16} />
                             </Button>
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 w-8 p-0 text-xs rounded-md font-semibold border-gray-200"
+                                className={`h-10 w-10 p-0 rounded-xl font-bold bg-white border-2 border-gray-100 ${style.text} hover:border-gray-200`}
                                 onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
-                                title="Study with flashcards"
-                                aria-label="Study with flashcards"
                             >
-                                <BookOpen size={12} />
+                                <BookOpen size={16} />
                             </Button>
                             <Button
                                 size="sm"
-                                className="h-8 w-8 p-0 text-xs rounded-md font-semibold bg-primary hover:bg-primary/90 text-white"
+                                className={`h-10 w-10 p-0 rounded-xl font-black text-white border-b-4 hover:-translate-y-0.5 active:translate-y-0 active:border-b-0 transition-all ${style.buttonBg} ${style.buttonBorder}`}
                                 onClick={() => navigate(`/study/${deck.id}?mode=study`)}
-                                title="Begin quiz"
-                                aria-label="Begin quiz"
                             >
-                                <Brain size={12} />
+                                <Brain size={16} />
                             </Button>
                         </div>
                     </div>
                 </div>
-            </Card>
+            </div>
         );
     };
 

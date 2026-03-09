@@ -2,6 +2,7 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
+    ArrowRight,
     X,
     RotateCcw,
     Trophy,
@@ -142,6 +143,28 @@ const StudySessionPage: React.FC = () => {
 
     const currentItem = items[currentIndex];
     const progress = ((currentIndex + 1) / items.length) * 100;
+    const questionLength = currentItem?.question?.length || 0;
+    const rationaleLength = currentItem?.rationalization?.length || 0;
+
+    const questionTextClass = questionLength > 360
+        ? 'text-sm md:text-lg'
+        : questionLength > 220
+            ? 'text-base md:text-xl'
+            : questionLength > 140
+            ? 'text-lg md:text-2xl'
+            : 'text-xl md:text-3xl';
+
+    const answerTextClass = rationaleLength > 200
+        ? 'text-2xl md:text-3xl'
+        : 'text-3xl md:text-5xl';
+
+    const rationalizationTextClass = rationaleLength > 700
+        ? 'text-[11px] md:text-xs'
+        : rationaleLength > 300
+            ? 'text-xs md:text-sm'
+            : rationaleLength > 180
+            ? 'text-sm md:text-base'
+            : 'text-base md:text-lg';
 
     const handleNext = () => {
         if (currentIndex < items.length - 1) {
@@ -364,208 +387,227 @@ const StudySessionPage: React.FC = () => {
             </div>
 
             {/* Main content */}
-            <main className="flex-1 overflow-y-auto p-5">
-                <div className="max-w-2xl mx-auto space-y-4">
+            <main className="flex-1 overflow-hidden p-4 md:p-6 bg-gray-50 flex flex-col">
+                <div className="max-w-4xl mx-auto w-full h-full flex flex-col space-y-4">
                     {!isStudyMode ? (
                         /* ── FLASHCARD MODE ── */
-                        <>
+                        <div className="flex-1 min-h-0 flex flex-col">
                             <div
-                                className="w-full cursor-pointer select-none"
+                                className="w-full flex-1 flex flex-col justify-center cursor-pointer select-none min-h-0"
                                 onClick={() => setIsFlipped(!isFlipped)}
-                                style={{ perspective: '1000px' }}
+                                style={{ perspective: '2000px' }}
                             >
                                 <div
-                                    className="relative w-full transition-all duration-500"
+                                    className="relative w-full h-[46vh] md:h-[50vh] transition-all duration-500 ease-out"
                                     style={{
                                         transformStyle: 'preserve-3d',
                                         transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                                        minHeight: '320px',
                                     }}
                                 >
                                     {/* Front */}
-                                    <Card
-                                        className="absolute inset-0 border-gray-100 shadow-sm rounded-2xl bg-white flex flex-col items-center justify-center p-8 text-center overflow-hidden"
+                                    <div
+                                        className="absolute inset-0 rounded-3xl bg-amber-50 border-4 border-amber-200 shadow-sm flex flex-col items-center justify-center p-6 md:p-12 text-center overflow-hidden hover:bg-amber-100 transition-colors"
                                         style={{ backfaceVisibility: 'hidden' }}
                                     >
-                                        <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-400 to-amber-300 rounded-t-2xl" />
-                                        <Badge variant="outline" className="mb-5 text-[9px] font-bold uppercase tracking-widest text-gray-400 border-gray-200">
-                                            Question
-                                        </Badge>
-                                        <p className="text-base md:text-lg font-semibold text-gray-900 leading-relaxed max-w-lg">
-                                            {currentItem.question}
-                                        </p>
-                                        {currentItem.imageUrl && (
-                                            <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-2">
-                                                <img
-                                                    src={currentItem.imageUrl}
-                                                    alt={`Flashcard ${currentIndex + 1}`}
-                                                    className="max-h-48 w-auto max-w-full rounded-lg object-contain"
-                                                />
-                                            </div>
-                                        )}
-                                        <div className="absolute bottom-5 flex items-center gap-1.5 text-[10px] font-semibold text-gray-300 uppercase tracking-wider">
-                                            <Repeat2 size={12} /> Space or tap to flip
+                                        <div className="absolute top-6 flex items-center gap-2 text-amber-600/60 font-black uppercase tracking-widest text-sm">
+                                            <Repeat2 size={16} /> Question
                                         </div>
-                                    </Card>
+                                        <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
+                                            <p className={`${questionTextClass} font-black text-amber-950 leading-tight mb-4 md:mb-6`}>
+                                                {currentItem.question}
+                                            </p>
+                                            {currentItem.imageUrl && (
+                                                <div className="rounded-xl border-2 border-amber-200 bg-white p-2 inline-flex flex-shrink min-h-0">
+                                                    <img
+                                                        src={currentItem.imageUrl}
+                                                        alt={`Flashcard ${currentIndex + 1}`}
+                                                        className="h-auto w-auto max-h-[20vh] md:max-h-[24vh] object-contain rounded-lg"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="absolute bottom-6 flex items-center gap-2 text-amber-700/50 font-bold uppercase tracking-wider text-xs">
+                                            Space or tap to flip
+                                        </div>
+                                    </div>
 
                                     {/* Back */}
-                                    <Card
-                                        className="absolute inset-0 border-gray-100 shadow-sm rounded-2xl bg-white flex flex-col items-center justify-center p-8 text-center overflow-hidden"
+                                    <div
+                                        className="absolute inset-0 rounded-3xl bg-emerald-50 border-4 border-emerald-200 shadow-sm flex flex-col items-center justify-center p-6 md:p-12 text-center overflow-hidden hover:bg-emerald-100 transition-colors"
                                         style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                                     >
-                                        <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-emerald-400 to-emerald-300 rounded-t-2xl" />
-                                        <Badge className="mb-5 text-[9px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 border-none">
-                                            Answer
-                                        </Badge>
-                                        <p className="text-xl md:text-2xl font-black text-primary leading-snug mb-4">
-                                            {currentItem.options[currentItem.answer]}
-                                        </p>
-                                        <p className="text-xs text-gray-500 leading-relaxed max-w-md">
-                                            {currentItem.rationalization}
-                                        </p>
-                                        <div className="absolute bottom-5 flex items-center gap-1.5 text-[10px] font-semibold text-gray-300 uppercase tracking-wider">
-                                            <Repeat2 size={12} /> Tap to flip back
+                                        <div className="absolute top-6 flex items-center gap-2 text-emerald-600/60 font-black uppercase tracking-widest text-sm">
+                                            <Repeat2 size={16} /> Answer
                                         </div>
-                                    </Card>
+                                        <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
+                                            <p className={`${answerTextClass} font-black text-emerald-900 leading-tight mb-4 md:mb-6 shrink-0`}>
+                                                {currentItem.options[currentItem.answer]}
+                                            </p>
+                                            <div className="bg-white/50 p-4 md:p-5 rounded-2xl border-2 border-emerald-100 w-full max-w-2xl">
+                                                <p className={`${rationalizationTextClass} font-bold text-emerald-700/80 leading-relaxed`}>
+                                                    {currentItem.rationalization}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="absolute bottom-6 flex items-center gap-2 text-emerald-700/50 font-bold uppercase tracking-wider text-xs">
+                                            Tap to flip back
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <p className="text-center text-[11px] font-semibold text-gray-400">
-                                Card {currentIndex + 1} of {items.length}
-                            </p>
-                        </>
+                            <div className="flex items-center justify-between w-full mt-6 shrink-0 pt-4 border-t border-gray-200">
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                                    disabled={currentIndex === 0}
+                                    className="h-11 px-5 text-sm font-bold gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                                >
+                                    <ArrowLeft size={16} /> Previous
+                                </Button>
+                                <p className="text-center text-sm font-black text-gray-400 uppercase tracking-widest hidden sm:block">
+                                    Card {currentIndex + 1} / {items.length}
+                                </p>
+                                <Button
+                                    size="lg"
+                                    onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                                    className="h-11 px-6 text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-2"
+                                >
+                                    {currentIndex === items.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={16} />
+                                </Button>
+                            </div>
+                        </div>
                     ) : (
                         /* ── QUIZ MODE ── */
-                        <Card data-guide="session-question-card" className="border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden">
-                            <div className="h-1.5 w-full bg-gradient-to-r from-violet-400 to-violet-300" />
-                            <CardContent className="p-5 md:p-7 space-y-5">
-                                <div className="flex items-center justify-center">
-                                    <span className="inline-flex h-7 items-center rounded-full bg-violet-50 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-violet-700">
+                        <div className="flex-1 flex flex-col min-h-0 w-full">
+                            {/* Question & Image */}
+                            <div data-guide="session-question-card" className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3 py-1 mb-3">
+                                <div className="w-full px-2 flex flex-col items-center justify-center">
+                                    <span className="inline-flex h-8 items-center rounded-lg bg-gray-100 px-4 text-xs font-black uppercase tracking-widest text-gray-500 mb-4 shrink-0">
                                         Question {currentIndex + 1}
                                     </span>
+                                    <h3 className={`${questionTextClass} font-black text-gray-900 leading-tight text-center`}>
+                                        {currentItem.question}
+                                    </h3>
                                 </div>
 
-                                <div className="space-y-3 text-center">
-                                    <p className="text-2xl md:text-4xl font-black text-gray-900 leading-tight md:leading-[1.2]">
-                                        {currentItem.question}
-                                    </p>
-                                    {currentItem.imageUrl && (
-                                        <div className="mx-auto max-w-xl rounded-xl border border-gray-100 bg-gray-50 p-2">
+                                {currentItem.imageUrl && (
+                                    <div className="flex-1 min-h-0 w-full flex justify-center items-center">
+                                        <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white p-1.5 inline-flex max-h-full">
                                             <img
                                                 src={currentItem.imageUrl}
-                                                alt={`Question ${currentIndex + 1}`}
-                                                className="max-h-56 w-auto max-w-full rounded-lg object-contain mx-auto"
+                                                alt="Question attachment"
+                                                className="h-full w-auto max-h-[18vh] md:max-h-[22vh] object-contain rounded-lg"
                                             />
                                         </div>
-                                    )}
+                                    </div>
+                                )}
+                                
+                                {userAnswers[currentIndex] !== undefined && (
+                                    <div className="w-full max-w-2xl mx-auto rounded-xl bg-blue-50 border-2 border-blue-200 px-4 py-3 mt-1 shrink-0">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1.5">Rationalization</p>
+                                        <p className={`${rationalizationTextClass} font-semibold text-blue-900 leading-relaxed`}>{currentItem.rationalization}</p>
+                                    </div>
+                                )}
+                            </div>
 
-                                    {userAnswers[currentIndex] !== undefined && (
-                                        <div className="mx-auto max-w-xl rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 mb-1">Rationalization</p>
-                                            <p className="text-sm text-gray-700 leading-relaxed">{currentItem.rationalization}</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div data-guide="session-answer-options" className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {currentItem.options.map((option, idx) => {
-                                        const isSelected = userAnswers[currentIndex] === idx;
-                                        const isCorrect = idx === currentItem.answer;
-                                        const hasAnswered = userAnswers[currentIndex] !== undefined;
-
-                                        let choiceStyle = 'border-gray-200 bg-white hover:border-violet-300 hover:bg-violet-50/50 text-gray-800 cursor-pointer';
-                                        if (hasAnswered) {
-                                            if (isCorrect) choiceStyle = 'border-emerald-300 bg-emerald-50 text-emerald-900 cursor-default';
-                                            else if (isSelected) choiceStyle = 'border-red-300 bg-red-50 text-red-700 cursor-default';
-                                            else choiceStyle = 'border-gray-100 bg-gray-50/50 text-gray-400 cursor-default';
+                            {/* Choices Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
+                                {currentItem.options.map((opt, idx) => {
+                                    const isSelected = userAnswers[currentIndex] === idx;
+                                    const hasAnswer = userAnswers[currentIndex] !== undefined;
+                                    const isCorrect = idx === currentItem.answer;
+                                    const isWrongSelection = hasAnswer && isSelected && !isCorrect;
+                                    
+                                    const pastelThemes = [
+                                        { bg: 'bg-rose-50', hover: 'hover:bg-rose-100', border: 'border-rose-200', text: 'text-rose-950', iconBg: 'bg-rose-100', iconText: 'text-rose-700', activeRing: 'ring-rose-400' },
+                                        { bg: 'bg-blue-50', hover: 'hover:bg-blue-100', border: 'border-blue-200', text: 'text-blue-950', iconBg: 'bg-blue-100', iconText: 'text-blue-700', activeRing: 'ring-blue-400' },
+                                        { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', border: 'border-amber-200', text: 'text-amber-950', iconBg: 'bg-amber-100', iconText: 'text-amber-700', activeRing: 'ring-amber-400' },
+                                        { bg: 'bg-emerald-50', hover: 'hover:bg-emerald-100', border: 'border-emerald-200', text: 'text-emerald-950', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', activeRing: 'ring-emerald-400' }
+                                    ];
+                                    
+                                    let theme = pastelThemes[idx % pastelThemes.length];
+                                    
+                                    if (hasAnswer) {
+                                        if (isCorrect) {
+                                            theme = { bg: 'bg-emerald-100', hover: '', border: 'border-emerald-500', text: 'text-emerald-950', iconBg: 'bg-emerald-500', iconText: 'text-white', activeRing: 'ring-emerald-500' };
+                                        } else if (isWrongSelection) {
+                                            theme = { bg: 'bg-red-100', hover: '', border: 'border-red-500', text: 'text-red-950', iconBg: 'bg-red-500', iconText: 'text-white', activeRing: 'ring-red-500' };
+                                        } else {
+                                            theme = { ...theme, bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-400', iconBg: 'bg-gray-100', iconText: 'text-gray-400', activeRing: 'ring-transparent' };
                                         }
+                                    }
 
-                                        let labelStyle = 'bg-gray-100 text-gray-600';
-                                        if (hasAnswered && isCorrect) labelStyle = 'bg-emerald-500 text-white';
-                                        else if (hasAnswered && isSelected && !isCorrect) labelStyle = 'bg-red-400 text-white';
+                                    return (
+                                        <button
+                                            key={idx}
+                                            disabled={hasAnswer}
+                                            onClick={() => handleOptionSelect(idx)}
+                                            className={`group relative flex items-center justify-start p-3 md:p-3.5 min-h-[72px] md:min-h-[88px] rounded-xl border-2 text-left transition-all duration-150 ${
+                                                isSelected && !hasAnswer
+                                                    ? `ring-2 ring-offset-2 ${theme.activeRing} scale-[1.01] z-10`
+                                                    : !hasAnswer ? `shadow-sm hover:-translate-y-0.5 ${theme.hover}` : ''
+                                            } ${theme.bg} ${theme.border} ${theme.text}`}
+                                        >
+                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-sm md:text-base shrink-0 mr-3 md:mr-4 transition-colors ${theme.iconBg} ${theme.iconText}`}>
+                                                {OPTION_LABELS[idx]}
+                                            </div>
+                                            <span className="text-sm md:text-[15px] font-bold leading-snug break-words flex-1">
+                                                {opt}
+                                            </span>
+                                            {hasAnswer && isCorrect && <CheckCircle2 size={24} className="text-emerald-500 ml-2 shrink-0" />}
+                                            {hasAnswer && isWrongSelection && <XCircle size={24} className="text-red-500 ml-2 shrink-0" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
 
-                                        return (
+                            {/* Navigation Footer */}
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 shrink-0">
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    onClick={handlePrev}
+                                    disabled={currentIndex === 0}
+                                    className="h-11 px-5 text-sm font-bold gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                                >
+                                    <ArrowLeft size={16} /> Previous
+                                </Button>
+                                
+                                {/* Indicators */}
+                                {items.length <= 20 && (
+                                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                        {items.map((_, idx) => (
                                             <button
                                                 key={idx}
-                                                disabled={hasAnswered}
-                                                onClick={() => handleOptionSelect(idx)}
-                                                className={`rounded-2xl border p-4 md:p-5 text-left transition-all duration-150 min-h-28 md:min-h-36 ${choiceStyle}`}
-                                            >
-                                                <div className="flex h-full flex-col justify-between gap-3">
-                                                    <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 transition-colors ${labelStyle}`}>
-                                                        {OPTION_LABELS[idx]}
-                                                    </span>
-                                                    <span className="text-sm md:text-base font-semibold leading-snug">{option}</span>
-                                                    <span className="h-5 flex items-center">
-                                                        {hasAnswered && isCorrect && <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />}
-                                                        {hasAnswered && isSelected && !isCorrect && <XCircle size={16} className="text-red-500 shrink-0" />}
-                                                    </span>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
+                                                onClick={() => { setCurrentIndex(idx); setIsFlipped(false); }}
+                                                className={`rounded-full transition-all duration-200 ${
+                                                    idx === currentIndex
+                                                        ? 'w-5 h-2 bg-gray-900'
+                                                        : userAnswers[idx] !== undefined
+                                                            ? userAnswers[idx] === items[idx].answer
+                                                                ? 'w-2 h-2 bg-emerald-400'
+                                                                : 'w-2 h-2 bg-red-400'
+                                                            : 'w-2 h-2 bg-gray-200 hover:bg-gray-300'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        size="lg"
+                                        onClick={handleNext}
+                                        className="h-11 px-6 text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-2"
+                                    >
+                                        {currentIndex === items.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={16} />
+                                    </Button>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Navigation */}
-                    <div data-guide="session-nav-controls" className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={handlePrev}
-                            disabled={currentIndex === 0}
-                            className="h-9 px-4 rounded-xl border-gray-200 font-semibold text-xs gap-1.5 text-gray-600"
-                        >
-                            <ChevronLeft size={14} /> Prev
-                        </Button>
-
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowResults(true)}
-                            className="h-9 px-4 rounded-xl border-gray-200 font-semibold text-xs text-gray-400 hover:text-red-500 hover:border-red-200 ml-auto"
-                        >
-                            <X size={13} className="mr-1" /> End
-                        </Button>
-
-                        <Button
-                            onClick={handleNext}
-                            className="h-9 px-4 rounded-xl font-semibold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-white"
-                        >
-                            {currentIndex === items.length - 1 ? (
-                                <>Finish <CheckCircle2 size={13} /></>
-                            ) : (
-                                <>Next <ChevronRight size={14} /></>
-                            )}
-                        </Button>
-                    </div>
-
-                    {/* Dot indicators */}
-                    {items.length <= 20 && (
-                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                            {items.map((_, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => { setCurrentIndex(idx); setIsFlipped(false); }}
-                                    className={`rounded-full transition-all duration-200 ${
-                                        idx === currentIndex
-                                            ? 'w-5 h-2 bg-primary'
-                                            : isStudyMode && userAnswers[idx] !== undefined
-                                                ? userAnswers[idx] === items[idx].answer
-                                                    ? 'w-2 h-2 bg-emerald-400'
-                                                    : 'w-2 h-2 bg-red-400'
-                                                : 'w-2 h-2 bg-gray-200 hover:bg-gray-300'
-                                    }`}
-                                />
-                            ))}
+                            </div>
                         </div>
                     )}
-
-                    {/* Keyboard hint */}
-                    <div data-guide="session-keyboard-hint" className="flex items-center justify-center gap-1.5 text-[10px] text-gray-300 font-medium">
-                        <Keyboard size={11} />
-                        {isStudyMode ? 'A B C D to answer · ← → to navigate' : 'Space to flip · ← → to navigate'}
-                    </div>
                 </div>
             </main>
         </div>

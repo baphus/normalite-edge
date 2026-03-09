@@ -8,7 +8,6 @@ import {
     AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import {
     Dialog,
@@ -999,104 +998,103 @@ const TakeExamPage: React.FC = () => {
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Main Question Area */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-6">
-                    <div className="max-w-3xl mx-auto space-y-4">
-                        {/* Progress bar row */}
-                        <div data-guide="exam-take-progress" className="flex items-center gap-3">
-                            <span className="text-xs font-semibold text-gray-400 shrink-0">
-                                {currentQuestionNo} / {exam.questions.length}
-                            </span>
-                            <Progress value={((currentIndex + 1) / exam.questions.length) * 100} className="flex-1 h-1.5" />
-                            <span className="text-xs font-semibold text-gray-400 shrink-0">
-                                {answeredCount} answered
-                            </span>
-                        </div>
-
-                        <Card data-guide="exam-take-question" className="border border-gray-200 shadow-sm overflow-hidden rounded-xl bg-white">
-                            <CardContent className="p-5">
-                                <p className="text-sm md:text-base font-medium text-gray-900 leading-relaxed mb-5">
+                <main className="flex-1 overflow-hidden p-4 md:p-6 bg-gray-50 flex flex-col">
+                    <div className="max-w-4xl mx-auto w-full h-full flex flex-col">
+                        
+                        {/* Question & Image - Flex 1 allows it to take available space */}
+                        <div data-guide="exam-take-question" className="flex-1 flex flex-col items-center justify-center min-h-0 gap-4 py-2 mb-4">
+                            <div className="w-full max-h-[40vh] overflow-y-auto px-2 flex items-center justify-center">
+                                <h3 className="text-xl md:text-3xl font-black text-gray-900 leading-tight text-center">
                                     {currentQuestion.text}
-                                </p>
+                                </h3>
+                            </div>
 
-                                {currentQuestion.imageUrl && (
-                                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 p-2">
+                            {currentQuestion.imageUrl && (
+                                <div className="flex-1 min-h-0 w-full flex justify-center items-center">
+                                    <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white p-1.5 inline-flex max-h-full">
                                         <img
                                             src={currentQuestion.imageUrl}
                                             alt="Question attachment"
-                                            className="max-h-52 w-auto max-w-full rounded-md border border-gray-100 object-contain bg-white"
+                                            className="h-full w-auto max-h-[30vh] object-contain rounded-lg"
                                         />
                                     </div>
-                                )}
-
-                                <div data-guide="exam-take-choices" className="grid gap-2">
-                                    {(currentQuestion.choices || []).map((option, idx) => {
-                                        const optionLabel = CHOICE_LABELS[idx] || 'A';
-                                        const isSelected = answers[currentQuestion.id] === optionLabel;
-                                        const label = String.fromCharCode(65 + idx);
-                                        return (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handleOptionSelect(idx)}
-                                                className={`group flex items-center gap-3 px-3.5 py-2.5 rounded-lg border text-left transition-all duration-150 ${
-                                                    isSelected
-                                                        ? 'border-primary bg-primary/5 ring-2 ring-primary/10'
-                                                        : 'border-gray-200 bg-white hover:border-primary/30 hover:bg-gray-50/80'
-                                                }`}
-                                            >
-                                                <div className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
-                                                    isSelected
-                                                        ? 'bg-primary text-white'
-                                                        : 'bg-gray-100 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary'
-                                                }`}>
-                                                    {label}
-                                                </div>
-                                                <span className={`text-sm leading-snug ${
-                                                    isSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-medium'
-                                                }`}>
-                                                    {option}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
                                 </div>
+                            )}
+                        </div>
 
-                                <div data-guide="exam-take-question-nav" className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-                                        disabled={currentIndex === 0}
-                                        className="h-8 px-3 text-xs font-semibold text-gray-500 gap-1.5 rounded-lg"
+                        {/* Choices Grid - Fixed relative height */}
+                        <div data-guide="exam-take-choices" className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
+                            {(currentQuestion.choices || []).map((option, idx) => {
+                                const optionLabel = CHOICE_LABELS[idx] || 'A';
+                                const isSelected = answers[currentQuestion.id] === optionLabel;
+                                const hasAnswer = Boolean(answers[currentQuestion.id]);
+                                const label = String.fromCharCode(65 + idx);
+                                
+                                const pastelThemes = [
+                                    { bg: 'bg-rose-50', hover: 'hover:bg-rose-100', border: 'border-rose-200', text: 'text-rose-950', iconBg: 'bg-rose-100', iconText: 'text-rose-700', activeRing: 'ring-rose-400' },
+                                    { bg: 'bg-blue-50', hover: 'hover:bg-blue-100', border: 'border-blue-200', text: 'text-blue-950', iconBg: 'bg-blue-100', iconText: 'text-blue-700', activeRing: 'ring-blue-400' },
+                                    { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', border: 'border-amber-200', text: 'text-amber-950', iconBg: 'bg-amber-100', iconText: 'text-amber-700', activeRing: 'ring-amber-400' },
+                                    { bg: 'bg-emerald-50', hover: 'hover:bg-emerald-100', border: 'border-emerald-200', text: 'text-emerald-950', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', activeRing: 'ring-emerald-400' }
+                                ];
+                                const theme = pastelThemes[idx % pastelThemes.length];
+
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleOptionSelect(idx)}
+                                        className={`group relative flex items-center justify-start p-3 md:p-4 min-h-[80px] md:min-h-[100px] rounded-xl border-2 text-left transition-all duration-150 active:translate-y-0.5 ${
+                                            isSelected
+                                                ? `ring-2 ring-offset-2 ${theme.activeRing} scale-[1.01] z-10 ${theme.bg} ${theme.border}`
+                                                : `shadow-sm ${theme.bg} ${theme.border} ${theme.hover}`
+                                        } ${hasAnswer && !isSelected ? 'opacity-50 grayscale-[40%]' : 'opacity-100'} ${theme.text}`}
                                     >
-                                        <ArrowLeft size={13} /> Previous
-                                    </Button>
+                                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-sm md:text-base shrink-0 mr-3 md:mr-4 transition-colors ${theme.iconBg} ${theme.iconText}`}>
+                                            {label}
+                                        </div>
+                                        <span className="text-sm md:text-base font-bold leading-snug break-words flex-1">
+                                            {option}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
 
-                                    <div className="flex items-center gap-2">
-                                        {!answers[currentQuestion.id] && (
-                                            <span className="text-[10px] text-gray-400 font-medium">Not answered</span>
-                                        )}
-                                        {currentIndex === exam.questions.length - 1 ? (
-                                            <Button
-                                                size="sm"
-                                                onClick={handleSubmitClick}
-                                                disabled={isSubmitting}
-                                                className="h-8 px-4 text-xs font-bold rounded-lg bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5"
-                                            >
-                                                Submit Exam <Send size={12} />
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                size="sm"
-                                                onClick={() => setCurrentIndex(prev => Math.min(exam.questions.length - 1, prev + 1))}
-                                                className="h-8 px-4 text-xs font-bold rounded-lg bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5"
-                                            >
-                                                Next <ArrowRight size={12} />
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Navigation Footer */}
+                        <div data-guide="exam-take-question-nav" className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 shrink-0">
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                                disabled={currentIndex === 0}
+                                className="h-11 px-5 text-sm font-bold gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                            >
+                                <ArrowLeft size={16} /> Previous
+                            </Button>
+
+                            <div className="flex items-center gap-3">
+                                {!answers[currentQuestion.id] && (
+                                    <span className="text-xs text-gray-400 font-bold uppercase tracking-wider hidden sm:block">Not answered</span>
+                                )}
+                                {currentIndex === exam.questions.length - 1 ? (
+                                    <Button
+                                        size="lg"
+                                        onClick={handleSubmitClick}
+                                        disabled={isSubmitting}
+                                        className="h-11 px-6 text-sm font-black rounded-xl bg-gray-900 hover:bg-gray-800 text-white shadow-sm gap-2"
+                                    >
+                                        Submit Exam <Send size={16} />
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        size="lg"
+                                        onClick={() => setCurrentIndex(prev => Math.min(exam.questions.length - 1, prev + 1))}
+                                        className="h-11 px-6 text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-2"
+                                    >
+                                        Next <ArrowRight size={16} />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </main>
 

@@ -2,6 +2,7 @@ import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { dashboardService } from './dashboard.service';
 import { fromDbUserStatus, resolveProgramTrack, toDbUserStatus } from '../utils/requirementsCompat';
 import { notificationService } from './notification.service';
 
@@ -69,6 +70,32 @@ export class UserService {
         }
 
         return campus;
+    }
+
+    /**
+     * Get a single student profile by ID
+     */
+    async getStudentProfile(id: string) {
+        const user = await prisma.user.findUnique({
+            where: { id },
+            include: {
+                campus: true,
+                track: true,
+            }
+        });
+
+        if (!user) {
+            throw new ApiError(404, 'User not found');
+        }
+
+        const stats = await dashboardService.getRevieweeProfilePerformance(id);
+
+        return {
+            ...user,
+            status: fromDbUserStatus(user.status),
+            programTrack: resolveProgramTrack({ programTrack: user.track?.code || undefined }),
+            performance: stats,
+        };
     }
 
     /**

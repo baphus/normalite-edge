@@ -19,6 +19,7 @@ import ExamReviewPage from './pages/ExamReviewPage';
 import ManageExamsPage from './pages/ManageExamsPage';
 import StudyHubPage from './pages/StudyHubPage';
 import StudySessionPage from './pages/StudySessionPage';
+import { ErrorBoundary } from './pages/StudySessionPageError';
 import UserManagementPage from './pages/UserManagementPage';
 import ManageMaterialsPage from './pages/ManageMaterialsPage';
 import MaterialViewPage from './pages/MaterialViewPage';
@@ -26,6 +27,7 @@ import RevieweeMaterialViewPage from './pages/RevieweeMaterialViewPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
+import StudentProfileViewPage from './pages/StudentProfileViewPage';
 import VideoConferencePage from './pages/VideoConferencePage';
 import DeckEditorPage from './pages/StudyMaterialEditorPage';
 import LogsPage from './pages/LogsPage';
@@ -80,7 +82,7 @@ function App() {
                 <Route element={<RoleRoute allowedRoles={['REVIEWEE']} />}>
                   <Route path="/study" element={<StudyHubPage />} />
                   <Route path="/study/:id/view" element={<RevieweeMaterialViewPage />} />
-                  <Route path="/study/:id" element={<StudySessionPage />} />
+                  <Route path="/study/:id" element={<ErrorBoundary><StudySessionPage /></ErrorBoundary>} />
                   <Route path="/exams" element={<ExamsPage />} />
                   <Route path="/exams/:id/view" element={<RevieweeExamViewPage />} />
                   <Route path="/exams/:id/take" element={<TakeExamPage />} />
@@ -101,6 +103,7 @@ function App() {
                   <Route path="/manage-exams/:id/edit" element={<CreateExamPage />} />
                   <Route path="/manage-exams/:id/analytics" element={<LegacyManageExamAnalyticsRedirect />} />
                   <Route path="/students" element={<StudentManagementPage />} />
+                  <Route path="/student/:id/profile" element={<StudentProfileViewPage />} />
                   <Route path="/reviewer/students" element={<Navigate to="/students" replace />} />
                   <Route path="/admin/students" element={<Navigate to="/students" replace />} />
                 </Route>
