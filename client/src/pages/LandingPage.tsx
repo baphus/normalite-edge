@@ -89,7 +89,7 @@ const LandingPage: React.FC = () => {
                     <div className="absolute inset-0 z-0">
                         <div
                             className="h-full w-full bg-cover bg-center bg-no-repeat"
-                            style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBRR9ik7du_NN8BbhtzHgmEFdhEHHeTgNy3cjFn5wc_jkOz-DyKEK0AIWtwt7eZ94ewuUkYZnauRden46dcPtskCS-idsL1gtyT_pDO5L7nfb4loDomydtkseoggtMqYofqbSaaO2mbAX55oC73yjWODFtUhFvGxez8zYKcp84AkYgzV9N7Val59FVsTgdLanh7_8mQOQBSJ-CpRNhapJAQ3uDP_hvUddV78bfd9MbjLFzUssku_cO_N-TUvosJrdLyAeNPAKFjpIhs")' }}
+                            style={{ backgroundImage: 'url("https://res.cloudinary.com/dll6it35i/image/upload/v1773020900/CNU_Administration_Building_ta532z.jpg")' }}
                         >
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/90 to-primary/40 mix-blend-multiply"></div>

@@ -500,11 +500,11 @@ const ProfilePage: React.FC = () => {
                                         <img
                                             src={picture}
                                             alt="Profile"
-                                            className="h-24 w-[72px] object-cover border-2 border-primary"
+                                            className="h-24 w-18 object-cover border-2 border-primary"
                                             onError={() => setImgError(true)}
                                         />
                                     ) : (
-                                        <div className="h-24 w-[72px] bg-primary/10 text-primary font-black text-xl flex items-center justify-center border-2 border-primary">
+                                        <div className="h-24 w-18 bg-primary/10 text-primary font-black text-xl flex items-center justify-center border-2 border-primary">
                                             {userInitials}
                                         </div>
                                     )}
