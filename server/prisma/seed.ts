@@ -1,7 +1,6 @@
-import { PrismaClient, Role, UserStatus, ExamStatus, FeedbackMode, Visibility, ApplicableCategory } from '@prisma/client';
+import { Role, UserStatus, ExamStatus, FeedbackMode, Visibility, ApplicableCategory } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
+import prisma from '../src/config/db';
 
 const TRACK_SEEDS: Array<{ name: string; code: string }> = [
     { name: 'Bachelor of Elementary Education', code: 'BEED' },
@@ -283,7 +282,7 @@ async function seed() {
 seed()
     .catch((error) => {
         console.error('❌ Seed failed:', error);
-        process.exit(1);
+        process.exitCode = 1;
     })
     .finally(async () => {
         await prisma.$disconnect();

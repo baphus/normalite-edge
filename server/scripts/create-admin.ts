@@ -1,7 +1,6 @@
-import { PrismaClient, Role, UserStatus } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import prisma from "../src/config/db";
 
 async function main() {
   const email = process.argv[2];
@@ -11,7 +10,8 @@ async function main() {
 
   if (!email || !password) {
     console.error("Usage: npx tsx scripts/create-admin.ts <email> <password> [firstName] [lastName]");
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   try {
@@ -19,7 +19,8 @@ async function main() {
     
     if (existingUser) {
       console.error(`User with email ${email} already exists.`);
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
 
     const salt = await bcrypt.genSalt(10);

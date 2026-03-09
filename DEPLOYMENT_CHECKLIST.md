@@ -33,9 +33,9 @@ Use this checklist to ensure all steps are completed before deploying to product
 - [ ] Create new project with strong password
 - [ ] Wait for provisioning to complete (~2 min)
 - [ ] Go to Settings → Database → Connection Pooling
-- [ ] Copy connection string (Transaction mode pooler)
+- [ ] Copy connection string (Session mode pooler)
 - [ ] Save securely (don't share or commit to git)
-- [ ] Connection string format verified: `postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require`
+- [ ] Connection string format verified: `postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:5432/postgres?sslmode=require&connection_limit=5&pool_timeout=20`
 - [ ] Direct DB format verified: `postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require`
 
 ---

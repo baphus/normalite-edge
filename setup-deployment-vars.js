@@ -30,7 +30,7 @@ console.log('\n🔐 NORMALITE EDGE - PRODUCTION ENVIRONMENT SETUP\n');
 const renderVars = [
     { key: 'NODE_ENV', value: 'production' },
     { key: 'PORT', value: '3000' },
-    { key: 'DATABASE_URL', value: 'postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require' },
+    { key: 'DATABASE_URL', value: 'postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:5432/postgres?sslmode=require&connection_limit=5&pool_timeout=20' },
     { key: 'DIRECT_URL', value: 'postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require' },
     { key: 'JWT_ACCESS_SECRET', value: accessSecret },
     { key: 'JWT_REFRESH_SECRET', value: refreshSecret },

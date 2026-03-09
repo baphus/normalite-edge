@@ -35,7 +35,7 @@ This guide walks you through deploying Normalite EDGE to production using:
 3. Replace `[YOUR-PASSWORD]` with your actual database password
 4. Format:
    ```
-   postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require
+   postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:5432/postgres?sslmode=require&connection_limit=5&pool_timeout=20
    ```
 
 Also copy your direct database connection string (for Prisma direct operations):
