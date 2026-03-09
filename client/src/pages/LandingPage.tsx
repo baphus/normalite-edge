@@ -160,7 +160,7 @@ const LandingPage: React.FC = () => {
                                     </ul>
                                 </div>
                                 <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
-                                    <img src="/mock-exams-screenshot.png" alt="Mock Exams Feature" className="w-full h-full object-cover object-top" />
+                                    <img src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030327/Screenshot_2026-03-09_at_12-24-14_Normalite_EDGE_cgc5ry.png" alt="Mock Exams Feature" className="w-full h-full object-cover object-top" />
                                 </div>
                             </div>
 
@@ -186,7 +186,7 @@ const LandingPage: React.FC = () => {
                                     </ul>
                                 </div>
                                 <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
-                                    <img src="/calendar-screenshot.png" alt="Calendar Feature" className="w-full h-full object-cover object-top" />
+                                    <img src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030328/Screenshot_2026-03-09_at_12-14-48_Normalite_EDGE_qn3aji.png" alt="Calendar Feature" className="w-full h-full object-cover object-top" />
                                 </div>
                             </div>
 
@@ -212,7 +212,7 @@ const LandingPage: React.FC = () => {
                                     </ul>
                                 </div>
                                 <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
-                                    <img src="/materials-results-screenshot.png" alt="Materials and Results Feature" className="w-full h-full object-cover object-top" />
+                                    <img src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030568/3_collge_pupz05.png" alt="Materials and Results Feature" className="w-full h-full object-cover object-top" />
                                 </div>
                             </div>
                         </div>
