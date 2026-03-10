@@ -35,7 +35,7 @@ Use this checklist to ensure all steps are completed before deploying to product
 - [ ] Go to Settings → Database → Connection Pooling
 - [ ] Copy connection string (Session mode pooler)
 - [ ] Save securely (don't share or commit to git)
-- [ ] Connection string format verified: `postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:5432/postgres?sslmode=require&connection_limit=5&pool_timeout=20`
+- [ ] Connection string format verified: `postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:5432/postgres?sslmode=require`
 - [ ] Direct DB format verified: `postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require`
 
 ---
@@ -92,6 +92,8 @@ NODE_ENV=production
 PORT=3000
 DATABASE_URL=[PASTE_SUPABASE_CONNECTION_STRING]
 DIRECT_URL=[PASTE_SUPABASE_DIRECT_CONNECTION_STRING]
+PRISMA_CONNECTION_LIMIT=1
+PRISMA_POOL_TIMEOUT=30
 JWT_ACCESS_SECRET=[PASTE_GENERATED_SECRET_1]
 JWT_REFRESH_SECRET=[PASTE_GENERATED_SECRET_2]
 JWT_ACCESS_EXPIRES_IN=15m

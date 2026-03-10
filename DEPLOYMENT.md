@@ -31,11 +31,11 @@ This guide walks you through deploying Normalite EDGE to production using:
 ### 1.2 Get Connection String
 
 1. Go to **Project Settings** → **Database** → **Connection Pooling**
-2. Copy the connection string for **Transaction mode** pooler
+2. Copy the connection string for **Session mode** pooler
 3. Replace `[YOUR-PASSWORD]` with your actual database password
 4. Format:
    ```
-   postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:5432/postgres?sslmode=require&connection_limit=5&pool_timeout=20
+   postgresql://postgres:[PASSWORD]@[PROJECT-REF].pooler.supabase.com:5432/postgres?sslmode=require
    ```
 
 Also copy your direct database connection string (for Prisma direct operations):
@@ -87,6 +87,8 @@ NODE_ENV=production
 PORT=3000
 DATABASE_URL=[YOUR_SUPABASE_CONNECTION_STRING]
 DIRECT_URL=[YOUR_SUPABASE_DIRECT_CONNECTION_STRING]
+PRISMA_CONNECTION_LIMIT=1
+PRISMA_POOL_TIMEOUT=30
 JWT_ACCESS_SECRET=[GENERATE_WITH: openssl rand -hex 32]
 JWT_REFRESH_SECRET=[GENERATE_WITH: openssl rand -hex 32]
 JWT_ACCESS_EXPIRES_IN=15m
