@@ -41,6 +41,7 @@ type StudentProfilePayload = {
     middleInitial?: string | null;
     suffix?: string | null;
     picture?: string | null;
+    profilePicture?: string | null;
     yearLevel?: string | null;
     section?: string | null;
     status?: string;
@@ -55,6 +56,7 @@ type StudentSummaryState = {
         id: string;
         name: string;
         email: string;
+        picture?: string | null;
         status?: string;
         programTrack?: string;
         campus?: string;
@@ -80,6 +82,15 @@ const formatDuration = (seconds: number) => {
 
 const formatPercent = (value: number) => `${Number(value || 0).toFixed(2)}%`;
 
+const normalizeProfileImageUrl = (rawUrl?: string | null): string => {
+    if (!rawUrl || typeof rawUrl !== 'string') return '';
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    return trimmed;
+};
+
 const StudentProfileViewPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -97,6 +108,7 @@ const StudentProfileViewPage: React.FC = () => {
         setProfile({
             id: stateStudent.id,
             email: stateStudent.email,
+            picture: stateStudent.picture || null,
             firstName: stateStudent.name.split(' ').filter(Boolean)[0] || '',
             lastName: stateStudent.name.split(' ').filter(Boolean).slice(1).join(' '),
             status: stateStudent.status,
@@ -161,6 +173,10 @@ const StudentProfileViewPage: React.FC = () => {
     }), [profile]);
 
     const userInitials = useMemo(() => displayName.split(' ').filter(Boolean).map((part) => part[0]?.toUpperCase() || '').join('').slice(0, 2), [displayName]);
+    const effectivePicture = useMemo(
+        () => normalizeProfileImageUrl(profile?.picture || profile?.profilePicture || null),
+        [profile?.picture, profile?.profilePicture]
+    );
 
     if (loading) {
         return (
@@ -224,8 +240,8 @@ const StudentProfileViewPage: React.FC = () => {
                         <div className="px-4 pt-4 pb-4 space-y-4">
                             <div className="flex gap-4 items-start">
                                 <div className="shrink-0">
-                                    {profile.picture && !imgError ? (
-                                        <img src={profile.picture} alt="Profile" className="h-24 w-18 object-cover border-2 border-primary" onError={() => setImgError(true)} />
+                                    {effectivePicture && !imgError ? (
+                                        <img src={effectivePicture} alt="Profile" className="h-24 w-18 object-cover border-2 border-primary" onError={() => setImgError(true)} />
                                     ) : (
                                         <div className="h-24 w-18 bg-primary/10 text-primary font-black text-xl flex items-center justify-center border-2 border-primary">{userInitials}</div>
                                     )}

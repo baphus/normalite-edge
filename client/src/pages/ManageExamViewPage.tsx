@@ -34,6 +34,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ExamTrack {
     id?: string;
@@ -222,6 +224,7 @@ const ManageExamViewPage: React.FC = () => {
     const [attempts, setAttempts] = useState<AttemptItem[]>([]);
     const [submissionAnalytics, setSubmissionAnalytics] = useState<SubmissionAnalytics | null>(null);
     const [search, setSearch] = useState('');
+    const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('ALL');
     const [questionSortMode, setQuestionSortMode] = useState<QuestionSortMode>('hardest');
     const [selectedSection, setSelectedSection] = useState('ALL');
     const [questionViewMode, setQuestionViewMode] = useState<'cards' | 'list'>('cards');
@@ -344,15 +347,25 @@ const ManageExamViewPage: React.FC = () => {
 
     const filteredAttempts = useMemo(() => {
         const term = search.trim().toLowerCase();
-        if (!term) return allAttemptsSorted;
-
         return allAttemptsSorted.filter((attempt) => {
             const name = attempt.user?.name?.toLowerCase() || '';
             const email = attempt.user?.email?.toLowerCase() || '';
             const track = attempt.user?.programTrack?.toLowerCase() || '';
-            return name.includes(term) || email.includes(term) || track.includes(term);
+            
+            const matchesSearch = !term || name.includes(term) || email.includes(term) || track.includes(term);
+            const matchesProgram = selectedProgramFilter === 'ALL' || attempt.user?.programTrack === selectedProgramFilter;
+            
+            return matchesSearch && matchesProgram;
         });
-    }, [allAttemptsSorted, search]);
+    }, [allAttemptsSorted, search, selectedProgramFilter]);
+
+    const programOptions = useMemo(() => {
+        const specs = new Set<string>();
+        allAttemptsSorted.forEach((a) => {
+            if (a.user?.programTrack) specs.add(a.user.programTrack);
+        });
+        return Array.from(specs).sort();
+    }, [allAttemptsSorted]);
 
     const attemptSummary = useMemo(() => {
         const total = attempts.length;
@@ -656,6 +669,46 @@ const ManageExamViewPage: React.FC = () => {
         URL.revokeObjectURL(downloadUrl);
     };
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.setTextColor(128, 0, 0); // Primary color
+        doc.text(`Exam Analytics: ${exam?.title || 'Untitled Exam'}`, 14, 22);
+
+        doc.setFontSize(11);
+        doc.setTextColor(51, 51, 51);
+        doc.text(`Total Attempts: ${attemptSummary.total}`, 14, 32);
+        doc.text(`Average Score: ${formatPercent(attemptSummary.averageScore)}`, 14, 38);
+        doc.text(`Highest Score: ${formatPercent(attemptSummary.highestScore)}`, 14, 44);
+        doc.text(`Lowest Score: ${formatPercent(attemptSummary.lowestScore)}`, 14, 50);
+
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text('Student Submissions Details', 14, 62);
+
+        const tableColumn = ["Student", "Program", "Score", "Percentage", "Status", "Date"];
+        const tableRows = allAttemptsSorted.map(attempt => [
+            attempt.user?.name || 'Unknown User',
+            attempt.user?.programTrack || 'N/A',
+            attempt.status === 'SUBMITTED' ? `${Number(attempt.score || 0)}/${questionCount}` : '-',
+            attempt.status === 'SUBMITTED' ? formatPercent(attempt.percentage) : '-',
+            attempt.status,
+            formatDate(attempt.submittedAt || attempt.startedAt)
+        ]);
+
+        autoTable(doc, {
+            startY: 66,
+            head: [tableColumn],
+            body: tableRows,
+            theme: 'striped',
+            headStyles: { fillColor: [128, 0, 0] },
+            styles: { fontSize: 9 },
+        });
+
+        const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        doc.save(`${safeTitle}-analytics.pdf`);
+    };
+
     const questions = useMemo(() => {
         return (exam?.questions || [])
             .slice()
@@ -706,674 +759,404 @@ const ManageExamViewPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex flex-col gap-3 font-lexend pb-6">
-                <Card className="rounded-lg border-gray-100 bg-white">
-                    <CardContent className="p-4 text-xs font-semibold text-gray-500">Loading exam details...</CardContent>
-                </Card>
+            <div className="flex-1 flex flex-col min-w-0 bg-[#f8f5f5] min-h-screen p-8 font-lexend">
+                <div className="bg-white p-6 rounded-2xl border border-primary/10 shadow-sm text-sm font-semibold text-slate-500">
+                    Loading exam details...
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-3 font-lexend pb-6">
-            <header className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2.5">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-md"
-                        onClick={() => navigate('/manage-exams')}
-                    >
-                        <ArrowLeft size={15} />
-                    </Button>
+        <div className="flex-1 flex flex-col min-w-0 bg-[#f8f5f5] min-h-screen font-lexend">
+            {/* Header */}
+            <header className="bg-white border-b border-primary/10 sticky top-0 z-10 px-8 py-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-base font-bold text-gray-900 tracking-tight">Exam Details</h1>
-                        <p className="text-[11px] text-gray-400 mt-0.5">Full exam setup and recent submissions.</p>
+                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-1">
+                            <Link to="/manage-exams" className="hover:text-primary transition-colors flex items-center gap-1">
+                                <ArrowLeft size={12} /> Dashboard
+                            </Link>
+                            <span className="text-xs text-slate-300">/</span>
+                            <span className="text-primary">{exam?.category || 'Exam Details'}</span>
+                        </div>
+                        <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                            <BarChart3 className="text-primary" size={24} />
+                            Exam Results Analytics: {exam?.title || 'Untitled Exam'}
+                        </h2>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Button
+                            onClick={handleExportPDF}
+                            className="bg-white text-slate-700 border border-primary/20 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-slate-50 transition-shadow shadow-sm h-10"
+                        >
+                            <Download size={16} />
+                            Export PDF
+                        </Button>
+                        {exam && canEditExam && (
+                            <Link to={`/manage-exams/${exam.id}/edit`}>
+                                <Button className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition-shadow shadow-sm h-10">
+                                    <FileText size={16} />
+                                    Edit Exam
+                                </Button>
+                            </Link>
+                        )}
                     </div>
                 </div>
-                {exam && canEditExam ? (
-                    <Link to={`/manage-exams/${exam.id}/edit`}>
-                        <Button className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white font-semibold text-xs gap-1.5">
-                            Edit Exam
-                        </Button>
-                    </Link>
-                ) : null}
             </header>
 
             {error ? (
-                <Card className="rounded-lg border-red-100 bg-red-50/40">
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <p className="text-xs font-semibold text-red-700">{error}</p>
-                        <Button variant="outline" size="sm" onClick={() => navigate('/manage-exams')} className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50">
+                <div className="p-8">
+                    <div className="bg-white p-6 rounded-2xl border border-red-200 shadow-sm text-red-700 font-semibold flex items-center justify-between">
+                        {error}
+                        <Button variant="outline" size="sm" onClick={() => navigate('/manage-exams')} className="border-red-200 text-red-700 hover:bg-red-50">
                             Back to Exams
                         </Button>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             ) : !exam ? (
-                <Card className="rounded-lg border-gray-100 bg-white">
-                    <CardContent className="p-4 text-xs font-semibold text-gray-500">Exam not found.</CardContent>
-                </Card>
+                <div className="p-8">
+                    <div className="bg-white p-6 rounded-2xl border border-primary/10 shadow-sm text-sm font-semibold text-slate-500">
+                        Exam not found.
+                    </div>
+                </div>
             ) : (
-                <>
-                    <Card className="rounded-lg border-gray-100 bg-white">
-                        <CardContent className="p-5 space-y-4">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] uppercase tracking-widest">
-                                    {exam.category || 'No Category'}
-                                </Badge>
-                                <Badge
-                                    variant="outline"
-                                    className={`font-black text-[10px] uppercase tracking-widest ${
-                                        exam.status === 'LIVE' || exam.status === 'PUBLISHED'
-                                            ? 'border-green-200 text-green-700 bg-green-50'
-                                            : exam.status === 'DRAFT'
-                                                ? 'border-amber-200 text-amber-700 bg-amber-50'
-                                                : exam.status === 'CLOSED'
-                                                    ? 'border-red-200 text-red-700 bg-red-50'
-                                                    : 'border-gray-200 text-gray-700 bg-gray-50'
-                                    }`}
-                                >
-                                    {exam.status || 'UNKNOWN'}
-                                </Badge>
-                            </div>
-
-                            <div>
-                                <h2 className="text-sm font-bold text-gray-900 tracking-tight">{exam.title || 'Untitled Exam'}</h2>
-                                <p className="text-xs text-gray-500 font-medium mt-0.5">{exam.description || 'No description provided.'}</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Grid size={12} /> Questions
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{questionCount}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Clock size={12} /> Duration
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{Number(exam.timeLimit || exam.duration || 0)} min</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <CheckCircle2 size={12} /> Max Attempts
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{exam.maxAttempts ?? 1}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Calendar size={12} /> Deadline
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{formatDate(exam.deadline || exam.scheduledDate)}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Layers size={12} /> Sections
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1 line-clamp-2">{sectionsLabel}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Users size={12} /> Visible To
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1 line-clamp-2">{visibleToLabel}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <UserRound size={12} /> Author
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{creatorName}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-4 md:p-5">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                                <div className="space-y-2">
-                                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500">
-                                        <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Submissions + Details Unified Dashboard</span>
-                                        <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Exam ID: {exam.id}</span>
-                                    </div>
-                                    <h2 className="text-lg font-black tracking-tight text-gray-900">{exam.title || 'Mock Exam'} Performance</h2>
-                                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
-                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1">
-                                            <UserRound size={12} /> Author: {creatorName}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1">
-                                            <FileQuestion size={12} /> {questionCount} questions
-                                        </span>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1">
-                                            <Clock3 size={12} /> {Number(exam.timeLimit || exam.duration || 0)} min
-                                        </span>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1">
-                                            <Calendar size={12} /> Deadline: {submissionStatus?.scheduleEnd ? formatDate(submissionStatus.scheduleEnd) : formatDate(exam.deadline || exam.scheduledDate)}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-w-[360px]">
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Attempts</p>
-                                        <p className="mt-1 text-xl font-black text-gray-900">{formatCompactNumber(attemptSummary.total)}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Students</p>
-                                        <p className="mt-1 text-xl font-black text-gray-900">{formatCompactNumber(attemptSummary.uniqueStudents)}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Avg Score</p>
-                                        <p className="mt-1 text-xl font-black text-gray-900">{formatPercent(attemptSummary.averageScore)}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Best</p>
-                                        <p className="mt-1 text-xl font-black text-emerald-700">{formatPercent(attemptSummary.highestScore)}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Lowest</p>
-                                        <p className="mt-1 text-xl font-black text-rose-700">{formatPercent(attemptSummary.lowestScore)}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Submitted</p>
-                                        <p className="mt-1 text-xl font-black text-gray-900">{formatCompactNumber(attemptSummary.submitted)}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.55fr,1fr,1fr]">
-                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                            <CardContent className="space-y-4 p-4 md:p-5">
-                                <div className="flex items-center justify-between gap-2">
-                                    <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900">
-                                        <Activity size={13} /> Submission Health
-                                    </h3>
-                                    <Badge
-                                        variant="outline"
-                                        className={`text-[10px] font-black uppercase tracking-widest ${submissionStatus?.canStudentsSubmit ? 'border-emerald-300 text-emerald-700' : 'border-rose-300 text-rose-700'}`}
-                                    >
-                                        {submissionStatus?.canStudentsSubmit ? 'Open' : 'Closed'}
-                                    </Badge>
-                                </div>
-                                <p className="text-xs font-semibold text-gray-600">
-                                    {submissionStatus?.message || 'Submission availability is currently unavailable.'}
-                                </p>
-
-                                <div className="space-y-2.5">
-                                    <div>
-                                        <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-gray-600">
-                                            <span>Status Mix</span>
-                                            <span>{attemptSummary.total} attempts</span>
-                                        </div>
-                                        <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100">
-                                            <div className="bg-emerald-500" style={{ width: `${submissionBreakdown.submittedPercent}%` }} />
-                                            <div className="bg-amber-500" style={{ width: `${submissionBreakdown.inProgressPercent}%` }} />
-                                            <div className="bg-slate-400" style={{ width: `${submissionBreakdown.otherPercent}%` }} />
-                                        </div>
-                                        <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
-                                            <span className="text-emerald-700">Submitted {submissionBreakdown.submitted}</span>
-                                            <span className="text-amber-700">In Progress {submissionBreakdown.inProgress}</span>
-                                            <span className="text-slate-600">Other {submissionBreakdown.other}</span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-gray-600">
-                                            <span>Pass vs Fail (Pass Mark {passFailBreakdown.passMark}%)</span>
-                                            <span>{attemptSummary.submitted} submitted</span>
-                                        </div>
-                                        <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100">
-                                            <div className="bg-sky-600" style={{ width: `${passFailBreakdown.passedPercent}%` }} />
-                                            <div className="bg-rose-500" style={{ width: `${passFailBreakdown.failedPercent}%` }} />
-                                        </div>
-                                        <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
-                                            <span className="text-sky-700">Passed {passFailBreakdown.passed}</span>
-                                            <span className="text-rose-700">Failed {passFailBreakdown.failed}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                    <div className="mb-2 flex items-center justify-between">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">7-Day Submission Velocity</p>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Trendline</span>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <svg width="220" height="56" viewBox="0 0 220 56" className="block">
-                                            <polyline fill="none" stroke="#1d4ed8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={submissionTrendSparkline} />
-                                        </svg>
-                                    </div>
-                                    <div className="mt-1 grid grid-cols-7 gap-1 text-center text-[9px] font-black uppercase tracking-widest text-gray-500">
-                                        {submissionsByDay.map((day) => (
-                                            <span key={day.label}>{day.label.split(' ')[0]}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                            <CardContent className="space-y-4 p-4 md:p-5">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900">
-                                        <BarChart3 size={13} /> Score Bands
-                                    </h3>
-                                    <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">Submitted</Badge>
-                                </div>
-                                <div className="space-y-2">
-                                    {scoreDistribution.map((bin) => (
-                                        <div key={bin.label} className="space-y-1">
-                                            <div className="flex items-center justify-between text-[11px] font-semibold text-gray-600">
-                                                <span>{bin.label}%</span>
-                                                <span>{bin.count}</span>
-                                            </div>
-                                            <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
-                                                <div className="h-full rounded-full bg-blue-600" style={{ width: `${bin.width}%` }} />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Top Programs by Submissions</p>
-                                    <div className="mt-2 space-y-1.5">
-                                        {topPrograms.length === 0 ? (
-                                            <p className="text-xs font-semibold text-gray-500">No submitted program data yet.</p>
-                                        ) : (
-                                            topPrograms.map((program) => (
-                                                <div key={program.program} className="flex items-center justify-between gap-2 text-[11px]">
-                                                    <p className="truncate font-semibold text-gray-700">{program.program}</p>
-                                                    <p className="shrink-0 font-black text-gray-900">{program.count} ({formatPercent(program.averageScore)})</p>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                            <CardContent className="space-y-4 p-4 md:p-5">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900">
-                                        <Trophy size={13} /> Top Performers
-                                    </h3>
-                                    <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">Live</Badge>
-                                </div>
-                                <div className="space-y-2">
-                                    {topPerformers.length === 0 ? (
-                                        <p className="text-xs font-semibold text-gray-500">No submitted attempts yet.</p>
-                                    ) : (
-                                        topPerformers.map((attempt, index) => {
-                                            const name = attempt.user?.name?.trim() || 'Unknown User';
-                                            return (
-                                                <div key={attempt.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2">
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-xs font-black text-gray-900">#{index + 1} {name}</p>
-                                                        <p className="truncate text-[11px] font-semibold text-gray-500">Attempt {attempt.attemptNo ?? 'N/A'}</p>
-                                                    </div>
-                                                    <p className="shrink-0 text-sm font-black text-emerald-700">{formatPercent(attempt.percentage)}</p>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Exam Owner</p>
-                                        <ShieldCheck size={12} className="text-gray-500" />
-                                    </div>
-                                    <div className="mt-2 flex items-center gap-2.5">
-                                        <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-900 text-xs font-black text-white">
-                                            {getAvatarFallback(creatorName)}
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-black text-gray-900">{creatorName}</p>
-                                            <p className="text-[11px] font-semibold text-gray-500">{canEditExam ? 'Can manage this exam' : 'Read-only permissions'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Hardest Questions (Answered Attempts)</p>
-                                    <div className="mt-2 space-y-1.5">
-                                        {questionDifficultySnapshot.length === 0 ? (
-                                            <p className="text-xs font-semibold text-gray-500">No question analytics yet.</p>
-                                        ) : (
-                                            questionDifficultySnapshot.map((question) => (
-                                                <div key={question.questionId} className="space-y-1">
-                                                    <div className="flex items-center justify-between text-[11px]">
-                                                        <span className="font-black text-gray-700">Q{question.orderNo}</span>
-                                                        <span className="font-black text-rose-700">{question.wrongRate.toFixed(0)}% wrong of answered</span>
-                                                    </div>
-                                                    <div className="h-2 overflow-hidden rounded-full bg-gray-200">
-                                                        <div className="h-full bg-rose-500" style={{ width: `${Math.min(question.wrongRate, 100)}%` }} />
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                <div className="p-8 space-y-8">
+                    {/* Exam Metadata summary */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-6 rounded-2xl border border-primary/10 shadow-sm">
+                        <div>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Status</p>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                exam.status === 'LIVE' || exam.status === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700' :
+                                exam.status === 'DRAFT' ? 'bg-amber-50 text-amber-700' :
+                                exam.status === 'CLOSED' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-700'
+                            }`}>
+                                {exam.status || 'UNKNOWN'}
+                            </span>
+                        </div>
+                        <div>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Questions</p>
+                            <p className="font-bold text-slate-900">{questionCount}</p>
+                        </div>
+                        <div>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Duration</p>
+                            <p className="font-bold text-slate-900">{Number(exam.timeLimit || exam.duration || 0)} min</p>
+                        </div>
+                        <div>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Deadline</p>
+                            <p className="font-bold text-slate-900">{formatDate(submissionStatus?.scheduleEnd || exam.deadline || exam.scheduledDate)}</p>
+                        </div>
                     </div>
 
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-4 md:p-5">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                                <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900"><Users size={13} /> Student Submission Details</h3>
-                                <div className="relative w-full md:w-64">
-                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+                    {/* KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white p-5 rounded-xl border border-primary/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Total Submissions</p>
+                            <div className="flex items-end justify-between">
+                                <h3 className="text-3xl font-black text-slate-900">{formatCompactNumber(attemptSummary.submitted)}</h3>
+                                <span className="flex items-center text-emerald-600 text-[10px] font-bold bg-emerald-50 px-2 py-1 rounded-full">
+                                    {formatCompactNumber(attemptSummary.total)} Total Attempts
+                                </span>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-primary/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Average Score</p>
+                            <div className="flex items-end justify-between">
+                                <h3 className="text-3xl font-black text-slate-900">{formatPercent(attemptSummary.averageScore)}</h3>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-primary/10 shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Highest Score</p>
+                            <div className="flex items-end justify-between">
+                                <h3 className="text-3xl font-black text-slate-900">{formatPercent(attemptSummary.highestScore)}</h3>
+                                <span className="flex items-center text-emerald-600 text-[10px] font-bold bg-emerald-50 px-2 py-1 rounded-full">
+                                    <Trophy size={12} className="mr-1" /> Top
+                                </span>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-primary/10 shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-[#D4AF37]">
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Lowest Score</p>
+                            <div className="flex items-end justify-between">
+                                <h3 className="text-3xl font-black text-slate-900">{formatPercent(attemptSummary.lowestScore)}</h3>
+                                <span className="flex items-center text-rose-600 text-[10px] font-bold bg-rose-50 px-2 py-1 rounded-full">
+                                    Alert
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Score Distribution */}
+                        <div className="bg-white p-6 rounded-2xl border border-primary/10 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                    <BarChart3 className="text-primary" size={20} />
+                                    Score Distribution (%)
+                                </h4>
+                                <div className="flex gap-2 items-center">
+                                    <span className="w-3 h-3 bg-primary rounded-sm"></span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Students Count</span>
+                                </div>
+                            </div>
+                            <div className="flex items-end justify-between h-48 gap-2 px-4">
+                                {scoreDistribution.map((bin, i) => (
+                                    <div key={bin.label} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                                        <div 
+                                            className={`w-full ${i % 2 === 0 ? 'bg-primary/80' : 'bg-primary/40'} rounded-t-lg group relative transition-all`} 
+                                            style={{ height: `${Math.max(bin.width, 4)}%`, opacity: bin.width > 0 ? 1 : 0.2 }}
+                                        >
+                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                                {bin.count}
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-slate-400">{bin.label}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Top Programs Performance */}
+                        <div className="bg-white p-6 rounded-2xl border border-primary/10 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                    <Activity className="text-primary" size={20} />
+                                    Top Programs Performance
+                                </h4>
+                            </div>
+                            <div className="space-y-4">
+                                {topPrograms.length === 0 ? (
+                                    <p className="text-sm text-slate-500 font-medium">No program data available yet.</p>
+                                ) : (
+                                    topPrograms.map((program, index) => (
+                                        <div key={program.program}>
+                                            <div className="flex justify-between text-sm mb-1.5">
+                                                <span className="font-medium text-slate-700">{program.program}</span>
+                                                <span className="font-bold text-primary">{formatPercent(program.averageScore)}</span>
+                                            </div>
+                                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                <div 
+                                                    className={`h-full rounded-full ${index % 2 === 0 ? 'bg-primary' : 'bg-[#D4AF37]'}`} 
+                                                    style={{ width: `${Math.min(program.averageScore, 100)}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Student Submissions Table */}
+                    <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-primary/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                <Users className="text-primary" size={20} />
+                                Detailed Student Submissions
+                            </h4>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <Select value={selectedProgramFilter} onValueChange={setSelectedProgramFilter}>
+                                    <SelectTrigger className="bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full md:w-44 h-10">
+                                        <SelectValue placeholder="All Programs" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">All Programs</SelectItem>
+                                        {programOptions.map(prog => (
+                                            <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <div className="relative group flex-1 md:flex-none">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
                                     <Input
                                         value={search}
                                         onChange={(event) => setSearch(event.target.value)}
-                                        placeholder="Search student, email, track"
-                                        className="h-8 rounded-md pl-8 border-gray-200 text-xs"
+                                        placeholder="Search students..."
+                                        className="pl-10 bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full md:w-64 transition-all h-10"
                                     />
                                 </div>
                             </div>
-
-                            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 mb-4">
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3"><p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Exam Status</p><p className="text-sm font-black text-gray-900 mt-1">{submissionStatus?.canStudentsSubmit ? 'Open' : 'Closed'}</p></div>
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3"><p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Author</p><p className="text-sm font-black text-gray-900 mt-1 truncate">{creatorName}</p></div>
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3"><p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Questions</p><p className="text-sm font-black text-gray-900 mt-1">{questionCount}</p></div>
-                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3"><p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Duration</p><p className="text-sm font-black text-gray-900 mt-1">{Number(exam.timeLimit || exam.duration || 0)} min</p></div>
-                            </div>
-
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <table className="min-w-full text-sm">
-                                    <thead className="border-b border-gray-200 bg-gray-50">
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-primary/10">
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Student</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Program</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Score</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Percentage</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Submission Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-primary/5">
+                                    {filteredAttempts.length === 0 ? (
                                         <tr>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Student</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Program</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Attempt #</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Status</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Score</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Raw</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Submitted</th>
+                                            <td colSpan={6} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
+                                                No attempts found.
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredAttempts.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={7} className="px-4 py-6 text-center text-sm font-semibold text-gray-500">
-                                                    No attempts found.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            filteredAttempts.map((attempt) => {
-                                                const studentName = attempt.user?.name?.trim() || 'Unknown User';
-                                                const studentEmail = attempt.user?.email?.trim() || 'No email';
-                                                const studentProgram = attempt.user?.programTrack?.trim() || 'N/A';
-
-                                                return (
-                                                    <tr key={attempt.id} className="border-b border-gray-100 last:border-none">
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-2.5">
-                                                                <Avatar className="h-8 w-8">
-                                                                    <AvatarImage src={getAvatarUrl(studentName, attempt.user?.profilePicture)} alt={studentName} />
-                                                                    <AvatarFallback className="text-[10px] font-black">{getAvatarFallback(studentName)}</AvatarFallback>
-                                                                </Avatar>
-                                                                <div className="min-w-0">
-                                                                    <p className="font-bold text-gray-900 truncate">{studentName}</p>
-                                                                    <p className="text-xs text-gray-500 truncate">{studentEmail}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-xs font-semibold text-gray-700">{studentProgram}</td>
-                                                        <td className="px-4 py-3 text-xs font-semibold text-gray-700">{attempt.attemptNo ?? '—'}</td>
-                                                        <td className="px-4 py-3">
-                                                            <Badge
-                                                                variant="outline"
-                                                                className={`font-black text-[10px] uppercase tracking-widest ${
-                                                                    attempt.status === 'SUBMITTED'
-                                                                        ? 'border-green-200 text-green-700 bg-green-50'
-                                                                        : 'border-amber-200 text-amber-700 bg-amber-50'
-                                                                }`}
-                                                            >
-                                                                {attempt.status}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-xs font-black text-gray-900">
-                                                            {attempt.status === 'SUBMITTED' ? formatPercent(attempt.percentage) : '—'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-xs font-semibold text-gray-700">
-                                                            {attempt.status === 'SUBMITTED' ? Number(attempt.score || 0) : '—'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-xs font-semibold text-gray-700">
-                                                            {formatDate(attempt.submittedAt || attempt.startedAt)}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="space-y-4 p-4 md:p-5">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                                <div>
-                                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Question Outcome Analytics</h3>
-                                    <p className="text-xs font-semibold text-gray-500 mt-1">
-                                        Review by hardest question, slowest question, or original question order, then export the current view.
-                                    </p>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">
-                                        {submissionAnalytics?.submissionStats?.submittedCount || 0} submitted attempts
-                                    </Badge>
-                                    <div className="w-full sm:w-44">
-                                        <Select value={questionSortMode} onValueChange={(value) => setQuestionSortMode(value as QuestionSortMode)}>
-                                            <SelectTrigger className="h-8 rounded-md border-gray-200 text-xs font-semibold">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <ArrowUpDown size={12} />
-                                                    <SelectValue placeholder="Sort questions" />
-                                                </div>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="hardest">Hardest first</SelectItem>
-                                                <SelectItem value="slowest">Slowest first</SelectItem>
-                                                <SelectItem value="original">Original order</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        className="h-8 rounded-md border-gray-200 text-xs font-semibold"
-                                        onClick={handleExportQuestionAnalytics}
-                                        disabled={questionAnalyticsRows.length === 0}
-                                    >
-                                        <Download size={13} /> Export CSV
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div className="rounded-xl border border-gray-100 p-3 bg-gray-50/60">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Hardest Question Right Now (Answered Attempts)</p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">
-                                        {hardestQuestion ? `Question ${hardestQuestion.orderNo}` : 'N/A'}
-                                    </p>
-                                    <p className="text-xs font-semibold text-gray-600 mt-1 leading-relaxed">
-                                        {hardestQuestion ? truncateQuestion(hardestQuestion.questionText, 88) : 'No submitted question analytics yet.'}
-                                    </p>
-                                    <p className="text-xs font-black text-rose-700 mt-2">
-                                        {hardestQuestion ? `${hardestQuestion.wrongRate.toFixed(1)}% wrong of answered attempts` : 'N/A'}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3 bg-gray-50/60">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">How To Read This</p>
-                                    <p className="text-xs font-semibold text-gray-600 mt-1 leading-relaxed">
-                                        Hardest ranking uses wrong rate among answered attempts only. Each row still shows the full mix: right, wrong, and unanswered counts.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="overflow-x-auto border border-gray-100 rounded-xl">
-                                <table className="min-w-full text-sm">
-                                    <thead className="bg-gray-50 border-b border-gray-100">
-                                        <tr>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Question</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Outcome Mix</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Right</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Wrong</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Unanswered</th>
-                                            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Avg. Time to Answer</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {questionAnalyticsRows.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={6} className="px-4 py-6 text-center text-sm font-semibold text-gray-500">
-                                                    No submitted question analytics yet.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            questionAnalyticsRows.map((question) => (
-                                                <tr key={question.questionId} className="border-b border-gray-100 last:border-none align-top">
-                                                    <td className="px-4 py-3 min-w-80">
-                                                        <div className="space-y-1">
-                                                            <p className="text-xs font-black text-gray-900">Question {question.orderNo}</p>
-                                                            <p className="text-xs font-semibold text-gray-700 leading-relaxed">{truncateQuestion(question.questionText)}</p>
-                                                            {question.section ? (
-                                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{question.section}</p>
-                                                            ) : null}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 min-w-52">
-                                                        <div className="space-y-2">
-                                                            <div className="h-2.5 overflow-hidden rounded-full bg-gray-100 flex">
-                                                                <div
-                                                                    className="h-full bg-emerald-500"
-                                                                    style={{ width: `${question.correctRate}%` }}
-                                                                    title={`Right: ${question.correctRate.toFixed(1)}%`}
-                                                                />
-                                                                <div
-                                                                    className="h-full bg-rose-500"
-                                                                    style={{ width: `${question.wrongRate}%` }}
-                                                                    title={`Wrong: ${question.wrongRate.toFixed(1)}%`}
-                                                                />
-                                                                <div
-                                                                    className="h-full bg-amber-400"
-                                                                    style={{ width: `${question.unansweredRate}%` }}
-                                                                    title={`Unanswered: ${question.unansweredRate.toFixed(1)}%`}
-                                                                />
-                                                            </div>
-                                                            <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
-                                                                <span className="text-emerald-700">{question.correctRate.toFixed(0)}% right</span>
-                                                                <span className="text-rose-700">{question.wrongRate.toFixed(0)}% wrong</span>
-                                                                <span className="text-amber-700">{question.unansweredRate.toFixed(0)}% unanswered</span>
+                                    ) : (
+                                        filteredAttempts.map((attempt) => {
+                                            const studentName = attempt.user?.name?.trim() || 'Unknown User';
+                                            const studentEmail = attempt.user?.email?.trim() || 'No email';
+                                            
+                                            return (
+                                                <tr key={attempt.id} className="hover:bg-primary/[0.02] transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar className="h-8 w-8 rounded-full bg-slate-200 border border-slate-200">
+                                                                <AvatarImage src={getAvatarUrl(studentName, attempt.user?.profilePicture)} alt={studentName} />
+                                                                <AvatarFallback className="text-[10px] font-black text-slate-500">{getAvatarFallback(studentName)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <span className="block font-bold text-slate-900">{studentName}</span>
+                                                                <span className="block text-xs text-slate-500">{studentEmail}</span>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs font-black text-emerald-700">{question.rightCount}</td>
-                                                    <td className="px-4 py-3 text-xs font-black text-rose-700">{question.wrongCount}</td>
-                                                    <td className="px-4 py-3 text-xs font-black text-amber-700">{question.unansweredCount}</td>
-                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700">{formatDuration(question.averageAnswerSeconds)}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{attempt.user?.programTrack || 'N/A'}</td>
+                                                    <td className="px-6 py-4 font-bold text-slate-900">
+                                                        {attempt.status === 'SUBMITTED' ? `${Number(attempt.score || 0)}/${questionCount}` : '—'}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {attempt.status === 'SUBMITTED' ? (
+                                                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">
+                                                                {formatPercent(attempt.percentage)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-400">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                            attempt.status === 'SUBMITTED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                                        }`}>
+                                                            {attempt.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                                        {formatDate(attempt.submittedAt || attempt.startedAt)}
+                                                    </td>
                                                 </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-4 border-t border-primary/10 bg-slate-50 flex justify-between items-center text-xs text-slate-500 font-medium">
+                            <span>Showing {filteredAttempts.length} of {attempts.length} results</span>
+                        </div>
+                    </div>
 
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-4 space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Students Recently Submitted</h3>
-                                <Badge variant="outline" className="font-black text-[10px] uppercase tracking-widest">
-                                    {submittedAttempts.length} submissions
-                                </Badge>
-                            </div>
-
-                            {recentSubmitters.length === 0 ? (
-                                <p className="text-sm font-semibold text-gray-500">No submitted attempts yet.</p>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                    {recentSubmitters.map((student) => (
-                                        <div key={student.id} className="rounded-xl border border-gray-100 p-3 flex items-center gap-3">
-                                            <Avatar className="h-10 w-10">
-                                                <AvatarImage src={getAvatarUrl(student.name, student.profilePicture)} alt={student.name} />
-                                                <AvatarFallback className="font-black text-xs">{getAvatarFallback(student.name)}</AvatarFallback>
-                                            </Avatar>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-black text-gray-900 truncate">{student.name}</p>
-                                                <p className="text-xs text-gray-500 font-medium truncate">{student.email}</p>
-                                                <p className="text-[11px] text-gray-500 font-semibold truncate">
-                                                    {student.programTrack || 'N/A'} • {formatDate(student.submittedAt)}
-                                                </p>
-                                            </div>
+                    {/* Question Analytics */}
+                    <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-primary/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                <FileQuestion className="text-primary" size={20} />
+                                Question Analytics
+                            </h4>
+                            <div className="flex items-center gap-3">
+                                <Select value={questionSortMode} onValueChange={(value) => setQuestionSortMode(value as QuestionSortMode)}>
+                                    <SelectTrigger className="bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-44 h-10">
+                                        <div className="flex items-center gap-2">
+                                            <ArrowUpDown size={14} />
+                                            <SelectValue placeholder="Sort questions" />
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <section className="space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">All Questions and Answers</h3>
-                            <div className="flex items-center gap-1 rounded-md border border-gray-200 p-0.5 bg-white">
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="hardest">Hardest first</SelectItem>
+                                        <SelectItem value="slowest">Slowest first</SelectItem>
+                                        <SelectItem value="original">Original order</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <Button
-                                    type="button"
-                                    variant={questionViewMode === 'cards' ? 'default' : 'ghost'}
-                                    className="h-7 px-2.5 rounded text-[11px] font-semibold"
-                                    onClick={() => setQuestionViewMode('cards')}
+                                    onClick={handleExportQuestionAnalytics}
+                                    disabled={questionAnalyticsRows.length === 0}
+                                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
                                 >
-                                    Cards
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={questionViewMode === 'list' ? 'default' : 'ghost'}
-                                    className="h-7 px-2.5 rounded text-[11px] font-semibold"
-                                    onClick={() => setQuestionViewMode('list')}
-                                >
-                                    List
+                                    <Download size={16} /> Export
                                 </Button>
                             </div>
                         </div>
+                        <div className="overflow-x-auto p-0">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-primary/10">
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest w-1/2">Question</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Outcome Mix</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Right</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Wrong</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Avg Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-primary/5">
+                                    {questionAnalyticsRows.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
+                                                No submitted question analytics yet.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        questionAnalyticsRows.map((question) => (
+                                            <tr key={question.questionId} className="hover:bg-primary/[0.02] transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <p className="text-xs font-bold text-primary mb-1">Q{question.orderNo} {question.section ? `• ${question.section}` : ''}</p>
+                                                    <p className="text-sm text-slate-700 leading-relaxed">{truncateQuestion(question.questionText, 120)}</p>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="w-full max-w-[200px] space-y-1.5">
+                                                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                                                            <div className="bg-emerald-500 h-full" style={{ width: `${question.correctRate}%` }}></div>
+                                                            <div className="bg-rose-500 h-full" style={{ width: `${question.wrongRate}%` }}></div>
+                                                            <div className="bg-amber-400 h-full" style={{ width: `${question.unansweredRate}%` }}></div>
+                                                        </div>
+                                                        <div className="flex gap-2 text-[10px] font-bold">
+                                                            <span className="text-emerald-700">{question.correctRate.toFixed(0)}% R</span>
+                                                            <span className="text-rose-700">{question.wrongRate.toFixed(0)}% W</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-bold text-emerald-700">{question.rightCount}</td>
+                                                <td className="px-6 py-4 text-center font-bold text-rose-700">{question.wrongCount}</td>
+                                                <td className="px-6 py-4 text-center text-sm text-slate-600">{formatDuration(question.averageAnswerSeconds)}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                        <div className="flex flex-wrap gap-1.5">
-                            {availableSections.map((section) => (
-                                <Button
-                                    key={section}
-                                    type="button"
-                                    variant={selectedSection === section ? 'default' : 'outline'}
-                                    className="h-7 rounded-md text-[10px] font-black uppercase tracking-widest px-2.5"
-                                    onClick={() => setSelectedSection(section)}
-                                >
-                                    {section === 'ALL' ? 'All Sections' : section}
-                                </Button>
-                            ))}
+                    {/* All Questions Review */}
+                    <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                            <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                <Grid className="text-primary" size={20} />
+                                Questions Review
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                                {availableSections.map((section) => (
+                                    <Button
+                                        key={section}
+                                        type="button"
+                                        variant={selectedSection === section ? 'default' : 'outline'}
+                                        className={`h-8 rounded-lg text-xs font-bold ${
+                                            selectedSection === section ? 'bg-primary text-white' : 'border border-primary/10 text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                        onClick={() => setSelectedSection(section)}
+                                    >
+                                        {section === 'ALL' ? 'All Sections' : section}
+                                    </Button>
+                                ))}
+                            </div>
                         </div>
 
-                        {questions.length === 0 ? (
-                            <Card className="rounded-lg border-gray-100 bg-white">
-                                <CardContent className="p-4 text-xs font-semibold text-gray-500">
-                                    This mock exam has no questions yet.
-                                </CardContent>
-                            </Card>
-                        ) : visibleQuestions.length === 0 ? (
-                            <Card className="rounded-lg border-gray-100 bg-white">
-                                <CardContent className="p-4 text-xs font-semibold text-gray-500">
-                                    No questions found in this section.
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <div className={questionViewMode === 'cards' ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : 'rounded-lg border border-gray-100 bg-white divide-y divide-gray-100'}>
-                                {visibleQuestions.map(({ question, sectionTitle, globalQuestionNo }) => {
+                        <div className="space-y-6">
+                            {visibleQuestions.length === 0 ? (
+                                <p className="text-sm font-semibold text-slate-500 text-center py-8">No questions to display.</p>
+                            ) : (
+                                visibleQuestions.map(({ question, sectionTitle, globalQuestionNo }) => {
                                     const options = [
                                         { key: 'A', value: question.choiceA },
                                         { key: 'B', value: question.choiceB },
@@ -1382,66 +1165,54 @@ const ManageExamViewPage: React.FC = () => {
                                     ].filter((option) => Boolean(option.value));
 
                                     return (
-                                        <Card key={question.id} className={questionViewMode === 'cards' ? 'rounded-lg border-gray-100 bg-white' : 'rounded-none border-none shadow-none'}>
-                                            <CardContent className={questionViewMode === 'cards' ? 'p-5 space-y-4' : 'p-4 space-y-3'}>
-                                                <div>
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                        Question {globalQuestionNo} • {sectionTitle}
-                                                    </p>
-                                                    <p className={`${questionViewMode === 'cards' ? 'text-sm md:text-base' : 'text-sm'} font-bold text-gray-900 mt-1 leading-relaxed`}>
-                                                        {question.questionText || 'No question text available.'}
-                                                    </p>
-                                                </div>
+                                        <div key={question.id} className="p-5 rounded-xl border border-primary/10 bg-slate-50/50">
+                                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">
+                                                Question {globalQuestionNo} • {sectionTitle}
+                                            </p>
+                                            <p className="text-sm md:text-base font-bold text-slate-900 mb-4 leading-relaxed">
+                                                {question.questionText || 'No question text available.'}
+                                            </p>
 
-                                                {question.imageUrl ? (
-                                                    <img
-                                                        src={question.imageUrl}
-                                                        alt={`Question ${globalQuestionNo}`}
-                                                        className="w-full max-h-72 object-contain rounded-xl border border-gray-100 bg-gray-50"
-                                                    />
-                                                ) : null}
+                                            {question.imageUrl && (
+                                                <img
+                                                    src={question.imageUrl}
+                                                    alt={`Question ${globalQuestionNo}`}
+                                                    className="w-full max-w-lg mb-4 rounded-lg border border-slate-200"
+                                                />
+                                            )}
 
-                                                <div className={`grid grid-cols-1 ${questionViewMode === 'cards' ? 'md:grid-cols-2 gap-2.5' : 'gap-1.5'}`}>
-                                                    {options.map((option) => {
-                                                        const isCorrect = option.key === (question.correctChoice || '').toUpperCase();
-                                                        return (
-                                                            <div
-                                                                key={`${question.id}-${option.key}`}
-                                                                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
-                                                                    isCorrect
-                                                                        ? 'border-green-200 bg-green-50 text-green-800'
-                                                                        : 'border-gray-200 bg-white text-gray-700'
-                                                                }`}
-                                                            >
-                                                                <span className="font-black mr-1.5">{option.key}.</span>
-                                                                {option.value}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                                {options.map((option) => {
+                                                    const isCorrect = option.key === (question.correctChoice || '').toUpperCase();
+                                                    return (
+                                                        <div
+                                                            key={`${question.id}-${option.key}`}
+                                                            className={`rounded-lg border px-4 py-3 text-sm font-medium ${
+                                                                isCorrect
+                                                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-sm'
+                                                                    : 'border-slate-200 bg-white text-slate-700'
+                                                            }`}
+                                                        >
+                                                            <span className="font-bold mr-2 text-slate-400">{option.key}.</span>
+                                                            {option.value}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
 
-                                                <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 font-medium leading-relaxed">
-                                                    <span className="font-black text-gray-800">Rationalization: </span>
-                                                    {question.rationalization || 'No explanation provided.'}
+                                            {question.rationalization && (
+                                                <div className="rounded-lg bg-white border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed shadow-sm">
+                                                    <span className="font-bold text-slate-900 block mb-1">Rationalization</span>
+                                                    {question.rationalization}
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            )}
+                                        </div>
                                     );
-                                })}
-                            </div>
-                        )}
-                    </section>
-
-                    <Card className="rounded-lg border-gray-100 bg-white">
-                        <CardContent className="p-3 flex items-center justify-end">
-                            <Link to={`/manage-exams/${exam.id}/edit`}>
-                                <Button className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white font-semibold text-xs gap-1.5">
-                                    <FileText size={13} /> Manage Exam
-                                </Button>
-                            </Link>
-                        </CardContent>
-                    </Card>
-                </>
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

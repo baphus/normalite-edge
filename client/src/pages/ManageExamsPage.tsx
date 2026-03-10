@@ -529,7 +529,12 @@ const ManageExamsPage: React.FC = () => {
                     return (
                         <>
                 <div className="flex justify-between items-start mb-2 gap-2">
-                    <div />
+                    <Badge
+                        variant="outline"
+                        className="text-[9px] font-semibold uppercase tracking-wider text-primary border-primary/20 bg-primary/5 rounded px-1.5 max-w-[60%] truncate"
+                    >
+                        {exam.category}
+                    </Badge>
                     <div className="flex items-center gap-1">
                         <Badge className={`font-semibold text-[9px] uppercase tracking-wider border-none ${exam.status === 'live' ? 'bg-green-50 text-green-600' :
                             exam.status === 'draft' ? 'bg-amber-50 text-amber-600' :
