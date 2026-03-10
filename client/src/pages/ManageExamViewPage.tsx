@@ -5,25 +5,16 @@ import {
     ArrowLeft,
     ArrowUpDown,
     BarChart3,
-    Calendar,
-    CheckCircle2,
-    Clock,
-    Clock3,
     Download,
     FileText,
     FileQuestion,
     Grid,
-    Layers,
     Search,
-    ShieldCheck,
     Trophy,
-    UserRound,
     Users,
 } from 'lucide-react';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import {
@@ -227,7 +218,6 @@ const ManageExamViewPage: React.FC = () => {
     const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('ALL');
     const [questionSortMode, setQuestionSortMode] = useState<QuestionSortMode>('hardest');
     const [selectedSection, setSelectedSection] = useState('ALL');
-    const [questionViewMode, setQuestionViewMode] = useState<'cards' | 'list'>('cards');
 
     useEffect(() => {
         const loadData = async () => {
@@ -265,37 +255,6 @@ const ManageExamViewPage: React.FC = () => {
     }, [id]);
 
     const questionCount = Math.max(Number(exam?.questionCount || exam?.totalItems || 0), 0);
-    const visibleToLabel = useMemo(() => {
-        const tracks = exam?.tracks || [];
-        if (tracks.length > 0) {
-            return tracks
-                .map((track) => (track.code ? `${track.name} (${track.code})` : track.name))
-                .join(', ');
-        }
-
-        if (exam?.program_track?.trim()) return exam.program_track;
-        return 'All Programs';
-    }, [exam]);
-
-    const sectionsLabel = useMemo(() => {
-        const sectionTitles = (exam?.sections || [])
-            .slice()
-            .sort((first, second) => (first.orderNo || 0) - (second.orderNo || 0))
-            .map((section) => section.title?.trim())
-            .filter((section): section is string => Boolean(section));
-
-        if (sectionTitles.length === 0) return 'Full Exam';
-        return sectionTitles.join(', ');
-    }, [exam]);
-
-    const creatorName = useMemo(() => {
-        if (!exam?.creator) return 'Unknown author';
-        if (user?.role === 'REVIEWER' && exam.creator.id === user?.id) return 'You';
-        return exam.creator.name
-            || `${exam.creator.firstName || ''} ${exam.creator.lastName || ''}`.trim()
-            || 'Unknown author';
-    }, [exam, user?.id, user?.role]);
-
     const canEditExam = useMemo(() => {
         if (!exam) return false;
         if (exam.status === 'LIVE' || exam.status === 'PUBLISHED') return false;
@@ -313,27 +272,6 @@ const ManageExamViewPage: React.FC = () => {
                 return right - left;
             });
     }, [attempts]);
-
-    const recentSubmitters = useMemo(() => {
-        const seen = new Set<string>();
-        const users: Array<Required<AttemptItem>['user'] & { submittedAt?: string | null }> = [];
-
-        for (const attempt of submittedAttempts) {
-            if (!attempt.user?.id || seen.has(attempt.user.id)) continue;
-            seen.add(attempt.user.id);
-            users.push({
-                id: attempt.user.id,
-                name: attempt.user.name || 'Unknown User',
-                email: attempt.user.email || 'No email',
-                programTrack: attempt.user.programTrack || null,
-                profilePicture: attempt.user.profilePicture || null,
-                submittedAt: attempt.submittedAt,
-            });
-            if (users.length >= 10) break;
-        }
-
-        return users;
-    }, [submittedAttempts]);
 
     const allAttemptsSorted = useMemo(() => {
         return attempts
@@ -419,35 +357,6 @@ const ManageExamViewPage: React.FC = () => {
         }));
     }, [submittedAttempts]);
 
-    const submissionsByDay = useMemo(() => {
-        const labels = Array.from({ length: 7 }).map((_, index) => {
-            const date = new Date();
-            date.setDate(date.getDate() - (6 - index));
-            date.setHours(0, 0, 0, 0);
-            return date;
-        });
-
-        const values = labels.map((date) => {
-            const next = new Date(date);
-            next.setDate(next.getDate() + 1);
-            const count = submittedAttempts.filter((attempt) => {
-                const when = new Date(attempt.submittedAt || attempt.startedAt || 0);
-                return when >= date && when < next;
-            }).length;
-
-            return {
-                label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                count,
-            };
-        });
-
-        const maxCount = Math.max(...values.map((value) => value.count), 1);
-        return values.map((value) => ({
-            ...value,
-            height: Math.max((value.count / maxCount) * 100, value.count > 0 ? 10 : 0),
-        }));
-    }, [submittedAttempts]);
-
     const submissionStatus = submissionAnalytics?.examStatus;
     const questionStats = submissionAnalytics?.questionStats || [];
 
@@ -530,40 +439,6 @@ const ManageExamViewPage: React.FC = () => {
         return rankedQuestionStats;
     }, [enrichedQuestionStats, questionSortMode, rankedQuestionStats]);
 
-    const hardestQuestion = rankedQuestionStats.find((question) => question.attemptedCount > 0) || null;
-
-    const submissionBreakdown = useMemo(() => {
-        const total = attempts.length || 1;
-        const submitted = attempts.filter((attempt) => attempt.status === 'SUBMITTED').length;
-        const inProgress = attempts.filter((attempt) => attempt.status === 'IN_PROGRESS').length;
-        const other = Math.max(attempts.length - submitted - inProgress, 0);
-
-        return {
-            submitted,
-            inProgress,
-            other,
-            submittedPercent: (submitted / total) * 100,
-            inProgressPercent: (inProgress / total) * 100,
-            otherPercent: (other / total) * 100,
-        };
-    }, [attempts]);
-
-    const passFailBreakdown = useMemo(() => {
-        const passMark = 75;
-        const submitted = submittedAttempts;
-        const passed = submitted.filter((attempt) => Number(attempt.percentage || 0) >= passMark).length;
-        const failed = Math.max(submitted.length - passed, 0);
-        const base = submitted.length || 1;
-
-        return {
-            passMark,
-            passed,
-            failed,
-            passedPercent: (passed / base) * 100,
-            failedPercent: (failed / base) * 100,
-        };
-    }, [submittedAttempts]);
-
     const topPrograms = useMemo(() => {
         const mapped = new Map<string, { count: number; scoreTotal: number }>();
 
@@ -585,41 +460,6 @@ const ManageExamViewPage: React.FC = () => {
             .sort((left, right) => right.count - left.count)
             .slice(0, 5);
     }, [submittedAttempts]);
-
-    const topPerformers = useMemo(() => {
-        return submittedAttempts
-            .slice()
-            .sort((left, right) => {
-                const rightScore = Number(right.percentage || 0);
-                const leftScore = Number(left.percentage || 0);
-                if (rightScore !== leftScore) return rightScore - leftScore;
-                const rightTime = new Date(right.submittedAt || right.startedAt || 0).getTime();
-                const leftTime = new Date(left.submittedAt || left.startedAt || 0).getTime();
-                return rightTime - leftTime;
-            })
-            .slice(0, 5);
-    }, [submittedAttempts]);
-
-    const submissionTrendSparkline = useMemo(() => {
-        if (submissionsByDay.length === 0) return '';
-
-        const width = 220;
-        const height = 56;
-        const maxCount = Math.max(...submissionsByDay.map((day) => day.count), 1);
-        const stepX = submissionsByDay.length > 1 ? width / (submissionsByDay.length - 1) : width;
-
-        const points = submissionsByDay.map((day, index) => {
-            const x = Math.round(index * stepX * 10) / 10;
-            const y = Math.round((height - ((day.count / maxCount) * (height - 8) + 4)) * 10) / 10;
-            return `${x},${y}`;
-        });
-
-        return points.join(' ');
-    }, [submissionsByDay]);
-
-    const questionDifficultySnapshot = useMemo(() => {
-        return rankedQuestionStats.slice(0, 5);
-    }, [rankedQuestionStats]);
 
     const handleExportQuestionAnalytics = () => {
         if (questionAnalyticsRows.length === 0) {
