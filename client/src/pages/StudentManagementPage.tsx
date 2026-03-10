@@ -439,9 +439,9 @@ const StudentManagementPage: React.FC = () => {
         setPage(1);
     };
 
-    const handleEditStudent = () => {
+    const handleAddStudent = () => {
         if (!isAdmin) return;
-        navigate('/admin/users');
+        navigate('/admin/users?create=reviewee');
     };
 
     const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length + 1;
@@ -466,7 +466,7 @@ const StudentManagementPage: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col bg-slate-50/50 overflow-hidden font-lexend -mx-5 -mt-4">
-            <header className="h-20 bg-white border-b border-[#800000]/10 px-8 flex items-center">
+            <header className="h-20 bg-white border-b border-[#800000]/10 px-8 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <h2 className="text-2xl font-bold text-slate-800 tracking-tight shrink-0">Student Management</h2>
                     <div className="relative w-full max-w-md ml-6">
@@ -479,9 +479,63 @@ const StudentManagementPage: React.FC = () => {
                         />
                     </div>
                 </div>
+                {isAdmin && (
+                    <Button
+                        onClick={handleAddStudent}
+                        className="h-10 px-4 bg-[#800000] hover:bg-[#6d0000] text-white rounded-lg text-sm font-semibold shadow-lg shadow-[#800000]/20 gap-2"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Add Student
+                    </Button>
+                )}
             </header>
 
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                {errorMessage && (
+                    <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                        {errorMessage}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-500">Total Registered Students</p>
+                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{totalRegistered.toLocaleString()}</h3>
+                                <p className="text-xs text-green-600 font-medium mt-2">+{newThisMonth.toLocaleString()} with activity this month</p>
+                            </div>
+                            <div className="bg-[#800000]/10 text-[#800000] p-3 rounded-lg">
+                                <Users className="w-5 h-5" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-500">Active Students</p>
+                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{activeStudents.toLocaleString()}</h3>
+                                <p className="text-xs text-[#800000]/70 font-medium mt-2">Based on in-progress activity and status</p>
+                            </div>
+                            <div className="bg-green-100 text-green-600 p-3 rounded-lg">
+                                <Radio className="w-5 h-5" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-500">Pending Registrations</p>
+                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{pendingStudents.toLocaleString()}</h3>
+                                <p className="text-xs text-[#D4AF37] font-medium mt-2">Requires admin review</p>
+                            </div>
+                            <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
+                                <Clock3 className="w-5 h-5" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="flex flex-wrap gap-3 items-center">
                     <Select value={trackFilter} onValueChange={setTrackFilter}>
                         <SelectTrigger className="w-auto min-w-48 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
@@ -591,60 +645,6 @@ const StudentManagementPage: React.FC = () => {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {isAdmin && (
-                        <Button
-                            onClick={handleEditStudent}
-                            className="h-10 px-4 bg-[#800000] hover:bg-[#6d0000] text-white rounded-lg text-sm font-semibold ml-auto shadow-lg shadow-[#800000]/20 gap-2"
-                        >
-                            <UserPlus className="w-4 h-4" />
-                            Manage Users
-                        </Button>
-                    )}
-                </div>
-
-                {errorMessage && (
-                    <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-                        {errorMessage}
-                    </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-slate-500">Total Registered Students</p>
-                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{totalRegistered.toLocaleString()}</h3>
-                                <p className="text-xs text-green-600 font-medium mt-2">+{newThisMonth.toLocaleString()} with activity this month</p>
-                            </div>
-                            <div className="bg-[#800000]/10 text-[#800000] p-3 rounded-lg">
-                                <Users className="w-5 h-5" />
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-slate-500">Active Students</p>
-                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{activeStudents.toLocaleString()}</h3>
-                                <p className="text-xs text-[#800000]/70 font-medium mt-2">Based on in-progress activity and status</p>
-                            </div>
-                            <div className="bg-green-100 text-green-600 p-3 rounded-lg">
-                                <Radio className="w-5 h-5" />
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-slate-500">Pending Registrations</p>
-                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{pendingStudents.toLocaleString()}</h3>
-                                <p className="text-xs text-[#D4AF37] font-medium mt-2">Requires admin review</p>
-                            </div>
-                            <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
-                                <Clock3 className="w-5 h-5" />
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="bg-white rounded-xl border border-[#800000]/10 shadow-sm overflow-hidden">

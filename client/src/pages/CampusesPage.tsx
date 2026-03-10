@@ -32,6 +32,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface CampusItem {
@@ -119,6 +126,8 @@ const CampusesPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [selectedCampus, setSelectedCampus] = useState<CampusItem | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<CampusItem | null>(null);
+    const [codeFilter, setCodeFilter] = useState<'ALL' | 'WITH_CODE' | 'NO_CODE'>('ALL');
+    const [activityFilter, setActivityFilter] = useState<'ALL' | 'UPDATED_30_DAYS' | 'OLDER'>('ALL');
     const [membersOpen, setMembersOpen] = useState(false);
     const [membersLoading, setMembersLoading] = useState(false);
     const [memberSearch, setMemberSearch] = useState('');
@@ -145,13 +154,27 @@ const CampusesPage: React.FC = () => {
 
     const filteredCampuses = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
-        if (!normalizedSearch) return campuses;
+        const threshold = Date.now() - (1000 * 60 * 60 * 24 * 30);
 
-        return campuses.filter((campus) =>
-            campus.name.toLowerCase().includes(normalizedSearch)
-            || (campus.code || '').toLowerCase().includes(normalizedSearch)
-        );
-    }, [campuses, search]);
+        return campuses.filter((campus) => {
+            const matchesSearch = !normalizedSearch
+                || campus.name.toLowerCase().includes(normalizedSearch)
+                || (campus.code || '').toLowerCase().includes(normalizedSearch);
+
+            const hasCode = Boolean(campus.code?.trim());
+            const matchesCode = codeFilter === 'ALL'
+                || (codeFilter === 'WITH_CODE' && hasCode)
+                || (codeFilter === 'NO_CODE' && !hasCode);
+
+            const updatedAt = toValidDate(campus.updatedAt);
+            const isUpdatedRecently = updatedAt ? updatedAt.getTime() >= threshold : false;
+            const matchesActivity = activityFilter === 'ALL'
+                || (activityFilter === 'UPDATED_30_DAYS' && isUpdatedRecently)
+                || (activityFilter === 'OLDER' && !isUpdatedRecently);
+
+            return matchesSearch && matchesCode && matchesActivity;
+        });
+    }, [campuses, search, codeFilter, activityFilter]);
 
     const filteredMembers = useMemo(() => {
         const normalizedSearch = memberSearch.trim().toLowerCase();
@@ -175,6 +198,11 @@ const CampusesPage: React.FC = () => {
             return updatedAt ? updatedAt.getTime() >= threshold : false;
         }).length;
     }, [campuses]);
+
+    const resetFilters = () => {
+        setCodeFilter('ALL');
+        setActivityFilter('ALL');
+    };
 
     const openCreateDialog = () => {
         setFormMode('create');
@@ -288,85 +316,112 @@ const CampusesPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 p-6 bg-[#fafaf8] min-h-full">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex-1 flex flex-col bg-slate-50/50 overflow-hidden font-lexend -mx-5 -mt-4">
+            <header className="h-20 bg-white border-b border-[#800000]/10 px-8 flex items-center justify-between gap-4">
                 <div>
-                    <p className="text-xs font-black uppercase tracking-[0.24em] text-primary/70">Admin Workspace</p>
-                    <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Campuses</h1>
-                    <p className="mt-2 max-w-2xl text-sm text-gray-600">
-                        Manage the campus catalog used in reviewer and reviewee profiles and filters.
-                    </p>
+                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Campuses</h1>
+                    <p className="text-sm text-slate-500">Manage campus options used in reviewer and reviewee profiles.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" onClick={fetchCampuses} disabled={loading}>
+                    <div className="relative w-72">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search by campus name or code"
+                            className="h-10 pl-9 bg-slate-100 border-slate-100 rounded-lg"
+                        />
+                    </div>
+                    <Button type="button" variant="outline" onClick={fetchCampuses} disabled={loading} className="h-10 rounded-lg border-slate-200">
                         {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
                         Refresh
                     </Button>
-                    <Button type="button" onClick={openCreateDialog}>
+                    <Button type="button" onClick={openCreateDialog} className="h-10 px-4 rounded-lg bg-[#800000] hover:bg-[#6d0000] text-white shadow-lg shadow-[#800000]/20">
                         <Plus className="mr-2 h-4 w-4" />
                         Add Campus
                     </Button>
                 </div>
-            </div>
+            </header>
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card className="border-0 shadow-sm">
-                    <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Total Campuses</p>
-                                <p className="mt-3 text-3xl font-black text-gray-950">{campuses.length}</p>
-                            </div>
-                            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                                <Building2 className="h-6 w-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm">
-                    <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">With Codes</p>
-                                <p className="mt-3 text-3xl font-black text-gray-950">{codedCampuses}</p>
-                            </div>
-                            <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
-                                <Badge className="border-0 bg-emerald-100 text-emerald-700">Code</Badge>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm">
-                    <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Updated This Month</p>
-                                <p className="mt-3 text-3xl font-black text-gray-950">{recentlyUpdatedCampuses}</p>
-                            </div>
-                            <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
-                                <RefreshCcw className="h-6 w-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card className="border-0 shadow-sm">
-                <CardContent className="p-0">
-                    <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                    <div className="flex items-start justify-between">
                         <div>
-                            <h2 className="text-lg font-bold text-gray-950">Campus Directory</h2>
+                            <p className="text-sm font-medium text-slate-500">Total Campuses</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{campuses.length.toLocaleString()}</h3>
+                            <p className="text-xs text-[#800000]/70 font-medium mt-2">Available assignment locations</p>
+                        </div>
+                        <div className="bg-[#800000]/10 text-[#800000] p-3 rounded-lg">
+                            <Building2 className="w-5 h-5" />
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Campuses With Codes</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{codedCampuses.toLocaleString()}</h3>
+                            <p className="text-xs text-green-600 font-medium mt-2">Quick campus lookup is enabled</p>
+                        </div>
+                        <div className="bg-green-100 text-green-600 p-3 rounded-lg">
+                            <Badge className="border-0 bg-transparent text-current p-0 h-auto text-xs">Code</Badge>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Updated This Month</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{recentlyUpdatedCampuses.toLocaleString()}</h3>
+                            <p className="text-xs text-[#D4AF37] font-medium mt-2">Recent changes in the last 30 days</p>
+                        </div>
+                        <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
+                            <RefreshCcw className="w-5 h-5" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 items-center">
+                <Select value={codeFilter} onValueChange={(value) => setCodeFilter(value as 'ALL' | 'WITH_CODE' | 'NO_CODE')}>
+                    <SelectTrigger className="w-auto min-w-44 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
+                        <span className="text-slate-400 mr-1">Code:</span>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="font-lexend">
+                        <SelectItem value="ALL">All</SelectItem>
+                        <SelectItem value="WITH_CODE">With Code</SelectItem>
+                        <SelectItem value="NO_CODE">No Code</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as 'ALL' | 'UPDATED_30_DAYS' | 'OLDER')}>
+                    <SelectTrigger className="w-auto min-w-56 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
+                        <span className="text-slate-400 mr-1">Updated:</span>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="font-lexend">
+                        <SelectItem value="ALL">Any Time</SelectItem>
+                        <SelectItem value="UPDATED_30_DAYS">Last 30 Days</SelectItem>
+                        <SelectItem value="OLDER">Older</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Button variant="outline" className="h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 gap-2" onClick={resetFilters}>
+                    <RefreshCcw className="w-4 h-4" />
+                    Reset Filters
+                </Button>
+            </div>
+
+            <Card className="border border-[#800000]/10 shadow-sm rounded-xl bg-white overflow-hidden">
+                <CardContent className="p-0">
+                    <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900">Campus Directory</h2>
                             <p className="text-sm text-gray-500">Create, update, remove campuses, and inspect assigned users.</p>
                         </div>
-                        <div className="relative w-full lg:w-80">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                            <Input
-                                value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Search by campus name or code"
-                                className="pl-9"
-                            />
-                        </div>
+                        <p className="text-xs font-medium text-slate-500">{filteredCampuses.length} campuses shown</p>
                     </div>
 
                     {errorMessage ? (
@@ -387,50 +442,56 @@ const CampusesPage: React.FC = () => {
                         </div>
                     ) : (
                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Campus</TableHead>
-                                    <TableHead>Code</TableHead>
-                                    <TableHead>Last Updated</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                            <TableHeader className="bg-slate-50 border-b border-slate-100">
+                                <TableRow className="border-slate-100">
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Campus</TableHead>
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Code</TableHead>
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Updated</TableHead>
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredCampuses.map((campus) => (
-                                    <TableRow key={campus.id}>
-                                        <TableCell>
+                                    <TableRow key={campus.id} className="hover:bg-slate-50 transition-colors align-top">
+                                        <TableCell className="px-4 py-4">
                                             <div>
-                                                <p className="font-semibold text-gray-950">{campus.name}</p>
-                                                <p className="text-xs text-gray-500">Created {formatDate(campus.createdAt)}</p>
+                                                <p className="text-sm font-semibold text-slate-900">{campus.name}</p>
+                                                <p className="text-xs text-slate-500">Created {formatDate(campus.createdAt)}</p>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="px-4 py-4">
                                             {campus.code ? (
-                                                <Badge variant="secondary" className="bg-gray-100 text-gray-700">{campus.code}</Badge>
+                                                <Badge variant="secondary" className="bg-slate-100 text-slate-700">{campus.code}</Badge>
                                             ) : (
-                                                <span className="text-sm text-gray-400">No code</span>
+                                                <span className="text-sm text-slate-400">No code</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-sm text-gray-600">{formatDate(campus.updatedAt)}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="px-4 py-4 text-sm text-slate-600">{formatDate(campus.updatedAt)}</TableCell>
+                                        <TableCell className="px-4 py-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
-                                                    size="sm"
+                                                    className="h-8 rounded-md border-slate-200 bg-white text-xs font-semibold hover:bg-slate-50"
                                                     onClick={() => fetchMembersForCampus(campus)}
                                                 >
                                                     <Users className="mr-2 h-4 w-4" />
                                                     Users
                                                 </Button>
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => openEditDialog(campus)}>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 rounded-lg text-slate-700 hover:bg-slate-100"
+                                                    onClick={() => openEditDialog(campus)}
+                                                >
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                                    className="h-8 w-8 rounded-lg text-rose-700 hover:bg-rose-50"
                                                     onClick={() => setDeleteTarget(campus)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -505,7 +566,7 @@ const CampusesPage: React.FC = () => {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4 py-2">
                         <div className="relative">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                             <Input
@@ -526,36 +587,36 @@ const CampusesPage: React.FC = () => {
                                 No reviewers or reviewees assigned to this campus.
                             </div>
                         ) : (
-                            <div className="max-h-105 overflow-auto rounded-md border border-gray-100">
+                            <div className="max-h-105 overflow-auto rounded-xl border border-slate-100">
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>User</TableHead>
-                                            <TableHead>Role</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Program</TableHead>
-                                            <TableHead>Year / Section</TableHead>
+                                    <TableHeader className="bg-slate-50 border-b border-slate-100">
+                                        <TableRow className="border-slate-100">
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</TableHead>
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</TableHead>
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</TableHead>
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Program</TableHead>
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Year / Section</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredMembers.map((member) => (
-                                            <TableRow key={member.id}>
-                                                <TableCell>
-                                                    <p className="font-semibold text-gray-900">{member.name}</p>
-                                                    <p className="text-xs text-gray-500">{member.email}</p>
+                                            <TableRow key={member.id} className="hover:bg-slate-50 transition-colors align-top">
+                                                <TableCell className="px-4 py-4">
+                                                    <p className="text-sm font-semibold text-slate-900">{member.name}</p>
+                                                    <p className="text-xs text-slate-500">{member.email}</p>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="uppercase text-[10px]">
+                                                <TableCell className="px-4 py-4">
+                                                    <Badge variant="outline" className="uppercase text-[10px] border-slate-200 text-slate-700">
                                                         {member.role}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="secondary" className="uppercase text-[10px]">
+                                                <TableCell className="px-4 py-4">
+                                                    <Badge variant="secondary" className="uppercase text-[10px] bg-slate-100 text-slate-700">
                                                         {(member.status || 'UNKNOWN').toLowerCase()}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-gray-600">{member.program || 'Unassigned'}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">
+                                                <TableCell className="px-4 py-4 text-sm text-slate-600">{member.program || 'Unassigned'}</TableCell>
+                                                <TableCell className="px-4 py-4 text-sm text-slate-600">
                                                     {[member.yearLevel, member.section].filter(Boolean).join(' / ') || 'N/A'}
                                                 </TableCell>
                                             </TableRow>
@@ -578,6 +639,7 @@ const CampusesPage: React.FC = () => {
                 isLoading={false}
                 onConfirm={handleDeleteCampus}
             />
+            </div>
         </div>
     );
 };

@@ -32,6 +32,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface ProgramItem {
@@ -117,6 +124,8 @@ const ProgramsPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [selectedProgram, setSelectedProgram] = useState<ProgramItem | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<ProgramItem | null>(null);
+    const [codeFilter, setCodeFilter] = useState<'ALL' | 'WITH_CODE' | 'NO_CODE'>('ALL');
+    const [activityFilter, setActivityFilter] = useState<'ALL' | 'UPDATED_30_DAYS' | 'OLDER'>('ALL');
     const [studentsOpen, setStudentsOpen] = useState(false);
     const [studentsLoading, setStudentsLoading] = useState(false);
     const [studentSearch, setStudentSearch] = useState('');
@@ -143,13 +152,27 @@ const ProgramsPage: React.FC = () => {
 
     const filteredPrograms = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
-        if (!normalizedSearch) return programs;
+        const threshold = Date.now() - (1000 * 60 * 60 * 24 * 30);
 
-        return programs.filter((program) =>
-            program.name.toLowerCase().includes(normalizedSearch)
-            || (program.code || '').toLowerCase().includes(normalizedSearch)
-        );
-    }, [programs, search]);
+        return programs.filter((program) => {
+            const matchesSearch = !normalizedSearch
+                || program.name.toLowerCase().includes(normalizedSearch)
+                || (program.code || '').toLowerCase().includes(normalizedSearch);
+
+            const hasCode = Boolean(program.code?.trim());
+            const matchesCode = codeFilter === 'ALL'
+                || (codeFilter === 'WITH_CODE' && hasCode)
+                || (codeFilter === 'NO_CODE' && !hasCode);
+
+            const updatedAt = toValidDate(program.updatedAt);
+            const isUpdatedRecently = updatedAt ? updatedAt.getTime() >= threshold : false;
+            const matchesActivity = activityFilter === 'ALL'
+                || (activityFilter === 'UPDATED_30_DAYS' && isUpdatedRecently)
+                || (activityFilter === 'OLDER' && !isUpdatedRecently);
+
+            return matchesSearch && matchesCode && matchesActivity;
+        });
+    }, [programs, search, codeFilter, activityFilter]);
 
     const filteredStudents = useMemo(() => {
         const normalizedSearch = studentSearch.trim().toLowerCase();
@@ -172,6 +195,11 @@ const ProgramsPage: React.FC = () => {
             return updatedAt ? updatedAt.getTime() >= threshold : false;
         }).length;
     }, [programs]);
+
+    const resetFilters = () => {
+        setCodeFilter('ALL');
+        setActivityFilter('ALL');
+    };
 
     const openCreateDialog = () => {
         setFormMode('create');
@@ -285,85 +313,112 @@ const ProgramsPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 p-6 bg-[#fafaf8] min-h-full">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex-1 flex flex-col bg-slate-50/50 overflow-hidden font-lexend -mx-5 -mt-4">
+            <header className="h-20 bg-white border-b border-[#800000]/10 px-8 flex items-center justify-between gap-4">
                 <div>
-                    <p className="text-xs font-black uppercase tracking-[0.24em] text-primary/70">Admin Workspace</p>
-                    <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Programs</h1>
-                    <p className="mt-2 max-w-2xl text-sm text-gray-600">
-                        Manage the program catalog used across registration, student assignment, and program-based access.
-                    </p>
+                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Programs</h1>
+                    <p className="text-sm text-slate-500">Manage the catalog used across registration and assignment.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" onClick={fetchPrograms} disabled={loading}>
+                    <div className="relative w-72">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search by program name or code"
+                            className="h-10 pl-9 bg-slate-100 border-slate-100 rounded-lg"
+                        />
+                    </div>
+                    <Button type="button" variant="outline" onClick={fetchPrograms} disabled={loading} className="h-10 rounded-lg border-slate-200">
                         {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
                         Refresh
                     </Button>
-                    <Button type="button" onClick={openCreateDialog}>
+                    <Button type="button" onClick={openCreateDialog} className="h-10 px-4 rounded-lg bg-[#800000] hover:bg-[#6d0000] text-white shadow-lg shadow-[#800000]/20">
                         <Plus className="mr-2 h-4 w-4" />
                         Add Program
                     </Button>
                 </div>
-            </div>
+            </header>
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card className="border-0 shadow-sm">
-                    <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Total Programs</p>
-                                <p className="mt-3 text-3xl font-black text-gray-950">{programs.length}</p>
-                            </div>
-                            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                                <GraduationCap className="h-6 w-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm">
-                    <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">With Codes</p>
-                                <p className="mt-3 text-3xl font-black text-gray-950">{codedPrograms}</p>
-                            </div>
-                            <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
-                                <Badge className="border-0 bg-emerald-100 text-emerald-700">Code</Badge>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm">
-                    <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Updated This Month</p>
-                                <p className="mt-3 text-3xl font-black text-gray-950">{recentlyUpdatedPrograms}</p>
-                            </div>
-                            <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
-                                <RefreshCcw className="h-6 w-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card className="border-0 shadow-sm">
-                <CardContent className="p-0">
-                    <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                    <div className="flex items-start justify-between">
                         <div>
-                            <h2 className="text-lg font-bold text-gray-950">Program Directory</h2>
+                            <p className="text-sm font-medium text-slate-500">Total Programs</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{programs.length.toLocaleString()}</h3>
+                            <p className="text-xs text-[#800000]/70 font-medium mt-2">Configured across registration and assignment</p>
+                        </div>
+                        <div className="bg-[#800000]/10 text-[#800000] p-3 rounded-lg">
+                            <GraduationCap className="w-5 h-5" />
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Programs With Codes</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{codedPrograms.toLocaleString()}</h3>
+                            <p className="text-xs text-green-600 font-medium mt-2">Standardized shorthand naming is available</p>
+                        </div>
+                        <div className="bg-green-100 text-green-600 p-3 rounded-lg">
+                            <Badge className="border-0 bg-transparent text-current p-0 h-auto text-xs">Code</Badge>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Updated This Month</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{recentlyUpdatedPrograms.toLocaleString()}</h3>
+                            <p className="text-xs text-[#D4AF37] font-medium mt-2">Recent changes in the last 30 days</p>
+                        </div>
+                        <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
+                            <RefreshCcw className="w-5 h-5" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 items-center">
+                <Select value={codeFilter} onValueChange={(value) => setCodeFilter(value as 'ALL' | 'WITH_CODE' | 'NO_CODE')}>
+                    <SelectTrigger className="w-auto min-w-44 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
+                        <span className="text-slate-400 mr-1">Code:</span>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="font-lexend">
+                        <SelectItem value="ALL">All</SelectItem>
+                        <SelectItem value="WITH_CODE">With Code</SelectItem>
+                        <SelectItem value="NO_CODE">No Code</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as 'ALL' | 'UPDATED_30_DAYS' | 'OLDER')}>
+                    <SelectTrigger className="w-auto min-w-56 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
+                        <span className="text-slate-400 mr-1">Updated:</span>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="font-lexend">
+                        <SelectItem value="ALL">Any Time</SelectItem>
+                        <SelectItem value="UPDATED_30_DAYS">Last 30 Days</SelectItem>
+                        <SelectItem value="OLDER">Older</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Button variant="outline" className="h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 gap-2" onClick={resetFilters}>
+                    <RefreshCcw className="w-4 h-4" />
+                    Reset Filters
+                </Button>
+            </div>
+
+            <Card className="border border-[#800000]/10 shadow-sm rounded-xl bg-white overflow-hidden">
+                <CardContent className="p-0">
+                    <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900">Program Directory</h2>
                             <p className="text-sm text-gray-500">Create, update, or remove programs and inspect the students assigned to each one.</p>
                         </div>
-                        <div className="relative w-full lg:w-80">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                            <Input
-                                value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Search by program name or code"
-                                className="pl-9"
-                            />
-                        </div>
+                        <p className="text-xs font-medium text-slate-500">{filteredPrograms.length} programs shown</p>
                     </div>
 
                     {errorMessage ? (
@@ -384,37 +439,37 @@ const ProgramsPage: React.FC = () => {
                         </div>
                     ) : (
                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Program</TableHead>
-                                    <TableHead>Code</TableHead>
-                                    <TableHead>Last Updated</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                            <TableHeader className="bg-slate-50 border-b border-slate-100">
+                                <TableRow className="border-slate-100">
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Program</TableHead>
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Code</TableHead>
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Updated</TableHead>
+                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredPrograms.map((program) => (
-                                    <TableRow key={program.id}>
-                                        <TableCell>
+                                    <TableRow key={program.id} className="hover:bg-slate-50 transition-colors align-top">
+                                        <TableCell className="px-4 py-4">
                                             <div>
-                                                <p className="font-semibold text-gray-950">{program.name}</p>
-                                                <p className="text-xs text-gray-500">Created {formatDate(program.createdAt)}</p>
+                                                <p className="text-sm font-semibold text-slate-900">{program.name}</p>
+                                                <p className="text-xs text-slate-500">Created {formatDate(program.createdAt)}</p>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="px-4 py-4">
                                             {program.code ? (
-                                                <Badge variant="secondary" className="bg-gray-100 text-gray-700">{program.code}</Badge>
+                                                <Badge variant="secondary" className="bg-slate-100 text-slate-700">{program.code}</Badge>
                                             ) : (
-                                                <span className="text-sm text-gray-400">No code</span>
+                                                <span className="text-sm text-slate-400">No code</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-sm text-gray-600">{formatDate(program.updatedAt)}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="px-4 py-4 text-sm text-slate-600">{formatDate(program.updatedAt)}</TableCell>
+                                        <TableCell className="px-4 py-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
-                                                    size="sm"
+                                                    className="h-8 rounded-md border-slate-200 bg-white text-xs font-semibold hover:bg-slate-50"
                                                     onClick={() => fetchStudentsForProgram(program)}
                                                 >
                                                     <Users className="mr-2 h-4 w-4" />
@@ -424,6 +479,7 @@ const ProgramsPage: React.FC = () => {
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
+                                                    className="h-8 w-8 rounded-lg text-slate-700 hover:bg-slate-100"
                                                     onClick={() => openEditDialog(program)}
                                                     aria-label={`Edit ${program.name}`}
                                                 >
@@ -433,7 +489,7 @@ const ProgramsPage: React.FC = () => {
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="text-rose-600 hover:text-rose-700"
+                                                    className="h-8 w-8 rounded-lg text-rose-700 hover:bg-rose-50"
                                                     onClick={() => setDeleteTarget(program)}
                                                     aria-label={`Delete ${program.name}`}
                                                 >
@@ -505,10 +561,10 @@ const ProgramsPage: React.FC = () => {
                     </DialogHeader>
 
                     <div className="space-y-4 py-2">
-                        <div className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
                             <div>
-                                <p className="text-sm font-semibold text-gray-900">{selectedProgram?.name || 'Selected program'}</p>
-                                <p className="text-xs text-gray-500">{studentsLoading ? 'Loading students...' : `${programStudents.length} student${programStudents.length === 1 ? '' : 's'} found`}</p>
+                                <p className="text-sm font-semibold text-slate-900">{selectedProgram?.name || 'Selected program'}</p>
+                                <p className="text-xs text-slate-500">{studentsLoading ? 'Loading students...' : `${programStudents.length} student${programStudents.length === 1 ? '' : 's'} found`}</p>
                             </div>
                             <div className="relative w-full lg:w-72">
                                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -534,32 +590,32 @@ const ProgramsPage: React.FC = () => {
                                 </p>
                             </div>
                         ) : (
-                            <div className="max-h-105 overflow-y-auto rounded-xl border border-gray-100">
+                            <div className="max-h-105 overflow-y-auto rounded-xl border border-slate-100">
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Student</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Year</TableHead>
-                                            <TableHead>Section</TableHead>
+                                    <TableHeader className="bg-slate-50 border-b border-slate-100">
+                                        <TableRow className="border-slate-100">
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</TableHead>
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</TableHead>
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Year</TableHead>
+                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredStudents.map((student) => (
-                                            <TableRow key={student.id}>
-                                                <TableCell>
+                                            <TableRow key={student.id} className="hover:bg-slate-50 transition-colors align-top">
+                                                <TableCell className="px-4 py-4">
                                                     <div>
-                                                        <p className="font-semibold text-gray-950">{student.name}</p>
-                                                        <p className="text-xs text-gray-500">{student.email}</p>
+                                                        <p className="text-sm font-semibold text-slate-900">{student.name}</p>
+                                                        <p className="text-xs text-slate-500">{student.email}</p>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                                                <TableCell className="px-4 py-4">
+                                                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">
                                                         {student.status || 'UNKNOWN'}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-gray-600">{student.yearLevel || 'N/A'}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">{student.section || 'N/A'}</TableCell>
+                                                <TableCell className="px-4 py-4 text-sm text-slate-600">{student.yearLevel || 'N/A'}</TableCell>
+                                                <TableCell className="px-4 py-4 text-sm text-slate-600">{student.section || 'N/A'}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -582,6 +638,7 @@ const ProgramsPage: React.FC = () => {
                 confirmLabel="Delete Program"
                 onConfirm={handleDeleteProgram}
             />
+            </div>
         </div>
     );
 };

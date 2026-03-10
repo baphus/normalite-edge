@@ -11,7 +11,6 @@ import {
     Edit,
     Eye,
     Filter,
-    MoreVertical,
     Search,
     Shield,
     Trash2,
@@ -51,7 +50,6 @@ import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
-    DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
@@ -60,6 +58,7 @@ import api from '@/lib/axios';
 import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useSearchParams } from 'react-router-dom';
 
 type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 type CreateUserRole = 'REVIEWER' | 'REVIEWEE';
@@ -73,10 +72,11 @@ interface User {
     id: string;
     name: string;
     email: string;
+    picture: string;
     program: string;
     campus: string;
-    major: string;
-    yearSection: string;
+    yearLevel: string;
+    section: string;
     role: UserRole;
     status: UiStatus;
     dateJoined: string;
@@ -94,6 +94,10 @@ interface UserApiItem {
     major?: string | null;
     yearLevel?: string | null;
     section?: string | null;
+    profilePicture?: string | null;
+    profile_picture?: string | null;
+    picture?: string | null;
+    avatar?: string | null;
     createdAt: string;
 }
 
@@ -119,14 +123,40 @@ const toUiUser = (item: UserApiItem): User => ({
     id: item.id,
     name: item.name,
     email: item.email,
+    picture: item.profilePicture || item.profile_picture || item.picture || item.avatar || '',
     program: item.program || 'N/A',
     campus: item.campus || 'N/A',
-    major: item.major || 'N/A',
-    yearSection: [item.yearLevel, item.section].filter(Boolean).join(' - ') || 'N/A',
+    yearLevel: item.yearLevel || 'N/A',
+    section: item.section || 'N/A',
     role: item.role,
     status: statusFromApi(item.status),
     dateJoined: item.createdAt,
 });
+
+const normalizeProfileImageUrl = (rawUrl?: string | null): string => {
+    if (!rawUrl || typeof rawUrl !== 'string') return '';
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    return trimmed;
+};
+
+const defaultCreateForm = {
+    firstName: '',
+    middleInitial: '',
+    lastName: '',
+    suffix: '',
+    email: '',
+    password: '',
+    role: 'REVIEWEE' as CreateUserRole,
+    status: 'ACTIVE' as ApiStatus,
+    track_id: '',
+    campus_id: '',
+    program_track: '',
+    yearLevel: '',
+    section: '',
+};
 
 const roleBadgeClass: Record<UserRole, string> = {
     ADMIN: 'bg-purple-50 text-purple-700 border-purple-100',
@@ -161,6 +191,7 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('en-US'
 });
 
 const UserManagementPage: React.FC = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [users, setUsers] = useState<User[]>([]);
     const [totalUsers, setTotalUsers] = useState(0);
     const [page, setPage] = useState(1);
@@ -186,26 +217,14 @@ interface CampusOption {
     const [campuses, setCampuses] = useState<CampusOption[]>([]);
     const [tracksLoading, setTracksLoading] = useState(false);
     const [campusesLoading, setCampusesLoading] = useState(false);
-    const [createForm, setCreateForm] = useState({
-        firstName: '',
-        middleInitial: '',
-        lastName: '',
-        suffix: '',
-        email: '',
-        password: '',
-        role: 'REVIEWEE' as CreateUserRole,
-        status: 'ACTIVE' as ApiStatus,
-        track_id: '',
-        campus_id: '',
-        program_track: '',
-        yearLevel: '',
-        section: '',
-    });
+    const [createForm, setCreateForm] = useState({ ...defaultCreateForm });
     const [createError, setCreateError] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
+    const [studentCreateFlow, setStudentCreateFlow] = useState(false);
     const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [sortBy, setSortBy] = useState<SortKey>('dateJoined');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+    const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
     const [visibleColumns, setVisibleColumns] = useState<Record<UserColumn, boolean>>({
         user: true,
         academic: true,
@@ -280,6 +299,20 @@ interface CampusOption {
         return () => clearTimeout(timeout);
     }, [search]);
 
+    useEffect(() => {
+        const create = searchParams.get('create');
+        if (create !== 'reviewee') return;
+
+        setCreateError(null);
+        setCreateForm({ ...defaultCreateForm, role: 'REVIEWEE' });
+        setStudentCreateFlow(true);
+        setIsCreateModalOpen(true);
+
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('create');
+        setSearchParams(nextParams, { replace: true });
+    }, [searchParams, setSearchParams]);
+
     const handleView = (user: User) => {
         setSelectedUser(user);
         setIsViewModalOpen(true);
@@ -349,9 +382,10 @@ interface CampusOption {
                 section: createForm.section.trim() || undefined,
             });
             setIsCreateModalOpen(false);
-            setCreateForm({ firstName: '', middleInitial: '', lastName: '', suffix: '', email: '', password: '', role: 'REVIEWEE', status: 'ACTIVE', track_id: '', campus_id: '', program_track: '', yearLevel: '', section: '' });
+            setCreateForm({ ...defaultCreateForm });
+            setStudentCreateFlow(false);
             await fetchUsers();
-            toast.success('User created successfully.');
+            toast.success(studentCreateFlow ? 'Student added successfully.' : 'User created successfully.');
         } catch (error: any) {
             setCreateError(error?.response?.data?.message || 'Failed to create user');
         } finally {
@@ -441,125 +475,125 @@ interface CampusOption {
     };
 
     return (
-        <div className="flex flex-col gap-3 font-lexend pb-6">
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-base font-bold text-gray-900 tracking-tight">User Management</h1>
-                    <p className="text-[11px] text-gray-400 mt-0.5">Accounts, roles, and access status.</p>
+        <div className="flex-1 flex flex-col bg-slate-50/50 overflow-hidden font-lexend -mx-5 -mt-4">
+            <header className="h-20 bg-white border-b border-[#800000]/10 px-8 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight shrink-0">User Management</h1>
+                    <div className="relative w-full max-w-md ml-6">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search by name, email, program, campus..."
+                            className="w-full pl-10 pr-4 h-10 bg-slate-100 border-slate-100 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-[#800000]/20"
+                        />
+                    </div>
                 </div>
                 <Button
                     onClick={() => {
                         setCreateError(null);
-                        setCreateForm({ firstName: '', middleInitial: '', lastName: '', suffix: '', email: '', password: '', role: 'REVIEWEE', status: 'ACTIVE', track_id: '', campus_id: '', program_track: '', yearLevel: '', section: '' });
+                        setStudentCreateFlow(false);
+                        setCreateForm({ ...defaultCreateForm });
                         setIsCreateModalOpen(true);
                     }}
-                    className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white text-xs font-semibold gap-1.5"
+                    className="h-10 px-4 rounded-lg bg-[#800000] hover:bg-[#6d0000] text-white text-sm font-semibold gap-2 shadow-lg shadow-[#800000]/20"
                 >
-                    <UserPlus className="w-3.5 h-3.5" /> Create User
+                    <UserPlus className="w-4 h-4" /> Create User
                 </Button>
             </header>
 
-            <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="border border-[#800000]/5 rounded-xl shadow-sm bg-white">
+                    <CardContent className="p-6 flex items-start justify-between">
                         <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Total</p>
-                            <p className="text-lg font-bold text-gray-900">{totalUsers}</p>
+                            <p className="text-sm font-medium text-slate-500">Total Users</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{totalUsers}</h3>
+                            <p className="text-xs text-[#800000]/70 font-medium mt-2">Across all user roles</p>
                         </div>
-                        <UserCog className="w-4 h-4 text-primary" />
+                        <div className="bg-[#800000]/10 text-[#800000] p-3 rounded-lg">
+                            <UserCog className="w-5 h-5" />
+                        </div>
                     </CardContent>
                 </Card>
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
+                <Card className="border border-[#800000]/5 rounded-xl shadow-sm bg-white">
+                    <CardContent className="p-6 flex items-start justify-between">
                         <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Active</p>
-                            <p className="text-lg font-bold text-green-700">{summary.active}</p>
+                            <p className="text-sm font-medium text-slate-500">Active Users</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{summary.active}</h3>
+                            <p className="text-xs text-green-600 font-medium mt-2">Accounts currently enabled</p>
                         </div>
-                        <CheckCircle2 className="w-4 h-4 text-green-700" />
+                        <div className="bg-green-100 text-green-600 p-3 rounded-lg">
+                            <CheckCircle2 className="w-5 h-5" />
+                        </div>
                     </CardContent>
                 </Card>
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
+                <Card className="border border-[#800000]/5 rounded-xl shadow-sm bg-white">
+                    <CardContent className="p-6 flex items-start justify-between">
                         <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Pending</p>
-                            <p className="text-lg font-bold text-amber-700">{summary.pending}</p>
+                            <p className="text-sm font-medium text-slate-500">Pending Users</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{summary.pending}</h3>
+                            <p className="text-xs text-[#D4AF37] font-medium mt-2">Waiting for activation or approval</p>
                         </div>
-                        <Clock className="w-4 h-4 text-amber-700" />
+                        <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
+                            <Clock className="w-5 h-5" />
+                        </div>
                     </CardContent>
                 </Card>
-                <Card className="border-gray-100 rounded-lg shadow-sm">
-                    <CardContent className="p-3 flex items-center justify-between">
+                <Card className="border border-[#800000]/5 rounded-xl shadow-sm bg-white">
+                    <CardContent className="p-6 flex items-start justify-between">
                         <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Inactive</p>
-                            <p className="text-lg font-bold text-rose-700">{summary.inactive}</p>
+                            <p className="text-sm font-medium text-slate-500">Inactive Users</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{summary.inactive}</h3>
+                            <p className="text-xs text-rose-600 font-medium mt-2">Disabled or rejected accounts</p>
                         </div>
-                        <UserX className="w-4 h-4 text-rose-700" />
+                        <div className="bg-rose-100 text-rose-600 p-3 rounded-lg">
+                            <UserX className="w-5 h-5" />
+                        </div>
                     </CardContent>
                 </Card>
             </section>
 
-            <section className="rounded-lg border border-gray-100 bg-white p-2.5 shadow-sm space-y-2.5">
-                <div className="flex flex-col md:flex-row gap-2 md:items-center">
-                    <div className="relative group flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary" />
-                        <Input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search name, email, or program"
-                            className="h-8 pl-9 rounded-md border-gray-200 text-xs"
-                        />
-                    </div>
+            <section className="rounded-xl border border-[#800000]/10 bg-white p-3 shadow-sm space-y-3">
+                <div className="flex flex-wrap gap-3 items-center">
+                    <Select value={roleFilter} onValueChange={(value) => { setPage(1); setRoleFilter(value as 'ALL' | UserRole); }}>
+                        <SelectTrigger className="w-auto min-w-44 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
+                            <span className="text-slate-400 mr-1">Role:</span>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="font-lexend">
+                            <SelectItem value="ALL">All Roles</SelectItem>
+                            <SelectItem value="REVIEWEE">Reviewee</SelectItem>
+                            <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                            <SelectItem value="ADMIN">Admin</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={statusFilter} onValueChange={(value) => { setPage(1); setStatusFilter(value as 'ALL' | UiStatus); }}>
+                        <SelectTrigger className="w-auto min-w-44 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
+                            <span className="text-slate-400 mr-1">Status:</span>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="font-lexend">
+                            <SelectItem value="ALL">All Status</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Button variant="outline" className="h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 gap-2" onClick={resetFilters}>
+                        <Filter className="w-4 h-4" />
+                        Reset Filters
+                    </Button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="h-8 rounded-md border-gray-200 text-xs font-semibold gap-1.5">
-                                <Filter className="w-3 h-3" /> Filters
+                            <Button variant="outline" className="h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 gap-2">
+                                <Columns3 className="w-4 h-4" /> Columns
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-64 p-3 font-lexend space-y-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Role</Label>
-                                <Select value={roleFilter} onValueChange={(value) => { setPage(1); setRoleFilter(value as 'ALL' | UserRole); }}>
-                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        <SelectItem value="ALL">All Roles</SelectItem>
-                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
-                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                                        <SelectItem value="ADMIN">Admin</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</Label>
-                                <Select value={statusFilter} onValueChange={(value) => { setPage(1); setStatusFilter(value as 'ALL' | UiStatus); }}>
-                                    <SelectTrigger className="h-8 rounded-lg border-gray-200 bg-white text-xs font-semibold">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        <SelectItem value="ALL">All Status</SelectItem>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="pending">Pending</SelectItem>
-                                        <SelectItem value="inactive">Inactive</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <Button variant="outline" className="h-8 w-full rounded-lg border-gray-200 text-xs font-semibold" onClick={resetFilters}>
-                                Reset filters
-                            </Button>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="h-8 rounded-md border-gray-200 text-xs font-semibold gap-1.5 bg-white">
-                                <Columns3 className="w-3.5 h-3.5" /> Columns
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="font-lexend min-w-44">
+                        <DropdownMenuContent align="start" className="font-lexend min-w-44">
                             <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-gray-500">Visible columns</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             {(Object.keys(visibleColumns) as UserColumn[]).map((key) => (
@@ -584,10 +618,10 @@ interface CampusOption {
                     </div>
                 )}
 
-                <div className="rounded-lg border border-gray-100 overflow-hidden">
+                <div className="rounded-xl border border-slate-100 overflow-hidden">
                     <div className="overflow-x-auto">
                         <Table>
-                            <TableHeader className="bg-gray-50/80">
+                            <TableHeader className="bg-slate-50 border-b border-slate-100">
                                 <TableRow className="border-gray-100">
                                     {visibleColumns.user && (
                                         <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 min-w-64">
@@ -646,8 +680,19 @@ interface CampusOption {
                                             {visibleColumns.user && (
                                                 <TableCell className="px-3 py-2.5 min-w-64">
                                                     <div className="flex items-start gap-3">
-                                                        <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">
-                                                            {user.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}
+                                                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary overflow-hidden relative flex items-center justify-center text-[10px] font-semibold shrink-0">
+                                                            {!brokenImages[user.id] && normalizeProfileImageUrl(user.picture) ? (
+                                                                <img
+                                                                    src={normalizeProfileImageUrl(user.picture)}
+                                                                    alt={user.name}
+                                                                    className="h-full w-full object-cover"
+                                                                    onError={() => setBrokenImages((prev) => ({ ...prev, [user.id]: true }))}
+                                                                />
+                                                            ) : (
+                                                                <span className="absolute inset-0 flex items-center justify-center">
+                                                                    {user.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
@@ -659,10 +704,22 @@ interface CampusOption {
 
                                             {visibleColumns.academic && (
                                                 <TableCell className="px-3 py-2.5 min-w-52">
-                                                    <p className="text-sm font-semibold text-gray-800 leading-tight">{user.program}</p>
-                                                    <p className="text-xs text-gray-500 leading-tight mt-0.5">{user.campus}</p>
-                                                    <p className="text-xs text-gray-500 leading-tight mt-0.5">{user.major}</p>
-                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mt-1">{user.yearSection}</p>
+                                                    {user.role === 'REVIEWEE' ? (
+                                                        <div className="space-y-0.5">
+                                                            <p className="text-sm font-semibold text-gray-800 leading-tight">{user.program}</p>
+                                                            <p className="text-xs text-gray-500 leading-tight">
+                                                                {user.yearLevel !== 'N/A' ? user.yearLevel : 'Year N/A'}
+                                                                {' • '}
+                                                                {user.section !== 'N/A' ? `Section ${user.section}` : 'Section N/A'}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 leading-tight">{user.campus}</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-gray-800 leading-tight">{user.campus}</p>
+                                                            <p className="text-xs text-gray-500 leading-tight mt-0.5">Campus</p>
+                                                        </div>
+                                                    )}
                                                 </TableCell>
                                             )}
 
@@ -689,30 +746,44 @@ interface CampusOption {
                                             )}
 
                                             <TableCell className="px-3 py-2.5 text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={mutatingId === user.id}>
-                                                            <MoreVertical className="w-4 h-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="font-lexend min-w-40">
-                                                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-gray-500">Actions</DropdownMenuLabel>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => handleView(user)} className="font-semibold gap-2 text-xs">
-                                                            <Eye className="w-4 h-4" /> View
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleEdit(user)} className="font-semibold gap-2 text-xs">
-                                                            <Edit className="w-4 h-4" /> Edit
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleDelete(user)}
-                                                            className="font-semibold gap-2 text-xs text-rose-700 focus:text-rose-700 focus:bg-rose-50"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" /> Delete
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                <div className="inline-flex items-center gap-1">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10"
+                                                        onClick={() => handleView(user)}
+                                                        disabled={mutatingId === user.id}
+                                                        aria-label={`View ${user.name}`}
+                                                        title="View"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 rounded-lg text-slate-700 hover:bg-slate-100"
+                                                        onClick={() => handleEdit(user)}
+                                                        disabled={mutatingId === user.id}
+                                                        aria-label={`Edit ${user.name}`}
+                                                        title="Edit"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 rounded-lg text-rose-700 hover:bg-rose-50"
+                                                        onClick={() => handleDelete(user)}
+                                                        disabled={mutatingId === user.id}
+                                                        aria-label={`Delete ${user.name}`}
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -721,8 +792,8 @@ interface CampusOption {
                         </Table>
                     </div>
 
-                    <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <p className="text-[11px] font-semibold text-gray-500">
+                    <div className="bg-slate-50 border-t border-slate-100 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold text-slate-500">
                             Showing <span className="text-gray-900">{fromCount}-{toCount}</span> of <span className="text-gray-900">{totalUsers}</span> users
                         </p>
                         <div className="flex items-center gap-2">
@@ -751,15 +822,18 @@ interface CampusOption {
                     </div>
                 </div>
             </section>
+            </div>
 
-            <Dialog open={isCreateModalOpen} onOpenChange={(open) => { if (!creating) { setIsCreateModalOpen(open); setCreateError(null); } }}>
+            <Dialog open={isCreateModalOpen} onOpenChange={(open) => { if (!creating) { setIsCreateModalOpen(open); setCreateError(null); if (!open) setStudentCreateFlow(false); } }}>
                 <DialogContent className="sm:max-w-md rounded-lg font-lexend">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
-                            <UserPlus className="w-4 h-4 text-primary" /> Create User
+                            <UserPlus className="w-4 h-4 text-primary" /> {studentCreateFlow ? 'Add Student' : 'Create User'}
                         </DialogTitle>
                         <DialogDescription className="text-sm text-gray-500">
-                            Choose whether you are creating a reviewee or reviewer account.
+                            {studentCreateFlow
+                                ? 'Enter student details to create a new reviewee account.'
+                                : 'Choose whether you are creating a reviewee or reviewer account.'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -767,22 +841,26 @@ interface CampusOption {
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5 col-span-2">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">User Type</Label>
-                                <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({
-                                    ...prev,
-                                    role: v as CreateUserRole,
-                                    track_id: v === 'REVIEWEE' ? prev.track_id : '',
-                                    program_track: '',
-                                    yearLevel: v === 'REVIEWEE' ? prev.yearLevel : '',
-                                    section: v === 'REVIEWEE' ? prev.section : '',
-                                }))}>
-                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
-                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                {studentCreateFlow ? (
+                                    <Input value="Reviewee" disabled className="h-8 rounded-md border-gray-200 bg-gray-50 text-xs" />
+                                ) : (
+                                    <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({
+                                        ...prev,
+                                        role: v as CreateUserRole,
+                                        track_id: v === 'REVIEWEE' ? prev.track_id : '',
+                                        program_track: '',
+                                        yearLevel: v === 'REVIEWEE' ? prev.yearLevel : '',
+                                        section: v === 'REVIEWEE' ? prev.section : '',
+                                    }))}>
+                                        <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="font-lexend">
+                                            <SelectItem value="REVIEWEE">Reviewee</SelectItem>
+                                            <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">First Name <span className="text-rose-500">*</span></Label>
@@ -948,11 +1026,11 @@ interface CampusOption {
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsCreateModalOpen(false)} disabled={creating} className="h-8 rounded-md border-gray-200 text-xs font-semibold">
+                        <Button variant="outline" onClick={() => { setIsCreateModalOpen(false); setStudentCreateFlow(false); }} disabled={creating} className="h-8 rounded-md border-gray-200 text-xs font-semibold">
                             Cancel
                         </Button>
                         <Button onClick={handleCreate} disabled={creating} className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white text-xs font-semibold">
-                            {creating ? 'Creating...' : 'Create User'}
+                            {creating ? 'Creating...' : studentCreateFlow ? 'Add Student' : 'Create User'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
