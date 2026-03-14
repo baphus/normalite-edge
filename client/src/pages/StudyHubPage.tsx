@@ -180,29 +180,32 @@ const StudyHubPage: React.FC = () => {
                         <div className="grid grid-cols-3 gap-2">
                             <Button
                                 variant="outline"
-                                className={`h-10 rounded-xl font-bold text-xs bg-white border-2 border-transparent hover:border-black/10 ${style.text} shadow-sm transition-all`}
+                                className={`h-12 rounded-xl font-bold text-[10px] bg-white border-2 border-transparent hover:border-black/10 ${style.text} shadow-sm transition-all flex flex-col items-center justify-center gap-0.5`}
                                 onClick={() => navigate(`/study/${deck.id}/view`)}
                                 title="View deck details"
                                 aria-label="View deck details"
                             >
                                 <Eye size={16} />
+                                <span>View</span>
                             </Button>
                             <Button
                                 variant="outline"
-                                className={`h-10 rounded-xl font-bold text-xs bg-white border-2 border-transparent hover:border-black/10 ${style.text} shadow-sm transition-all`}
+                                className={`h-12 rounded-xl font-bold text-[10px] bg-white border-2 border-transparent hover:border-black/10 ${style.text} shadow-sm transition-all flex flex-col items-center justify-center gap-0.5`}
                                 onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
                                 title="Study with flashcards"
                                 aria-label="Study with flashcards"
                             >
                                 <BookOpen size={16} />
+                                <span>Cards</span>
                             </Button>
                             <Button
-                                className={`h-10 rounded-xl font-black text-xs text-white shadow-sm transition-all border-b-4 hover:-translate-y-0.5 active:translate-y-0 active:border-b-0 ${style.buttonBg} ${style.buttonBorder} hover:brightness-110`}
+                                className={`h-12 rounded-xl font-black text-[10px] text-white shadow-sm transition-all border-b-4 hover:-translate-y-0.5 active:translate-y-0 active:border-b-0 ${style.buttonBg} ${style.buttonBorder} hover:brightness-110 flex flex-col items-center justify-center gap-0.5`}
                                 onClick={() => navigate(`/study/${deck.id}?mode=study`)}
                                 title="Begin quiz"
                                 aria-label="Begin quiz"
                             >
                                 <Brain size={16} />
+                                <span>Quiz</span>
                             </Button>
                         </div>
                     </div>
@@ -219,62 +222,80 @@ const StudyHubPage: React.FC = () => {
                 key={deck.id}
                 className={`group border-2 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 rounded-2xl overflow-hidden bg-white`}
             >
-                <div className="flex items-center gap-0 pr-4">
+                <div className="flex items-stretch gap-0">
                     <div className={`w-3 self-stretch rounded-l-2xl ${style.sideBar}`} />
-                    <div className="flex items-center gap-4 flex-1 min-w-0 px-4 py-3">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${style.bg} ${style.text}`}>
-                                    {deck.category}
-                                </span>
-                                {deck.tracks.length > 0 && (
-                                    <span className="text-[10px] text-gray-400 font-bold truncate hidden sm:block">
-                                        {deck.tracks.slice(0, 2).join(' · ')}
+                    <div className="flex-1 min-w-0 px-3 py-3 sm:px-4 sm:py-3.5">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${style.bg} ${style.text}`}>
+                                        {deck.category}
                                     </span>
-                                )}
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 md:hidden">
+                                        <GalleryHorizontalEnd size={11} className="text-gray-400" />
+                                        {deck.cardCount} cards
+                                    </span>
+                                    {deck.tracks.length > 0 && (
+                                        <span className="text-[10px] text-gray-400 font-bold truncate hidden sm:block max-w-[360px]">
+                                            {deck.tracks.slice(0, 2).join(' · ')}{deck.tracks.length > 2 ? ` +${deck.tracks.length - 2}` : ''}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-base font-black text-gray-900 group-hover:text-primary transition-colors leading-snug truncate">
+                                    {deck.title}
+                                </p>
+                                <p className="text-[11px] text-gray-500 font-medium leading-relaxed mt-1 line-clamp-1 sm:line-clamp-2">
+                                    {deck.description}
+                                </p>
                             </div>
-                            <p className="text-base font-black text-gray-900 group-hover:text-primary transition-colors leading-snug truncate">
-                                {deck.title}
-                            </p>
-                        </div>
 
-                        <div className="hidden md:flex items-center gap-2 shrink-0">
-                            <GalleryHorizontalEnd size={14} className="text-gray-400" />
-                            <span className="text-sm font-black text-gray-800">{deck.cardCount}</span>
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">cards</span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 ml-4">
                             <button
                                 onClick={(e) => { e.stopPropagation(); toggleBookmark(deck.id); }}
-                                className={`h-10 w-10 flex items-center justify-center rounded-xl transition-all ${style.bg} hover:brightness-95 ${deck.isBookmarked ? style.text : 'text-gray-400'}`}
+                                className={`h-9 w-9 sm:h-10 sm:w-10 shrink-0 flex items-center justify-center rounded-xl transition-all ${style.bg} hover:brightness-95 ${deck.isBookmarked ? style.text : 'text-gray-400'}`}
+                                title={deck.isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+                                aria-label={deck.isBookmarked ? 'Remove bookmark' : 'Bookmark'}
                             >
                                 <Bookmark size={16} fill={deck.isBookmarked ? 'currentColor' : 'none'} />
                             </button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className={`h-10 w-10 p-0 rounded-xl font-bold bg-white border-2 border-gray-100 ${style.text} hover:border-gray-200`}
-                                onClick={() => navigate(`/study/${deck.id}/view`)}
-                            >
-                                <Eye size={16} />
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className={`h-10 w-10 p-0 rounded-xl font-bold bg-white border-2 border-gray-100 ${style.text} hover:border-gray-200`}
-                                onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
-                            >
-                                <BookOpen size={16} />
-                            </Button>
-                            <Button
-                                size="sm"
-                                className={`h-10 w-10 p-0 rounded-xl font-black text-white border-b-4 hover:-translate-y-0.5 active:translate-y-0 active:border-b-0 transition-all ${style.buttonBg} ${style.buttonBorder}`}
-                                onClick={() => navigate(`/study/${deck.id}?mode=study`)}
-                            >
-                                <Brain size={16} />
-                            </Button>
                         </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                            <div className="hidden md:flex items-center gap-2 shrink-0">
+                                <GalleryHorizontalEnd size={14} className="text-gray-400" />
+                                <span className="text-sm font-black text-gray-800">{deck.cardCount}</span>
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">cards</span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 w-full md:w-auto md:flex md:items-center md:justify-end md:ml-auto">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className={`h-9 sm:h-10 px-2.5 sm:w-10 sm:p-0 rounded-xl font-bold bg-white border-2 border-gray-100 ${style.text} hover:border-gray-200 gap-1`}
+                                    onClick={() => navigate(`/study/${deck.id}/view`)}
+                                >
+                                    <Eye size={16} />
+                                    <span className="sm:hidden text-[10px] font-black">View</span>
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className={`h-9 sm:h-10 px-2.5 sm:w-10 sm:p-0 rounded-xl font-bold bg-white border-2 border-gray-100 ${style.text} hover:border-gray-200 gap-1`}
+                                    onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
+                                >
+                                    <BookOpen size={16} />
+                                    <span className="sm:hidden text-[10px] font-black">Cards</span>
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className={`h-9 sm:h-10 px-2.5 sm:w-10 sm:p-0 rounded-xl font-black text-white border-b-4 hover:-translate-y-0.5 active:translate-y-0 active:border-b-0 transition-all ${style.buttonBg} ${style.buttonBorder} gap-1`}
+                                    onClick={() => navigate(`/study/${deck.id}?mode=study`)}
+                                >
+                                    <Brain size={16} />
+                                    <span className="sm:hidden text-[10px] font-black">Quiz</span>
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="h-px bg-gray-100 mt-3 md:hidden" />
                     </div>
                 </div>
             </div>
@@ -285,12 +306,12 @@ const StudyHubPage: React.FC = () => {
         <div className="flex flex-col gap-3 font-lexend pb-6">
 
             {/* ── Page header ── */}
-            <header data-guide="study-header" className="flex items-center justify-between gap-4">
+            <header data-guide="study-header" className="flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div>
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Study Hub</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">Browse flashcard decks and sharpen your LET preparation.</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <div data-guide="study-search" className="relative w-full sm:w-52 group">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={13} />
                         <Input

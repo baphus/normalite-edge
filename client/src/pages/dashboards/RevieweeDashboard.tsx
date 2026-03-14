@@ -268,12 +268,12 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
 
     return (
         <div className="flex flex-col gap-3 font-lexend pb-6">
-            <header data-guide="dashboard-header" className="flex items-center justify-between">
+            <header data-guide="dashboard-header" className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Dashboard</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">{programTrack}</p>
                 </div>
-                <span className="text-sm font-semibold text-gray-500">Welcome back, {firstName} 👋</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-500">Welcome back, {firstName} 👋</span>
             </header>
 
             {/* Daily Question — compact card */}
@@ -472,7 +472,8 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                     </div>
 
                     <Card className="border-gray-100 shadow-sm rounded-lg overflow-hidden">
-                        <Table>
+                        <div className="overflow-x-auto">
+                        <Table className="min-w-135">
                             <TableHeader className="bg-gray-50/80">
                                 <TableRow className="border-gray-100">
                                     <TableHead className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Exam</TableHead>
@@ -514,6 +515,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                                 )}
                             </TableBody>
                         </Table>
+                        </div>
                     </Card>
                 </section>
 

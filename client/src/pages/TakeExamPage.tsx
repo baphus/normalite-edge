@@ -6,6 +6,7 @@ import {
     ArrowRight,
     Send,
     AlertTriangle,
+    ListChecks,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -102,12 +103,14 @@ const TakeExamPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'pending' | 'error'>('idle');
     const [showConfirm, setShowConfirm] = useState(false);
+    const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [enforceExamSingleTab, setEnforceExamSingleTab] = useState(false);
     const [hasReviewedInstructions, setHasReviewedInstructions] = useState(false);
     const [preflightSingleTabEnabled, setPreflightSingleTabEnabled] = useState(false);
     const [tabSwitchGraceSeconds, setTabSwitchGraceSeconds] = useState(5);
     const [preflightTabSwitchGraceSeconds, setPreflightTabSwitchGraceSeconds] = useState(5);
     const [preflightLoading, setPreflightLoading] = useState(true);
+    const [isMobileNavigatorOpen, setIsMobileNavigatorOpen] = useState(false);
 
     const answersRef = useRef<Record<string, string>>({});
     const answerMetaRef = useRef<Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>>({});
@@ -124,8 +127,88 @@ const TakeExamPage: React.FC = () => {
     const timeLeftRef = useRef(0);
     const endsAtMsRef = useRef<number | null>(null);
     const dirtyRef = useRef(false);
+    const allowNavigationRef = useRef(false);
+    const pendingNavigationPathRef = useRef<string | null>(null);
+    const pendingNavigationTypeRef = useRef<'route' | 'history' | null>(null);
+    const skipNextPopStateRef = useRef(false);
 
     const draftKey = useMemo(() => (id ? `exam-draft:${id}` : ''), [id]);
+    const startedKey = useMemo(() => (id ? `exam-started:${id}` : ''), [id]);
+    const shouldWarnOnLeave = Boolean(
+        hasReviewedInstructions &&
+        attemptId &&
+        exam &&
+        !loading &&
+        !isSubmitting &&
+        timeLeft > 0
+    );
+
+    useEffect(() => {
+        if (!shouldWarnOnLeave) return;
+
+        const handleDocumentClick = (event: MouseEvent) => {
+            if (allowNavigationRef.current) return;
+            if (event.defaultPrevented) return;
+
+            const target = event.target as HTMLElement | null;
+            const anchor = target?.closest('a[href]') as HTMLAnchorElement | null;
+            if (!anchor) return;
+            if (anchor.target && anchor.target !== '_self') return;
+            if (anchor.hasAttribute('download')) return;
+
+            const href = anchor.getAttribute('href');
+            if (!href || href.startsWith('#')) return;
+
+            let destination: URL;
+            try {
+                destination = new URL(anchor.href, window.location.origin);
+            } catch {
+                return;
+            }
+
+            if (destination.origin !== window.location.origin) return;
+
+            const nextPath = `${destination.pathname}${destination.search}${destination.hash}`;
+            const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            if (nextPath === currentPath) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            pendingNavigationPathRef.current = nextPath;
+            pendingNavigationTypeRef.current = 'route';
+            setShowLeaveConfirm(true);
+        };
+
+        document.addEventListener('click', handleDocumentClick, true);
+        return () => {
+            document.removeEventListener('click', handleDocumentClick, true);
+        };
+    }, [shouldWarnOnLeave]);
+
+    useEffect(() => {
+        if (!shouldWarnOnLeave) return;
+
+        const handlePopState = () => {
+            if (allowNavigationRef.current) return;
+            if (skipNextPopStateRef.current) {
+                skipNextPopStateRef.current = false;
+                return;
+            }
+
+            pendingNavigationPathRef.current = null;
+            pendingNavigationTypeRef.current = 'history';
+            setShowLeaveConfirm(true);
+
+            skipNextPopStateRef.current = true;
+            window.history.go(1);
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [shouldWarnOnLeave]);
 
     const getTimeSpent = useCallback((durationMinutes: number, remaining: number) => {
         const totalSeconds = Math.max(durationMinutes, 0) * 60;
@@ -293,6 +376,24 @@ const TakeExamPage: React.FC = () => {
         localStorage.removeItem(draftKey);
     }, [draftKey]);
 
+    const markExamStarted = useCallback(() => {
+        if (!startedKey) return;
+        localStorage.setItem(startedKey, '1');
+    }, [startedKey]);
+
+    const clearExamStarted = useCallback(() => {
+        if (!startedKey) return;
+        localStorage.removeItem(startedKey);
+    }, [startedKey]);
+
+    useEffect(() => {
+        if (!startedKey) return;
+        const hasStarted = localStorage.getItem(startedKey) === '1';
+        if (hasStarted) {
+            setHasReviewedInstructions(true);
+        }
+    }, [startedKey]);
+
     const clearTabViolationTimers = useCallback(() => {
         if (tabViolationTitleIntervalRef.current !== null) {
             window.clearInterval(tabViolationTitleIntervalRef.current);
@@ -457,6 +558,7 @@ const TakeExamPage: React.FC = () => {
             toast.error('Tab switch detected. Your attempt was reset and all answers were cleared.');
         } catch {
             toast.error('Tab switch detected, but reset failed. Return to Exams and retry.');
+            allowNavigationRef.current = true;
             navigate('/exams');
         } finally {
             tabViolationInFlightRef.current = false;
@@ -490,6 +592,8 @@ const TakeExamPage: React.FC = () => {
                 setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Math.round(Number(payload?.tabSwitchGraceSeconds || preflightTabSwitchGraceSeconds || 5)))));
 
                 if (payload?.status === 'SUBMITTED') {
+                    clearExamStarted();
+                    allowNavigationRef.current = true;
                     navigate(`/exams/${id}/result?attemptId=${payload.id}`, { replace: true });
                     return;
                 }
@@ -506,6 +610,8 @@ const TakeExamPage: React.FC = () => {
                     ...payload.exam,
                     questions: normalizedQuestions,
                 };
+
+                markExamStarted();
 
                 const serverAnswers = sanitizeAnswersMap(payload.answers || {}, normalizedQuestions);
                 const serverAnswerMeta = sanitizeAnswerMeta(payload.answerMeta || {}, {}, normalizedQuestions, serverAnswers);
@@ -600,7 +706,7 @@ const TakeExamPage: React.FC = () => {
         };
 
         fetchAttempt();
-    }, [computeRemainingFromEndsAt, getResumeIndex, hasReviewedInstructions, id, navigate, normalizeQuestions, preflightTabSwitchGraceSeconds, readDraft, sanitizeAnswerMeta, sanitizeAnswersMap]);
+    }, [clearExamStarted, computeRemainingFromEndsAt, getResumeIndex, hasReviewedInstructions, id, markExamStarted, navigate, normalizeQuestions, preflightTabSwitchGraceSeconds, readDraft, sanitizeAnswerMeta, sanitizeAnswersMap]);
 
     useEffect(() => {
         answersRef.current = answers;
@@ -689,7 +795,7 @@ const TakeExamPage: React.FC = () => {
             }
         };
 
-        const handleBeforeUnload = () => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
             if (!attemptId || !exam) return;
             writeDraft({
                 attemptId,
@@ -700,6 +806,11 @@ const TakeExamPage: React.FC = () => {
                 timeLeft: timeLeftRef.current,
                 updatedAt: Date.now(),
             });
+
+            if (!allowNavigationRef.current && shouldWarnOnLeave) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
         };
 
         window.addEventListener('online', handleOnline);
@@ -711,7 +822,7 @@ const TakeExamPage: React.FC = () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [attemptId, currentIndex, enforceExamSingleTab, exam, flushActiveQuestionTime, handleTabViolationReset, saveAttempt, startTabViolationCountdown, stopTabViolationCountdown, writeDraft]);
+    }, [attemptId, currentIndex, enforceExamSingleTab, exam, flushActiveQuestionTime, handleTabViolationReset, saveAttempt, shouldWarnOnLeave, startTabViolationCountdown, stopTabViolationCountdown, writeDraft]);
 
     const formatTime = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
@@ -745,6 +856,8 @@ const TakeExamPage: React.FC = () => {
             });
 
             clearDraft();
+            clearExamStarted();
+            allowNavigationRef.current = true;
             navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`);
         } catch (submitError: any) {
             const message = submitError?.response?.data?.message || 'Failed to submit exam. Your progress remains saved.';
@@ -753,7 +866,7 @@ const TakeExamPage: React.FC = () => {
         } finally {
             setIsSubmitting(false);
         }
-    }, [attemptId, clearDraft, currentIndex, exam, flushActiveQuestionTime, getTimeSpent, isSubmitting, navigate, sanitizeAnswerMeta, sanitizeAnswersMap]);
+    }, [attemptId, clearDraft, clearExamStarted, currentIndex, exam, flushActiveQuestionTime, getTimeSpent, isSubmitting, navigate, sanitizeAnswerMeta, sanitizeAnswersMap]);
 
     useEffect(() => {
         if (!exam || loading || isSubmitting) return;
@@ -851,23 +964,29 @@ const TakeExamPage: React.FC = () => {
                         <p className="text-xs font-black uppercase tracking-widest text-gray-400">Exam Instructions</p>
                         <h1 className="text-2xl font-black text-gray-900 mt-1">Are You Ready to Start?</h1>
                         <p className="text-sm text-gray-500 font-medium mt-2">
-                            Read these reminders before continuing. Your timer starts once you click <strong>Start Exam</strong>.
+                            Review the exam rules before continuing. The timer will only begin once you click <strong>Start Exam</strong>.
                         </p>
                     </div>
 
                     <div className="p-6 space-y-3">
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">1. Make sure your internet connection is stable.</p>
+                            <p className="text-sm font-semibold text-gray-800">1. The timer starts only after you press <strong>Start Exam</strong>.</p>
                         </div>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">2. Do not close or refresh this page while taking the exam.</p>
+                            <p className="text-sm font-semibold text-gray-800">2. Once started, the timer keeps running even if you leave this page.</p>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-gray-800">3. Do not refresh, close, or switch away during the exam unless necessary.</p>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-gray-800">4. Save behavior is automatic, but keep a stable internet connection throughout.</p>
                         </div>
                         <div className={`rounded-xl border px-4 py-3 ${preflightSingleTabEnabled ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
                             <div className="flex items-start gap-2">
                                 <AlertTriangle size={16} className={preflightSingleTabEnabled ? 'text-red-600 mt-0.5' : 'text-amber-600 mt-0.5'} />
                                 <div>
                                     <p className={`text-sm font-black ${preflightSingleTabEnabled ? 'text-red-700' : 'text-amber-700'}`}>
-                                        Tab-Switch Policy
+                                        5. Tab-Switch Policy
                                     </p>
                                     {preflightLoading ? (
                                         <p className="text-xs font-medium text-gray-500 mt-1">Checking policy...</p>
@@ -885,12 +1004,22 @@ const TakeExamPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-gray-50/60">
-                        <Button variant="outline" onClick={() => navigate('/exams')}>
+                    <div className="px-6 py-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/60">
+                        <Button
+                            variant="outline"
+                            onClick={() => navigate('/exams')}
+                            className="w-full sm:w-auto"
+                        >
                             Back to Exams
                         </Button>
-                        <Button onClick={() => setHasReviewedInstructions(true)}>
-                            Start Exam
+                        <Button
+                            onClick={() => {
+                                markExamStarted();
+                                setHasReviewedInstructions(true);
+                            }}
+                            className="w-full sm:w-auto"
+                        >
+                            Start Exam and Timer
                         </Button>
                     </div>
                 </div>
@@ -970,13 +1099,13 @@ const TakeExamPage: React.FC = () => {
     const currentSection = currentQuestion.section?.trim() || '';
 
     return (
-        <div className="fixed inset-y-0 right-0 left-54.5 z-50 flex flex-col overflow-hidden bg-gray-50">
+        <div className="fixed inset-y-0 right-0 left-0 lg:left-54.5 z-50 flex flex-col overflow-hidden bg-gray-50">
             {/* Header */}
-            <header data-guide="exam-take-header" className="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center justify-between shrink-0">
+            <header data-guide="exam-take-header" className="bg-white border-b border-gray-100 px-3 sm:px-5 py-2.5 flex items-center justify-between shrink-0 gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
-                        <h2 className="text-sm font-bold text-gray-900 truncate leading-tight">{exam.title}</h2>
-                        <p className="text-xs text-gray-400 font-medium">{exam.subject}</p>
+                        <h2 className="text-xs sm:text-sm font-bold text-gray-900 truncate leading-tight">{exam.title}</h2>
+                        <p className="text-[10px] sm:text-xs text-gray-400 font-medium truncate">{exam.subject}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -984,10 +1113,20 @@ const TakeExamPage: React.FC = () => {
                         <span className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                         {isOffline ? 'Offline' : 'Online'}
                     </span>
-                    <span className="text-[10px] font-semibold text-gray-400 hidden sm:block">{saveLabel}</span>
-                    <div data-guide="exam-take-timer" className="flex items-center gap-1.5 bg-gray-900 text-white px-3 py-1.5 rounded-lg">
+                    <span className="text-[10px] font-semibold text-gray-400 hidden md:block">{saveLabel}</span>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2.5 text-[11px] font-semibold rounded-lg border-gray-200 lg:hidden"
+                        onClick={() => setIsMobileNavigatorOpen(true)}
+                    >
+                        <ListChecks className="h-3.5 w-3.5 mr-1" />
+                        Questions
+                    </Button>
+                    <div data-guide="exam-take-timer" className="flex items-center gap-1.5 bg-gray-900 text-white px-2.5 sm:px-3 py-1.5 rounded-lg">
                         <Timer size={13} className="opacity-70" />
-                        <span className="font-mono font-bold text-sm tracking-tight">
+                        <span className="font-mono font-bold text-xs sm:text-sm tracking-tight">
                             {formatTime(timeLeft)}
                         </span>
                     </div>
@@ -996,13 +1135,13 @@ const TakeExamPage: React.FC = () => {
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Main Question Area */}
-                <main className="flex-1 overflow-hidden p-4 md:p-6 bg-gray-50 flex flex-col">
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gray-50 flex flex-col">
                     <div className="max-w-4xl mx-auto w-full h-full flex flex-col">
                         
                         {/* Question & Image - Flex 1 allows it to take available space */}
-                        <div data-guide="exam-take-question" className="flex-1 flex flex-col items-center justify-center min-h-0 gap-4 py-2 mb-4">
-                            <div className="w-full max-h-[40vh] overflow-y-auto px-2 flex items-center justify-center">
-                                <h3 className="text-xl md:text-3xl font-black text-gray-900 leading-tight text-center">
+                        <div data-guide="exam-take-question" className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3 sm:gap-4 py-1 sm:py-2 mb-3 sm:mb-4">
+                            <div className="w-full max-h-[36vh] sm:max-h-[40vh] overflow-y-auto px-1 sm:px-2 flex items-center justify-center">
+                                <h3 className="text-lg sm:text-xl md:text-3xl font-black text-gray-900 leading-tight text-center">
                                     {currentQuestion.text}
                                 </h3>
                             </div>
@@ -1013,7 +1152,7 @@ const TakeExamPage: React.FC = () => {
                                         <img
                                             src={currentQuestion.imageUrl}
                                             alt="Question attachment"
-                                            className="h-full w-auto max-h-[30vh] object-contain rounded-lg"
+                                            className="h-full w-auto max-h-[26vh] sm:max-h-[30vh] object-contain rounded-lg"
                                         />
                                     </div>
                                 </div>
@@ -1021,7 +1160,7 @@ const TakeExamPage: React.FC = () => {
                         </div>
 
                         {/* Choices Grid - Fixed relative height */}
-                        <div data-guide="exam-take-choices" className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
+                        <div data-guide="exam-take-choices" className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 shrink-0">
                             {(currentQuestion.choices || []).map((option, idx) => {
                                 const optionLabel = CHOICE_LABELS[idx] || 'A';
                                 const isSelected = answers[currentQuestion.id] === optionLabel;
@@ -1040,16 +1179,16 @@ const TakeExamPage: React.FC = () => {
                                     <button
                                         key={idx}
                                         onClick={() => handleOptionSelect(idx)}
-                                        className={`group relative flex items-center justify-start p-3 md:p-4 min-h-[80px] md:min-h-[100px] rounded-xl border-2 text-left transition-all duration-150 active:translate-y-0.5 ${
+                                        className={`group relative flex items-center justify-start p-3 md:p-4 min-h-18.5 sm:min-h-20 md:min-h-25 rounded-xl border-2 text-left transition-all duration-150 active:translate-y-0.5 ${
                                             isSelected
                                                 ? `ring-2 ring-offset-2 ${theme.activeRing} scale-[1.01] z-10 ${theme.bg} ${theme.border}`
                                                 : `shadow-sm ${theme.bg} ${theme.border} ${theme.hover}`
-                                        } ${hasAnswer && !isSelected ? 'opacity-50 grayscale-[40%]' : 'opacity-100'} ${theme.text}`}
+                                        } ${hasAnswer && !isSelected ? 'opacity-50 grayscale-40' : 'opacity-100'} ${theme.text}`}
                                     >
-                                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-sm md:text-base shrink-0 mr-3 md:mr-4 transition-colors ${theme.iconBg} ${theme.iconText}`}>
+                                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-sm md:text-base shrink-0 mr-2.5 md:mr-4 transition-colors ${theme.iconBg} ${theme.iconText}`}>
                                             {label}
                                         </div>
-                                        <span className="text-sm md:text-base font-bold leading-snug break-words flex-1">
+                                        <span className="text-[13px] sm:text-sm md:text-base font-bold leading-snug wrap-break-word flex-1">
                                             {option}
                                         </span>
                                     </button>
@@ -1058,18 +1197,19 @@ const TakeExamPage: React.FC = () => {
                         </div>
 
                         {/* Navigation Footer */}
-                        <div data-guide="exam-take-question-nav" className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 shrink-0">
+                        <div data-guide="exam-take-question-nav" className="sticky bottom-0 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200 shrink-0 bg-gray-50/95 backdrop-blur supports-backdrop-filter:bg-gray-50/85">
+                            <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
                             <Button
                                 variant="outline"
                                 size="lg"
                                 onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                                 disabled={currentIndex === 0}
-                                className="h-11 px-5 text-sm font-bold gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                                className="h-10 sm:h-11 px-4 sm:px-5 text-xs sm:text-sm font-bold gap-1.5 sm:gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                             >
                                 <ArrowLeft size={16} /> Previous
                             </Button>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
                                 {!answers[currentQuestion.id] && (
                                     <span className="text-xs text-gray-400 font-bold uppercase tracking-wider hidden sm:block">Not answered</span>
                                 )}
@@ -1078,7 +1218,7 @@ const TakeExamPage: React.FC = () => {
                                         size="lg"
                                         onClick={handleSubmitClick}
                                         disabled={isSubmitting}
-                                        className="h-11 px-6 text-sm font-black rounded-xl bg-gray-900 hover:bg-gray-800 text-white shadow-sm gap-2"
+                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-black rounded-xl bg-gray-900 hover:bg-gray-800 text-white shadow-sm gap-1.5 sm:gap-2"
                                     >
                                         Submit Exam <Send size={16} />
                                     </Button>
@@ -1086,11 +1226,12 @@ const TakeExamPage: React.FC = () => {
                                     <Button
                                         size="lg"
                                         onClick={() => setCurrentIndex(prev => Math.min(exam.questions.length - 1, prev + 1))}
-                                        className="h-11 px-6 text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-2"
+                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5 sm:gap-2"
                                     >
                                         Next <ArrowRight size={16} />
                                     </Button>
                                 )}
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -1177,6 +1318,133 @@ const TakeExamPage: React.FC = () => {
                     </div>
                 </aside>
             </div>
+
+            <Dialog open={isMobileNavigatorOpen} onOpenChange={setIsMobileNavigatorOpen}>
+                <DialogContent className="max-w-[94vw] sm:max-w-md rounded-xl p-0 overflow-hidden gap-0 lg:hidden">
+                    <DialogHeader className="px-4 pt-4 pb-3 border-b border-gray-100">
+                        <DialogTitle className="text-sm font-bold text-gray-900">Question Navigator</DialogTitle>
+                        <DialogDescription className="text-xs text-gray-500">
+                            {answeredCount} of {exam.questions.length} answered
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="px-4 py-3 space-y-3 max-h-[70vh] overflow-y-auto">
+                        <Progress value={(answeredCount / exam.questions.length) * 100} className="h-1.5" />
+
+                        <div className="grid grid-cols-5 gap-2">
+                            {exam.questions.map((_, idx) => {
+                                const isCurrent = currentIndex === idx;
+                                const isAnswered = Boolean(answers[exam.questions[idx].id]);
+                                const questionNo = questionNumberById.get(exam.questions[idx].id) || idx + 1;
+
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            setCurrentIndex(idx);
+                                            setIsMobileNavigatorOpen(false);
+                                        }}
+                                        title={`Question ${questionNo}`}
+                                        className={`h-9 rounded-md text-xs font-bold transition-all duration-150 ${
+                                            isCurrent
+                                                ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
+                                                : isAnswered
+                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                    : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {questionNo}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {sectionProgress.length > 0 && (
+                            <div className="pt-2 border-t border-gray-100 space-y-1.5">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block mb-1.5">By Section</span>
+                                {sectionProgress.map((sectionItem) => {
+                                    const isActive = sectionItem.name === currentSection;
+                                    return (
+                                        <div key={sectionItem.name} className={`rounded-lg px-2.5 py-2 transition-colors ${isActive ? 'bg-primary/5 border border-primary/15' : 'border border-transparent'}`}>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className={`text-[11px] font-semibold truncate ${isActive ? 'text-primary' : 'text-gray-600'}`}>{sectionItem.name}</span>
+                                                <span className={`text-[10px] font-bold shrink-0 ml-1 ${isActive ? 'text-primary' : 'text-gray-400'}`}>{sectionItem.answered}/{sectionItem.total}</span>
+                                            </div>
+                                            <Progress value={(sectionItem.answered / sectionItem.total) * 100} className="h-1" />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="px-4 pb-4">
+                        <Button
+                            onClick={handleSubmitClick}
+                            disabled={isSubmitting}
+                            className="w-full h-9 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                            <Send size={12} />
+                            Submit Exam
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={showLeaveConfirm}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        pendingNavigationPathRef.current = null;
+                        pendingNavigationTypeRef.current = null;
+                    }
+                    setShowLeaveConfirm(open);
+                }}
+            >
+                <DialogContent className="max-w-sm rounded-xl p-0 overflow-hidden gap-0">
+                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-gray-100">
+                        <DialogTitle className="text-sm font-bold text-gray-900">Leave this exam?</DialogTitle>
+                        <DialogDescription className="text-xs text-gray-500 mt-1">
+                            You have an exam in progress. If you leave, your work may be interrupted.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter className="px-5 pb-5 flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                pendingNavigationPathRef.current = null;
+                                pendingNavigationTypeRef.current = null;
+                                setShowLeaveConfirm(false);
+                            }}
+                            className="flex-1 h-8 text-xs font-semibold rounded-lg border-gray-200"
+                        >
+                            Stay on Exam
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={() => {
+                                allowNavigationRef.current = true;
+                                setShowLeaveConfirm(false);
+                                const pendingPath = pendingNavigationPathRef.current;
+                                const pendingType = pendingNavigationTypeRef.current;
+                                pendingNavigationPathRef.current = null;
+                                pendingNavigationTypeRef.current = null;
+
+                                if (pendingType === 'history') {
+                                    window.history.back();
+                                } else if (pendingPath) {
+                                    navigate(pendingPath);
+                                }
+                            }}
+                            className="flex-1 h-8 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Leave Page
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Submit Confirmation Dialog */}
             <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
