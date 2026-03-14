@@ -3,12 +3,10 @@ import {
     Lock,
     Globe,
     Shield,
-    Trash2,
     Eye,
     EyeOff,
     MonitorSmartphone,
     CheckCircle2,
-    ChevronRight,
     RefreshCw,
     ToggleRight,
     Info,
@@ -25,14 +23,6 @@ import api from '@/lib/axios';
 import { toast } from 'sonner';
 
 type Section = 'security' | 'system';
-
-interface NavItem {
-    id: Section;
-    label: string;
-    description: string;
-    icon: React.ReactNode;
-    adminOnly?: boolean;
-}
 
 const SettingsPage: React.FC = () => {
     const { user } = useAuth();
@@ -174,26 +164,6 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const navItems: NavItem[] = [
-        {
-            id: 'security',
-            label: 'Security',
-            description: 'Password & sessions',
-            icon: <Shield size={16} />,
-        },
-        ...(isAdmin
-            ? [
-                  {
-                      id: 'system' as Section,
-                      label: 'System',
-                      description: 'Global configuration',
-                      icon: <Globe size={16} />,
-                      adminOnly: true,
-                  },
-              ]
-            : []),
-    ];
-
     const roleBadgeConfig: Record<string, { label: string; className: string }> = {
         ADMIN: { label: 'Administrator', className: 'bg-primary/10 text-primary' },
         REVIEWER: { label: 'Reviewer', className: 'bg-indigo-50 text-indigo-600' },
@@ -202,28 +172,22 @@ const SettingsPage: React.FC = () => {
     const roleBadge = user?.role ? roleBadgeConfig[user.role] : null;
 
     return (
-        <div className="flex flex-col gap-0 font-lexend pb-10 min-h-full">
-            {/* Page Header */}
-            <header className="flex flex-col gap-1 mb-8">
-                <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Settings</h1>
-                <p className="text-gray-500 font-medium tracking-tight">
-                    Manage your account preferences and configurations.
-                </p>
-            </header>
-
-            {/* Settings Layout */}
-            <div className="flex flex-col lg:flex-row gap-6 items-start">
-                {/* Sidebar Navigation */}
-                <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-4">
-                    {/* Account Card */}
-                    <div className="mb-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center gap-3">
+        <div className="flex flex-col gap-5 font-lexend pb-10 min-h-full">
+            <header className="rounded-3xl border border-gray-100 bg-linear-to-br from-white via-white to-gray-50 shadow-sm p-5 sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Account Center</p>
+                        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Settings</h1>
+                        <p className="text-sm text-gray-500 font-medium mt-1.5">
+                            Manage security preferences and platform behavior from one place.
+                        </p>
+                    </div>
+                    <div className="p-3 rounded-2xl border border-gray-100 bg-white flex items-center gap-3 min-w-0 sm:min-w-70">
                         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-base shrink-0">
                             {user?.firstName?.[0] ?? '?'}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-black text-gray-900 truncate">
-                                {user?.firstName} {user?.lastName}
-                            </p>
+                            <p className="text-sm font-black text-gray-900 truncate">{user?.firstName} {user?.lastName}</p>
                             <p className="text-[11px] text-gray-400 font-medium truncate">{user?.email}</p>
                         </div>
                         {roleBadge && (
@@ -232,56 +196,44 @@ const SettingsPage: React.FC = () => {
                             </Badge>
                         )}
                     </div>
+                </div>
+            </header>
 
-                    {/* Nav Items */}
-                    <nav className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                        {navItems.map((item, idx) => (
-                            <React.Fragment key={item.id}>
-                                {idx > 0 && <div className="border-t border-gray-50" />}
-                                <button
-                                    onClick={() => setActiveSection(item.id)}
-                                    className={cn(
-                                        'w-full flex items-center gap-3 px-4 py-3.5 transition-all group text-left',
-                                        activeSection === item.id
-                                            ? 'bg-primary/5 text-primary'
-                                            : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900',
-                                    )}
-                                >
-                                    <span
-                                        className={cn(
-                                            'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all',
-                                            activeSection === item.id
-                                                ? 'bg-primary/10 text-primary'
-                                                : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200 group-hover:text-gray-600',
-                                        )}
-                                    >
-                                        {item.icon}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className={cn('text-sm font-black leading-none mb-0.5', activeSection === item.id ? 'text-primary' : '')}>
-                                            {item.label}
-                                        </p>
-                                        <p className="text-[10px] font-medium text-gray-400 truncate">{item.description}</p>
-                                    </div>
-                                    <ChevronRight
-                                        size={14}
-                                        className={cn('shrink-0 transition-all', activeSection === item.id ? 'text-primary translate-x-0.5' : 'text-gray-300')}
-                                    />
-                                </button>
-                            </React.Fragment>
-                        ))}
-                    </nav>
-                </aside>
+            <div className="rounded-2xl border border-gray-100 bg-white p-2 shadow-sm flex items-center gap-2 w-full sm:w-fit">
+                <button
+                    onClick={() => setActiveSection('security')}
+                    className={cn(
+                        'h-10 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2',
+                        activeSection === 'security'
+                            ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                            : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                    )}
+                >
+                    <Shield size={14} /> Security
+                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => setActiveSection('system')}
+                        className={cn(
+                            'h-10 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2',
+                            activeSection === 'system'
+                                ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                        )}
+                    >
+                        <Globe size={14} /> System
+                    </button>
+                )}
+            </div>
 
-                {/* Main Content */}
-                <div className="flex-1 min-w-0 space-y-4">
+            <div className="space-y-4">
                     {/* === SECURITY === */}
                     {activeSection === 'security' && (
                         <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300 space-y-4">
                             <SectionHeader
                                 icon={<Lock size={18} />}
                                 title="Account Security"
-                                description="Manage your password and active login sessions."
+                                description="Manage your password and protect your account access."
                             />
 
                             {/* Change Password */}
@@ -396,63 +348,18 @@ const SettingsPage: React.FC = () => {
                                 </CardContent>
                             </Card>
 
-                            {/* Active Sessions */}
                             <Card className="rounded-2xl border-gray-100 shadow-sm overflow-hidden bg-white">
                                 <CardContent className="p-6 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-black text-gray-900">Active Sessions</p>
-                                            <p className="text-xs text-gray-500 font-medium mt-0.5">Devices currently signed in to your account.</p>
+                                    <p className="text-sm font-black text-gray-900">Security Tips</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+                                            <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1">Password Quality</p>
+                                            <p className="text-xs text-gray-600 font-medium">Use at least 8 characters with a mix of letters, numbers, and symbols.</p>
                                         </div>
-                                        <Badge className="bg-gray-100 text-gray-500 border-none font-black text-[9px] uppercase tracking-widest px-2.5 py-1">
-                                            <MonitorSmartphone size={10} className="mr-1" /> 1 Active
-                                        </Badge>
-                                    </div>
-
-                                    <div className="border-t border-gray-50" />
-
-                                    {/* Current session placeholder */}
-                                    <div className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50/40">
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                                            <MonitorSmartphone size={18} />
+                                        <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+                                            <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 mb-1">Account Safety</p>
+                                            <p className="text-xs text-gray-600 font-medium">Do not share credentials and avoid entering passwords on public devices.</p>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-black text-gray-900">This Device</p>
-                                                <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[8px] uppercase tracking-widest px-1.5 py-0.5">
-                                                    Current
-                                                </Badge>
-                                            </div>
-                                            <p className="text-[10px] font-medium text-gray-400 mt-0.5 uppercase tracking-widest">Web Browser</p>
-                                        </div>
-                                    </div>
-
-                                    <Button
-                                        variant="outline"
-                                        className="w-full h-10 rounded-xl border-gray-100 font-black uppercase tracking-widest text-[10px] text-gray-500 hover:text-primary hover:bg-primary/5 hover:border-primary/20 transition-all"
-                                    >
-                                        Sign out of all other devices
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            {/* Danger Zone */}
-                            <Card className="rounded-2xl border-red-100 shadow-sm overflow-hidden bg-red-50/20">
-                                <CardContent className="p-6">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
-                                            <p className="text-sm font-black text-red-600">Delete Account</p>
-                                            <p className="text-xs text-gray-500 font-medium mt-1 max-w-sm">
-                                                Permanently delete your account and all associated data. This action cannot be undone.
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="ghost"
-                                            className="shrink-0 h-10 rounded-xl text-red-500 hover:bg-red-600 hover:text-white font-black uppercase tracking-widest text-[10px] gap-1.5 border border-red-100 hover:border-red-600 transition-all"
-                                        >
-                                            <Trash2 size={14} />
-                                            Delete
-                                        </Button>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -599,7 +506,6 @@ const SettingsPage: React.FC = () => {
                         </div>
                     )}
                 </div>
-            </div>
         </div>
     );
 };

@@ -10,6 +10,8 @@ import {
     Repeat2,
     CheckCircle2,
     XCircle,
+    Shuffle,
+    FlipHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +19,15 @@ import { Badge } from '@/components/ui/badge';
 import api from '@/lib/axios';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
+
+const shuffleArray = (arr: number[]) => {
+    const next = [...arr];
+    for (let i = next.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [next[i], next[j]] = [next[j], next[i]];
+    }
+    return next;
+};
 
 interface StudyItem {
     id: string;
@@ -40,8 +51,24 @@ const StudySessionPage: React.FC = () => {
     const [showResults, setShowResults] = useState(false);
     const [loading, setLoading] = useState(true);
     const [deckTitle, setDeckTitle] = useState('');
+    const [isShuffled, setIsShuffled] = useState(false);
+    const [flashOrder, setFlashOrder] = useState<number[]>([]);
 
     const isStudyMode = mode === 'study';
+
+    useEffect(() => {
+        setFlashOrder(items.map((_, idx) => idx));
+    }, [items]);
+
+    useEffect(() => {
+        setCurrentIndex(0);
+        setIsFlipped(false);
+        setShowResults(false);
+        setIsShuffled(false);
+        if (items.length > 0) {
+            setFlashOrder(items.map((_, idx) => idx));
+        }
+    }, [id, mode, items.length]);
 
     useEffect(() => {
         const fetchDeck = async () => {
@@ -51,14 +78,40 @@ const StudySessionPage: React.FC = () => {
                 const deck = response.data.data;
                 setDeckTitle(deck.title);
                 const questions = deck.questions || [];
-                questions.sort((a: any, b: any) => a.orderNo - b.orderNo);
+                questions.sort((a: any, b: any) => (a.orderNo ?? a.order_no ?? 0) - (b.orderNo ?? b.order_no ?? 0));
                 const formattedItems: StudyItem[] = questions.map((q: any) => {
-                    const options = [q.choiceA, q.choiceB, q.choiceC, q.choiceD].filter(Boolean);
-                    const answerIndex = ['A', 'B', 'C', 'D'].indexOf(q.correctChoice);
+                    const optionObject = q.options && typeof q.options === 'object' && !Array.isArray(q.options)
+                        ? q.options
+                        : null;
+
+                    const arrayOptions = Array.isArray(q.options) ? q.options : [];
+
+                    const rawOptions = [
+                        q.choiceA ?? q.choice_a ?? optionObject?.A ?? optionObject?.a ?? arrayOptions[0],
+                        q.choiceB ?? q.choice_b ?? optionObject?.B ?? optionObject?.b ?? arrayOptions[1],
+                        q.choiceC ?? q.choice_c ?? optionObject?.C ?? optionObject?.c ?? arrayOptions[2],
+                        q.choiceD ?? q.choice_d ?? optionObject?.D ?? optionObject?.d ?? arrayOptions[3],
+                    ].map((opt) => (typeof opt === 'string' ? opt.trim() : ''));
+
+                    let options = rawOptions.filter((opt) => opt.length > 0);
+                    if (options.length === 0 && q.answerText) {
+                        options = [String(q.answerText)];
+                    }
+
+                    const correctChoiceRaw = String(q.correctChoice ?? q.correct_choice ?? '').trim().toUpperCase();
+                    let answerIndex = ['A', 'B', 'C', 'D'].indexOf(correctChoiceRaw);
+
+                    if (answerIndex < 0 && q.answerText && options.length > 0) {
+                        const fallbackIdx = options.findIndex(
+                            (opt) => opt.toLowerCase() === String(q.answerText).trim().toLowerCase()
+                        );
+                        answerIndex = fallbackIdx >= 0 ? fallbackIdx : 0;
+                    }
+
                     return {
                         id: q.id,
-                        question: q.questionText,
-                        imageUrl: q.imageUrl || null,
+                        question: q.questionText ?? q.question_text ?? 'Untitled question',
+                        imageUrl: q.imageUrl ?? q.image_url ?? null,
                         options,
                         answer: answerIndex >= 0 ? answerIndex : 0,
                         rationalization: q.rationalization || 'No explanation provided.',
@@ -78,7 +131,8 @@ const StudySessionPage: React.FC = () => {
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
             if (showResults || loading) return;
-            const item = items[currentIndex];
+            const mappedIndex = isStudyMode ? currentIndex : flashOrder[currentIndex] ?? currentIndex;
+            const item = items[mappedIndex];
             if (!item) return;
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
@@ -138,7 +192,8 @@ const StudySessionPage: React.FC = () => {
         );
     }
 
-    const currentItem = items[currentIndex];
+    const currentItemIndex = isStudyMode ? currentIndex : flashOrder[currentIndex] ?? currentIndex;
+    const currentItem = items[currentItemIndex];
     const progress = ((currentIndex + 1) / items.length) * 100;
     const questionLength = currentItem?.question?.length || 0;
     const rationaleLength = currentItem?.rationalization?.length || 0;
@@ -182,6 +237,19 @@ const StudySessionPage: React.FC = () => {
     const handleOptionSelect = (idx: number) => {
         if (userAnswers[currentIndex] !== undefined) return;
         setUserAnswers(prev => ({ ...prev, [currentIndex]: idx }));
+    };
+
+    const handleToggleShuffle = () => {
+        const base = items.map((_, idx) => idx);
+        if (isShuffled) {
+            setFlashOrder(base);
+            setIsShuffled(false);
+        } else {
+            setFlashOrder(shuffleArray(base));
+            setIsShuffled(true);
+        }
+        setCurrentIndex(0);
+        setIsFlipped(false);
     };
 
     const handleRestart = () => {
@@ -389,13 +457,51 @@ const StudySessionPage: React.FC = () => {
                     {!isStudyMode ? (
                         /* ── FLASHCARD MODE ── */
                         <div className="flex-1 min-h-0 flex flex-col">
+                            <div className="mb-3 rounded-2xl border border-amber-200/70 bg-gradient-to-r from-amber-50 to-orange-50 p-2.5">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsFlipped((v) => !v);
+                                        }}
+                                        className="h-8 rounded-lg border-amber-200 bg-white text-amber-800 hover:bg-amber-100 text-[11px] font-bold px-3"
+                                    >
+                                        <FlipHorizontal size={14} className="mr-1.5" />
+                                        Flip
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleShuffle();
+                                        }}
+                                        className={`h-8 rounded-lg text-[11px] font-bold px-3 ${
+                                            isShuffled
+                                                ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-500/90'
+                                                : 'border-amber-200 bg-white text-amber-800 hover:bg-amber-100'
+                                        }`}
+                                    >
+                                        <Shuffle size={14} className="mr-1.5" />
+                                        {isShuffled ? 'Shuffled' : 'Shuffle'}
+                                    </Button>
+                                    <p className="ml-auto text-[10px] font-black uppercase tracking-wider text-amber-700/80 hidden sm:block">
+                                        Tap card or press Space to flip
+                                    </p>
+                                </div>
+                            </div>
+
                             <div
                                 className="w-full flex-1 flex flex-col justify-center cursor-pointer select-none min-h-0"
                                 onClick={() => setIsFlipped(!isFlipped)}
                                 style={{ perspective: '2000px' }}
                             >
                                 <div
-                                    className="relative w-full h-[46vh] md:h-[50vh] transition-all duration-500 ease-out"
+                                    className="relative w-full h-[52vh] min-h-[340px] sm:min-h-[380px] md:h-[50vh] transition-all duration-500 ease-out"
                                     style={{
                                         transformStyle: 'preserve-3d',
                                         transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
@@ -406,11 +512,11 @@ const StudySessionPage: React.FC = () => {
                                         className="absolute inset-0 rounded-3xl bg-amber-50 border-4 border-amber-200 shadow-sm flex flex-col items-center justify-center p-6 md:p-12 text-center overflow-hidden hover:bg-amber-100 transition-colors"
                                         style={{ backfaceVisibility: 'hidden' }}
                                     >
-                                        <div className="absolute top-6 flex items-center gap-2 text-amber-600/60 font-black uppercase tracking-widest text-sm">
+                                        <div className="absolute top-4 md:top-6 flex items-center gap-2 text-amber-600/70 font-black uppercase tracking-widest text-xs md:text-sm">
                                             <Repeat2 size={16} /> Question
                                         </div>
                                         <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
-                                            <p className={`${questionTextClass} font-black text-amber-950 leading-tight mb-4 md:mb-6`}>
+                                            <p className={`${questionTextClass} font-black text-amber-950 leading-tight mb-4 md:mb-6 max-w-3xl`}>
                                                 {currentItem.question}
                                             </p>
                                             {currentItem.imageUrl && (
@@ -423,7 +529,7 @@ const StudySessionPage: React.FC = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="absolute bottom-6 flex items-center gap-2 text-amber-700/50 font-bold uppercase tracking-wider text-xs">
+                                        <div className="absolute bottom-4 md:bottom-6 flex items-center gap-2 text-amber-700/60 font-bold uppercase tracking-wider text-[10px] md:text-xs">
                                             Space or tap to flip
                                         </div>
                                     </div>
@@ -433,7 +539,7 @@ const StudySessionPage: React.FC = () => {
                                         className="absolute inset-0 rounded-3xl bg-emerald-50 border-4 border-emerald-200 shadow-sm flex flex-col items-center justify-center p-6 md:p-12 text-center overflow-hidden hover:bg-emerald-100 transition-colors"
                                         style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                                     >
-                                        <div className="absolute top-6 flex items-center gap-2 text-emerald-600/60 font-black uppercase tracking-widest text-sm">
+                                        <div className="absolute top-4 md:top-6 flex items-center gap-2 text-emerald-600/70 font-black uppercase tracking-widest text-xs md:text-sm">
                                             <Repeat2 size={16} /> Answer
                                         </div>
                                         <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
@@ -446,30 +552,53 @@ const StudySessionPage: React.FC = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="absolute bottom-6 flex items-center gap-2 text-emerald-700/50 font-bold uppercase tracking-wider text-xs">
+                                        <div className="absolute bottom-4 md:bottom-6 flex items-center gap-2 text-emerald-700/60 font-bold uppercase tracking-wider text-[10px] md:text-xs">
                                             Tap to flip back
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between w-full mt-6 shrink-0 pt-4 border-t border-gray-200">
+                            <div className="mt-3 overflow-x-auto pb-1">
+                                <div className="flex items-center gap-1.5 min-w-max px-1">
+                                    {items.map((_, idx) => {
+                                        const isActive = idx === currentIndex;
+                                        return (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setCurrentIndex(idx);
+                                                    setIsFlipped(false);
+                                                }}
+                                                className={`h-2.5 rounded-full transition-all ${isActive ? 'w-6 bg-gray-900' : 'w-2.5 bg-gray-300 hover:bg-gray-400'}`}
+                                                aria-label={`Go to card ${idx + 1}`}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between w-full mt-4 shrink-0 pt-4 border-t border-gray-200 gap-2">
                                 <Button
                                     variant="outline"
                                     size="lg"
                                     onClick={(e) => { e.stopPropagation(); handlePrev(); }}
                                     disabled={currentIndex === 0}
-                                    className="h-11 px-5 text-sm font-bold gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                                    className="h-11 px-4 sm:px-5 text-sm font-bold gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                                 >
                                     <ArrowLeft size={16} /> Previous
                                 </Button>
-                                <p className="text-center text-sm font-black text-gray-400 uppercase tracking-widest hidden sm:block">
+
+                                <p className="text-center text-xs sm:text-sm font-black text-gray-400 uppercase tracking-widest hidden sm:block">
                                     Card {currentIndex + 1} / {items.length}
                                 </p>
+
                                 <Button
                                     size="lg"
                                     onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                                    className="h-11 px-6 text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-2"
+                                    className="h-11 px-4 sm:px-6 text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-2"
                                 >
                                     {currentIndex === items.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={16} />
                                 </Button>
@@ -511,6 +640,11 @@ const StudySessionPage: React.FC = () => {
 
                             {/* Choices Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
+                                {currentItem.options.length === 0 && (
+                                    <div className="sm:col-span-2 rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                                        This question has no answer choices yet. Please update the deck item in deck management.
+                                    </div>
+                                )}
                                 {currentItem.options.map((opt, idx) => {
                                     const isSelected = userAnswers[currentIndex] === idx;
                                     const hasAnswer = userAnswers[currentIndex] !== undefined;

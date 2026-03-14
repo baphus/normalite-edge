@@ -4,6 +4,7 @@ dotenv.config();
 export const env = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     PORT: parseInt(process.env.PORT || '5000', 10),
+    HOST: process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1'),
     DATABASE_URL: process.env.DATABASE_URL!,
     DIRECT_URL: process.env.DIRECT_URL || '',
     JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',

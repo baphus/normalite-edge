@@ -212,7 +212,7 @@ const RevieweeExamViewPage: React.FC = () => {
     return (
         <div className="flex flex-col gap-3 font-lexend pb-6">
             {/* Header */}
-            <header data-guide="exam-preview-header" className="flex items-center gap-2.5">
+            <header data-guide="exam-preview-header" className="flex items-start gap-2.5 sm:items-center">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -231,7 +231,7 @@ const RevieweeExamViewPage: React.FC = () => {
 
             {error ? (
                 <Card className="rounded-lg border-red-100 bg-red-50/40">
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <CardContent className="p-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-xs font-semibold text-red-700">{error}</p>
                         <Button
                             variant="outline"

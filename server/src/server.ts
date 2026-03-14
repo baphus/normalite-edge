@@ -54,15 +54,31 @@ async function main() {
         logger.info('Connected to PostgreSQL database');
 
         // Start server
-        app.listen(env.PORT, () => {
-            logger.info(`Server running on http://localhost:${env.PORT}`);
-            logger.info(`API available at http://localhost:${env.PORT}/api/v1`);
+        const server = app.listen(env.PORT, env.HOST, () => {
+            logger.info(`Server running on http://${env.HOST}:${env.PORT}`);
+            logger.info(`API available at http://${env.HOST}:${env.PORT}/api/v1`);
             logger.info(`Environment: ${env.NODE_ENV}`);
             
             // Start Keep-Alive Service for Render Free Tier
             if (env.NODE_ENV === 'production') {
                 startKeepAlive();
             }
+        });
+
+        server.on('error', (error: NodeJS.ErrnoException) => {
+            if (error.code === 'EACCES') {
+                logger.error(
+                    `Cannot bind to ${env.HOST}:${env.PORT} (permission denied). Try setting HOST=127.0.0.1 and/or use another PORT in server/.env (for example PORT=5001).`,
+                );
+            } else if (error.code === 'EADDRINUSE') {
+                logger.error(
+                    `Port ${env.PORT} is already in use. Choose another PORT in server/.env (for example PORT=5001).`,
+                );
+            } else {
+                logger.error('Server failed to listen:', error);
+            }
+
+            process.exit(1);
         });
     } catch (error) {
         logger.error('Failed to start server:', error);

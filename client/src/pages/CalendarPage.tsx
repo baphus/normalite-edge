@@ -336,6 +336,7 @@ const CalendarPage: React.FC = () => {
 
     // Day detail sheet
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [mobileAgendaDate, setMobileAgendaDate] = useState<string | null>(null);
 
     // Conference wizard
     const [wizardOpen, setWizardOpen] = useState(false);
@@ -402,6 +403,35 @@ const CalendarPage: React.FC = () => {
 
     /* ── Selected day events ────────────────────────────────────────────── */
     const selectedEvents = selectedDate ? (eventsByDate.get(selectedDate) ?? []) : [];
+
+    const sortedEvents = [...events].sort((a, b) => {
+        const dc = a.date.localeCompare(b.date);
+        if (dc !== 0) return dc;
+        return (a.time ?? '').localeCompare(b.time ?? '');
+    });
+
+    const groupedEvents: { date: string; items: CalendarEvent[] }[] = [];
+    for (const ev of sortedEvents) {
+        const last = groupedEvents[groupedEvents.length - 1];
+        if (last && last.date === ev.date) last.items.push(ev);
+        else groupedEvents.push({ date: ev.date, items: [ev] });
+    }
+
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const monthPrefix = `${viewYear}-${String(viewMonth).padStart(2, '0')}-`;
+    const hasMonthEvents = events.some((ev) => ev.date.startsWith(monthPrefix));
+    const mobileAgendaEvents = mobileAgendaDate ? (eventsByDate.get(mobileAgendaDate) ?? []) : [];
+
+    useEffect(() => {
+        const todayInMonth = todayKey.startsWith(monthPrefix) ? todayKey : null;
+        const firstEventDate = groupedEvents.find((group) => group.date.startsWith(monthPrefix))?.date ?? null;
+        const defaultDate = `${monthPrefix}01`;
+
+        setMobileAgendaDate((current) => {
+            if (current && current.startsWith(monthPrefix)) return current;
+            return todayInMonth || firstEventDate || defaultDate;
+        });
+    }, [groupedEvents, monthPrefix, todayKey]);
 
     /* ── Conference wizard helpers ──────────────────────────────────────── */
     const openNewConference = (prefillDate?: Date) => {
@@ -520,12 +550,12 @@ const CalendarPage: React.FC = () => {
         <div className="flex flex-col h-full overflow-hidden bg-gray-50">
 
             {/* ── Toolbar ─────────────────────────────────────────────── */}
-            <div className="shrink-0 flex items-center justify-between px-6 h-14 bg-white border-b border-gray-200/80">
+            <div className="hidden md:flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 sm:px-4 lg:px-6 py-2 bg-white border-b border-gray-200/80">
                 {/* Left: nav controls */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
                     <button
                         onClick={goToToday}
-                        className="h-7 px-3 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+                        className="h-7 px-2.5 sm:px-3 rounded-lg border border-gray-200 text-[11px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
                     >
                         Today
                     </button>
@@ -543,7 +573,7 @@ const CalendarPage: React.FC = () => {
                             <ChevronRight size={15} />
                         </button>
                     </div>
-                    <h1 className="text-[15px] font-semibold text-gray-900 tracking-tight">
+                    <h1 className="text-[13px] sm:text-[15px] font-semibold text-gray-900 tracking-tight truncate">
                         {MONTH_NAMES[viewMonth - 1]}{' '}
                         <span className="text-gray-400 font-normal">{viewYear}</span>
                     </h1>
@@ -551,7 +581,7 @@ const CalendarPage: React.FC = () => {
                 </div>
 
                 {/* Right: legend + action */}
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-2 sm:gap-5 ml-auto">
                     <div className="hidden md:flex items-center gap-4">
                         {([
                             ['bg-blue-500', 'Exam Opens'],
@@ -567,7 +597,7 @@ const CalendarPage: React.FC = () => {
                     {canManage && (
                         <Button
                             size="sm"
-                            className="h-7 gap-1.5 text-xs font-medium px-3 rounded-lg shadow-sm"
+                            className="h-7 gap-1.5 text-[11px] sm:text-xs font-medium px-2.5 sm:px-3 rounded-lg shadow-sm"
                             onClick={() => openNewConference()}
                         >
                             <Plus size={12} />
@@ -579,135 +609,282 @@ const CalendarPage: React.FC = () => {
 
             {/* ── Calendar ────────────────────────────────────────────── */}
             <div className="flex-1 overflow-auto">
-                {/* Sticky weekday header */}
-                <div className="grid grid-cols-7 bg-white border-b border-gray-200/80 sticky top-0 z-10">
-                    {DAYS_OF_WEEK.map((d, i) => (
-                        <div
-                            key={d}
-                            className={cn(
-                                'py-2.5 text-center text-[11px] font-semibold uppercase tracking-widest',
-                                i === 0 || i === 6 ? 'text-gray-400' : 'text-gray-500',
-                            )}
-                        >
-                            {d}
+                {/* Mobile: Apple-style month + daily agenda */}
+                <div className="md:hidden border-t border-gray-200/70 bg-white">
+                    <div className="m-3 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                        <div className="px-3 pt-3 pb-2 border-b border-gray-100">
+                            <div className="flex items-center justify-between">
+                                <button
+                                    onClick={prevMonth}
+                                    className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                    aria-label="Previous month"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <div className="text-center">
+                                    <h1 className="text-base font-semibold text-gray-900 tracking-tight leading-tight">
+                                        {MONTH_NAMES[viewMonth - 1]}
+                                    </h1>
+                                    <p className="text-[10px] font-semibold text-gray-400">{viewYear}</p>
+                                </div>
+                                <button
+                                    onClick={nextMonth}
+                                    className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                    aria-label="Next month"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                            <div className="mt-2 grid grid-cols-7">
+                                {DAYS_OF_WEEK.map((d) => (
+                                    <span key={d} className="text-center text-[10px] font-semibold text-gray-400 py-1">
+                                        {d.slice(0, 3)}
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-7 gap-y-1 py-1">
+                                {cells.map((day, idx) => {
+                                    if (!day) {
+                                        return <span key={`m-empty-${idx}`} className="h-10" />;
+                                    }
+
+                                    const dateKey = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                    const dayEvents = eventsByDate.get(dateKey) ?? [];
+                                    const isToday = dateKey === todayKey;
+                                    const isSelected = dateKey === mobileAgendaDate;
+
+                                    return (
+                                        <button
+                                            key={dateKey}
+                                            type="button"
+                                            onClick={() => setMobileAgendaDate(dateKey)}
+                                            className="h-10 flex flex-col items-center justify-center"
+                                        >
+                                            <span className={cn(
+                                                'h-6 min-w-6 px-1 rounded-full inline-flex items-center justify-center text-[12px] font-semibold',
+                                                isSelected
+                                                    ? 'bg-gray-900 text-white'
+                                                    : isToday
+                                                        ? 'bg-primary/10 text-primary'
+                                                        : 'text-gray-700',
+                                            )}>
+                                                {day}
+                                            </span>
+                                            <span className="mt-0.5 flex items-center gap-0.5 h-1.5">
+                                                {dayEvents.slice(0, 3).map((ev) => (
+                                                    <span
+                                                        key={`${dateKey}-${ev.id}`}
+                                                        className={cn(
+                                                            'h-1 w-1 rounded-full',
+                                                            ev.type === 'exam_start' && 'bg-blue-500',
+                                                            ev.type === 'exam_deadline' && 'bg-rose-500',
+                                                            ev.type === 'conference' && 'bg-violet-500',
+                                                        )}
+                                                    />
+                                                ))}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    ))}
+
+                        <div className="px-3 py-3 bg-gray-50/65 border-t border-gray-100">
+                            {mobileAgendaDate && (() => {
+                                const d = new Date(mobileAgendaDate + 'T00:00:00');
+                                const isToday = mobileAgendaDate === todayKey;
+                                return (
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div>
+                                            <p className="text-xs font-bold text-gray-800 leading-tight">
+                                                {d.toLocaleDateString('en-US', { weekday: 'long' })}
+                                            </p>
+                                            <p className="text-[10px] text-gray-400 leading-tight">
+                                                {d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                        {isToday && (
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Today</span>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {!hasMonthEvents ? (
+                                <div className="flex flex-col items-center justify-center py-10 text-center px-2">
+                                    <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                                        <CalendarDays size={20} className="text-gray-400" strokeWidth={1.6} />
+                                    </div>
+                                    <p className="text-sm font-semibold text-gray-500">No events this month</p>
+                                    <p className="text-xs text-gray-400 mt-1">Try adding a conference or checking another month.</p>
+                                </div>
+                            ) : mobileAgendaEvents.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-gray-200 bg-white px-3 py-6 text-center">
+                                    <p className="text-xs font-semibold text-gray-500">No events on this date.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-1.5">
+                                    {mobileAgendaEvents.map((ev) => (
+                                        <button
+                                            key={ev.id}
+                                            type="button"
+                                            onClick={() => setSelectedDate(mobileAgendaDate)}
+                                            className="w-full rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-left shadow-sm"
+                                        >
+                                            <div className="flex items-start gap-2.5">
+                                                <span className={cn(
+                                                    'mt-1 h-2 w-2 rounded-full shrink-0',
+                                                    ev.type === 'exam_start' && 'bg-blue-500',
+                                                    ev.type === 'exam_deadline' && 'bg-rose-500',
+                                                    ev.type === 'conference' && 'bg-violet-500',
+                                                )} />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[12.5px] font-semibold text-gray-900 leading-tight truncate">{ev.title}</p>
+                                                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                        {ev.time && (
+                                                            <span className="text-[10px] font-medium text-gray-500 inline-flex items-center gap-1">
+                                                                <Clock size={10} className="shrink-0" />
+                                                                {formatTime(ev.time)}
+                                                            </span>
+                                                        )}
+                                                        <span className={cn(
+                                                            'text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full',
+                                                            ev.type === 'exam_start' && 'bg-blue-50 text-blue-600',
+                                                            ev.type === 'exam_deadline' && 'bg-rose-50 text-rose-600',
+                                                            ev.type === 'conference' && 'bg-violet-50 text-violet-600',
+                                                        )}>
+                                                            {EVENT_LABEL[ev.type]}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Grid */}
-                <div className="grid grid-cols-7 divide-x divide-y divide-gray-200/80 border-b border-gray-200/80">
-                    {cells.map((day, idx) => {
-                        if (!day) {
-                            return (
-                                <div
-                                    key={`empty-${idx}`}
-                                    className="min-h-28 bg-gray-50/70"
-                                />
-                            );
-                        }
+                {/* Month grid for tablet/desktop */}
+                <div className="hidden md:block">
+                    <div className="overflow-x-auto">
+                        <div className="min-w-180">
+                            {/* Sticky weekday header */}
+                            <div className="grid grid-cols-7 bg-white border-b border-gray-200/80 sticky top-0 z-10">
+                                {DAYS_OF_WEEK.map((d, i) => (
+                                    <div
+                                        key={d}
+                                        className={cn(
+                                            'py-2.5 text-center text-[11px] font-semibold uppercase tracking-widest',
+                                            i === 0 || i === 6 ? 'text-gray-400' : 'text-gray-500',
+                                        )}
+                                    >
+                                        {d}
+                                    </div>
+                                ))}
+                            </div>
 
-                        const key = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const dayEvents = eventsByDate.get(key) ?? [];
-                        const isToday =
-                            today.getFullYear() === viewYear &&
-                            today.getMonth() + 1 === viewMonth &&
-                            today.getDate() === day;
-                        const isSelected = selectedDate === key;
-                        const isWeekend = idx % 7 === 0 || idx % 7 === 6;
+                            {/* Grid */}
+                            <div className="grid grid-cols-7 divide-x divide-y divide-gray-200/80 border-b border-gray-200/80">
+                                {cells.map((day, idx) => {
+                                    if (!day) {
+                                        return (
+                                            <div
+                                                key={`empty-${idx}`}
+                                                className="min-h-28 bg-gray-50/70"
+                                            />
+                                        );
+                                    }
 
-                        const visibleEvents = dayEvents.slice(0, 3);
-                        const overflow = dayEvents.length - 3;
+                                    const key = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                    const dayEvents = eventsByDate.get(key) ?? [];
+                                    const isToday =
+                                        today.getFullYear() === viewYear &&
+                                        today.getMonth() + 1 === viewMonth &&
+                                        today.getDate() === day;
+                                    const isSelected = selectedDate === key;
+                                    const isWeekend = idx % 7 === 0 || idx % 7 === 6;
 
-                        return (
-                            <button
-                                key={key}
-                                onClick={() => setSelectedDate(isSelected ? null : key)}
-                                className={cn(
-                                    'relative flex flex-col p-2 min-h-28 text-left transition-colors group',
-                                    isSelected
-                                        ? 'bg-blue-50/80 ring-inset ring-2 ring-primary/25'
-                                        : isWeekend
-                                            ? 'bg-gray-50/70 hover:bg-gray-100/60'
-                                            : 'bg-white hover:bg-gray-50/80',
-                                )}
-                            >
-                                {/* Day number row */}
-                                <div className="flex items-center justify-between w-full mb-1">
-                                    {canManage ? (
+                                    const visibleEvents = dayEvents.slice(0, 3);
+                                    const overflow = dayEvents.length - 3;
+
+                                    return (
                                         <button
-                                            type="button"
-                                            onClick={e => {
-                                                e.stopPropagation();
-                                                openNewConference(new Date(viewYear, viewMonth - 1, day));
-                                            }}
-                                            title="Add conference"
-                                            className="h-5 w-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/8 transition-all"
-                                        >
-                                            <Plus size={11} />
-                                        </button>
-                                    ) : <span />}
-                                    <span className={cn(
-                                        'text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full transition-colors',
-                                        isToday
-                                            ? 'bg-primary text-white'
-                                            : isWeekend
-                                                ? 'text-gray-400'
-                                                : 'text-gray-700',
-                                    )}>
-                                        {day}
-                                    </span>
-                                </div>
-
-                                {/* Event bars */}
-                                <div className="flex flex-col gap-0.5 w-full mt-0.5">
-                                    {visibleEvents.map(ev => (
-                                        <div
-                                            key={ev.id}
+                                            key={key}
+                                            onClick={() => setSelectedDate(isSelected ? null : key)}
                                             className={cn(
-                                                'flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold truncate leading-4',
-                                                EVENT_BAR[ev.type],
+                                                'relative flex flex-col p-2 min-h-28 text-left transition-colors group',
+                                                isSelected
+                                                    ? 'bg-blue-50/80 ring-inset ring-2 ring-primary/25'
+                                                    : isWeekend
+                                                        ? 'bg-gray-50/70 hover:bg-gray-100/60'
+                                                        : 'bg-white hover:bg-gray-50/80',
                                             )}
                                         >
-                                            <span className="truncate">{ev.title}</span>
-                                        </div>
-                                    ))}
-                                    {overflow > 0 && (
-                                        <span className="text-[10px] font-medium text-gray-400 pl-1.5">
-                                            +{overflow} more
-                                        </span>
-                                    )}
-                                </div>
-                            </button>
-                        );
-                    })}
+                                            {/* Day number row */}
+                                            <div className="flex items-center justify-between w-full mb-1">
+                                                {canManage ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            openNewConference(new Date(viewYear, viewMonth - 1, day));
+                                                        }}
+                                                        title="Add conference"
+                                                        className="h-5 w-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/8 transition-all"
+                                                    >
+                                                        <Plus size={11} />
+                                                    </button>
+                                                ) : <span />}
+                                                <span className={cn(
+                                                    'text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full transition-colors',
+                                                    isToday
+                                                        ? 'bg-primary text-white'
+                                                        : isWeekend
+                                                            ? 'text-gray-400'
+                                                            : 'text-gray-700',
+                                                )}>
+                                                    {day}
+                                                </span>
+                                            </div>
+
+                                            {/* Event bars */}
+                                            <div className="flex flex-col gap-0.5 w-full mt-0.5">
+                                                {visibleEvents.map(ev => (
+                                                    <div
+                                                        key={ev.id}
+                                                        className={cn(
+                                                            'flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold truncate leading-4',
+                                                            EVENT_BAR[ev.type],
+                                                        )}
+                                                    >
+                                                        <span className="truncate">{ev.title}</span>
+                                                    </div>
+                                                ))}
+                                                {overflow > 0 && (
+                                                    <span className="text-[10px] font-medium text-gray-400 pl-1.5">
+                                                        +{overflow} more
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-            {/* ── Timeline ───────────────────────────────────────────── */}
-            {events.length > 0 && (() => {
-                // Sort all events by date then time
-                const sorted = [...events].sort((a, b) => {
-                    const dc = a.date.localeCompare(b.date);
-                    if (dc !== 0) return dc;
-                    return (a.time ?? '').localeCompare(b.time ?? '');
-                });
-
-                // Group by date
-                const grouped: { date: string; items: CalendarEvent[] }[] = [];
-                for (const ev of sorted) {
-                    const last = grouped[grouped.length - 1];
-                    if (last && last.date === ev.date) last.items.push(ev);
-                    else grouped.push({ date: ev.date, items: [ev] });
-                }
-
-                const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-                return (
+            {/* ── Timeline (tablet/desktop) ─────────────────────────── */}
+            {groupedEvents.length > 0 && (
+                <div className="hidden md:block">
                     <div className="border-t border-gray-200/80 bg-white">
                         {/* Header */}
-                        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+                        <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 pt-4 sm:pt-5 pb-3">
                             <div className="flex items-center gap-2">
                                 <Clock3 size={14} className="text-gray-400" />
-                                <h2 className="text-[13px] font-bold text-gray-800 tracking-tight">
+                                <h2 className="text-xs sm:text-[13px] font-bold text-gray-800 tracking-tight">
                                     {MONTH_NAMES[viewMonth - 1]} Timeline
                                 </h2>
                                 <span className="text-[11px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
@@ -717,36 +894,36 @@ const CalendarPage: React.FC = () => {
                         </div>
 
                         {/* Groups */}
-                        <div className="px-6 pb-8 space-y-0">
-                            {grouped.map((group, gi) => {
+                        <div className="px-3 sm:px-4 lg:px-6 pb-6 sm:pb-8 space-y-0">
+                            {groupedEvents.map((group, gi) => {
                                 const d = new Date(group.date + 'T00:00:00');
                                 const isToday = group.date === todayKey;
                                 const isPast = group.date < todayKey;
-                                const isLast = gi === grouped.length - 1;
+                                const isLast = gi === groupedEvents.length - 1;
 
                                 return (
-                                    <div key={group.date} className="flex gap-4">
+                                    <div key={group.date} className="flex gap-2.5 sm:gap-4">
                                         {/* Left: date label + vertical line */}
-                                        <div className="flex flex-col items-center w-14 shrink-0">
+                                        <div className="flex flex-col items-center w-11 sm:w-14 shrink-0">
                                             <div className={cn(
-                                                'flex flex-col items-center justify-center w-11 h-11 rounded-xl shrink-0 mt-1',
+                                                'flex flex-col items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl shrink-0 mt-1',
                                                 isToday ? 'bg-primary text-white shadow-sm' : isPast ? 'bg-gray-100' : 'bg-gray-50 border border-gray-200',
                                             )}>
                                                 <span className={cn(
-                                                    'text-[9px] font-bold uppercase tracking-wider leading-none',
+                                                    'text-[8px] sm:text-[9px] font-bold uppercase tracking-wider leading-none',
                                                     isToday ? 'text-white/80' : 'text-gray-400',
                                                 )}>
                                                     {d.toLocaleDateString('en-US', { weekday: 'short' })}
                                                 </span>
                                                 <span className={cn(
-                                                    'text-[17px] font-bold leading-tight',
+                                                    'text-[14px] sm:text-[17px] font-bold leading-tight',
                                                     isToday ? 'text-white' : isPast ? 'text-gray-400' : 'text-gray-800',
                                                 )}>
                                                     {d.getDate()}
                                                 </span>
                                             </div>
                                             {!isLast && (
-                                                <div className="w-px flex-1 bg-gray-200 mt-1.5 mb-0" style={{ minHeight: '16px' }} />
+                                                <div className="w-px flex-1 bg-gray-200 mt-1.5 mb-0" style={{ minHeight: '12px' }} />
                                             )}
                                         </div>
 
@@ -759,7 +936,7 @@ const CalendarPage: React.FC = () => {
                                                         type="button"
                                                         onClick={() => setSelectedDate(group.date)}
                                                         className={cn(
-                                                            'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all',
+                                                            'w-full flex flex-wrap sm:flex-nowrap items-start sm:items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border text-left transition-all',
                                                             'hover:shadow-sm',
                                                             isPast
                                                                 ? 'bg-gray-50 border-gray-100 opacity-60 hover:opacity-90'
@@ -784,7 +961,7 @@ const CalendarPage: React.FC = () => {
 
                                                         {/* Text */}
                                                         <span className="flex-1 min-w-0">
-                                                            <span className="block text-[12.5px] font-semibold text-gray-800 truncate leading-tight">
+                                                            <span className="block text-xs sm:text-[12.5px] font-semibold text-gray-800 truncate leading-tight">
                                                                 {ev.title}
                                                             </span>
                                                             {ev.meta?.subject ? (
@@ -795,9 +972,9 @@ const CalendarPage: React.FC = () => {
                                                         </span>
 
                                                         {/* Right meta */}
-                                                        <div className="flex items-center gap-2 shrink-0">
+                                                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto justify-end pl-5 sm:pl-0">
                                                             {ev.time && (
-                                                                <span className="text-[10.5px] font-medium text-gray-400 flex items-center gap-0.5">
+                                                                <span className="text-[10px] sm:text-[10.5px] font-medium text-gray-400 flex items-center gap-0.5">
                                                                     <Clock size={9} className="shrink-0" />
                                                                     {formatTime(ev.time)}
                                                                 </span>
@@ -820,8 +997,8 @@ const CalendarPage: React.FC = () => {
                             })}
                         </div>
                     </div>
-                );
-            })()}
+                </div>
+            )}
             </div> {/* end flex-1 overflow-auto */}
 
             {/* ── Day Detail Sheet ───────────────────────────────────── */}

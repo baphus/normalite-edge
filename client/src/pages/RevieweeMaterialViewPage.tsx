@@ -94,8 +94,8 @@ const RevieweeMaterialViewPage: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header data-guide="material-header" className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3">
+            <header data-guide="material-header" className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
                     <Button
                         variant="ghost"
                         size="icon"
@@ -104,14 +104,14 @@ const RevieweeMaterialViewPage: React.FC = () => {
                     >
                         <ArrowLeft size={18} />
                     </Button>
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <h1 className="text-2xl font-black text-gray-900 tracking-tight">Material View</h1>
                         <p className="text-sm text-gray-500 font-medium">Questions, correct answers, and rationalizations.</p>
                     </div>
                 </div>
                 <Button
                     data-guide="material-start-btn"
-                    className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2"
+                    className="h-10 w-full sm:w-auto rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2"
                     onClick={() => navigate(`/study/${id}?mode=study`)}
                 >
                     <BookOpen size={15} /> Begin Quiz

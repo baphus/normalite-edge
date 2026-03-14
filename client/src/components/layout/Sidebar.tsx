@@ -32,6 +32,12 @@ interface NavGroup {
     items: NavItem[];
 }
 
+interface SidebarProps {
+    isMobile?: boolean;
+    isOpen?: boolean;
+    onClose?: () => void;
+}
+
 const navGroups: NavGroup[] = [
     {
         label: 'General',
@@ -81,7 +87,11 @@ const navGroups: NavGroup[] = [
     },
 ];
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<SidebarProps> = ({
+    isMobile = false,
+    isOpen = false,
+    onClose,
+}) => {
     const { user, logout } = useAuth();
     const { unreadCount } = useNotifications();
     const [imgError, setImgError] = useState(false);
@@ -136,9 +146,26 @@ const Sidebar: React.FC = () => {
     }, [user, normalizedRole]);
 
     return (
-        <div data-guide="sidebar-nav" className="sticky top-0 flex h-screen w-54.5 shrink-0 flex-col self-start border-r border-white/6 bg-[#0d0f14]">
+        <div
+            data-guide="sidebar-nav"
+            className={cn(
+                'flex flex-col border-r border-white/6 bg-[#0d0f14]',
+                isMobile
+                    ? 'fixed inset-y-0 left-0 z-50 h-dvh w-72 max-w-[86vw] shrink-0 shadow-2xl transition-transform duration-200 ease-out lg:hidden'
+                    : 'sticky top-0 h-dvh w-54.5 shrink-0 self-start',
+                isMobile && (isOpen ? 'translate-x-0' : '-translate-x-full')
+            )}
+        >
             {/* Brand */}
-            <Link to="/dashboard" className="flex items-center gap-2.5 px-4 h-12 border-b border-white/6 shrink-0 hover:opacity-80 transition-opacity">
+            <Link
+                to="/dashboard"
+                className="flex items-center gap-2.5 px-4 h-12 border-b border-white/6 shrink-0 hover:opacity-80 transition-opacity"
+                onClick={() => {
+                    if (isMobile) {
+                        onClose?.();
+                    }
+                }}
+            >
                 <div className="h-6 w-6 overflow-hidden rounded-sm shrink-0">
                     <img
                         src="/NormaliteEdgeLogo.png"
@@ -162,6 +189,11 @@ const Sidebar: React.FC = () => {
                                     key={item.href}
                                     to={item.href}
                                     data-guide-nav={item.href}
+                                    onClick={() => {
+                                        if (isMobile) {
+                                            onClose?.();
+                                        }
+                                    }}
                                     className={({ isActive }) =>
                                         cn(
                                             'relative flex items-center gap-2.5 px-2.5 h-8 text-[12.5px] rounded-md transition-colors font-medium',
@@ -197,6 +229,11 @@ const Sidebar: React.FC = () => {
                 <NavLink
                     to="/profile"
                     data-guide="profile-entry"
+                    onClick={() => {
+                        if (isMobile) {
+                            onClose?.();
+                        }
+                    }}
                     className={({ isActive }) =>
                         cn(
                             'flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors w-full',
@@ -227,7 +264,12 @@ const Sidebar: React.FC = () => {
                     </div>
                 </NavLink>
                 <button
-                    onClick={logout}
+                    onClick={() => {
+                        if (isMobile) {
+                            onClose?.();
+                        }
+                        logout();
+                    }}
                     className="flex h-8 w-full items-center gap-2.5 rounded-lg px-3 text-[12px] font-medium text-white/45 transition-colors hover:bg-white/4 hover:text-red-400"
                 >
                     <LogOut className="h-3.5 w-3.5 shrink-0" />
