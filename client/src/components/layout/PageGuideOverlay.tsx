@@ -17,10 +17,17 @@ const TOOLTIP_WIDTH = 340;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+const isVisibleGuideTarget = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    const styles = window.getComputedStyle(element);
+
+    return rect.width > 0 && rect.height > 0 && styles.display !== 'none' && styles.visibility !== 'hidden';
+};
+
 const findGuideTarget = (selectors: string[]) => {
     for (const selector of selectors) {
         const element = document.querySelector(selector) as HTMLElement | null;
-        if (element) {
+        if (element && isVisibleGuideTarget(element)) {
             return element;
         }
     }
@@ -53,6 +60,8 @@ const PageGuideOverlay: React.FC = () => {
         return guide.steps[stepIndex] || null;
     }, [guide, stepIndex]);
 
+    const firstStepSelectors = useMemo(() => guide?.steps[0]?.selectors || null, [guide]);
+
     useEffect(() => {
         if (!user?.isOnboarded || !guide?.id) {
             setOpen(false);
@@ -62,9 +71,35 @@ const PageGuideOverlay: React.FC = () => {
 
         const completedTours = user.completedTours || [];
         const shouldOpen = !completedTours.includes(guide.id);
-        setOpen(shouldOpen);
         setStepIndex(0);
-    }, [guide?.id, user?.completedTours, user?.isOnboarded]);
+
+        if (!shouldOpen) {
+            setOpen(false);
+            return;
+        }
+
+        let pollInterval: number | null = null;
+        const openWhenFirstTargetIsReady = () => {
+            if (!firstStepSelectors || findGuideTarget(firstStepSelectors)) {
+                if (pollInterval !== null) {
+                    window.clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                setOpen(true);
+            } else {
+                setOpen(false);
+            }
+        };
+
+        openWhenFirstTargetIsReady();
+        pollInterval = window.setInterval(openWhenFirstTargetIsReady, 500);
+
+        return () => {
+            if (pollInterval !== null) {
+                window.clearInterval(pollInterval);
+            }
+        };
+    }, [firstStepSelectors, guide?.id, user?.completedTours, user?.isOnboarded]);
 
     useEffect(() => {
         if (!open || !currentStep) {

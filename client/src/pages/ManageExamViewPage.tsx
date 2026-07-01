@@ -193,6 +193,12 @@ const escapeCsvValue = (value: string | number | null | undefined) => {
     return `"${normalized.replace(/"/g, '""')}"`;
 };
 
+const escapeExcelValue = (value: string | number | null | undefined) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
 const getAvatarFallback = (name?: string) => {
     const cleaned = (name || '').trim();
     if (!cleaned) return 'U';
@@ -515,6 +521,35 @@ const ManageExamViewPage: React.FC = () => {
         });
     }, [allAttemptsSorted, questionCount]);
 
+    const visibleStudentScoreRows = useMemo(() => {
+        return filteredAttempts.map((attempt, index) => {
+            const studentName = attempt.user?.name?.trim() || 'Unknown User';
+            const studentEmail = attempt.user?.email?.trim() || 'No email';
+            const program = attempt.user?.programTrack?.trim() || 'N/A';
+            const yearLevel = attempt.user?.yearLevel?.trim() || 'N/A';
+            const section = attempt.user?.section?.trim() || 'N/A';
+            const isSubmitted = attempt.status === 'SUBMITTED';
+
+            return {
+                id: attempt.id,
+                rowNo: index + 1,
+                studentName,
+                studentEmail,
+                program,
+                yearLevel,
+                section,
+                profilePicture: attempt.user?.profilePicture || null,
+                attemptNo: attempt.attemptNo || 1,
+                status: attempt.status,
+                rawScore: isSubmitted ? `${Number(attempt.score || 0)}/${questionCount}` : '-',
+                percentage: isSubmitted ? formatPercent(attempt.percentage) : '-',
+                timeSpent: formatDuration(attempt.timeSpentSeconds),
+                startedAt: formatDate(attempt.startedAt),
+                submittedAt: isSubmitted ? formatDate(attempt.submittedAt) : '-',
+            };
+        });
+    }, [filteredAttempts, questionCount]);
+
     const handleExportQuestionAnalytics = () => {
         if (questionAnalyticsRows.length === 0) {
             return;
@@ -624,33 +659,52 @@ const ManageExamViewPage: React.FC = () => {
             'Submitted At',
         ];
 
-        const rows = studentScoreRows.map((row) => [
-            row.rowNo,
-            row.studentName,
-            row.studentEmail,
-            row.program,
-            row.yearLevel,
-            row.section,
-            row.attemptNo,
-            row.status,
-            row.rawScore,
-            row.percentage,
-            row.timeSpent,
-            row.startedAt,
-            row.submittedAt,
-        ]);
+        const tableHead = header
+            .map((column) => `<th>${escapeExcelValue(column)}</th>`)
+            .join('');
+        const tableRows = studentScoreRows
+            .map((row) => [
+                row.rowNo,
+                row.studentName,
+                row.studentEmail,
+                row.program,
+                row.yearLevel,
+                row.section,
+                row.attemptNo,
+                row.status,
+                row.rawScore,
+                row.percentage,
+                row.timeSpent,
+                row.startedAt,
+                row.submittedAt,
+            ])
+            .map((row) => `<tr>${row.map((value) => `<td>${escapeExcelValue(value)}</td>`).join('')}</tr>`)
+            .join('');
+        const worksheet = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+table { border-collapse: collapse; font-family: Arial, sans-serif; }
+th { background: #800000; color: #ffffff; font-weight: 700; }
+th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
+</style>
+</head>
+<body>
+<table>
+<thead><tr>${tableHead}</tr></thead>
+<tbody>${tableRows}</tbody>
+</table>
+</body>
+</html>`;
 
-        const csv = [header, ...rows]
-            .map((row) => row.map((value) => escapeCsvValue(value)).join(','))
-            .join('\n');
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([worksheet], { type: 'application/vnd.ms-excel;charset=utf-8;' });
         const downloadUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
         link.href = downloadUrl;
-        link.download = `${safeTitle || 'exam'}-student-scores.csv`;
+        link.download = `${safeTitle || 'exam'}-student-scores.xls`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -894,105 +948,26 @@ const ManageExamViewPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Student Score Export */}
+
+                    {/* Student Submissions Table */}
                     <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-primary/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="p-6 border-b border-primary/10 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                             <div>
                                 <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                                    <Trophy className="text-primary" size={20} />
-                                    Student Score Export
+                                    <Users className="text-primary" size={20} />
+                                    Detailed Student Submissions
                                 </h4>
                                 <p className="mt-1 text-xs font-medium text-slate-500">
-                                    Every recorded score for this test, including multiple attempts when allowed.
+                                    Student attempts, score details, filters, and Excel score export in one report.
                                 </p>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-3">
                                 <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
                                     {studentScoreRows.length} total rows
                                 </span>
                                 <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700">
                                     {attemptSummary.submitted} submitted
                                 </span>
-                                <Button
-                                    onClick={handleExportStudentScores}
-                                    disabled={studentScoreRows.length === 0}
-                                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
-                                >
-                                    <Download size={16} /> Export Scores
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-primary/10">
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">No.</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Student</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Program / Section</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Attempt</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Raw Score</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Percentage</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Submitted</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-primary/5">
-                                    {studentScoreRows.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={7} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
-                                                No score rows match the current filters.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        studentScoreRows.map((row) => (
-                                            <tr key={`${row.studentEmail}-${row.attemptNo}-${row.startedAt}`} className="hover:bg-primary/[0.02] transition-colors">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-400">{row.rowNo}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className="block text-sm font-bold text-slate-900">{row.studentName}</span>
-                                                    <span className="block text-xs text-slate-500">{row.studentEmail}</span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="block text-sm font-semibold text-slate-700">{row.program}</span>
-                                                    <span className="block text-xs text-slate-500">
-                                                        Year {row.yearLevel} • Section {row.section}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
-                                                        #{row.attemptNo}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center text-sm font-black text-slate-900">{row.rawScore}</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
-                                                        row.status === 'SUBMITTED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                                                    }`}>
-                                                        {row.percentage}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="block text-sm font-semibold text-slate-700">{row.submittedAt}</span>
-                                                    <span className="block text-xs text-slate-500">Time spent: {row.timeSpent}</span>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="p-4 border-t border-primary/10 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs text-slate-500 font-medium">
-                            <span>Showing every score row recorded for this test</span>
-                            <span>CSV export includes all rows for this test.</span>
-                        </div>
-                    </div>
-
-                    {/* Student Submissions Table */}
-                    <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-primary/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                                <Users className="text-primary" size={20} />
-                                Detailed Student Submissions
-                            </h4>
-                            <div className="flex flex-wrap items-center gap-3">
                                 <Select value={selectedProgramFilter} onValueChange={setSelectedProgramFilter}>
                                     <SelectTrigger className="bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full md:w-44 h-10">
                                         <SelectValue placeholder="All Programs" />
@@ -1013,6 +988,13 @@ const ManageExamViewPage: React.FC = () => {
                                         className="pl-10 bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full md:w-64 transition-all h-10"
                                     />
                                 </div>
+                                <Button
+                                    onClick={handleExportStudentScores}
+                                    disabled={studentScoreRows.length === 0}
+                                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
+                                >
+                                    <Download size={16} /> Export Scores Excel
+                                </Button>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
@@ -1020,71 +1002,72 @@ const ManageExamViewPage: React.FC = () => {
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-primary/10">
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Student</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Program</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Score</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Percentage</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Program / Section</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Attempt</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Raw Score</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Percentage</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Status</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Submission Date</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Submitted</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Time Spent</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-primary/5">
-                                    {filteredAttempts.length === 0 ? (
+                                    {visibleStudentScoreRows.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
+                                            <td colSpan={8} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
                                                 No attempts found.
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredAttempts.map((attempt) => {
-                                            const studentName = attempt.user?.name?.trim() || 'Unknown User';
-                                            const studentEmail = attempt.user?.email?.trim() || 'No email';
-                                            
-                                            return (
-                                                <tr key={attempt.id} className="hover:bg-primary/[0.02] transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <Avatar className="h-8 w-8 rounded-full bg-slate-200 border border-slate-200">
-                                                                <AvatarImage src={getAvatarUrl(studentName, attempt.user?.profilePicture)} alt={studentName} />
-                                                                <AvatarFallback className="text-[10px] font-black text-slate-500">{getAvatarFallback(studentName)}</AvatarFallback>
-                                                            </Avatar>
-                                                            <div>
-                                                                <span className="block font-bold text-slate-900">{studentName}</span>
-                                                                <span className="block text-xs text-slate-500">{studentEmail}</span>
-                                                            </div>
+                                        visibleStudentScoreRows.map((row) => (
+                                            <tr key={row.id} className="hover:bg-primary/[0.02] transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-8 w-8 rounded-full bg-slate-200 border border-slate-200">
+                                                            <AvatarImage src={getAvatarUrl(row.studentName, row.profilePicture)} alt={row.studentName} />
+                                                            <AvatarFallback className="text-[10px] font-black text-slate-500">{getAvatarFallback(row.studentName)}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <span className="block font-bold text-slate-900">{row.studentName}</span>
+                                                            <span className="block text-xs text-slate-500">{row.studentEmail}</span>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{attempt.user?.programTrack || 'N/A'}</td>
-                                                    <td className="px-6 py-4 font-bold text-slate-900">
-                                                        {attempt.status === 'SUBMITTED' ? `${Number(attempt.score || 0)}/${questionCount}` : '—'}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {attempt.status === 'SUBMITTED' ? (
-                                                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">
-                                                                {formatPercent(attempt.percentage)}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-slate-400">—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                                            attempt.status === 'SUBMITTED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                                                        }`}>
-                                                            {attempt.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">
-                                                        {formatDate(attempt.submittedAt || attempt.startedAt)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="block text-sm font-semibold text-slate-700">{row.program}</span>
+                                                    <span className="block text-xs text-slate-500">Year {row.yearLevel} / Section {row.section}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                                                        #{row.attemptNo}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-bold text-slate-900">{row.rawScore}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                                                        row.status === 'SUBMITTED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                                                    }`}>
+                                                        {row.percentage}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                        row.status === 'SUBMITTED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                                    }`}>
+                                                        {row.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{row.submittedAt}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{row.timeSpent}</td>
+                                            </tr>
+                                        ))
                                     )}
                                 </tbody>
                             </table>
                         </div>
-                        <div className="p-4 border-t border-primary/10 bg-slate-50 flex justify-between items-center text-xs text-slate-500 font-medium">
-                            <span>Showing {filteredAttempts.length} of {attempts.length} results</span>
+                        <div className="p-4 border-t border-primary/10 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs text-slate-500 font-medium">
+                            <span>Showing {visibleStudentScoreRows.length} of {studentScoreRows.length} score rows</span>
+                            <span>Excel export includes every score row for this test.</span>
                         </div>
                     </div>
 
