@@ -102,6 +102,8 @@ export class AttemptService {
             email: user.email,
             name: `${user.firstName} ${user.lastName}`.trim(),
             programTrack: user.programTrack || null,
+            yearLevel: user.yearLevel || null,
+            section: user.section || null,
             campus: user.campus?.name || null,
             profilePicture: user.profilePicture || null,
         };
@@ -1063,6 +1065,8 @@ export class AttemptService {
                             lastName: true,
                             email: true,
                             programTrack: true,
+                            yearLevel: true,
+                            section: true,
                             profilePicture: true,
                             campus: {
                                 select: { id: true, name: true, code: true },

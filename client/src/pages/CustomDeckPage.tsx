@@ -46,6 +46,8 @@ const categoryOptions = [
     { value: 'SPECIALIZATION', label: 'Specialization' },
 ] as const;
 
+const OPTION_DISPLAY_ORDER = [0, 2, 1, 3];
+
 const CustomDeckPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -540,7 +542,10 @@ const CustomDeckPage: React.FC = () => {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Options & Correct Answer</Label>
                                             <span className="text-[9px] font-bold text-gray-400 italic uppercase">Select the radio button for the correct one</span>
                                         </div>
-                                        {['A', 'B', 'C', 'D'].map((letter, i) => (
+                                        {OPTION_DISPLAY_ORDER.map((i) => {
+                                            const letter = String.fromCharCode(65 + i);
+
+                                            return (
                                             <div key={letter} className={`flex items-center gap-3 p-1.5 rounded-2xl transition-all ${card.correctIndex === i ? 'bg-primary/5 ring-1 ring-primary/10 shadow-sm' : 'bg-gray-50/30'}`}>
                                                 <div className="relative flex items-center justify-center pl-2">
                                                     <input
@@ -561,7 +566,8 @@ const CustomDeckPage: React.FC = () => {
                                                     />
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
 
                                     <div className="space-y-2">

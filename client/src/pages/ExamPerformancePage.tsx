@@ -126,6 +126,11 @@ const asNumber = (value: unknown) => {
 
 const formatPercent = (value: number) => `${value.toFixed(2)}%`;
 
+const formatRawScore = (score: unknown, totalItems: number) => {
+    const rawScore = asNumber(score);
+    return totalItems > 0 ? `${rawScore}/${totalItems}` : `${rawScore}`;
+};
+
 const formatDate = (value?: string | null) => {
     if (!value) return 'N/A';
     const dateValue = new Date(value);
@@ -168,7 +173,7 @@ const ExamPerformancePage: React.FC = () => {
 
     const questionCount = Math.max(
         asNumber(exam?.questionCount || exam?.totalItems),
-        1
+        0
     );
 
     const submittedAttempts = useMemo(
@@ -477,14 +482,15 @@ const ExamPerformancePage: React.FC = () => {
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">Started</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">Submitted</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 h-12">School Email</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center h-12">Score</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center h-12">Raw Score</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center h-12">Percentage</TableHead>
                                     <TableHead className="pr-4 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right h-12">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredAttempts.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="py-10 text-center text-sm text-gray-500 font-medium">
+                                        <TableCell colSpan={10} className="py-10 text-center text-sm text-gray-500 font-medium">
                                             No attempt records found for this exam.
                                         </TableCell>
                                     </TableRow>
@@ -511,7 +517,10 @@ const ExamPerformancePage: React.FC = () => {
                                                 <TableCell className="text-xs font-semibold text-gray-700">{formatDate(attempt.submittedAt)}</TableCell>
                                                 <TableCell className="text-xs font-semibold text-gray-700">{studentEmail}</TableCell>
                                                 <TableCell className="text-center font-black text-sm text-gray-700">
-                                                    {formatPercent(scorePercent)}
+                                                    {attempt.status === 'SUBMITTED' ? formatRawScore(attempt.score, questionCount) : 'N/A'}
+                                                </TableCell>
+                                                <TableCell className="text-center font-black text-sm text-gray-700">
+                                                    {attempt.status === 'SUBMITTED' ? formatPercent(scorePercent) : 'N/A'}
                                                 </TableCell>
                                                 <TableCell className="pr-4 text-right">
                                                     <Button
@@ -608,13 +617,19 @@ const ExamPerformancePage: React.FC = () => {
                         <div className="p-5 text-xs text-gray-500 font-semibold">No attempt review data found.</div>
                     ) : (
                         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
                                 <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Student</p>
                                     <p className="text-sm font-bold text-gray-900 mt-1">{attemptReview.user?.name || 'Unknown User'}</p>
                                 </div>
                                 <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Score</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Raw Score</p>
+                                    <p className="text-sm font-bold text-gray-900 mt-1">
+                                        {formatRawScore(attemptReview.score, detailRows.length || questionCount)}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Percentage</p>
                                     <p className="text-sm font-bold text-gray-900 mt-1">{formatPercent(asNumber(attemptReview.percentage))}</p>
                                 </div>
                                 <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">

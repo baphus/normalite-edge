@@ -120,6 +120,7 @@ type CategoryValue = (typeof categoryOptions)[number]['value'];
 
 const DEFAULT_SECTION_TITLE = 'Main section';
 const NEW_SECTION_OPTION = '__NEW_SECTION_OPTION__';
+const OPTION_DISPLAY_ORDER = [0, 2, 1, 3];
 
 const ExcelTemplateIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
@@ -332,7 +333,7 @@ const SortableQuestionCard: React.FC<SortableQuestionCardProps> = ({
                         onValueChange={(val) => onUpdateQuestion(question.id, { correctOption: parseInt(val) })}
                         className="grid grid-cols-1 md:grid-cols-2 gap-2"
                     >
-                        {question.options.map((opt, optIdx) => (
+                        {OPTION_DISPLAY_ORDER.map((optIdx) => (
                             <div
                                 key={optIdx}
                                 className={`flex items-start gap-2.5 rounded-xl border p-2.5 transition-all ${question.correctOption === optIdx
@@ -353,7 +354,7 @@ const SortableQuestionCard: React.FC<SortableQuestionCardProps> = ({
                                         {String.fromCharCode(65 + optIdx)}{question.correctOption === optIdx && ' · Correct'}
                                     </label>
                                     <AutoGrowTextarea
-                                        value={opt}
+                                        value={question.options[optIdx] || ''}
                                         rows={1}
                                         onChange={(e) => {
                                             const newOpts = [...question.options];
@@ -1801,7 +1802,7 @@ const CreateExamPage: React.FC = () => {
                                         onValueChange={(value) => updateImportPreviewQuestion(question.id, { correctOption: parseInt(value) })}
                                         className="grid grid-cols-1 md:grid-cols-2 gap-2"
                                     >
-                                        {question.options.map((option, optionIndex) => (
+                                        {OPTION_DISPLAY_ORDER.map((optionIndex) => (
                                             <div
                                                 key={`${question.id}-${optionIndex}`}
                                                 className={`flex items-start gap-2.5 rounded-xl border p-2.5 transition-all ${question.correctOption === optionIndex
@@ -1822,7 +1823,7 @@ const CreateExamPage: React.FC = () => {
                                                         {String.fromCharCode(65 + optionIndex)}{question.correctOption === optionIndex && ' · Correct'}
                                                     </label>
                                                     <AutoGrowTextarea
-                                                        value={option}
+                                                        value={question.options[optionIndex] || ''}
                                                         rows={1}
                                                         onChange={(event) => {
                                                             const nextOptions = [...question.options];

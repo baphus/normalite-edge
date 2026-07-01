@@ -88,6 +88,8 @@ const categoryOptions = [
 
 type CategoryValue = (typeof categoryOptions)[number]['value'];
 
+const OPTION_DISPLAY_ORDER = [0, 2, 1, 3];
+
 const ExcelTemplateIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
         <rect x="3" y="4" width="8" height="16" rx="1.5" fill="#107C41" />
@@ -237,7 +239,7 @@ const SortableDeckCard: React.FC<SortableDeckCardProps> = ({
                         onValueChange={(val) => onUpdateCard(card.id, 'correctIndex', parseInt(val))}
                         className="grid grid-cols-1 md:grid-cols-2 gap-2"
                     >
-                        {card.options.map((opt, i) => (
+                        {OPTION_DISPLAY_ORDER.map((i) => (
                             <div
                                 key={i}
                                 className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all ${
@@ -262,7 +264,7 @@ const SortableDeckCard: React.FC<SortableDeckCardProps> = ({
                                     </label>
                                     <input
                                         type="text"
-                                        value={opt}
+                                        value={card.options[i] || ''}
                                         onChange={(e) => onUpdateOption(card.id, i, e.target.value)}
                                         placeholder={`Option ${String.fromCharCode(65 + i)}`}
                                         className={`w-full bg-transparent border-none p-0 text-sm font-semibold focus:ring-0 outline-none ${
@@ -1139,7 +1141,7 @@ const StudyMaterialEditorPage: React.FC = () => {
                                         onValueChange={(value) => updateImportPreviewCard(card.id, { correctIndex: parseInt(value) })}
                                         className="grid grid-cols-1 md:grid-cols-2 gap-2"
                                     >
-                                        {card.options.map((option, optionIndex) => (
+                                        {OPTION_DISPLAY_ORDER.map((optionIndex) => (
                                             <div
                                                 key={`${card.id}-${optionIndex}`}
                                                 className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all ${card.correctIndex === optionIndex
@@ -1161,7 +1163,7 @@ const StudyMaterialEditorPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
-                                                        value={option}
+                                                        value={card.options[optionIndex] || ''}
                                                         onChange={(event) => updateImportPreviewOption(card.id, optionIndex, event.target.value)}
                                                         placeholder={`Option ${String.fromCharCode(65 + optionIndex)}`}
                                                         className={`w-full bg-transparent border-none p-0 text-sm font-semibold focus:ring-0 outline-none ${card.correctIndex === optionIndex ? 'text-slate-900' : 'text-slate-500'}`}

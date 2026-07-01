@@ -87,6 +87,7 @@ interface AttemptItem {
     score?: number | null;
     percentage?: number | null;
     attemptNo?: number;
+    timeSpentSeconds?: number | null;
     submittedAt?: string | null;
     startedAt?: string;
     user?: {
@@ -94,6 +95,8 @@ interface AttemptItem {
         name?: string;
         email?: string;
         programTrack?: string | null;
+        yearLevel?: string | null;
+        section?: string | null;
         profilePicture?: string | null;
     };
 }
@@ -219,6 +222,30 @@ const ManageExamViewPage: React.FC = () => {
     const [questionSortMode, setQuestionSortMode] = useState<QuestionSortMode>('hardest');
     const [selectedSection, setSelectedSection] = useState('ALL');
 
+    const fetchAllAttempts = async (examId: string) => {
+        const pageSize = 500;
+        let page = 1;
+        let totalPages = 1;
+        const rows: AttemptItem[] = [];
+
+        do {
+            const response = await api.get('/attempts', {
+                params: { examId, page, limit: pageSize },
+            });
+            const pageRows = (response.data?.data || []) as AttemptItem[];
+            rows.push(...pageRows);
+            totalPages = Number(response.data?.meta?.totalPages || page);
+
+            if (pageRows.length === 0) {
+                break;
+            }
+
+            page += 1;
+        } while (page <= totalPages);
+
+        return rows;
+    };
+
     useEffect(() => {
         const loadData = async () => {
             if (!id) {
@@ -233,12 +260,12 @@ const ManageExamViewPage: React.FC = () => {
             try {
                 const [examResponse, attemptsResponse, analyticsResponse] = await Promise.all([
                     api.get(`/exams/${id}?questions=true`),
-                    api.get('/attempts', { params: { examId: id, page: 1, limit: 500 } }),
+                    fetchAllAttempts(id),
                     api.get(`/exams/${id}/submission-analytics`),
                 ]);
 
                 setExam((examResponse.data?.data || null) as ExamDetails | null);
-                setAttempts((attemptsResponse.data?.data || []) as AttemptItem[]);
+                setAttempts(attemptsResponse);
                 setSubmissionAnalytics((analyticsResponse.data?.data || null) as SubmissionAnalytics | null);
             } catch (loadErr) {
                 console.error('Failed to load exam details page', loadErr);
@@ -461,6 +488,33 @@ const ManageExamViewPage: React.FC = () => {
             .slice(0, 5);
     }, [submittedAttempts]);
 
+    const studentScoreRows = useMemo(() => {
+        return allAttemptsSorted.map((attempt, index) => {
+            const studentName = attempt.user?.name?.trim() || 'Unknown User';
+            const studentEmail = attempt.user?.email?.trim() || 'No email';
+            const program = attempt.user?.programTrack?.trim() || 'N/A';
+            const yearLevel = attempt.user?.yearLevel?.trim() || 'N/A';
+            const section = attempt.user?.section?.trim() || 'N/A';
+            const isSubmitted = attempt.status === 'SUBMITTED';
+
+            return {
+                rowNo: index + 1,
+                studentName,
+                studentEmail,
+                program,
+                yearLevel,
+                section,
+                attemptNo: attempt.attemptNo || 1,
+                status: attempt.status,
+                rawScore: isSubmitted ? `${Number(attempt.score || 0)}/${questionCount}` : '-',
+                percentage: isSubmitted ? formatPercent(attempt.percentage) : '-',
+                timeSpent: formatDuration(attempt.timeSpentSeconds),
+                startedAt: formatDate(attempt.startedAt),
+                submittedAt: isSubmitted ? formatDate(attempt.submittedAt) : '-',
+            };
+        });
+    }, [allAttemptsSorted, questionCount]);
+
     const handleExportQuestionAnalytics = () => {
         if (questionAnalyticsRows.length === 0) {
             return;
@@ -547,6 +601,60 @@ const ManageExamViewPage: React.FC = () => {
 
         const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
         doc.save(`${safeTitle}-analytics.pdf`);
+    };
+
+    const handleExportStudentScores = () => {
+        if (studentScoreRows.length === 0) {
+            return;
+        }
+
+        const header = [
+            'No.',
+            'Student',
+            'Email',
+            'Program',
+            'Year Level',
+            'Section',
+            'Attempt No.',
+            'Status',
+            'Raw Score',
+            'Percentage',
+            'Time Spent',
+            'Started At',
+            'Submitted At',
+        ];
+
+        const rows = studentScoreRows.map((row) => [
+            row.rowNo,
+            row.studentName,
+            row.studentEmail,
+            row.program,
+            row.yearLevel,
+            row.section,
+            row.attemptNo,
+            row.status,
+            row.rawScore,
+            row.percentage,
+            row.timeSpent,
+            row.startedAt,
+            row.submittedAt,
+        ]);
+
+        const csv = [header, ...rows]
+            .map((row) => row.map((value) => escapeCsvValue(value)).join(','))
+            .join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+        link.href = downloadUrl;
+        link.download = `${safeTitle || 'exam'}-student-scores.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
     };
 
     const questions = useMemo(() => {
@@ -783,6 +891,97 @@ const ManageExamViewPage: React.FC = () => {
                                     ))
                                 )}
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Student Score Export */}
+                    <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-primary/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div>
+                                <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                    <Trophy className="text-primary" size={20} />
+                                    Student Score Export
+                                </h4>
+                                <p className="mt-1 text-xs font-medium text-slate-500">
+                                    Every recorded score for this test, including multiple attempts when allowed.
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
+                                    {studentScoreRows.length} total rows
+                                </span>
+                                <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700">
+                                    {attemptSummary.submitted} submitted
+                                </span>
+                                <Button
+                                    onClick={handleExportStudentScores}
+                                    disabled={studentScoreRows.length === 0}
+                                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
+                                >
+                                    <Download size={16} /> Export Scores
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-primary/10">
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">No.</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Student</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Program / Section</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Attempt</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Raw Score</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Percentage</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Submitted</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-primary/5">
+                                    {studentScoreRows.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
+                                                No score rows match the current filters.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        studentScoreRows.map((row) => (
+                                            <tr key={`${row.studentEmail}-${row.attemptNo}-${row.startedAt}`} className="hover:bg-primary/[0.02] transition-colors">
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-400">{row.rowNo}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="block text-sm font-bold text-slate-900">{row.studentName}</span>
+                                                    <span className="block text-xs text-slate-500">{row.studentEmail}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="block text-sm font-semibold text-slate-700">{row.program}</span>
+                                                    <span className="block text-xs text-slate-500">
+                                                        Year {row.yearLevel} • Section {row.section}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                                                        #{row.attemptNo}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center text-sm font-black text-slate-900">{row.rawScore}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                                                        row.status === 'SUBMITTED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                    }`}>
+                                                        {row.percentage}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="block text-sm font-semibold text-slate-700">{row.submittedAt}</span>
+                                                    <span className="block text-xs text-slate-500">Time spent: {row.timeSpent}</span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-4 border-t border-primary/10 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs text-slate-500 font-medium">
+                            <span>Showing every score row recorded for this test</span>
+                            <span>CSV export includes all rows for this test.</span>
                         </div>
                     </div>
 
