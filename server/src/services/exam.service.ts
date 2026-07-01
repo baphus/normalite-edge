@@ -420,31 +420,12 @@ export class ExamService {
 
         const exam = await prisma.exam.findUnique({
             where: { id: examId },
-            include: {
-                questions: {
-                    orderBy: { orderNo: 'asc' },
-                    include: {
-                        section: { select: { id: true, title: true } },
-                    },
-                },
-                attempts: {
-                    where: { status: 'SUBMITTED' },
-                    select: {
-                        id: true,
-                        userId: true,
-                        startedAt: true,
-                        submittedAt: true,
-                        timeSpentSeconds: true,
-                        answers: {
-                            select: {
-                                questionId: true,
-                                isCorrect: true,
-                                answeredAt: true,
-                                elapsedSeconds: true,
-                            },
-                        },
-                    },
-                },
+            select: {
+                id: true,
+                status: true,
+                scheduleEnd: true,
+                closeOnDeadline: true,
+                createdBy: true,
             },
         });
 
@@ -472,124 +453,6 @@ export class ExamService {
             submissionMessage = 'The submission deadline has already passed.';
         }
 
-        const durationSamples = exam.attempts
-            .map((attempt) => {
-                if (attempt.timeSpentSeconds > 0) {
-                    return attempt.timeSpentSeconds;
-                }
-
-                if (attempt.submittedAt) {
-                    return Math.max(0, Math.round((attempt.submittedAt.getTime() - attempt.startedAt.getTime()) / 1000));
-                }
-
-                return 0;
-            })
-            .filter((value) => value > 0);
-
-        const averageCompletionSeconds = durationSamples.length > 0
-            ? Math.round(durationSamples.reduce((sum, value) => sum + value, 0) / durationSamples.length)
-            : 0;
-
-        const attemptAnswerAnalytics = exam.attempts.map((attempt) => {
-            const answersByQuestionId = new Map(
-                attempt.answers.map((answer) => [answer.questionId, answer])
-            );
-
-            const elapsedSecondsByQuestionId = new Map<string, number>();
-            const sortedAnswers = [...attempt.answers]
-                .filter((answer) => Boolean(answer.answeredAt))
-                .sort((left, right) => {
-                    const leftTime = left.answeredAt ? left.answeredAt.getTime() : 0;
-                    const rightTime = right.answeredAt ? right.answeredAt.getTime() : 0;
-
-                    if (leftTime === rightTime) {
-                        return left.questionId.localeCompare(right.questionId);
-                    }
-
-                    return leftTime - rightTime;
-                });
-
-            let previousAnsweredAt = attempt.startedAt.getTime();
-            for (const answer of sortedAnswers) {
-                const currentAnsweredAt = answer.answeredAt ? answer.answeredAt.getTime() : previousAnsweredAt;
-                elapsedSecondsByQuestionId.set(
-                    answer.questionId,
-                    Math.max(0, Math.round((currentAnsweredAt - previousAnsweredAt) / 1000)),
-                );
-                previousAnsweredAt = currentAnsweredAt;
-            }
-
-            return {
-                answersByQuestionId,
-                elapsedSecondsByQuestionId,
-            };
-        });
-
-        const questionStats = exam.questions.map((question) => {
-            let rightCount = 0;
-            let wrongCount = 0;
-            let unansweredCount = exam.attempts.length;
-            let answeredCount = 0;
-            const answerTimeSamples: number[] = [];
-
-            for (const attempt of attemptAnswerAnalytics) {
-                const answer = attempt.answersByQuestionId.get(question.id);
-                if (!answer) {
-                    continue;
-                }
-
-                unansweredCount -= 1;
-                answeredCount += 1;
-
-                if (answer.isCorrect) {
-                    rightCount += 1;
-                } else {
-                    wrongCount += 1;
-                }
-
-                const secondsToAnswer = typeof answer.elapsedSeconds === 'number'
-                    ? Math.max(0, Math.round(answer.elapsedSeconds))
-                    : (answer.answeredAt ? attempt.elapsedSecondsByQuestionId.get(question.id) : undefined);
-                if (typeof secondsToAnswer !== 'number') {
-                    continue;
-                }
-                answerTimeSamples.push(secondsToAnswer);
-            }
-
-            const averageAnswerSeconds = answerTimeSamples.length > 0
-                ? Math.round(answerTimeSamples.reduce((sum, value) => sum + value, 0) / answerTimeSamples.length)
-                : null;
-
-            return {
-                questionId: question.id,
-                orderNo: question.orderNo,
-                section: question.section?.title || this.defaultSectionTitle,
-                questionText: question.questionText,
-                rightCount,
-                wrongCount,
-                unansweredCount,
-                answeredCount,
-                averageAnswerSeconds,
-            };
-        });
-
-        const slowestQuestion = questionStats
-            .filter((question) => question.averageAnswerSeconds !== null)
-            .sort((left, right) => {
-                const rightTime = right.averageAnswerSeconds ?? -1;
-                const leftTime = left.averageAnswerSeconds ?? -1;
-
-                if (rightTime !== leftTime) {
-                    return rightTime - leftTime;
-                }
-
-                if (right.answeredCount !== left.answeredCount) {
-                    return right.answeredCount - left.answeredCount;
-                }
-
-                return left.orderNo - right.orderNo;
-            })[0] || null;
-
         return {
             examStatus: {
                 status: exam.status,
@@ -598,20 +461,6 @@ export class ExamService {
                 scheduleEnd: exam.scheduleEnd,
                 closeOnDeadline: Boolean(exam.closeOnDeadline),
             },
-            submissionStats: {
-                submittedCount: exam.attempts.length,
-                averageCompletionSeconds,
-                slowestQuestion: slowestQuestion
-                    ? {
-                        questionId: slowestQuestion.questionId,
-                        orderNo: slowestQuestion.orderNo,
-                        questionText: slowestQuestion.questionText,
-                        averageAnswerSeconds: slowestQuestion.averageAnswerSeconds,
-                        section: slowestQuestion.section || this.defaultSectionTitle,
-                    }
-                    : null,
-            },
-            questionStats,
         };
     }
 

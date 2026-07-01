@@ -3,12 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     Activity,
     ArrowLeft,
-    ArrowUpDown,
     BarChart3,
     Download,
+    FileSpreadsheet,
     FileText,
-    FileQuestion,
+    Filter,
     Grid,
+    RotateCcw,
     Search,
     Trophy,
     Users,
@@ -109,31 +110,10 @@ interface SubmissionAnalytics {
         scheduleEnd?: string | null;
         closeOnDeadline?: boolean;
     };
-    submissionStats: {
-        submittedCount: number;
-        averageCompletionSeconds: number;
-        slowestQuestion: {
-            questionId: string;
-            orderNo: number;
-            questionText: string;
-            averageAnswerSeconds?: number | null;
-            section?: string | null;
-        } | null;
-    };
-    questionStats: Array<{
-        questionId: string;
-        orderNo: number;
-        section?: string | null;
-        questionText: string;
-        rightCount: number;
-        wrongCount: number;
-        unansweredCount: number;
-        answeredCount: number;
-        averageAnswerSeconds?: number | null;
-    }>;
 }
 
-type QuestionSortMode = 'hardest' | 'slowest' | 'original';
+type AttemptStatusFilter = 'ALL' | 'SUBMITTED' | 'IN_PROGRESS';
+type ScoreBandFilter = 'ALL' | 'HIGH' | 'PASSING' | 'AT_RISK' | 'NO_SCORE';
 
 const formatDate = (value?: string | null) => {
     if (!value) return 'N/A';
@@ -180,19 +160,6 @@ const formatCompactNumber = (value?: number | null) => {
     return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(numeric);
 };
 
-const truncateQuestion = (value?: string, maxLength = 110) => {
-    const trimmed = (value || '').trim();
-    if (!trimmed) return 'Question unavailable';
-    if (trimmed.length <= maxLength) return trimmed;
-    return `${trimmed.slice(0, maxLength).trimEnd()}...`;
-};
-
-const escapeCsvValue = (value: string | number | null | undefined) => {
-    const normalized = String(value ?? '');
-    if (!/[",\n]/.test(normalized)) return normalized;
-    return `"${normalized.replace(/"/g, '""')}"`;
-};
-
 const escapeExcelValue = (value: string | number | null | undefined) => String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -225,7 +192,8 @@ const ManageExamViewPage: React.FC = () => {
     const [submissionAnalytics, setSubmissionAnalytics] = useState<SubmissionAnalytics | null>(null);
     const [search, setSearch] = useState('');
     const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('ALL');
-    const [questionSortMode, setQuestionSortMode] = useState<QuestionSortMode>('hardest');
+    const [selectedStatusFilter, setSelectedStatusFilter] = useState<AttemptStatusFilter>('ALL');
+    const [selectedScoreBandFilter, setSelectedScoreBandFilter] = useState<ScoreBandFilter>('ALL');
     const [selectedSection, setSelectedSection] = useState('ALL');
 
     const fetchAllAttempts = async (examId: string) => {
@@ -322,13 +290,28 @@ const ManageExamViewPage: React.FC = () => {
             const name = attempt.user?.name?.toLowerCase() || '';
             const email = attempt.user?.email?.toLowerCase() || '';
             const track = attempt.user?.programTrack?.toLowerCase() || '';
-            
-            const matchesSearch = !term || name.includes(term) || email.includes(term) || track.includes(term);
+            const yearLevel = attempt.user?.yearLevel?.toLowerCase() || '';
+            const section = attempt.user?.section?.toLowerCase() || '';
+            const percentage = Number(attempt.percentage || 0);
+            const isSubmitted = attempt.status === 'SUBMITTED';
+
+            const matchesSearch = !term
+                || name.includes(term)
+                || email.includes(term)
+                || track.includes(term)
+                || yearLevel.includes(term)
+                || section.includes(term);
             const matchesProgram = selectedProgramFilter === 'ALL' || attempt.user?.programTrack === selectedProgramFilter;
-            
-            return matchesSearch && matchesProgram;
+            const matchesStatus = selectedStatusFilter === 'ALL' || attempt.status === selectedStatusFilter;
+            const matchesScoreBand = selectedScoreBandFilter === 'ALL'
+                || (selectedScoreBandFilter === 'HIGH' && isSubmitted && percentage >= 90)
+                || (selectedScoreBandFilter === 'PASSING' && isSubmitted && percentage >= 75 && percentage < 90)
+                || (selectedScoreBandFilter === 'AT_RISK' && isSubmitted && percentage < 75)
+                || (selectedScoreBandFilter === 'NO_SCORE' && !isSubmitted);
+
+            return matchesSearch && matchesProgram && matchesStatus && matchesScoreBand;
         });
-    }, [allAttemptsSorted, search, selectedProgramFilter]);
+    }, [allAttemptsSorted, search, selectedProgramFilter, selectedScoreBandFilter, selectedStatusFilter]);
 
     const programOptions = useMemo(() => {
         const specs = new Set<string>();
@@ -391,86 +374,6 @@ const ManageExamViewPage: React.FC = () => {
     }, [submittedAttempts]);
 
     const submissionStatus = submissionAnalytics?.examStatus;
-    const questionStats = submissionAnalytics?.questionStats || [];
-
-    const enrichedQuestionStats = useMemo(() => {
-        return questionStats
-            .map((question) => {
-                const attemptedCount = question.rightCount + question.wrongCount;
-                const totalResponses = question.rightCount + question.wrongCount + question.unansweredCount;
-                const wrongRate = attemptedCount > 0 ? (question.wrongCount / attemptedCount) * 100 : 0;
-                const correctRate = attemptedCount > 0 ? (question.rightCount / attemptedCount) * 100 : 0;
-                const unansweredRate = totalResponses > 0 ? (question.unansweredCount / totalResponses) * 100 : 0;
-
-                return {
-                    ...question,
-                    attemptedCount,
-                    totalResponses,
-                    wrongRate,
-                    correctRate,
-                    unansweredRate,
-                };
-            });
-    }, [questionStats]);
-
-    const rankedQuestionStats = useMemo(() => {
-        return enrichedQuestionStats.slice().sort((left, right) => {
-            const rightHasAnswers = right.attemptedCount > 0 ? 1 : 0;
-            const leftHasAnswers = left.attemptedCount > 0 ? 1 : 0;
-            if (rightHasAnswers !== leftHasAnswers) {
-                return rightHasAnswers - leftHasAnswers;
-            }
-            if (right.wrongRate !== left.wrongRate) {
-                return right.wrongRate - left.wrongRate;
-            }
-            if (right.wrongCount !== left.wrongCount) {
-                return right.wrongCount - left.wrongCount;
-            }
-            if (right.attemptedCount !== left.attemptedCount) {
-                return right.attemptedCount - left.attemptedCount;
-            }
-            if (left.correctRate !== right.correctRate) {
-                return left.correctRate - right.correctRate;
-            }
-            return left.orderNo - right.orderNo;
-        });
-    }, [enrichedQuestionStats]);
-
-    const questionAnalyticsRows = useMemo(() => {
-        if (questionSortMode === 'original') {
-            return enrichedQuestionStats.slice().sort((left, right) => left.orderNo - right.orderNo);
-        }
-
-        if (questionSortMode === 'slowest') {
-            return enrichedQuestionStats.slice().sort((left, right) => {
-                const rightTime = typeof right.averageAnswerSeconds === 'number' ? right.averageAnswerSeconds : -1;
-                const leftTime = typeof left.averageAnswerSeconds === 'number' ? left.averageAnswerSeconds : -1;
-                if (rightTime !== leftTime) {
-                    return rightTime - leftTime;
-                }
-                const rightHasAnswers = right.attemptedCount > 0 ? 1 : 0;
-                const leftHasAnswers = left.attemptedCount > 0 ? 1 : 0;
-                if (rightHasAnswers !== leftHasAnswers) {
-                    return rightHasAnswers - leftHasAnswers;
-                }
-                if (right.wrongRate !== left.wrongRate) {
-                    return right.wrongRate - left.wrongRate;
-                }
-                if (right.wrongCount !== left.wrongCount) {
-                    return right.wrongCount - left.wrongCount;
-                }
-                if (right.attemptedCount !== left.attemptedCount) {
-                    return right.attemptedCount - left.attemptedCount;
-                }
-                if (left.correctRate !== right.correctRate) {
-                    return left.correctRate - right.correctRate;
-                }
-                return left.orderNo - right.orderNo;
-            });
-        }
-
-        return rankedQuestionStats;
-    }, [enrichedQuestionStats, questionSortMode, rankedQuestionStats]);
 
     const topPrograms = useMemo(() => {
         const mapped = new Map<string, { count: number; scoreTotal: number }>();
@@ -550,52 +453,27 @@ const ManageExamViewPage: React.FC = () => {
         });
     }, [filteredAttempts, questionCount]);
 
-    const handleExportQuestionAnalytics = () => {
-        if (questionAnalyticsRows.length === 0) {
-            return;
-        }
+    const hasStudentSubmissionFilters = Boolean(search.trim())
+        || selectedProgramFilter !== 'ALL'
+        || selectedStatusFilter !== 'ALL'
+        || selectedScoreBandFilter !== 'ALL';
 
-        const header = [
-            'Question No',
-            'Section',
-            'Question Text',
-            'Right Count',
-            'Wrong Count',
-            'Unanswered Count',
-            'Right Rate %',
-            'Wrong Rate %',
-            'Unanswered Rate %',
-            'Average Answer Time',
-        ];
+    const filteredSubmissionSummary = useMemo(() => {
+        const submitted = filteredAttempts.filter((attempt) => attempt.status === 'SUBMITTED').length;
+        const inProgress = filteredAttempts.filter((attempt) => attempt.status === 'IN_PROGRESS').length;
 
-        const rows = questionAnalyticsRows.map((question) => [
-            question.orderNo,
-            question.section || '',
-            question.questionText,
-            question.rightCount,
-            question.wrongCount,
-            question.unansweredCount,
-            question.correctRate.toFixed(2),
-            question.wrongRate.toFixed(2),
-            question.unansweredRate.toFixed(2),
-            formatDuration(question.averageAnswerSeconds),
-        ]);
+        return {
+            submitted,
+            inProgress,
+            notSubmitted: Math.max(filteredAttempts.length - submitted - inProgress, 0),
+        };
+    }, [filteredAttempts]);
 
-        const csv = [header, ...rows]
-            .map((row) => row.map((value) => escapeCsvValue(value)).join(','))
-            .join('\n');
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const downloadUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-        link.href = downloadUrl;
-        link.download = `${safeTitle || 'exam'}-question-analytics-${questionSortMode}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(downloadUrl);
+    const resetStudentSubmissionFilters = () => {
+        setSearch('');
+        setSelectedProgramFilter('ALL');
+        setSelectedStatusFilter('ALL');
+        setSelectedScoreBandFilter('ALL');
     };
 
     const handleExportPDF = () => {
@@ -951,54 +829,112 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
 
                     {/* Student Submissions Table */}
                     <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-primary/10 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                            <div>
-                                <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                                    <Users className="text-primary" size={20} />
-                                    Detailed Student Submissions
-                                </h4>
-                                <p className="mt-1 text-xs font-medium text-slate-500">
-                                    Student attempts, score details, filters, and Excel score export in one report.
-                                </p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-3">
-                                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
-                                    {studentScoreRows.length} total rows
-                                </span>
-                                <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700">
-                                    {attemptSummary.submitted} submitted
-                                </span>
-                                <Select value={selectedProgramFilter} onValueChange={setSelectedProgramFilter}>
-                                    <SelectTrigger className="bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full md:w-44 h-10">
-                                        <SelectValue placeholder="All Programs" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ALL">All Programs</SelectItem>
-                                        {programOptions.map(prog => (
-                                            <SelectItem key={prog} value={prog}>{prog}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <div className="relative group flex-1 md:flex-none">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
-                                    <Input
-                                        value={search}
-                                        onChange={(event) => setSearch(event.target.value)}
-                                        placeholder="Search students..."
-                                        className="pl-10 bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full md:w-64 transition-all h-10"
-                                    />
+                        <div className="p-6 border-b border-primary/10 space-y-5">
+                            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
+                                <div>
+                                    <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                        <Users className="text-primary" size={20} />
+                                        Detailed Student Submissions
+                                    </h4>
+                                    <p className="mt-1 text-xs font-medium text-slate-500">
+                                        Review every attempt, narrow the report, and export complete score data for this test.
+                                    </p>
                                 </div>
-                                <Button
-                                    onClick={handleExportStudentScores}
-                                    disabled={studentScoreRows.length === 0}
-                                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
-                                >
-                                    <Download size={16} /> Export Scores Excel
-                                </Button>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
+                                        {studentScoreRows.length} total rows
+                                    </span>
+                                    <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700">
+                                        {attemptSummary.submitted} submitted
+                                    </span>
+                                    <Button
+                                        onClick={handleExportStudentScores}
+                                        disabled={studentScoreRows.length === 0}
+                                        className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
+                                    >
+                                        <FileSpreadsheet size={16} /> Export All Scores
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
+                                        <Filter size={14} className="text-primary" />
+                                        Filters
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={resetStudentSubmissionFilters}
+                                        disabled={!hasStudentSubmissionFilters}
+                                        className="h-8 rounded-lg px-3 text-xs font-bold text-slate-500 hover:text-primary"
+                                    >
+                                        <RotateCcw size={13} className="mr-1.5" /> Reset
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+                                    <div className="relative group md:col-span-2 xl:col-span-1">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
+                                        <Input
+                                            value={search}
+                                            onChange={(event) => setSearch(event.target.value)}
+                                            placeholder="Search name, email, program..."
+                                            className="pl-10 bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full transition-all h-10"
+                                        />
+                                    </div>
+                                    <Select value={selectedProgramFilter} onValueChange={setSelectedProgramFilter}>
+                                        <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
+                                            <SelectValue placeholder="All Programs" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Programs</SelectItem>
+                                            {programOptions.map(prog => (
+                                                <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={selectedStatusFilter} onValueChange={(value) => setSelectedStatusFilter(value as AttemptStatusFilter)}>
+                                        <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
+                                            <SelectValue placeholder="All Statuses" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Statuses</SelectItem>
+                                            <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                                            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={selectedScoreBandFilter} onValueChange={(value) => setSelectedScoreBandFilter(value as ScoreBandFilter)}>
+                                        <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
+                                            <SelectValue placeholder="All Scores" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Scores</SelectItem>
+                                            <SelectItem value="HIGH">90-100%</SelectItem>
+                                            <SelectItem value="PASSING">75-89%</SelectItem>
+                                            <SelectItem value="AT_RISK">Below 75%</SelectItem>
+                                            <SelectItem value="NO_SCORE">No Score Yet</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                            <p className="text-[10px] font-bold uppercase text-slate-400">Shown</p>
+                                            <p className="text-sm font-black text-slate-900">{visibleStudentScoreRows.length}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                            <p className="text-[10px] font-bold uppercase text-slate-400">Done</p>
+                                            <p className="text-sm font-black text-emerald-700">{filteredSubmissionSummary.submitted}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                            <p className="text-[10px] font-bold uppercase text-slate-400">Open</p>
+                                            <p className="text-sm font-black text-amber-700">{filteredSubmissionSummary.inProgress}</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="w-full min-w-[980px] text-left">
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-primary/10">
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Student</th>
@@ -1014,8 +950,13 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                                 <tbody className="divide-y divide-primary/5">
                                     {visibleStudentScoreRows.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
-                                                No attempts found.
+                                            <td colSpan={8} className="px-6 py-10 text-center">
+                                                <p className="text-sm font-bold text-slate-700">
+                                                    {hasStudentSubmissionFilters ? 'No matching submissions found.' : 'No attempts found.'}
+                                                </p>
+                                                <p className="mt-1 text-xs font-medium text-slate-500">
+                                                    {hasStudentSubmissionFilters ? 'Adjust or reset filters to broaden the report.' : 'Student attempts will appear here once the test is started.'}
+                                                </p>
                                             </td>
                                         </tr>
                                     ) : (
@@ -1071,84 +1012,6 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                         </div>
                     </div>
 
-                    {/* Question Analytics */}
-                    <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-primary/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                                <FileQuestion className="text-primary" size={20} />
-                                Question Analytics
-                            </h4>
-                            <div className="flex items-center gap-3">
-                                <Select value={questionSortMode} onValueChange={(value) => setQuestionSortMode(value as QuestionSortMode)}>
-                                    <SelectTrigger className="bg-slate-100 border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-44 h-10">
-                                        <div className="flex items-center gap-2">
-                                            <ArrowUpDown size={14} />
-                                            <SelectValue placeholder="Sort questions" />
-                                        </div>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="hardest">Hardest first</SelectItem>
-                                        <SelectItem value="slowest">Slowest first</SelectItem>
-                                        <SelectItem value="original">Original order</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button
-                                    onClick={handleExportQuestionAnalytics}
-                                    disabled={questionAnalyticsRows.length === 0}
-                                    className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
-                                >
-                                    <Download size={16} /> Export
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto p-0">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-primary/10">
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest w-1/2">Question</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Outcome Mix</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Right</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Wrong</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Avg Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-primary/5">
-                                    {questionAnalyticsRows.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={5} className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
-                                                No submitted question analytics yet.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        questionAnalyticsRows.map((question) => (
-                                            <tr key={question.questionId} className="hover:bg-primary/[0.02] transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <p className="text-xs font-bold text-primary mb-1">Q{question.orderNo} {question.section ? `• ${question.section}` : ''}</p>
-                                                    <p className="text-sm text-slate-700 leading-relaxed">{truncateQuestion(question.questionText, 120)}</p>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="w-full max-w-[200px] space-y-1.5">
-                                                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                                                            <div className="bg-emerald-500 h-full" style={{ width: `${question.correctRate}%` }}></div>
-                                                            <div className="bg-rose-500 h-full" style={{ width: `${question.wrongRate}%` }}></div>
-                                                            <div className="bg-amber-400 h-full" style={{ width: `${question.unansweredRate}%` }}></div>
-                                                        </div>
-                                                        <div className="flex gap-2 text-[10px] font-bold">
-                                                            <span className="text-emerald-700">{question.correctRate.toFixed(0)}% R</span>
-                                                            <span className="text-rose-700">{question.wrongRate.toFixed(0)}% W</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-center font-bold text-emerald-700">{question.rightCount}</td>
-                                                <td className="px-6 py-4 text-center font-bold text-rose-700">{question.wrongCount}</td>
-                                                <td className="px-6 py-4 text-center text-sm text-slate-600">{formatDuration(question.averageAnswerSeconds)}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
 
                     {/* All Questions Review */}
                     <div className="bg-white rounded-2xl border border-primary/10 shadow-sm overflow-hidden p-6">

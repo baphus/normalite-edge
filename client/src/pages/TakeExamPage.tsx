@@ -7,6 +7,9 @@ import {
     Send,
     AlertTriangle,
     ListChecks,
+    CheckCircle2,
+    CircleDot,
+    Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -85,6 +88,39 @@ interface LocalDraft {
     currentIndex: number;
     timeLeft: number;
     updatedAt: number;
+}
+
+interface SectionGroup {
+    name: string;
+    questionIndexes: number[];
+    total: number;
+    answered: number;
+    firstIndex: number;
+    lastIndex: number;
+    isComplete: boolean;
+}
+
+interface RawQuestionInput {
+    id?: string | number | null;
+    orderNo?: number | string | null;
+    orderIndex?: number | string | null;
+    text?: string | null;
+    questionText?: string | null;
+    imageUrl?: string | null;
+    choices?: unknown;
+    choiceA?: unknown;
+    choiceB?: unknown;
+    choiceC?: unknown;
+    choiceD?: unknown;
+    section?: string | { title?: string | null } | null;
+}
+
+interface ApiErrorLike {
+    response?: {
+        data?: {
+            message?: string;
+        };
+    };
 }
 
 const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
@@ -323,7 +359,7 @@ const TakeExamPage: React.FC = () => {
         return Math.max(questions.length - 1, 0);
     }, []);
 
-    const normalizeQuestions = useCallback((rawQuestions: any[] = []): Question[] => {
+    const normalizeQuestions = useCallback((rawQuestions: RawQuestionInput[] = []): Question[] => {
         const sorted = rawQuestions
             .map((rawQuestion, index) => {
                 const normalizedChoices = Array.isArray(rawQuestion.choices)
@@ -339,7 +375,7 @@ const TakeExamPage: React.FC = () => {
                     orderNo: Number(rawQuestion.orderNo ?? rawQuestion.orderIndex ?? index + 1),
                     text: String(rawQuestion.text ?? rawQuestion.questionText ?? ''),
                     imageUrl: rawQuestion.imageUrl ? String(rawQuestion.imageUrl) : null,
-                    choices: normalizedChoices.map((choice: string) => String(choice ?? '')),
+                    choices: normalizedChoices.map((choice) => String(choice ?? '')),
                     section: normalizedSection || 'Main section',
                 };
             })
@@ -598,7 +634,7 @@ const TakeExamPage: React.FC = () => {
                     return;
                 }
 
-                let normalizedQuestions = normalizeQuestions((payload as any)?.exam?.questions || []);
+                let normalizedQuestions = normalizeQuestions(payload?.exam?.questions || []);
 
                 if (normalizedQuestions.length === 0) {
                     const examTakeResponse = await api.get(`/exams/${id}/take`);
@@ -697,8 +733,9 @@ const TakeExamPage: React.FC = () => {
                     setTimeLeft(safeTimeLeft);
                     timeLeftRef.current = safeTimeLeft;
                 }
-            } catch (requestError: any) {
-                const message = requestError?.response?.data?.message || 'Unable to start or resume this exam right now.';
+            } catch (requestError: unknown) {
+                const apiError = requestError as ApiErrorLike;
+                const message = apiError?.response?.data?.message || 'Unable to start or resume this exam right now.';
                 setError(message);
             } finally {
                 setLoading(false);
@@ -859,8 +896,9 @@ const TakeExamPage: React.FC = () => {
             clearExamStarted();
             allowNavigationRef.current = true;
             navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`);
-        } catch (submitError: any) {
-            const message = submitError?.response?.data?.message || 'Failed to submit exam. Your progress remains saved.';
+        } catch (submitError: unknown) {
+            const apiError = submitError as ApiErrorLike;
+            const message = apiError?.response?.data?.message || 'Failed to submit exam. Your progress remains saved.';
             toast.error(message);
             setSaveStatus('error');
         } finally {
@@ -879,42 +917,56 @@ const TakeExamPage: React.FC = () => {
         submitAuto();
     }, [exam, handleFinish, isSubmitting, loading, timeLeft]);
 
-    const sectionProgress = useMemo(() => {
-        const buckets = new Map<string, { name: string; total: number; answered: number }>();
+    const sectionGroups = useMemo<SectionGroup[]>(() => {
+        const buckets = new Map<string, SectionGroup>();
         const questions = exam?.questions || [];
 
-        const effectiveSectionNames = Array.from(new Set(
-            questions
-                .map((question) => question.section?.trim() || '')
-                .filter(Boolean)
-        ));
-
-        if (effectiveSectionNames.length <= 1) {
-            return [];
-        }
-
-        for (const question of questions) {
-            const sectionName = question.section?.trim() || '';
-            if (!sectionName) {
-                continue;
-            }
+        questions.forEach((question, index) => {
+            const sectionName = question.section?.trim() || 'Main section';
             if (!buckets.has(sectionName)) {
                 buckets.set(sectionName, {
                     name: sectionName,
+                    questionIndexes: [],
                     total: 0,
                     answered: 0,
+                    firstIndex: index,
+                    lastIndex: index,
+                    isComplete: false,
                 });
             }
 
             const bucket = buckets.get(sectionName)!;
+            bucket.questionIndexes.push(index);
             bucket.total += 1;
+            bucket.lastIndex = index;
             if (answers[question.id]) {
                 bucket.answered += 1;
             }
-        }
+        });
 
-        return Array.from(buckets.values());
+        return Array.from(buckets.values()).map((bucket) => ({
+            ...bucket,
+            isComplete: bucket.total > 0 && bucket.answered === bucket.total,
+        }));
     }, [answers, exam?.questions]);
+
+    const currentSectionIndex = useMemo(() => {
+        const index = sectionGroups.findIndex((section) => section.questionIndexes.includes(currentIndex));
+        return index >= 0 ? index : 0;
+    }, [currentIndex, sectionGroups]);
+
+    const firstIncompleteSectionIndex = useMemo(() => {
+        return sectionGroups.findIndex((section) => !section.isComplete);
+    }, [sectionGroups]);
+
+    const currentSection = sectionGroups[currentSectionIndex] || null;
+    const hasMultipleSections = sectionGroups.length > 1;
+    const currentSectionQuestionIndexes = currentSection?.questionIndexes || [];
+    const currentSectionQuestionPosition = currentSectionQuestionIndexes.indexOf(currentIndex);
+    const currentSectionUnansweredIndexes = currentSectionQuestionIndexes.filter((questionIndex) => {
+        const question = exam?.questions?.[questionIndex];
+        return question && !answers[question.id];
+    });
 
     const questionNumberById = useMemo(() => {
         return new Map((exam?.questions || []).map((question, index) => [question.id, index + 1]));
@@ -956,6 +1008,23 @@ const TakeExamPage: React.FC = () => {
         }
     }, [attemptId, currentQuestionId, exam, flushActiveQuestionTime, isSubmitting, loading]);
 
+    useEffect(() => {
+        if (!attemptId || !exam || loading || isSubmitting) return;
+        if (firstIncompleteSectionIndex < 0) return;
+        if (!sectionGroups.length) return;
+
+        const activeSectionIndex = sectionGroups.findIndex((section) => section.questionIndexes.includes(currentIndex));
+        if (activeSectionIndex <= firstIncompleteSectionIndex) return;
+
+        const targetSection = sectionGroups[firstIncompleteSectionIndex];
+        const firstUnansweredInSection = targetSection.questionIndexes.find((questionIndex) => {
+            const question = exam.questions[questionIndex];
+            return question && !answers[question.id];
+        });
+
+        setCurrentIndex(firstUnansweredInSection ?? targetSection.firstIndex);
+    }, [answers, attemptId, currentIndex, exam, firstIncompleteSectionIndex, isSubmitting, loading, sectionGroups]);
+
     if (!hasReviewedInstructions) {
         return (
             <div className="p-6 md:p-8">
@@ -973,20 +1042,23 @@ const TakeExamPage: React.FC = () => {
                             <p className="text-sm font-semibold text-gray-800">1. The timer starts only after you press <strong>Start Exam</strong>.</p>
                         </div>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">2. Once started, the timer keeps running even if you leave this page.</p>
+                            <p className="text-sm font-semibold text-gray-800">2. Answer the exam one section at a time. Finish every question in the current section before moving forward.</p>
                         </div>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">3. Do not refresh, close, or switch away during the exam unless necessary.</p>
+                            <p className="text-sm font-semibold text-gray-800">3. Once started, the timer keeps running even if you leave this page.</p>
                         </div>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">4. Save behavior is automatic, but keep a stable internet connection throughout.</p>
+                            <p className="text-sm font-semibold text-gray-800">4. Do not refresh, close, or switch away during the exam unless necessary.</p>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-gray-800">5. Save behavior is automatic, but keep a stable internet connection throughout.</p>
                         </div>
                         <div className={`rounded-xl border px-4 py-3 ${preflightSingleTabEnabled ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
                             <div className="flex items-start gap-2">
                                 <AlertTriangle size={16} className={preflightSingleTabEnabled ? 'text-red-600 mt-0.5' : 'text-amber-600 mt-0.5'} />
                                 <div>
                                     <p className={`text-sm font-black ${preflightSingleTabEnabled ? 'text-red-700' : 'text-amber-700'}`}>
-                                        5. Tab-Switch Policy
+                                        6. Tab-Switch Policy
                                     </p>
                                     {preflightLoading ? (
                                         <p className="text-xs font-medium text-gray-500 mt-1">Checking policy...</p>
@@ -1050,13 +1122,78 @@ const TakeExamPage: React.FC = () => {
     }
 
     const currentQuestion = exam.questions[currentIndex] || { id: '', orderNo: 0, text: '', choices: [], section: '' };
+    const currentSectionName = currentSection?.name || currentQuestion.section?.trim() || 'Main section';
+    const currentSectionAnsweredCount = currentSection?.answered || 0;
+    const currentSectionTotal = currentSection?.total || 1;
+    const allQuestionsAnswered = exam.questions.every((question) => Boolean(answers[question.id]));
+    const isCurrentSectionComplete = currentSectionUnansweredIndexes.length === 0;
+    const isFirstQuestionInCurrentSection = currentSectionQuestionPosition <= 0;
+    const isLastQuestionInCurrentSection = currentSectionQuestionPosition === currentSectionQuestionIndexes.length - 1;
+    const nextSection = sectionGroups[currentSectionIndex + 1] || null;
 
     const skippedQuestions = exam.questions
         .map((q, idx) => ({ q, idx }))
         .filter(({ q }) => !answers[q.id]);
 
     const handleSubmitClick = () => {
+        if (!allQuestionsAnswered) {
+            const currentSectionTargetIndex = currentSectionUnansweredIndexes[0];
+
+            if (typeof currentSectionTargetIndex === 'number') {
+                setCurrentIndex(currentSectionTargetIndex);
+                toast.warning(`Answer all questions in ${currentSectionName} before submitting.`);
+                return;
+            }
+
+            if (nextSection) {
+                setCurrentIndex(nextSection.firstIndex);
+                toast.warning(`Continue to ${nextSection.name} before submitting.`);
+                return;
+            }
+
+            const nextSkippedIndex = skippedQuestions[0]?.idx ?? currentIndex;
+            setCurrentIndex(nextSkippedIndex);
+            toast.warning('Answer all questions before submitting.');
+            return;
+        }
+
         setShowConfirm(true);
+    };
+
+    const handlePreviousQuestion = () => {
+        if (!currentSection || isFirstQuestionInCurrentSection) return;
+        const previousQuestionIndex = currentSection.questionIndexes[currentSectionQuestionPosition - 1];
+        setCurrentIndex(previousQuestionIndex);
+    };
+
+    const handleNextQuestion = () => {
+        if (!currentSection) {
+            setCurrentIndex((prev) => Math.min(exam.questions.length - 1, prev + 1));
+            return;
+        }
+
+        if (!isLastQuestionInCurrentSection) {
+            const nextQuestionIndex = currentSection.questionIndexes[currentSectionQuestionPosition + 1];
+            setCurrentIndex(nextQuestionIndex);
+            return;
+        }
+
+        if (!isCurrentSectionComplete) {
+            const firstUnansweredIndex = currentSectionUnansweredIndexes[0];
+            if (typeof firstUnansweredIndex === 'number') {
+                setCurrentIndex(firstUnansweredIndex);
+            }
+            toast.warning(`Finish ${currentSectionName} before moving to the next section.`);
+            return;
+        }
+
+        if (nextSection) {
+            setCurrentIndex(nextSection.firstIndex);
+            toast.success(`${currentSectionName} complete. Moving to ${nextSection.name}.`);
+            return;
+        }
+
+        handleSubmitClick();
     };
 
     const handleOptionSelect = (optionIndex: number) => {
@@ -1084,7 +1221,7 @@ const TakeExamPage: React.FC = () => {
         setSaveStatus('pending');
     };
 
-    const answeredCount = Object.keys(answers).length;
+    const answeredCount = exam.questions.filter((question) => Boolean(answers[question.id])).length;
     const isOffline = !navigator.onLine;
     const saveLabel = saveStatus === 'saving'
         ? 'Saving...'
@@ -1096,8 +1233,6 @@ const TakeExamPage: React.FC = () => {
                     ? 'Save failed'
                     : 'Idle';
 
-    const currentSection = currentQuestion.section?.trim() || '';
-
     return (
         <div className="fixed inset-y-0 right-0 left-0 lg:left-54.5 z-50 flex flex-col overflow-hidden bg-gray-50">
             {/* Header */}
@@ -1105,7 +1240,9 @@ const TakeExamPage: React.FC = () => {
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
                         <h2 className="text-xs sm:text-sm font-bold text-gray-900 truncate leading-tight">{exam.title}</h2>
-                        <p className="text-[10px] sm:text-xs text-gray-400 font-medium truncate">{exam.subject}</p>
+                        <p className="text-[10px] sm:text-xs text-gray-400 font-medium truncate">
+                            {exam.subject} · {currentSectionName} ({currentSectionAnsweredCount}/{currentSectionTotal})
+                        </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -1140,6 +1277,15 @@ const TakeExamPage: React.FC = () => {
                         
                         {/* Question & Image - Flex 1 allows it to take available space */}
                         <div data-guide="exam-take-question" className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3 sm:gap-4 py-1 sm:py-2 mb-3 sm:mb-4">
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                                    <CircleDot size={12} />
+                                    {currentSectionName}
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                                    Section question {Math.max(currentSectionQuestionPosition + 1, 1)} of {currentSectionTotal}
+                                </span>
+                            </div>
                             <div className="w-full max-h-[36vh] sm:max-h-[40vh] overflow-y-auto px-1 sm:px-2 flex items-center justify-center">
                                 <h3 className="text-lg sm:text-xl md:text-3xl font-black text-gray-900 leading-tight text-center">
                                     {currentQuestion.text}
@@ -1202,8 +1348,8 @@ const TakeExamPage: React.FC = () => {
                             <Button
                                 variant="outline"
                                 size="lg"
-                                onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-                                disabled={currentIndex === 0}
+                                onClick={handlePreviousQuestion}
+                                disabled={isFirstQuestionInCurrentSection}
                                 className="h-10 sm:h-11 px-4 sm:px-5 text-xs sm:text-sm font-bold gap-1.5 sm:gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                             >
                                 <ArrowLeft size={16} /> Previous
@@ -1213,7 +1359,12 @@ const TakeExamPage: React.FC = () => {
                                 {!answers[currentQuestion.id] && (
                                     <span className="text-xs text-gray-400 font-bold uppercase tracking-wider hidden sm:block">Not answered</span>
                                 )}
-                                {currentIndex === exam.questions.length - 1 ? (
+                                {!isCurrentSectionComplete && isLastQuestionInCurrentSection && (
+                                    <span className="text-xs text-amber-600 font-bold hidden sm:block">
+                                        {currentSectionUnansweredIndexes.length} left in section
+                                    </span>
+                                )}
+                                {!nextSection && isLastQuestionInCurrentSection ? (
                                     <Button
                                         size="lg"
                                         onClick={handleSubmitClick}
@@ -1225,10 +1376,10 @@ const TakeExamPage: React.FC = () => {
                                 ) : (
                                     <Button
                                         size="lg"
-                                        onClick={() => setCurrentIndex(prev => Math.min(exam.questions.length - 1, prev + 1))}
+                                        onClick={handleNextQuestion}
                                         className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5 sm:gap-2"
                                     >
-                                        Next <ArrowRight size={16} />
+                                        {isLastQuestionInCurrentSection ? 'Next Section' : 'Next'} <ArrowRight size={16} />
                                     </Button>
                                 )}
                             </div>
@@ -1252,56 +1403,82 @@ const TakeExamPage: React.FC = () => {
                     </div>
 
                     <div className="p-4 flex-1 overflow-y-auto space-y-5">
-                        <div className="grid grid-cols-6 gap-1.5">
-                            {exam.questions.map((_, idx) => {
-                                const isCurrent = currentIndex === idx;
-                                const isAnswered = Boolean(answers[exam.questions[idx].id]);
-                                const questionNo = questionNumberById.get(exam.questions[idx].id) || idx + 1;
-                                return (
-                                    <button
-                                        key={idx}
-                                        onClick={() => setCurrentIndex(idx)}
-                                        title={`Question ${questionNo}`}
-                                        className={`h-8 rounded-md text-[11px] font-bold transition-all duration-150 ${
-                                            isCurrent
-                                                ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
-                                                : isAnswered
-                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                    : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100 hover:text-gray-600'
-                                        }`}
-                                    >
-                                        {questionNo}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        {hasMultipleSections && (
+                            <div className="space-y-2">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Section Flow</span>
+                                {sectionGroups.map((sectionItem, sectionIndex) => {
+                                    const isActive = sectionIndex === currentSectionIndex;
+                                    const isLocked = firstIncompleteSectionIndex >= 0 && sectionIndex > firstIncompleteSectionIndex;
+                                    const icon = sectionItem.isComplete
+                                        ? <CheckCircle2 size={13} />
+                                        : isLocked
+                                            ? <Lock size={13} />
+                                            : <CircleDot size={13} />;
 
-                        <div className="flex items-center gap-3 text-[10px] font-semibold text-gray-400">
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-100 border border-gray-200 inline-block" />Skip</span>
-                        </div>
-
-                        {sectionProgress.length > 0 && (
-                            <div className="pt-3 border-t border-gray-100 space-y-1.5">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block mb-2">By Section</span>
-                                {sectionProgress.map((sectionItem) => {
-                                    const isActive = sectionItem.name === currentSection;
                                     return (
-                                        <div key={sectionItem.name} className={`rounded-lg px-2.5 py-2 transition-colors ${isActive ? 'bg-primary/5 border border-primary/15' : 'border border-transparent'}`}>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <div className="flex items-center gap-1.5 min-w-0">
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
-                                                    <span className={`text-[11px] font-semibold truncate ${isActive ? 'text-primary' : 'text-gray-600'}`}>{sectionItem.name}</span>
+                                        <div
+                                            key={sectionItem.name}
+                                            className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                                                isActive
+                                                    ? 'border-primary/20 bg-primary/5'
+                                                    : sectionItem.isComplete
+                                                        ? 'border-emerald-100 bg-emerald-50/70'
+                                                        : isLocked
+                                                            ? 'border-gray-100 bg-gray-50 opacity-70'
+                                                            : 'border-gray-100 bg-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                    {icon}
+                                                    <span className="truncate text-[11px] font-bold">{sectionItem.name}</span>
                                                 </div>
-                                                <span className={`text-[10px] font-bold shrink-0 ml-1 ${isActive ? 'text-primary' : 'text-gray-400'}`}>{sectionItem.answered}/{sectionItem.total}</span>
+                                                <span className={`shrink-0 text-[10px] font-black ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                    {sectionItem.answered}/{sectionItem.total}
+                                                </span>
                                             </div>
-                                            <Progress value={(sectionItem.answered / sectionItem.total) * 100} className="h-1" />
+                                            <Progress value={(sectionItem.answered / sectionItem.total) * 100} className="mt-2 h-1" />
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
+
+                        <div className={`${hasMultipleSections ? 'pt-3 border-t border-gray-100' : ''} space-y-3`}>
+                            <div>
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Current Section</span>
+                                <p className="mt-1 text-xs font-bold text-gray-800 truncate">{currentSectionName}</p>
+                            </div>
+                            <div className="grid grid-cols-5 gap-1.5">
+                                {currentSectionQuestionIndexes.map((questionIndex, sectionQuestionIndex) => {
+                                    const question = exam.questions[questionIndex];
+                                    const isCurrent = currentIndex === questionIndex;
+                                    const isAnswered = Boolean(answers[question.id]);
+
+                                    return (
+                                        <button
+                                            key={question.id}
+                                            onClick={() => setCurrentIndex(questionIndex)}
+                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}`}
+                                            className={`h-9 rounded-lg text-[11px] font-bold transition-all duration-150 ${
+                                                isCurrent
+                                                    ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
+                                                    : isAnswered
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                        : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100 hover:text-gray-600'
+                                            }`}
+                                        >
+                                            {sectionQuestionIndex + 1}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className="flex items-center gap-3 text-[10px] font-semibold text-gray-400">
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-100 border border-gray-200 inline-block" />Open</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="p-4 border-t border-gray-100">
@@ -1322,60 +1499,85 @@ const TakeExamPage: React.FC = () => {
             <Dialog open={isMobileNavigatorOpen} onOpenChange={setIsMobileNavigatorOpen}>
                 <DialogContent className="max-w-[94vw] sm:max-w-md rounded-xl p-0 overflow-hidden gap-0 lg:hidden">
                     <DialogHeader className="px-4 pt-4 pb-3 border-b border-gray-100">
-                        <DialogTitle className="text-sm font-bold text-gray-900">Question Navigator</DialogTitle>
+                        <DialogTitle className="text-sm font-bold text-gray-900">Section Navigator</DialogTitle>
                         <DialogDescription className="text-xs text-gray-500">
-                            {answeredCount} of {exam.questions.length} answered
+                            {currentSectionName}: {currentSectionAnsweredCount} of {currentSectionTotal} answered
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="px-4 py-3 space-y-3 max-h-[70vh] overflow-y-auto">
-                        <Progress value={(answeredCount / exam.questions.length) * 100} className="h-1.5" />
+                        <Progress value={(currentSectionAnsweredCount / currentSectionTotal) * 100} className="h-1.5" />
 
-                        <div className="grid grid-cols-5 gap-2">
-                            {exam.questions.map((_, idx) => {
-                                const isCurrent = currentIndex === idx;
-                                const isAnswered = Boolean(answers[exam.questions[idx].id]);
-                                const questionNo = questionNumberById.get(exam.questions[idx].id) || idx + 1;
+                        {hasMultipleSections && (
+                            <div className="space-y-1.5">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Section Flow</span>
+                                {sectionGroups.map((sectionItem, sectionIndex) => {
+                                    const isActive = sectionIndex === currentSectionIndex;
+                                    const isLocked = firstIncompleteSectionIndex >= 0 && sectionIndex > firstIncompleteSectionIndex;
+                                    const icon = sectionItem.isComplete
+                                        ? <CheckCircle2 size={13} />
+                                        : isLocked
+                                            ? <Lock size={13} />
+                                            : <CircleDot size={13} />;
 
-                                return (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            setCurrentIndex(idx);
-                                            setIsMobileNavigatorOpen(false);
-                                        }}
-                                        title={`Question ${questionNo}`}
-                                        className={`h-9 rounded-md text-xs font-bold transition-all duration-150 ${
-                                            isCurrent
-                                                ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
-                                                : isAnswered
-                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                    : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
-                                        }`}
-                                    >
-                                        {questionNo}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {sectionProgress.length > 0 && (
-                            <div className="pt-2 border-t border-gray-100 space-y-1.5">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block mb-1.5">By Section</span>
-                                {sectionProgress.map((sectionItem) => {
-                                    const isActive = sectionItem.name === currentSection;
                                     return (
-                                        <div key={sectionItem.name} className={`rounded-lg px-2.5 py-2 transition-colors ${isActive ? 'bg-primary/5 border border-primary/15' : 'border border-transparent'}`}>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className={`text-[11px] font-semibold truncate ${isActive ? 'text-primary' : 'text-gray-600'}`}>{sectionItem.name}</span>
-                                                <span className={`text-[10px] font-bold shrink-0 ml-1 ${isActive ? 'text-primary' : 'text-gray-400'}`}>{sectionItem.answered}/{sectionItem.total}</span>
+                                        <div
+                                            key={sectionItem.name}
+                                            className={`rounded-xl border px-3 py-2.5 ${
+                                                isActive
+                                                    ? 'border-primary/20 bg-primary/5'
+                                                    : sectionItem.isComplete
+                                                        ? 'border-emerald-100 bg-emerald-50/70'
+                                                        : isLocked
+                                                            ? 'border-gray-100 bg-gray-50 opacity-70'
+                                                            : 'border-gray-100 bg-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                    {icon}
+                                                    <span className="truncate text-[11px] font-bold">{sectionItem.name}</span>
+                                                </div>
+                                                <span className={`shrink-0 text-[10px] font-black ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                    {sectionItem.answered}/{sectionItem.total}
+                                                </span>
                                             </div>
-                                            <Progress value={(sectionItem.answered / sectionItem.total) * 100} className="h-1" />
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
+
+                        <div className={`${hasMultipleSections ? 'pt-2 border-t border-gray-100' : ''} space-y-2`}>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Current Section</span>
+                            <div className="grid grid-cols-5 gap-2">
+                                {currentSectionQuestionIndexes.map((questionIndex, sectionQuestionIndex) => {
+                                    const question = exam.questions[questionIndex];
+                                    const isCurrent = currentIndex === questionIndex;
+                                    const isAnswered = Boolean(answers[question.id]);
+
+                                    return (
+                                        <button
+                                            key={question.id}
+                                            onClick={() => {
+                                                setCurrentIndex(questionIndex);
+                                                setIsMobileNavigatorOpen(false);
+                                            }}
+                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}`}
+                                            className={`h-9 rounded-md text-xs font-bold transition-all duration-150 ${
+                                                isCurrent
+                                                    ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
+                                                    : isAnswered
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                        : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {sectionQuestionIndex + 1}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="px-4 pb-4">
