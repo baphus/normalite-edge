@@ -220,28 +220,6 @@ const ExamReviewPage: React.FC = () => {
         return matchesStatus && matchesSection;
     });
 
-    const hardestQuestion = useMemo(() => {
-        // For a single-attempt review, "hardest" prioritizes incorrect answers,
-        // then uses longest answer time as the tie-breaker.
-        const incorrectQuestions = questions.filter((question) => (
-            Boolean(question.userAnswer) && question.userAnswer !== question.correctAnswer
-        ));
-
-        const sortByDifficulty = (left: QuestionReview, right: QuestionReview) => {
-            const leftTime = left.elapsedSeconds || 0;
-            const rightTime = right.elapsedSeconds || 0;
-
-            if (rightTime !== leftTime) return rightTime - leftTime;
-            return left.orderNo - right.orderNo;
-        };
-
-        if (incorrectQuestions.length > 0) {
-            return incorrectQuestions.slice().sort(sortByDifficulty)[0] || null;
-        }
-
-        return questions.slice().sort(sortByDifficulty)[0] || null;
-    }, [questions]);
-
     const toggleExpand = (questionId: string) => {
         setCollapsedQuestions((current) => ({
             ...current,
@@ -548,27 +526,6 @@ const ExamReviewPage: React.FC = () => {
                             </div>
                         </Card>
 
-                        <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
-                            <div className="px-4 py-3 border-b border-gray-100">
-                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Hardest Question</h3>
-                            </div>
-                            <div className="p-4 space-y-2">
-                                <p className="text-sm font-black text-gray-900">
-                                    {hardestQuestion ? `Question ${hardestQuestion.orderNo}` : '--'}
-                                </p>
-                                <p className="text-xs font-semibold text-gray-600 leading-relaxed">
-                                    {hardestQuestion ? hardestQuestion.text : 'No questions available for this attempt.'}
-                                </p>
-                                <p className="text-xs font-black text-gray-700">
-                                    {hardestQuestion
-                                        ? `You thought ${formatDuration(hardestQuestion.elapsedSeconds, '0s')} for this question.`
-                                        : 'No timing data available.'}
-                                </p>
-                                <p className="text-[10px] font-medium text-gray-400">
-                                    Based on incorrect answers first, then time spent.
-                                </p>
-                            </div>
-                        </Card>
                     </div>
                 </aside>
             </div>

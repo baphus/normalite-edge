@@ -98,6 +98,7 @@ interface AttemptItem {
         programTrack?: string | null;
         yearLevel?: string | null;
         section?: string | null;
+        campus?: string | null;
         profilePicture?: string | null;
     };
 }
@@ -292,6 +293,7 @@ const ManageExamViewPage: React.FC = () => {
             const track = attempt.user?.programTrack?.toLowerCase() || '';
             const yearLevel = attempt.user?.yearLevel?.toLowerCase() || '';
             const section = attempt.user?.section?.toLowerCase() || '';
+            const campus = attempt.user?.campus?.toLowerCase() || '';
             const percentage = Number(attempt.percentage || 0);
             const isSubmitted = attempt.status === 'SUBMITTED';
 
@@ -300,7 +302,8 @@ const ManageExamViewPage: React.FC = () => {
                 || email.includes(term)
                 || track.includes(term)
                 || yearLevel.includes(term)
-                || section.includes(term);
+                || section.includes(term)
+                || campus.includes(term);
             const matchesProgram = selectedProgramFilter === 'ALL' || attempt.user?.programTrack === selectedProgramFilter;
             const matchesStatus = selectedStatusFilter === 'ALL' || attempt.status === selectedStatusFilter;
             const matchesScoreBand = selectedScoreBandFilter === 'ALL'
@@ -404,6 +407,7 @@ const ManageExamViewPage: React.FC = () => {
             const program = attempt.user?.programTrack?.trim() || 'N/A';
             const yearLevel = attempt.user?.yearLevel?.trim() || 'N/A';
             const section = attempt.user?.section?.trim() || 'N/A';
+            const campus = attempt.user?.campus?.trim() || 'N/A';
             const isSubmitted = attempt.status === 'SUBMITTED';
 
             return {
@@ -413,6 +417,7 @@ const ManageExamViewPage: React.FC = () => {
                 program,
                 yearLevel,
                 section,
+                campus,
                 attemptNo: attempt.attemptNo || 1,
                 status: attempt.status,
                 rawScore: isSubmitted ? `${Number(attempt.score || 0)}/${questionCount}` : '-',
@@ -431,6 +436,7 @@ const ManageExamViewPage: React.FC = () => {
             const program = attempt.user?.programTrack?.trim() || 'N/A';
             const yearLevel = attempt.user?.yearLevel?.trim() || 'N/A';
             const section = attempt.user?.section?.trim() || 'N/A';
+            const campus = attempt.user?.campus?.trim() || 'N/A';
             const isSubmitted = attempt.status === 'SUBMITTED';
 
             return {
@@ -441,6 +447,7 @@ const ManageExamViewPage: React.FC = () => {
                 program,
                 yearLevel,
                 section,
+                campus,
                 profilePicture: attempt.user?.profilePicture || null,
                 attemptNo: attempt.attemptNo || 1,
                 status: attempt.status,
@@ -526,6 +533,7 @@ const ManageExamViewPage: React.FC = () => {
             'Student',
             'Email',
             'Program',
+            'Campus',
             'Year Level',
             'Section',
             'Attempt No.',
@@ -546,6 +554,7 @@ const ManageExamViewPage: React.FC = () => {
                 row.studentName,
                 row.studentEmail,
                 row.program,
+                row.campus,
                 row.yearLevel,
                 row.section,
                 row.attemptNo,
@@ -879,7 +888,7 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                                         <Input
                                             value={search}
                                             onChange={(event) => setSearch(event.target.value)}
-                                            placeholder="Search name, email, program..."
+                                            placeholder="Search name, email, program, campus..."
                                             className="pl-10 bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full transition-all h-10"
                                         />
                                     </div>
@@ -934,11 +943,12 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[980px] text-left">
+                            <table className="w-full min-w-[1080px] text-left">
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-primary/10">
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Student</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Program / Section</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Campus</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Attempt</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Raw Score</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Percentage</th>
@@ -950,7 +960,7 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                                 <tbody className="divide-y divide-primary/5">
                                     {visibleStudentScoreRows.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="px-6 py-10 text-center">
+                                            <td colSpan={9} className="px-6 py-10 text-center">
                                                 <p className="text-sm font-bold text-slate-700">
                                                     {hasStudentSubmissionFilters ? 'No matching submissions found.' : 'No attempts found.'}
                                                 </p>
@@ -978,6 +988,7 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                                                     <span className="block text-sm font-semibold text-slate-700">{row.program}</span>
                                                     <span className="block text-xs text-slate-500">Year {row.yearLevel} / Section {row.section}</span>
                                                 </td>
+                                                <td className="px-6 py-4 text-sm font-semibold text-slate-700">{row.campus}</td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
                                                         #{row.attemptNo}
