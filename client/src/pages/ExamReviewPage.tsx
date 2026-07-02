@@ -41,6 +41,42 @@ interface AttemptOption {
     submittedAt?: string | null;
 }
 
+interface AttemptListItem extends AttemptOption {
+    status?: string;
+}
+
+interface ReviewQuestionApi {
+    id: string;
+    orderNo?: number | string | null;
+    questionText?: string | null;
+    imageUrl?: string | null;
+    choiceA?: string;
+    choiceB?: string;
+    choiceC?: string;
+    choiceD?: string;
+    correctChoice?: string;
+    section?: string | { title?: string | null } | null;
+    rationalization?: string | null;
+}
+
+interface ReviewPayload {
+    answers?: Record<string, string>;
+    answerMeta?: Record<string, { elapsedSeconds?: number | null }>;
+    timeSpentSeconds?: number | null;
+    exam?: {
+        questions?: ReviewQuestionApi[];
+    };
+}
+
+interface ApiErrorLike {
+    response?: {
+        data?: {
+            message?: string;
+        };
+    };
+    message?: string;
+}
+
 const SECTION_DOTS: Record<string, string> = {
     'Professional Education': 'bg-purple-500',
     'General Education': 'bg-blue-500',
@@ -96,7 +132,7 @@ const ExamReviewPage: React.FC = () => {
                     },
                 });
 
-                const attempts = (attemptsResponse.data.data || []) as any[];
+                const attempts = (attemptsResponse.data.data || []) as AttemptListItem[];
                 const submitted = attempts.filter((attempt) => attempt.status === 'SUBMITTED') as AttemptOption[];
                 if (submitted.length === 0) {
                     throw new Error('No submitted attempt available for review.');
@@ -111,8 +147,9 @@ const ExamReviewPage: React.FC = () => {
 
                 setAttemptId(selected);
                 setSearchParams({ attemptId: selected }, { replace: true });
-            } catch (requestError: any) {
-                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load review data.';
+            } catch (requestError: unknown) {
+                const apiError = requestError as ApiErrorLike;
+                const message = apiError?.response?.data?.message || apiError?.message || 'Failed to load review data.';
                 setError(message);
             } finally {
                 setLoading(false);
@@ -131,7 +168,7 @@ const ExamReviewPage: React.FC = () => {
                 setError(null);
 
                 const reviewResponse = await api.get(`/attempts/${attemptId}`);
-                const review = reviewResponse.data.data;
+                const review = reviewResponse.data.data as ReviewPayload;
                 const answerMap = (review.answers || {}) as Record<string, string>;
                 const answerMeta = (review.answerMeta || {}) as Record<string, { elapsedSeconds?: number | null }>;
 
@@ -141,9 +178,9 @@ const ExamReviewPage: React.FC = () => {
 
                 const sortedQuestions = (review.exam?.questions || [])
                     .slice()
-                    .sort((first: any, second: any) => Number(first.orderNo ?? 0) - Number(second.orderNo ?? 0));
+                    .sort((first, second) => Number(first.orderNo ?? 0) - Number(second.orderNo ?? 0));
 
-                const parsedQuestions: QuestionReview[] = sortedQuestions.map((question: any, index: number) => {
+                const parsedQuestions: QuestionReview[] = sortedQuestions.map((question, index) => {
                     const rawSection = question.section;
                     const sectionName = typeof rawSection === 'string'
                         ? rawSection
@@ -153,11 +190,11 @@ const ExamReviewPage: React.FC = () => {
                     return {
                         id: question.id,
                         orderNo: index + 1,
-                        text: question.questionText,
+                        text: question.questionText || '',
                         imageUrl: question.imageUrl || null,
-                        options: [question.choiceA, question.choiceB, question.choiceC, question.choiceD],
+                        options: [question.choiceA, question.choiceB, question.choiceC, question.choiceD].map((choice) => String(choice || '')),
                         userAnswer: answerMap[question.id] || null,
-                        correctAnswer: question.correctChoice,
+                        correctAnswer: question.correctChoice || '',
                         section: sectionName.trim() || 'Main section',
                         rationalization: question.rationalization || 'No explanation provided.',
                         elapsedSeconds: typeof metadata.elapsedSeconds === 'number' ? metadata.elapsedSeconds : null,
@@ -165,8 +202,9 @@ const ExamReviewPage: React.FC = () => {
                 });
 
                 setQuestions(parsedQuestions);
-            } catch (requestError: any) {
-                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load review data.';
+            } catch (requestError: unknown) {
+                const apiError = requestError as ApiErrorLike;
+                const message = apiError?.response?.data?.message || apiError?.message || 'Failed to load review data.';
                 setError(message);
             } finally {
                 setLoading(false);
@@ -182,7 +220,7 @@ const ExamReviewPage: React.FC = () => {
     };
 
     const sectionOptions = useMemo(() => {
-        return Array.from(new Set(questions.map((question) => question.section).filter(Boolean))).sort();
+        return Array.from(new Set(questions.map((question) => question.section).filter(Boolean)));
     }, [questions]);
 
     const metrics = useMemo(() => {
@@ -219,6 +257,42 @@ const ExamReviewPage: React.FC = () => {
         const matchesSection = filterSection === 'all' || question.section === filterSection;
         return matchesStatus && matchesSection;
     });
+
+    const sectionReviewGroups = useMemo(() => {
+        const groups = new Map<string, {
+            name: string;
+            total: number;
+            correct: number;
+            incorrect: number;
+            skipped: number;
+            elapsedSeconds: number;
+        }>();
+
+        for (const question of questions) {
+            const sectionName = question.section || 'Main section';
+            if (!groups.has(sectionName)) {
+                groups.set(sectionName, {
+                    name: sectionName,
+                    total: 0,
+                    correct: 0,
+                    incorrect: 0,
+                    skipped: 0,
+                    elapsedSeconds: 0,
+                });
+            }
+
+            const group = groups.get(sectionName)!;
+            const isCorrect = question.userAnswer === question.correctAnswer;
+            const isSkipped = !question.userAnswer;
+            group.total += 1;
+            group.correct += isCorrect ? 1 : 0;
+            group.incorrect += !isCorrect && !isSkipped ? 1 : 0;
+            group.skipped += isSkipped ? 1 : 0;
+            group.elapsedSeconds += Math.max(0, Number(question.elapsedSeconds || 0));
+        }
+
+        return Array.from(groups.values());
+    }, [questions]);
 
     const toggleExpand = (questionId: string) => {
         setCollapsedQuestions((current) => ({
@@ -351,14 +425,33 @@ const ExamReviewPage: React.FC = () => {
                         <span className="text-[10px] text-gray-400 font-medium">{filteredQuestions.length} shown</span>
                     </header>
 
-                    {filteredQuestions.map((q) => {
+                    {filteredQuestions.map((q, questionIndex) => {
                         const isCorrect = q.userAnswer === q.correctAnswer;
                         const isSkipped = !q.userAnswer;
                         const dotColor = SECTION_DOTS[q.section] || 'bg-gray-400';
                         const isExpanded = !collapsedQuestions[q.id];
                         const isExplanationExpanded = !collapsedExplanations[q.id];
+                        const isFirstInSection = questionIndex === 0 || filteredQuestions[questionIndex - 1]?.section !== q.section;
+                        const sectionGroup = sectionReviewGroups.find((group) => group.name === q.section);
+                        const sectionAccuracy = sectionGroup && sectionGroup.total > 0
+                            ? (sectionGroup.correct / sectionGroup.total) * 100
+                            : 0;
 
                         return (
+                            <React.Fragment key={q.id}>
+                            {isFirstInSection && (
+                                <div className="mt-4 first:mt-0 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-black text-gray-800 truncate">
+                                            Section {sectionReviewGroups.findIndex((group) => group.name === q.section) + 1}: {q.section}
+                                        </p>
+                                        <p className="text-[10px] font-medium text-gray-400">{sectionGroup?.total || 0} questions</p>
+                                    </div>
+                                    <span className="shrink-0 rounded-md bg-gray-50 px-2 py-1 text-[10px] font-black text-gray-600">
+                                        {sectionGroup?.correct || 0}/{sectionGroup?.total || 0} · {sectionAccuracy.toFixed(0)}%
+                                    </span>
+                                </div>
+                            )}
                             <Card key={q.id} className={`border shadow-none overflow-hidden rounded-xl transition-all ${isExpanded ? 'border-primary/20 shadow-sm' : 'border-gray-200'}`}>
                                 <div className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => toggleExpand(q.id)}>
                                     {isCorrect ? (<CheckCircle2 size={15} className="text-emerald-500 shrink-0" />) : isSkipped ? (<MinusCircle size={15} className="text-amber-400 shrink-0" />) : (<XCircle size={15} className="text-red-500 shrink-0" />)}
@@ -432,6 +525,7 @@ const ExamReviewPage: React.FC = () => {
                                     </CardContent>
                                 )}
                             </Card>
+                            </React.Fragment>
                         );
                     })}
 
@@ -450,6 +544,49 @@ const ExamReviewPage: React.FC = () => {
 
                 <aside className="lg:col-span-4 lg:sticky lg:top-5 lg:self-start lg:h-fit">
                     <div className="flex flex-col gap-3">
+                        {sectionReviewGroups.length > 1 && (
+                            <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
+                                <div className="px-4 py-3 border-b border-gray-100">
+                                    <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Section Breakdown</h3>
+                                </div>
+                                <div className="divide-y divide-gray-100">
+                                    {sectionReviewGroups.map((section, index) => {
+                                        const accuracy = section.total > 0 ? (section.correct / section.total) * 100 : 0;
+                                        const dotColor = SECTION_DOTS[section.name] || 'bg-gray-400';
+
+                                        return (
+                                            <div key={section.name} className="px-4 py-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex min-w-0 items-center gap-2">
+                                                        <span className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-xs font-bold text-gray-800">Section {index + 1}: {section.name}</p>
+                                                            <p className="text-[10px] font-medium text-gray-400">{formatDuration(section.elapsedSeconds, 'No timing data')}</p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="shrink-0 text-xs font-black text-gray-700">{accuracy.toFixed(1)}%</span>
+                                                </div>
+                                                <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                                                    <div className="rounded-md bg-emerald-50 px-2 py-1">
+                                                        <p className="text-[10px] font-black text-emerald-700">{section.correct}</p>
+                                                        <p className="text-[9px] font-bold uppercase text-emerald-600">Correct</p>
+                                                    </div>
+                                                    <div className="rounded-md bg-red-50 px-2 py-1">
+                                                        <p className="text-[10px] font-black text-red-600">{section.incorrect}</p>
+                                                        <p className="text-[9px] font-bold uppercase text-red-500">Wrong</p>
+                                                    </div>
+                                                    <div className="rounded-md bg-amber-50 px-2 py-1">
+                                                        <p className="text-[10px] font-black text-amber-700">{section.skipped}</p>
+                                                        <p className="text-[9px] font-bold uppercase text-amber-600">Skipped</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </Card>
+                        )}
+
                         <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
                             <div className="px-4 py-3 border-b border-gray-100">
                                 <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Summary</h3>

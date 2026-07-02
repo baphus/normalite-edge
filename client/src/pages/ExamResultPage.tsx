@@ -35,6 +35,68 @@ interface AttemptOption {
     percentage?: number | null;
 }
 
+interface AttemptListItem extends AttemptOption {
+    status?: string;
+}
+
+interface ResultStats {
+    totalQuestions: number;
+    correct: number;
+    incorrect: number;
+    skipped: number;
+    answered: number;
+    accuracy: number;
+}
+
+interface ResultSection {
+    sectionId?: string | null;
+    name: string;
+    total: number;
+    correct: number;
+    answered: number;
+    incorrect: number;
+    skipped: number;
+    score: number;
+}
+
+interface ResultQuestionDetail {
+    id: string;
+    orderNo: number;
+    section: string;
+    questionText: string;
+    imageUrl?: string | null;
+    choices?: string[];
+    userChoice: string | null;
+    correctChoice: string | null;
+    isCorrect: boolean;
+    rationalization?: string | null;
+}
+
+interface ExamResultPayload {
+    id: string;
+    examId: string;
+    attemptNo?: number;
+    submittedAt?: string | null;
+    timeSpentSeconds?: number | null;
+    percentage?: number | null;
+    exam?: {
+        id?: string;
+        title?: string;
+    };
+    stats: ResultStats;
+    sections?: ResultSection[];
+    questionDetails?: ResultQuestionDetail[];
+}
+
+interface ApiErrorLike {
+    response?: {
+        data?: {
+            message?: string;
+        };
+    };
+    message?: string;
+}
+
 const ExamResultPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -43,7 +105,7 @@ const ExamResultPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
     const [submittedAttempts, setSubmittedAttempts] = useState<AttemptOption[]>([]);
-    const [result, setResult] = useState<any | null>(null);
+    const [result, setResult] = useState<ExamResultPayload | null>(null);
 
     useEffect(() => {
         const loadAttemptOptions = async () => {
@@ -65,7 +127,7 @@ const ExamResultPage: React.FC = () => {
                     },
                 });
 
-                const attempts = (attemptsResponse.data.data || []) as any[];
+                const attempts = (attemptsResponse.data.data || []) as AttemptListItem[];
                 const submitted = attempts.filter((attempt) => attempt.status === 'SUBMITTED') as AttemptOption[];
 
                 if (submitted.length === 0) {
@@ -81,8 +143,9 @@ const ExamResultPage: React.FC = () => {
 
                 setAttemptId(selected);
                 setSearchParams({ attemptId: selected }, { replace: true });
-            } catch (requestError: any) {
-                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load exam result.';
+            } catch (requestError: unknown) {
+                const apiError = requestError as ApiErrorLike;
+                const message = apiError?.response?.data?.message || apiError?.message || 'Failed to load exam result.';
                 setError(message);
             } finally {
                 setLoading(false);
@@ -90,7 +153,7 @@ const ExamResultPage: React.FC = () => {
         };
 
         loadAttemptOptions();
-    }, [id, setSearchParams]);
+    }, [id, searchParams, setSearchParams]);
 
     useEffect(() => {
         const fetchResult = async () => {
@@ -101,8 +164,9 @@ const ExamResultPage: React.FC = () => {
                 setError(null);
                 const resultResponse = await api.get(`/attempts/${attemptId}/result`);
                 setResult(resultResponse.data.data);
-            } catch (requestError: any) {
-                const message = requestError?.response?.data?.message || requestError?.message || 'Failed to load exam result.';
+            } catch (requestError: unknown) {
+                const apiError = requestError as ApiErrorLike;
+                const message = apiError?.response?.data?.message || apiError?.message || 'Failed to load exam result.';
                 setError(message);
             } finally {
                 setLoading(false);
@@ -156,10 +220,10 @@ const ExamResultPage: React.FC = () => {
         };
     }, [result]);
 
-    const sections: any[] = useMemo(() => {
+    const sections = useMemo<ResultSection[]>(() => {
         const normalizedSections = (result?.sections || [])
-            .filter((section: any) => section?.name)
-            .map((section: any) => ({
+            .filter((section) => section?.name)
+            .map((section) => ({
                 ...section,
                 name: String(section.name || '').trim(),
             }));
@@ -167,7 +231,7 @@ const ExamResultPage: React.FC = () => {
         return normalizedSections.length <= 1 ? [] : normalizedSections;
     }, [result?.sections]);
 
-    const questionDetails: any[] = useMemo(() => {
+    const questionDetails = useMemo<ResultQuestionDetail[]>(() => {
         const asNumber = (value: unknown) => {
             const numeric = Number(value);
             return Number.isFinite(numeric) ? numeric : 0;
@@ -175,18 +239,41 @@ const ExamResultPage: React.FC = () => {
 
         const normalized = (result?.questionDetails || [])
             .slice()
-            .sort((first: any, second: any) => asNumber(first.orderNo) - asNumber(second.orderNo))
-            .map((question: any, index: number) => ({
+            .sort((first, second) => asNumber(first.orderNo) - asNumber(second.orderNo))
+            .map((question, index) => ({
                 ...question,
                 orderNo: index + 1,
                 section: String(question.section || '').trim() || 'Main section',
             }));
 
-        const effectiveSections = Array.from(new Set(normalized.map((question: any) => question.section).filter(Boolean)));
+        const effectiveSections = Array.from(new Set(normalized.map((question) => question.section).filter(Boolean)));
         return effectiveSections.length <= 1
-            ? normalized.map((question: any) => ({ ...question, section: '' }))
+            ? normalized.map((question) => ({ ...question, section: '' }))
             : normalized;
     }, [result?.questionDetails]);
+
+    const questionGroupsBySection = useMemo(() => {
+        const groups = new Map<string, { name: string; questions: ResultQuestionDetail[]; correct: number; total: number }>();
+
+        for (const question of questionDetails) {
+            const sectionName = question.section || 'Questions';
+            if (!groups.has(sectionName)) {
+                groups.set(sectionName, {
+                    name: sectionName,
+                    questions: [],
+                    correct: 0,
+                    total: 0,
+                });
+            }
+
+            const group = groups.get(sectionName)!;
+            group.questions.push(question);
+            group.total += 1;
+            group.correct += question.isCorrect ? 1 : 0;
+        }
+
+        return Array.from(groups.values());
+    }, [questionDetails]);
     const safeTotal = results.totalQuestions > 0 ? results.totalQuestions : 1;
     const correctPercent = (results.correct / safeTotal) * 100;
     const incorrectPercent = (results.incorrect / safeTotal) * 100;
@@ -214,6 +301,36 @@ const ExamResultPage: React.FC = () => {
             </div>
         );
     }
+
+    const renderQuestionSnapshotCard = (q: ResultQuestionDetail) => {
+        const state = q.isCorrect ? 'correct' : q.userChoice ? 'incorrect' : 'skipped';
+        const stateStyle = {
+            correct:   { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', label: 'Correct' },
+            incorrect: { dot: 'bg-red-500',     badge: 'bg-red-50 text-red-600 border-red-100',             label: 'Wrong' },
+            skipped:   { dot: 'bg-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-100',       label: 'Skipped' },
+        }[state];
+
+        return (
+            <Card key={q.id} className="border-gray-200 shadow-none rounded-lg overflow-hidden">
+                <div className="flex items-start gap-3 px-4 py-3">
+                    <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${stateStyle.dot}`} />
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2">{q.questionText}</p>
+                            <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${stateStyle.badge}`}>{stateStyle.label}</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-medium">
+                            Q{q.orderNo}
+                            {q.section && <> Â· {q.section}</>}
+                            {!q.isCorrect && q.userChoice && (
+                                <> Â· You chose <span className="font-bold text-red-500">{q.userChoice}</span> Â· Correct: <span className="font-bold text-emerald-600">{q.correctChoice}</span></>
+                            )}
+                        </p>
+                    </div>
+                </div>
+            </Card>
+        );
+    };
 
     return (
         <div className="flex flex-col gap-5 pb-10 max-w-6xl">
@@ -336,7 +453,32 @@ const ExamResultPage: React.FC = () => {
                         {questionDetails.length === 0 ? (
                             <div className="p-5 text-xs text-gray-400 font-medium text-center">No question data available.</div>
                         ) : (
-                            <div className="flex flex-col gap-1.5">
+                            <>
+                                <div className="space-y-4">
+                                    {questionGroupsBySection.map((group, index) => {
+                                        const accuracy = group.total > 0 ? (group.correct / group.total) * 100 : 0;
+
+                                        return (
+                                            <div key={group.name || index} className="space-y-2">
+                                                {questionGroupsBySection.length > 1 && (
+                                                    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-black text-gray-800 truncate">Section {index + 1}: {group.name}</p>
+                                                            <p className="text-[10px] font-medium text-gray-400">{group.questions.length} questions</p>
+                                                        </div>
+                                                        <span className="shrink-0 rounded-md bg-gray-50 px-2 py-1 text-[10px] font-black text-gray-600">
+                                                            {group.correct}/{group.total} · {accuracy.toFixed(0)}%
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col gap-1.5">
+                                                    {group.questions.map(renderQuestionSnapshotCard)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            <div className="hidden">
                                 {questionDetails.map((q) => {
                                     const state = q.isCorrect ? 'correct' : q.userChoice ? 'incorrect' : 'skipped';
                                     const stateStyle = {
@@ -366,6 +508,7 @@ const ExamResultPage: React.FC = () => {
                                     );
                                 })}
                             </div>
+                            </>
                         )}
                     </section>
                 </div>
