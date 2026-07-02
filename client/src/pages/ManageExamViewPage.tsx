@@ -17,6 +17,14 @@ import {
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -115,6 +123,46 @@ interface SubmissionAnalytics {
 
 type AttemptStatusFilter = 'ALL' | 'SUBMITTED' | 'IN_PROGRESS';
 type ScoreBandFilter = 'ALL' | 'HIGH' | 'PASSING' | 'AT_RISK' | 'NO_SCORE';
+type ExportScope = 'ALL' | 'FILTERED';
+
+interface StudentScoreRow {
+    id?: string;
+    rowNo: number;
+    studentName: string;
+    studentEmail: string;
+    program: string;
+    campus: string;
+    yearLevel: string;
+    section: string;
+    attemptNo: number;
+    status: string;
+    rawScore: string;
+    percentage: string;
+    timeSpent: string;
+    startedAt: string;
+    submittedAt: string;
+    profilePicture?: string | null;
+}
+
+const EXPORT_COLUMNS = [
+    { key: 'rowNo', label: 'No.' },
+    { key: 'studentName', label: 'Student' },
+    { key: 'studentEmail', label: 'Email' },
+    { key: 'program', label: 'Program' },
+    { key: 'campus', label: 'Campus' },
+    { key: 'yearLevel', label: 'Year Level' },
+    { key: 'section', label: 'Section' },
+    { key: 'attemptNo', label: 'Attempt No.' },
+    { key: 'status', label: 'Status' },
+    { key: 'rawScore', label: 'Raw Score' },
+    { key: 'percentage', label: 'Percentage' },
+    { key: 'timeSpent', label: 'Time Spent' },
+    { key: 'startedAt', label: 'Started At' },
+    { key: 'submittedAt', label: 'Submitted At' },
+] as const satisfies ReadonlyArray<{ key: keyof StudentScoreRow; label: string }>;
+
+type ExportColumnKey = typeof EXPORT_COLUMNS[number]['key'];
+const DEFAULT_EXPORT_COLUMNS = EXPORT_COLUMNS.map((column) => column.key);
 
 const formatDate = (value?: string | null) => {
     if (!value) return 'N/A';
@@ -161,11 +209,80 @@ const formatCompactNumber = (value?: number | null) => {
     return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(numeric);
 };
 
-const escapeExcelValue = (value: string | number | null | undefined) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+const getExcelColumnName = (index: number) => {
+    let column = '';
+    let current = index + 1;
+
+    while (current > 0) {
+        const remainder = (current - 1) % 26;
+        column = String.fromCharCode(65 + remainder) + column;
+        current = Math.floor((current - 1) / 26);
+    }
+
+    return column;
+};
+
+const createXlsxWorkbookBlob = async (
+    headers: string[],
+    rows: Array<Array<string | number | null | undefined>>
+) => {
+    const ExcelJSModule = await import('exceljs');
+    const ExcelJS = ('default' in ExcelJSModule ? ExcelJSModule.default : ExcelJSModule) as typeof ExcelJSModule;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Student Scores', {
+        views: [{ state: 'frozen', ySplit: 1 }],
+    });
+
+    workbook.creator = 'Normalite Edge';
+    workbook.created = new Date();
+
+    worksheet.columns = headers.map((header, columnIndex) => ({
+        header,
+        key: `column-${columnIndex}`,
+        width: Math.min(
+            Math.max(header.length, ...rows.map((row) => String(row[columnIndex] ?? '').length), 10) + 2,
+            36
+        ),
+        style: { numFmt: '@' },
+    }));
+    worksheet.addRows(rows.map((row) => row.map((value) => value ?? '')));
+
+    const lastColumn = getExcelColumnName(headers.length - 1);
+    const lastRow = Math.max(rows.length + 1, 1);
+    worksheet.autoFilter = {
+        from: 'A1',
+        to: `${lastColumn}${lastRow}`,
+    };
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 22;
+    headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF800000' },
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+
+    worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+                left: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+                bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+                right: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+            };
+            cell.alignment = { vertical: 'middle', wrapText: true };
+        });
+    });
+
+    const workbookBuffer = await workbook.xlsx.writeBuffer();
+    return new Blob([workbookBuffer as BlobPart], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+};
 
 const getAvatarFallback = (name?: string) => {
     const cleaned = (name || '').trim();
@@ -193,9 +310,15 @@ const ManageExamViewPage: React.FC = () => {
     const [submissionAnalytics, setSubmissionAnalytics] = useState<SubmissionAnalytics | null>(null);
     const [search, setSearch] = useState('');
     const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('ALL');
+    const [selectedCampusFilter, setSelectedCampusFilter] = useState<string>('ALL');
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<AttemptStatusFilter>('ALL');
     const [selectedScoreBandFilter, setSelectedScoreBandFilter] = useState<ScoreBandFilter>('ALL');
     const [selectedSection, setSelectedSection] = useState('ALL');
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [exportScope, setExportScope] = useState<ExportScope>('ALL');
+    const [selectedExportColumns, setSelectedExportColumns] = useState<ExportColumnKey[]>([...DEFAULT_EXPORT_COLUMNS]);
+    const [exportingScores, setExportingScores] = useState(false);
+    const [studentFiltersOpen, setStudentFiltersOpen] = useState(false);
 
     const fetchAllAttempts = async (examId: string) => {
         const pageSize = 500;
@@ -305,6 +428,7 @@ const ManageExamViewPage: React.FC = () => {
                 || section.includes(term)
                 || campus.includes(term);
             const matchesProgram = selectedProgramFilter === 'ALL' || attempt.user?.programTrack === selectedProgramFilter;
+            const matchesCampus = selectedCampusFilter === 'ALL' || attempt.user?.campus === selectedCampusFilter;
             const matchesStatus = selectedStatusFilter === 'ALL' || attempt.status === selectedStatusFilter;
             const matchesScoreBand = selectedScoreBandFilter === 'ALL'
                 || (selectedScoreBandFilter === 'HIGH' && isSubmitted && percentage >= 90)
@@ -312,9 +436,9 @@ const ManageExamViewPage: React.FC = () => {
                 || (selectedScoreBandFilter === 'AT_RISK' && isSubmitted && percentage < 75)
                 || (selectedScoreBandFilter === 'NO_SCORE' && !isSubmitted);
 
-            return matchesSearch && matchesProgram && matchesStatus && matchesScoreBand;
+            return matchesSearch && matchesProgram && matchesCampus && matchesStatus && matchesScoreBand;
         });
-    }, [allAttemptsSorted, search, selectedProgramFilter, selectedScoreBandFilter, selectedStatusFilter]);
+    }, [allAttemptsSorted, search, selectedCampusFilter, selectedProgramFilter, selectedScoreBandFilter, selectedStatusFilter]);
 
     const programOptions = useMemo(() => {
         const specs = new Set<string>();
@@ -322,6 +446,14 @@ const ManageExamViewPage: React.FC = () => {
             if (a.user?.programTrack) specs.add(a.user.programTrack);
         });
         return Array.from(specs).sort();
+    }, [allAttemptsSorted]);
+
+    const campusOptions = useMemo(() => {
+        const campuses = new Set<string>();
+        allAttemptsSorted.forEach((attempt) => {
+            if (attempt.user?.campus) campuses.add(attempt.user.campus);
+        });
+        return Array.from(campuses).sort();
     }, [allAttemptsSorted]);
 
     const attemptSummary = useMemo(() => {
@@ -462,8 +594,16 @@ const ManageExamViewPage: React.FC = () => {
 
     const hasStudentSubmissionFilters = Boolean(search.trim())
         || selectedProgramFilter !== 'ALL'
+        || selectedCampusFilter !== 'ALL'
         || selectedStatusFilter !== 'ALL'
         || selectedScoreBandFilter !== 'ALL';
+    const activeStudentFilterCount = [
+        Boolean(search.trim()),
+        selectedProgramFilter !== 'ALL',
+        selectedCampusFilter !== 'ALL',
+        selectedStatusFilter !== 'ALL',
+        selectedScoreBandFilter !== 'ALL',
+    ].filter(Boolean).length;
 
     const filteredSubmissionSummary = useMemo(() => {
         const submitted = filteredAttempts.filter((attempt) => attempt.status === 'SUBMITTED').length;
@@ -479,123 +619,287 @@ const ManageExamViewPage: React.FC = () => {
     const resetStudentSubmissionFilters = () => {
         setSearch('');
         setSelectedProgramFilter('ALL');
+        setSelectedCampusFilter('ALL');
         setSelectedStatusFilter('ALL');
         setSelectedScoreBandFilter('ALL');
     };
 
-    const handleExportPDF = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(18);
-        doc.setTextColor(128, 0, 0); // Primary color
-        doc.text(`Exam Analytics: ${exam?.title || 'Untitled Exam'}`, 14, 22);
+    const toggleExportColumn = (columnKey: ExportColumnKey) => {
+        setSelectedExportColumns((current) => {
+            if (current.includes(columnKey)) {
+                if (current.length === 1) return current;
+                return current.filter((key) => key !== columnKey);
+            }
 
-        doc.setFontSize(11);
-        doc.setTextColor(51, 51, 51);
-        doc.text(`Total Attempts: ${attemptSummary.total}`, 14, 32);
-        doc.text(`Average Score: ${formatPercent(attemptSummary.averageScore)}`, 14, 38);
-        doc.text(`Highest Score: ${formatPercent(attemptSummary.highestScore)}`, 14, 44);
-        doc.text(`Lowest Score: ${formatPercent(attemptSummary.lowestScore)}`, 14, 50);
-
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text('Student Submissions Details', 14, 62);
-
-        const tableColumn = ["Student", "Program", "Score", "Percentage", "Status", "Date"];
-        const tableRows = allAttemptsSorted.map(attempt => [
-            attempt.user?.name || 'Unknown User',
-            attempt.user?.programTrack || 'N/A',
-            attempt.status === 'SUBMITTED' ? `${Number(attempt.score || 0)}/${questionCount}` : '-',
-            attempt.status === 'SUBMITTED' ? formatPercent(attempt.percentage) : '-',
-            attempt.status,
-            formatDate(attempt.submittedAt || attempt.startedAt)
-        ]);
-
-        autoTable(doc, {
-            startY: 66,
-            head: [tableColumn],
-            body: tableRows,
-            theme: 'striped',
-            headStyles: { fillColor: [128, 0, 0] },
-            styles: { fontSize: 9 },
+            return [...current, columnKey];
         });
-
-        const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-        doc.save(`${safeTitle}-analytics.pdf`);
     };
 
-    const handleExportStudentScores = () => {
-        if (studentScoreRows.length === 0) {
+    const selectAllExportColumns = () => {
+        setSelectedExportColumns([...DEFAULT_EXPORT_COLUMNS]);
+    };
+
+    const resetExportColumns = () => {
+        setSelectedExportColumns([...DEFAULT_EXPORT_COLUMNS]);
+        setExportScope('ALL');
+    };
+
+    const getSafeExamTitle = () => (
+        (exam?.title || 'exam')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            || 'exam'
+    );
+
+    const addPdfSectionTitle = (doc: jsPDF, title: string, y: number) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(128, 0, 0);
+        doc.text(title, 12, y);
+        doc.setDrawColor(212, 175, 55);
+        doc.setLineWidth(0.35);
+        doc.line(12, y + 2.5, doc.internal.pageSize.getWidth() - 12, y + 2.5);
+    };
+
+    const addCnuWatermarkAndFooter = (doc: jsPDF, generatedAt: string) => {
+        const pageCount = doc.getNumberOfPages();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+            doc.setPage(pageNumber);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(30);
+            doc.setTextColor(232, 222, 222);
+            doc.text('CEBU NORMAL UNIVERSITY', pageWidth / 2, pageHeight / 2, {
+                align: 'center',
+                angle: 32,
+            });
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(120, 120, 120);
+            doc.text(`Generated ${generatedAt}`, 12, pageHeight - 8);
+            doc.text(`Page ${pageNumber} of ${pageCount}`, pageWidth - 12, pageHeight - 8, { align: 'right' });
+        }
+    };
+
+    const getNextPdfY = (doc: jsPDF, fallbackY: number, requiredHeight = 18) => {
+        const lastTable = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        let nextY = Math.max(lastTable?.finalY ? lastTable.finalY + 12 : fallbackY, fallbackY);
+
+        if (nextY + requiredHeight > pageHeight - 18) {
+            doc.addPage();
+            nextY = 18;
+        }
+
+        return nextY;
+    };
+
+    const handleExportPDF = (scope: ExportScope = 'ALL', columnKeys: ExportColumnKey[] = [...DEFAULT_EXPORT_COLUMNS]) => {
+        const sourceRows = scope === 'FILTERED' ? visibleStudentScoreRows : studentScoreRows;
+        const activeColumns = EXPORT_COLUMNS.filter((column) => columnKeys.includes(column.key));
+        const generatedAt = formatDate(new Date().toISOString());
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const reportTitle = exam?.title || 'Untitled Exam';
+        const durationMinutes = Number(exam?.timeLimit || exam?.duration || 0);
+        const scoreColumnWidths: Record<ExportColumnKey, number> = {
+            rowNo: 10,
+            studentName: 28,
+            studentEmail: 35,
+            program: 28,
+            campus: 24,
+            yearLevel: 18,
+            section: 18,
+            attemptNo: 16,
+            status: 18,
+            rawScore: 18,
+            percentage: 18,
+            timeSpent: 20,
+            startedAt: 26,
+            submittedAt: 26,
+        };
+        const scoreColumnStyles = activeColumns.reduce<Record<number, { cellWidth: number; halign?: 'left' | 'center' }>>((styles, column, index) => {
+            styles[index] = {
+                cellWidth: scoreColumnWidths[column.key],
+                halign: ['rowNo', 'attemptNo', 'status', 'rawScore', 'percentage', 'timeSpent'].includes(column.key) ? 'center' : 'left',
+            };
+            return styles;
+        }, {});
+        const trackList = exam?.tracks?.map((track) => track.name || track.code).filter(Boolean).join(', ')
+            || exam?.program_track
+            || 'All / N/A';
+        const creatorName = exam?.creator?.name
+            || `${exam?.creator?.firstName || ''} ${exam?.creator?.lastName || ''}`.trim()
+            || 'N/A';
+
+        doc.setFillColor(128, 0, 0);
+        doc.rect(0, 0, pageWidth, 28, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.text('Cebu Normal University', 12, 11);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Normalite Edge Exam Performance Report', 12, 19);
+        doc.text(`Scope: ${scope === 'FILTERED' ? 'Filtered student score rows' : 'All student score rows'}`, pageWidth - 12, 11, { align: 'right' });
+        doc.text(`Generated: ${generatedAt}`, pageWidth - 12, 19, { align: 'right' });
+
+        doc.setTextColor(24, 24, 27);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text(reportTitle, 12, 39, { maxWidth: pageWidth - 24 });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(82, 82, 91);
+        doc.text(exam?.description || 'No description provided.', 12, 46, { maxWidth: pageWidth - 24 });
+
+        autoTable(doc, {
+            startY: 53,
+            body: [
+                ['Status', exam?.status || 'UNKNOWN', 'Category', exam?.category || 'N/A', 'Applicable Track(s)', trackList],
+                ['Questions', String(questionCount), 'Duration', durationMinutes > 0 ? `${durationMinutes} minutes` : 'N/A', 'Maximum Attempts', String(exam?.maxAttempts ?? 'N/A')],
+                ['Deadline / Schedule End', formatDate(submissionStatus?.scheduleEnd || exam?.deadline || exam?.scheduledDate), 'Close on Deadline', exam?.closeOnDeadline ? 'Yes' : 'No', 'Created By', creatorName],
+            ],
+            theme: 'grid',
+            styles: { fontSize: 7, cellPadding: 2, lineColor: [226, 232, 240], lineWidth: 0.15 },
+            columnStyles: {
+                0: { fontStyle: 'bold', textColor: [128, 0, 0], cellWidth: 32 },
+                2: { fontStyle: 'bold', textColor: [128, 0, 0], cellWidth: 34 },
+                4: { fontStyle: 'bold', textColor: [128, 0, 0], cellWidth: 38 },
+            },
+        });
+
+        const summaryY = getNextPdfY(doc, 80, 26);
+        addPdfSectionTitle(doc, 'Performance Summary', summaryY);
+        autoTable(doc, {
+            startY: summaryY + 6,
+            head: [['Total Attempts', 'Submitted', 'In Progress', 'Unique Students', 'Average Score', 'Highest Score', 'Lowest Score']],
+            body: [[
+                attemptSummary.total,
+                attemptSummary.submitted,
+                attemptSummary.inProgress,
+                attemptSummary.uniqueStudents,
+                formatPercent(attemptSummary.averageScore),
+                formatPercent(attemptSummary.highestScore),
+                formatPercent(attemptSummary.lowestScore),
+            ]],
+            theme: 'grid',
+            headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontSize: 7.5, halign: 'center' },
+            bodyStyles: { fontSize: 9, fontStyle: 'bold', halign: 'center', textColor: [24, 24, 27] },
+            styles: { cellPadding: 2.5, lineColor: [226, 232, 240], lineWidth: 0.15 },
+        });
+
+        const distributionY = getNextPdfY(doc, 112, 34);
+        addPdfSectionTitle(doc, 'Score Distribution and Program Performance', distributionY);
+        autoTable(doc, {
+            startY: distributionY + 6,
+            head: [['Score Band', ...scoreDistribution.map((bin) => `${bin.label}%`)]],
+            body: [['Students', ...scoreDistribution.map((bin) => bin.count)]],
+            theme: 'grid',
+            headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontSize: 7, halign: 'center' },
+            bodyStyles: { fontSize: 8, halign: 'center' },
+            styles: { cellPadding: 2, lineColor: [226, 232, 240], lineWidth: 0.15 },
+        });
+
+        autoTable(doc, {
+            startY: getNextPdfY(doc, distributionY + 28, 22),
+            head: [['Program', 'Submitted Attempts', 'Average Score']],
+            body: topPrograms.length > 0
+                ? topPrograms.map((program) => [program.program, program.count, formatPercent(program.averageScore)])
+                : [['No program data available', '-', '-']],
+            theme: 'striped',
+            headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontSize: 7 },
+            styles: { fontSize: 7, cellPadding: 2, lineColor: [226, 232, 240], lineWidth: 0.15 },
+        });
+
+        const scoreRowsY = getNextPdfY(doc, 158, 44);
+        addPdfSectionTitle(doc, `Student Score Rows (${sourceRows.length})`, scoreRowsY);
+        autoTable(doc, {
+            startY: scoreRowsY + 6,
+            head: [activeColumns.map((column) => column.label)],
+            body: sourceRows.length > 0
+                ? sourceRows.map((row) => activeColumns.map((column) => String(row[column.key] ?? '')))
+                : [activeColumns.map(() => '-')],
+            theme: 'striped',
+            headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontSize: 6.4, halign: 'center' },
+            styles: { fontSize: 5.8, cellPadding: 1.35, overflow: 'linebreak', valign: 'middle', lineColor: [226, 232, 240], lineWidth: 0.1 },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: scoreColumnStyles,
+            margin: { left: 8, right: 8 },
+        });
+
+        const questionRows = questionsWithSection.map(({ question, globalQuestionNo, sectionTitle }) => {
+            const choiceMap = question as ExamQuestion & Record<string, string | null | undefined>;
+            const choices = ['A', 'B', 'C', 'D']
+                .map((choice) => `${choice}. ${choiceMap[`choice${choice}`] || 'N/A'}`)
+                .join('\n');
+
+            return [
+                globalQuestionNo,
+                sectionTitle,
+                question.questionText || 'Untitled question',
+                choices,
+                question.correctChoice || 'N/A',
+                question.rationalization || 'N/A',
+            ];
+        });
+
+        const questionsY = getNextPdfY(doc, 176, 54);
+        addPdfSectionTitle(doc, `Exam Question Appendix (${questionRows.length})`, questionsY);
+        autoTable(doc, {
+            startY: questionsY + 6,
+            head: [['No.', 'Section', 'Question', 'Choices', 'Correct Answer', 'Rationalization']],
+            body: questionRows.length > 0 ? questionRows : [['-', '-', 'No questions found for this exam.', '-', '-', '-']],
+            theme: 'grid',
+            headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontSize: 6.5 },
+            styles: { fontSize: 5.8, cellPadding: 1.4, overflow: 'linebreak', valign: 'top', lineColor: [226, 232, 240], lineWidth: 0.1 },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 10 },
+                1: { cellWidth: 30 },
+                2: { cellWidth: 78 },
+                3: { cellWidth: 70 },
+                4: { halign: 'center', cellWidth: 24 },
+                5: { cellWidth: 72 },
+            },
+            margin: { left: 8, right: 8 },
+        });
+
+        addCnuWatermarkAndFooter(doc, generatedAt);
+        doc.save(`${getSafeExamTitle()}-complete-report.pdf`);
+    };
+
+    const handleExportStudentScores = async () => {
+        const sourceRows = exportScope === 'FILTERED' ? visibleStudentScoreRows : studentScoreRows;
+        const activeColumns = EXPORT_COLUMNS.filter((column) => selectedExportColumns.includes(column.key));
+
+        if (sourceRows.length === 0 || activeColumns.length === 0 || exportingScores) {
             return;
         }
 
-        const header = [
-            'No.',
-            'Student',
-            'Email',
-            'Program',
-            'Campus',
-            'Year Level',
-            'Section',
-            'Attempt No.',
-            'Status',
-            'Raw Score',
-            'Percentage',
-            'Time Spent',
-            'Started At',
-            'Submitted At',
-        ];
+        setExportingScores(true);
 
-        const tableHead = header
-            .map((column) => `<th>${escapeExcelValue(column)}</th>`)
-            .join('');
-        const tableRows = studentScoreRows
-            .map((row) => [
-                row.rowNo,
-                row.studentName,
-                row.studentEmail,
-                row.program,
-                row.campus,
-                row.yearLevel,
-                row.section,
-                row.attemptNo,
-                row.status,
-                row.rawScore,
-                row.percentage,
-                row.timeSpent,
-                row.startedAt,
-                row.submittedAt,
-            ])
-            .map((row) => `<tr>${row.map((value) => `<td>${escapeExcelValue(value)}</td>`).join('')}</tr>`)
-            .join('');
-        const worksheet = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<style>
-table { border-collapse: collapse; font-family: Arial, sans-serif; }
-th { background: #800000; color: #ffffff; font-weight: 700; }
-th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
-</style>
-</head>
-<body>
-<table>
-<thead><tr>${tableHead}</tr></thead>
-<tbody>${tableRows}</tbody>
-</table>
-</body>
-</html>`;
+        try {
+            const headers = activeColumns.map((column) => column.label);
+            const exportRows = sourceRows.map((row) => activeColumns.map((column) => row[column.key]));
+            const blob = await createXlsxWorkbookBlob(headers, exportRows);
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-        const blob = new Blob([worksheet], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        const downloadUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const safeTitle = (exam?.title || 'exam').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-        link.href = downloadUrl;
-        link.download = `${safeTitle || 'exam'}-student-scores.xls`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(downloadUrl);
+            link.href = downloadUrl;
+            link.download = `${safeTitle || 'exam'}-student-scores.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+            setExportDialogOpen(false);
+        } finally {
+            setExportingScores(false);
+        }
     };
 
     const questions = useMemo(() => {
@@ -676,11 +980,11 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                     </div>
                     <div className="flex items-center gap-3">
                         <Button
-                            onClick={handleExportPDF}
+                            onClick={() => handleExportPDF('ALL', [...DEFAULT_EXPORT_COLUMNS])}
                             className="bg-white text-slate-700 border border-primary/20 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-slate-50 transition-shadow shadow-sm h-10"
                         >
                             <Download size={16} />
-                            Export PDF
+                            Export Full PDF
                         </Button>
                         {exam && canEditExam && (
                             <Link to={`/manage-exams/${exam.id}/edit`}>
@@ -853,94 +1157,125 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                                     <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
                                         {studentScoreRows.length} total rows
                                     </span>
+                                    <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-700">
+                                        {visibleStudentScoreRows.length} shown
+                                    </span>
                                     <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700">
                                         {attemptSummary.submitted} submitted
                                     </span>
                                     <Button
-                                        onClick={handleExportStudentScores}
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setStudentFiltersOpen((open) => !open)}
+                                        aria-expanded={studentFiltersOpen}
+                                        className="h-10 rounded-lg border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 gap-2"
+                                    >
+                                        <Filter size={15} />
+                                        Filters
+                                        {activeStudentFilterCount > 0 && (
+                                            <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-black text-white">
+                                                {activeStudentFilterCount}
+                                            </span>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        onClick={() => setExportDialogOpen(true)}
                                         disabled={studentScoreRows.length === 0}
                                         className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 shadow-sm h-10"
                                     >
-                                        <FileSpreadsheet size={16} /> Export All Scores
+                                        <FileSpreadsheet size={16} /> Export Scores
                                     </Button>
                                 </div>
                             </div>
 
-                            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
-                                        <Filter size={14} className="text-primary" />
-                                        Filters
+                            {studentFiltersOpen && (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                                    <div className="flex items-center justify-between gap-3 mb-3">
+                                        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
+                                            <Filter size={14} className="text-primary" />
+                                            Filters
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={resetStudentSubmissionFilters}
+                                            disabled={!hasStudentSubmissionFilters}
+                                            className="h-8 rounded-lg px-3 text-xs font-bold text-slate-500 hover:text-primary"
+                                        >
+                                            <RotateCcw size={13} className="mr-1.5" /> Reset
+                                        </Button>
                                     </div>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        onClick={resetStudentSubmissionFilters}
-                                        disabled={!hasStudentSubmissionFilters}
-                                        className="h-8 rounded-lg px-3 text-xs font-bold text-slate-500 hover:text-primary"
-                                    >
-                                        <RotateCcw size={13} className="mr-1.5" /> Reset
-                                    </Button>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+                                        <div className="relative group md:col-span-2 xl:col-span-1">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
+                                            <Input
+                                                value={search}
+                                                onChange={(event) => setSearch(event.target.value)}
+                                                placeholder="Search name, email, program, campus..."
+                                                className="pl-10 bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full transition-all h-10"
+                                            />
+                                        </div>
+                                        <Select value={selectedProgramFilter} onValueChange={setSelectedProgramFilter}>
+                                            <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
+                                                <SelectValue placeholder="All Programs" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ALL">All Programs</SelectItem>
+                                                {programOptions.map(prog => (
+                                                    <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={selectedCampusFilter} onValueChange={setSelectedCampusFilter}>
+                                            <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
+                                                <SelectValue placeholder="All Campuses" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ALL">All Campuses</SelectItem>
+                                                {campusOptions.map((campus) => (
+                                                    <SelectItem key={campus} value={campus}>{campus}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={selectedStatusFilter} onValueChange={(value) => setSelectedStatusFilter(value as AttemptStatusFilter)}>
+                                            <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
+                                                <SelectValue placeholder="All Statuses" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ALL">All Statuses</SelectItem>
+                                                <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                                                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={selectedScoreBandFilter} onValueChange={(value) => setSelectedScoreBandFilter(value as ScoreBandFilter)}>
+                                            <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
+                                                <SelectValue placeholder="All Scores" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ALL">All Scores</SelectItem>
+                                                <SelectItem value="HIGH">90-100%</SelectItem>
+                                                <SelectItem value="PASSING">75-89%</SelectItem>
+                                                <SelectItem value="AT_RISK">Below 75%</SelectItem>
+                                                <SelectItem value="NO_SCORE">No Score Yet</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                                <p className="text-[10px] font-bold uppercase text-slate-400">Shown</p>
+                                                <p className="text-sm font-black text-slate-900">{visibleStudentScoreRows.length}</p>
+                                            </div>
+                                            <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                                <p className="text-[10px] font-bold uppercase text-slate-400">Done</p>
+                                                <p className="text-sm font-black text-emerald-700">{filteredSubmissionSummary.submitted}</p>
+                                            </div>
+                                            <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                                <p className="text-[10px] font-bold uppercase text-slate-400">Open</p>
+                                                <p className="text-sm font-black text-amber-700">{filteredSubmissionSummary.inProgress}</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-                                    <div className="relative group md:col-span-2 xl:col-span-1">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
-                                        <Input
-                                            value={search}
-                                            onChange={(event) => setSearch(event.target.value)}
-                                            placeholder="Search name, email, program, campus..."
-                                            className="pl-10 bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm w-full transition-all h-10"
-                                        />
-                                    </div>
-                                    <Select value={selectedProgramFilter} onValueChange={setSelectedProgramFilter}>
-                                        <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
-                                            <SelectValue placeholder="All Programs" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ALL">All Programs</SelectItem>
-                                            {programOptions.map(prog => (
-                                                <SelectItem key={prog} value={prog}>{prog}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={selectedStatusFilter} onValueChange={(value) => setSelectedStatusFilter(value as AttemptStatusFilter)}>
-                                        <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
-                                            <SelectValue placeholder="All Statuses" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ALL">All Statuses</SelectItem>
-                                            <SelectItem value="SUBMITTED">Submitted</SelectItem>
-                                            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={selectedScoreBandFilter} onValueChange={(value) => setSelectedScoreBandFilter(value as ScoreBandFilter)}>
-                                        <SelectTrigger className="bg-white border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg text-sm h-10">
-                                            <SelectValue placeholder="All Scores" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ALL">All Scores</SelectItem>
-                                            <SelectItem value="HIGH">90-100%</SelectItem>
-                                            <SelectItem value="PASSING">75-89%</SelectItem>
-                                            <SelectItem value="AT_RISK">Below 75%</SelectItem>
-                                            <SelectItem value="NO_SCORE">No Score Yet</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
-                                            <p className="text-[10px] font-bold uppercase text-slate-400">Shown</p>
-                                            <p className="text-sm font-black text-slate-900">{visibleStudentScoreRows.length}</p>
-                                        </div>
-                                        <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
-                                            <p className="text-[10px] font-bold uppercase text-slate-400">Done</p>
-                                            <p className="text-sm font-black text-emerald-700">{filteredSubmissionSummary.submitted}</p>
-                                        </div>
-                                        <div className="rounded-lg bg-white border border-slate-200 px-3 py-2">
-                                            <p className="text-[10px] font-bold uppercase text-slate-400">Open</p>
-                                            <p className="text-sm font-black text-amber-700">{filteredSubmissionSummary.inProgress}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            )}
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[1080px] text-left">
@@ -1110,6 +1445,99 @@ th, td { border: 1px solid #d9d9d9; padding: 8px; mso-number-format: "\\@"; }
                     </div>
                 </div>
             )}
+            <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+                <DialogContent className="max-w-2xl rounded-2xl font-lexend">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-black text-slate-900">Customize Score Export</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-5">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Rows</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <Button
+                                    type="button"
+                                    variant={exportScope === 'ALL' ? 'default' : 'outline'}
+                                    onClick={() => setExportScope('ALL')}
+                                    className={`h-10 rounded-lg text-xs font-bold ${exportScope === 'ALL' ? 'bg-primary text-white' : 'border-slate-200 text-slate-600'}`}
+                                >
+                                    All Rows ({studentScoreRows.length})
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={exportScope === 'FILTERED' ? 'default' : 'outline'}
+                                    onClick={() => setExportScope('FILTERED')}
+                                    className={`h-10 rounded-lg text-xs font-bold ${exportScope === 'FILTERED' ? 'bg-primary text-white' : 'border-slate-200 text-slate-600'}`}
+                                >
+                                    Filtered Rows ({visibleStudentScoreRows.length})
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 p-4">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Columns</p>
+                                <div className="flex items-center gap-2">
+                                    <Button type="button" variant="ghost" onClick={selectAllExportColumns} className="h-7 px-2 text-[11px] font-bold text-slate-500">
+                                        Select All
+                                    </Button>
+                                    <Button type="button" variant="ghost" onClick={resetExportColumns} className="h-7 px-2 text-[11px] font-bold text-slate-500">
+                                        Reset
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {EXPORT_COLUMNS.map((column) => {
+                                    const checked = selectedExportColumns.includes(column.key);
+                                    const disableUncheck = checked && selectedExportColumns.length === 1;
+
+                                    return (
+                                        <label
+                                            key={column.key}
+                                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
+                                                checked ? 'border-primary/30 bg-primary/5 text-slate-900' : 'border-slate-200 text-slate-500'
+                                            }`}
+                                        >
+                                            <Checkbox
+                                                checked={checked}
+                                                disabled={disableUncheck}
+                                                onCheckedChange={() => toggleExportColumn(column.key)}
+                                            />
+                                            {column.label}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setExportDialogOpen(false)} className="h-9 rounded-lg text-xs font-bold">
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleExportStudentScores}
+                            disabled={exportingScores || (exportScope === 'FILTERED' ? visibleStudentScoreRows.length : studentScoreRows.length) === 0 || selectedExportColumns.length === 0}
+                            className="h-9 rounded-lg border-slate-200 text-xs font-bold"
+                            variant="outline"
+                        >
+                            <FileSpreadsheet size={14} className="mr-1.5" /> {exportingScores ? 'Exporting...' : 'Export Excel'}
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                handleExportPDF(exportScope, selectedExportColumns);
+                                setExportDialogOpen(false);
+                            }}
+                            disabled={(exportScope === 'FILTERED' ? visibleStudentScoreRows.length : studentScoreRows.length) === 0 || selectedExportColumns.length === 0}
+                            className="h-9 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90"
+                        >
+                            <Download size={14} className="mr-1.5" /> Export PDF
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
