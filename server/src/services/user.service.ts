@@ -269,6 +269,64 @@ export class UserService {
     }
 
     /**
+     * Admin update of user details, email, and password.
+     */
+    async updateUser(userId: string, data: {
+        firstName?: string;
+        lastName?: string;
+        middleInitial?: string;
+        suffix?: string;
+        email?: string;
+        password?: string;
+        track_id?: string;
+        campus_id?: string;
+        yearLevel?: string;
+        section?: string;
+    }) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw ApiError.notFound('User not found');
+
+        // If email is changing, check it's not taken
+        if (data.email && data.email !== user.email) {
+            const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase().trim() } });
+            if (existing) throw ApiError.conflict('Email is already in use by another user');
+        }
+
+        // Build update payload with only provided fields
+        const updateData: any = {};
+        if (data.firstName !== undefined) updateData.firstName = data.firstName;
+        if (data.lastName !== undefined) updateData.lastName = data.lastName;
+        if (data.middleInitial !== undefined) updateData.middleInitial = data.middleInitial || null;
+        if (data.suffix !== undefined) updateData.suffix = data.suffix || null;
+        if (data.email !== undefined) updateData.email = data.email.toLowerCase().trim();
+        if (data.password !== undefined) updateData.passwordHash = await bcrypt.hash(data.password, 10);
+        if (data.track_id !== undefined) updateData.trackId = data.track_id || null;
+        if (data.campus_id !== undefined) updateData.campusId = data.campus_id || null;
+        if (data.yearLevel !== undefined) updateData.yearLevel = data.yearLevel || null;
+        if (data.section !== undefined) updateData.section = data.section || null;
+
+        const updated = await prisma.user.update({
+            where: { id: userId },
+            data: updateData,
+            include: {
+                track: { select: { id: true, name: true, code: true } },
+                campus: { select: { id: true, name: true, code: true } },
+            },
+        });
+
+        return {
+            ...updated,
+            name: `${updated.firstName} ${updated.lastName}`.trim(),
+            status: fromDbUserStatus(updated.status as string),
+            program: updated.track?.name || updated.programTrack || null,
+            program_track: updated.track?.name || updated.programTrack || null,
+            track_id: updated.trackId || updated.track?.id || null,
+            campus: updated.campus?.name || null,
+            campus_id: updated.campusId || updated.campus?.id || null,
+        };
+    }
+
+    /**
      * Update a user's status (approve/reject).
      */
     async updateUserStatus(userId: string, status: string) {

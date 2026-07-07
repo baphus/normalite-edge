@@ -71,6 +71,10 @@ type SortKey = 'name' | 'program' | 'role' | 'status' | 'dateJoined';
 interface User {
     id: string;
     name: string;
+    firstName: string;
+    lastName: string;
+    middleInitial?: string;
+    suffix?: string;
     email: string;
     picture: string;
     program: string;
@@ -79,12 +83,18 @@ interface User {
     section: string;
     role: UserRole;
     status: UiStatus;
+    trackId?: string;
+    campusId?: string;
     dateJoined: string;
 }
 
 interface UserApiItem {
     id: string;
     name: string;
+    firstName: string;
+    lastName: string;
+    middleInitial?: string | null;
+    suffix?: string | null;
     email: string;
     role: UserRole;
     status: ApiStatus;
@@ -99,6 +109,8 @@ interface UserApiItem {
     picture?: string | null;
     avatar?: string | null;
     createdAt: string;
+    trackId?: string | null;
+    campusId?: string | null;
 }
 
 interface TrackOption {
@@ -122,6 +134,10 @@ const statusToApi = (status: UiStatus): ApiStatus => {
 const toUiUser = (item: UserApiItem): User => ({
     id: item.id,
     name: item.name,
+    firstName: item.firstName,
+    lastName: item.lastName,
+    middleInitial: item.middleInitial || '',
+    suffix: item.suffix || '',
     email: item.email,
     picture: item.profilePicture || item.profile_picture || item.picture || item.avatar || '',
     program: item.program || 'N/A',
@@ -130,6 +146,8 @@ const toUiUser = (item: UserApiItem): User => ({
     section: item.section || 'N/A',
     role: item.role,
     status: statusFromApi(item.status),
+    trackId: item.trackId || undefined,
+    campusId: item.campusId || undefined,
     dateJoined: item.createdAt,
 });
 
@@ -208,6 +226,16 @@ const UserManagementPage: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [editRole, setEditRole] = useState<UserRole>('REVIEWEE');
     const [editStatus, setEditStatus] = useState<UiStatus>('active');
+    const [editFirstName, setEditFirstName] = useState('');
+    const [editLastName, setEditLastName] = useState('');
+    const [editMiddleInitial, setEditMiddleInitial] = useState('');
+    const [editSuffix, setEditSuffix] = useState('');
+    const [editEmail, setEditEmail] = useState('');
+    const [editPassword, setEditPassword] = useState('');
+    const [editTrackId, setEditTrackId] = useState('');
+    const [editCampusId, setEditCampusId] = useState('');
+    const [editYearLevel, setEditYearLevel] = useState('');
+    const [editSection, setEditSection] = useState('');
 interface CampusOption {
     id: string;
     name: string;
@@ -322,6 +350,16 @@ interface CampusOption {
         setSelectedUser(user);
         setEditRole(user.role);
         setEditStatus(user.status);
+        setEditFirstName(user.firstName);
+        setEditLastName(user.lastName);
+        setEditMiddleInitial(user.middleInitial || '');
+        setEditSuffix(user.suffix || '');
+        setEditEmail(user.email);
+        setEditPassword('');
+        setEditTrackId(user.trackId || '');
+        setEditCampusId(user.campusId || '');
+        setEditYearLevel(user.yearLevel);
+        setEditSection(user.section);
         setIsEditModalOpen(true);
     };
 
@@ -399,12 +437,38 @@ interface CampusOption {
         try {
             setMutatingId(selectedUser.id);
 
+            const body: Record<string, any> = {};
+
+            // Name fields
+            if (editFirstName !== selectedUser.firstName) body.firstName = editFirstName;
+            if (editLastName !== selectedUser.lastName) body.lastName = editLastName;
+            if (editMiddleInitial !== (selectedUser.middleInitial || '')) body.middleInitial = editMiddleInitial || undefined;
+            if (editSuffix !== (selectedUser.suffix || '')) body.suffix = editSuffix || undefined;
+            
+            // Email
+            if (editEmail !== selectedUser.email) body.email = editEmail;
+            
+            // Password (only if admin entered a new one)
+            if (editPassword) body.password = editPassword;
+
+            // Academic fields
+            if (editTrackId !== (selectedUser.trackId || '')) body.track_id = editTrackId || undefined;
+            if (editCampusId !== (selectedUser.campusId || '')) body.campus_id = editCampusId || undefined;
+            if (editYearLevel !== selectedUser.yearLevel) body.yearLevel = editYearLevel;
+            if (editSection !== selectedUser.section) body.section = editSection;
+
+            // Role and Status still use their dedicated endpoints
             if (editRole !== selectedUser.role) {
                 await api.patch(`/users/${selectedUser.id}/role`, { role: editRole });
             }
 
             if (editStatus !== selectedUser.status) {
                 await api.patch(`/users/${selectedUser.id}/status`, { status: statusToApi(editStatus) });
+            }
+
+            // Send all detail changes in one call
+            if (Object.keys(body).length > 0) {
+                await api.patch(`/users/${selectedUser.id}`, body);
             }
 
             setIsEditModalOpen(false);
@@ -1081,27 +1145,54 @@ interface CampusOption {
             </Dialog>
 
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="sm:max-w-md rounded-lg font-lexend">
+                <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-lg font-lexend">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
                             <Shield className="w-4 h-4 text-primary" /> Edit User
                         </DialogTitle>
                         <DialogDescription className="text-sm text-gray-500">
-                            Update role and access status for {selectedUser?.name}.
+                            Update details for {selectedUser?.name}.
                         </DialogDescription>
                     </DialogHeader>
 
                     {selectedUser && (
                         <div className="grid gap-4 py-2">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Name</Label>
-                                <Input value={selectedUser.name} disabled className="h-8 rounded-md border-gray-200 bg-gray-50 text-xs" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Email</Label>
-                                <Input value={selectedUser.email} disabled className="h-8 rounded-md border-gray-200 bg-gray-50 text-xs" />
+                            {/* Name Fields */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">First Name</Label>
+                                    <Input value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} className="h-8 rounded-md border-gray-200 text-xs" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Last Name</Label>
+                                    <Input value={editLastName} onChange={(e) => setEditLastName(e.target.value)} className="h-8 rounded-md border-gray-200 text-xs" />
+                                </div>
                             </div>
 
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Middle Initial</Label>
+                                    <Input value={editMiddleInitial} onChange={(e) => setEditMiddleInitial(e.target.value)} maxLength={1} className="h-8 rounded-md border-gray-200 text-xs" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Suffix</Label>
+                                    <Input value={editSuffix} onChange={(e) => setEditSuffix(e.target.value)} className="h-8 rounded-md border-gray-200 text-xs" />
+                                </div>
+                            </div>
+
+                            {/* Email & Password */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Email</Label>
+                                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="h-8 rounded-md border-gray-200 text-xs" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">New Password (leave blank to keep)</Label>
+                                    <Input value={editPassword} onChange={(e) => setEditPassword(e.target.value)} type="password" placeholder="••••••••" className="h-8 rounded-md border-gray-200 text-xs" />
+                                </div>
+                            </div>
+
+                            {/* Role & Status */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Role</Label>
@@ -1129,6 +1220,18 @@ interface CampusOption {
                                             <SelectItem value="inactive">Inactive</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                </div>
+                            </div>
+
+                            {/* Academic Fields */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Year Level</Label>
+                                    <Input value={editYearLevel} onChange={(e) => setEditYearLevel(e.target.value)} className="h-8 rounded-md border-gray-200 text-xs" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Section</Label>
+                                    <Input value={editSection} onChange={(e) => setEditSection(e.target.value)} className="h-8 rounded-md border-gray-200 text-xs" />
                                 </div>
                             </div>
                         </div>

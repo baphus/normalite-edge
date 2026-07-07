@@ -117,7 +117,7 @@ const RegisterPage: React.FC = () => {
                 uploadedPicture = await uploadImageToCloudinary(avatarFile, 'profile-pics');
             }
 
-            const response = await api.post('/auth/register', {
+            await api.post('/auth/register', {
                 firstName: data.firstName.trim(),
                 lastName: data.lastName.trim(),
                 middleInitial: data.middleInitial?.trim() || undefined,
@@ -131,11 +131,9 @@ const RegisterPage: React.FC = () => {
                 section: data.section.trim(),
             });
 
-            const verificationUrl = response.data?.data?.verificationUrl as string | undefined;
             navigate('/pending', {
                 state: {
                     email: data.email.trim().toLowerCase(),
-                    verificationUrl,
                 },
             });
         } catch (err: unknown) {

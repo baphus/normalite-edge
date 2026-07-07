@@ -99,6 +99,24 @@ export const userController = {
         ApiResponse.success(res, null, 'User deleted');
     }),
 
+    updateUser: catchAsync(async (req: Request, res: Response) => {
+        const user = await userService.updateUser(req.params.id as string, req.body);
+
+        await auditService.log({
+            actorId: req.user!.userId,
+            actorRole: req.user!.role as any,
+            action: 'UPDATE',
+            entityType: 'user',
+            entityId: user.id,
+            summary: `Admin updated user ${user.email}`,
+            metadata: {
+                title: user.email,
+            },
+        });
+
+        ApiResponse.success(res, user, 'User updated successfully');
+    }),
+
     getAchievements: catchAsync(async (req: Request, res: Response) => {
         const achievements = await userService.getAchievements(req.user!.userId);
         ApiResponse.success(res, achievements);

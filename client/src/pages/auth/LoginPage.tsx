@@ -55,7 +55,7 @@ const LoginPage: React.FC = () => {
             if (isAxiosError<ApiErrorResponse>(err)) {
                 const message = err.response?.data?.message ?? err.message;
                 const isPendingVerification = err.response?.status === 403
-                    && message.toLowerCase().includes('verify your email');
+                    && message.toLowerCase().includes('pending admin approval');
 
                 if (isPendingVerification) {
                     navigate('/pending', {

@@ -44,17 +44,6 @@ export const loginSchema = z.object({
     password: z.string().min(1, 'Password is required'),
 });
 
-export const verifyEmailSchema = z.object({
-    token: z.string().min(1, 'Verification token is required'),
-});
-
-export const resendVerificationSchema = z.object({
-    email: z.string().email('Invalid email address').refine(
-        (email) => email.toLowerCase().endsWith('@cnu.edu.ph'),
-        { message: 'Only @cnu.edu.ph emails are allowed' }
-    ),
-});
-
 export const updateProfileSchema = z.object({
     firstName: z.string().trim().min(1, 'First name is required').optional(),
     lastName: z.string().trim().min(1, 'Last name is required').optional(),

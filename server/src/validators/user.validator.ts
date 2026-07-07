@@ -72,3 +72,16 @@ export const updateUserStatusSchema = z.object({
 export const updateUserRoleSchema = z.object({
     role: z.enum(['ADMIN', 'REVIEWER', 'REVIEWEE']),
 });
+
+export const updateUserSchema = z.object({
+    firstName: z.string().trim().min(1, 'First name is required').optional(),
+    lastName: z.string().trim().min(1, 'Last name is required').optional(),
+    middleInitial: z.string().max(1, 'Middle initial must be 1 character').optional(),
+    suffix: z.string().max(20, 'Suffix is too long').optional(),
+    email: z.string().email('Invalid email address').optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional(),
+    track_id: z.string().uuid('Invalid track id').optional(),
+    campus_id: z.string().uuid('Invalid campus id').optional(),
+    yearLevel: z.string().trim().min(1, 'Year level is required').optional(),
+    section: z.string().trim().min(1, 'Section is required').optional(),
+});

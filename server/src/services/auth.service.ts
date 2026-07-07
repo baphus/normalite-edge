@@ -1,16 +1,13 @@
 import prisma from '../config/db';
 import {
     generateAccessToken,
-    generateEmailVerificationToken,
     generateRefreshToken,
-    verifyEmailVerificationToken,
     verifyRefreshToken,
 } from '../utils/jwt';
 import { ApiError } from '../utils/ApiError';
 import bcrypt from 'bcryptjs';
 import { auditService } from './audit.service';
 import { fromDbUserStatus, resolveProgramTrack } from '../utils/requirementsCompat';
-import { env } from '../config/env';
 
 const ALLOWED_DOMAIN = 'cnu.edu.ph';
 
@@ -71,16 +68,6 @@ export class AuthService {
         }
 
         return campus;
-    }
-
-    private createVerificationLink(userId: string, email: string) {
-        const token = generateEmailVerificationToken({
-            userId,
-            email,
-            type: 'EMAIL_VERIFICATION',
-        });
-        const verificationUrl = `${env.CLIENT_URL}/verify-email?token=${encodeURIComponent(token)}`;
-        return { token, verificationUrl };
     }
 
     private splitName(name: string) {
@@ -145,7 +132,7 @@ export class AuthService {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // New self-registered reviewees must verify email first.
+        // New self-registered reviewees require admin approval.
         const user = await prisma.user.create({
             data: {
                 firstName: resolvedName.firstName,
@@ -185,12 +172,8 @@ export class AuthService {
             },
         });
 
-        const verification = this.createVerificationLink(user.id, user.email);
-        console.log(`[Auth] Verification link for ${user.email}: ${verification.verificationUrl}`);
-
         return {
             user: this.sanitizeUser(user),
-            verificationUrl: verification.verificationUrl,
         };
     }
 
@@ -229,7 +212,7 @@ export class AuthService {
         }
 
         if (user.status === 'PENDING') {
-            throw ApiError.forbidden('Please verify your email before logging in');
+            throw ApiError.forbidden('Your account is pending admin approval');
         }
 
         const currentStatus = user.status as string;
@@ -265,78 +248,6 @@ export class AuthService {
     }
 
     /**
-     * Verify reviewee email using verification token.
-     */
-    async verifyEmail(token: string) {
-        let decoded;
-        try {
-            decoded = verifyEmailVerificationToken(token);
-        } catch {
-            throw ApiError.badRequest('Invalid or expired verification link');
-        }
-
-        if (decoded.type !== 'EMAIL_VERIFICATION') {
-            throw ApiError.badRequest('Invalid verification token');
-        }
-
-        const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-        if (!user || user.email !== decoded.email) {
-            throw ApiError.badRequest('Invalid verification link');
-        }
-
-        if (user.status === 'DISABLED') {
-            throw ApiError.forbidden('Your account is disabled');
-        }
-
-        if (user.status === 'ACTIVE') {
-            return this.sanitizeUser(user);
-        }
-
-        const updated = await prisma.user.update({
-            where: { id: user.id },
-            data: { status: 'ACTIVE' },
-        });
-
-        await auditService.log({
-            actorId: updated.id,
-            actorRole: updated.role,
-            action: 'APPROVE',
-            entityType: 'auth',
-            summary: `Email verified for ${updated.email}`,
-        });
-
-        return this.sanitizeUser(updated);
-    }
-
-    /**
-     * Resend verification link for pending reviewees.
-     */
-    async resendVerification(emailInput: string) {
-        const email = emailInput.trim().toLowerCase();
-        const user = await prisma.user.findUnique({ where: { email } });
-
-        if (!user) {
-            return { sent: true };
-        }
-
-        if (user.status === 'DISABLED') {
-            throw ApiError.forbidden('Your account is disabled');
-        }
-
-        if (user.status === 'ACTIVE') {
-            return { sent: true, alreadyVerified: true };
-        }
-
-        const verification = this.createVerificationLink(user.id, user.email);
-        console.log(`[Auth] Resent verification link for ${user.email}: ${verification.verificationUrl}`);
-
-        return {
-            sent: true,
-            verificationUrl: verification.verificationUrl,
-        };
-    }
-
-    /**
      * Refresh access token using a valid refresh token.
      */
     async refreshAccessToken(refreshTokenValue: string) {
@@ -359,7 +270,7 @@ export class AuthService {
         }
 
         if (user.status === 'PENDING') {
-            throw ApiError.forbidden('Please verify your email before continuing');
+            throw ApiError.forbidden('Your account is pending admin approval');
         }
 
         const refreshTokenHash = user.refreshTokenHash;

@@ -5,19 +5,15 @@ import { validate } from '../../middleware/validate';
 import {
 	registerSchema,
 	loginSchema,
-	resendVerificationSchema,
 	completeOnboardingSchema,
 	completeTourSchema,
 	updateProfileSchema,
-	verifyEmailSchema,
 } from '../../validators/auth.validator';
 
 const router = Router();
 
 // Public
 router.post('/register', validate(registerSchema), authController.register);
-router.post('/verify-email', validate(verifyEmailSchema), authController.verifyEmail);
-router.post('/resend-verification', validate(resendVerificationSchema), authController.resendVerification);
 router.post('/login', validate(loginSchema), authController.login);
 router.post('/refresh', authController.refreshToken);
 

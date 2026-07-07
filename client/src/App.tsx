@@ -10,7 +10,7 @@ import { Toaster } from './components/ui/sonner';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import PendingApprovalPage from './pages/auth/PendingApprovalPage';
-import VerifyEmailPage from './pages/auth/VerifyEmailPage';
+
 import DashboardPage from './pages/DashboardPage';
 import ExamsPage from './pages/ExamsPage';
 import TakeExamPage from './pages/TakeExamPage';
@@ -68,7 +68,6 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/pending" element={<PendingApprovalPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
