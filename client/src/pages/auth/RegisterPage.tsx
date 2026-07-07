@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { isAxiosError } from 'axios';
-import { Mail, Lock, ArrowRight, ShieldCheck, UserRound, Camera } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, UserRound, Camera, Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/axios';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
+import AuthLayout from '@/components/marketing/AuthLayout';
 
 const registerSchema = z.object({
     firstName: z.string().trim().min(1, 'First name is required'),
@@ -58,6 +59,8 @@ const RegisterPage: React.FC = () => {
     const [campuses, setCampuses] = useState<TrackOption[]>([]);
     const [tracksLoading, setTracksLoading] = useState(true);
     const [campusesLoading, setCampusesLoading] = useState(true);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const navigate = useNavigate();
 
     const {
@@ -107,6 +110,15 @@ const RegisterPage: React.FC = () => {
         fetchCampuses();
     }, []);
 
+    // Revoke the avatar preview blob URL when the component unmounts.
+    useEffect(() => {
+        return () => {
+            if (avatarPreview) {
+                URL.revokeObjectURL(avatarPreview);
+            }
+        };
+    }, [avatarPreview]);
+
     const onSubmit = async (data: RegisterFormValues) => {
         setLoading(true);
         setError(null);
@@ -149,261 +161,255 @@ const RegisterPage: React.FC = () => {
         }
     };
 
+    const iconClass =
+        'absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 transition-colors group-focus-within:text-primary pointer-events-none';
+
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4 relative font-lexend overflow-y-auto pt-12 pb-12">
-            {/* Background Decor */}
-            <div className="absolute inset-0 z-0">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 z-10"></div>
-                <div
-                    className="w-full h-full bg-cover bg-center blur-sm opacity-20"
-                    style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuArzNvjpM81ghaYuiyQxM5qpbcgLPEq0jo8N-mkUsqhp24cgYqCleIywecsORTOG8yNrwi5WSxuvAcxTBUXSdXI-qwtnNBKZ6jXC2cPxHRnfGhWX9Ek1iZFqkUkixfJAOK6Cbd2300a9h0fgWx4Vm41iEKXkdk5InX7ez7OOmacb2mWhSSfIzcHggdwKPpuwdkhar-Pnt5HRb_NuLsQ6sy2ESZ51mk7upMt0FcDZCtLjECee98BD7_ALEkLTSLB-kY4Qc_TFKZ5gsny')" }}
-                />
-            </div>
-
-            <div className="relative z-10 w-full max-w-[580px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
-                <div className="pt-8 px-8 pb-2 text-center">
-                    <Link to="/" className="inline-flex items-center justify-center mb-4">
-                        <img src="/NormaliteEdgeLogo.png" alt="Normalite EDGE" className="h-16 w-16 object-contain" />
+        <AuthLayout
+            wide
+            title="Create your account"
+            subtitle="Register with your CNU email — an admin activates it before you sign in."
+            footer={
+                <>
+                    Already have an account?{' '}
+                    <Link to="/login" className="font-semibold text-primary hover:underline">
+                        Log in
                     </Link>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight mb-2">
-                        Create your account
-                    </h1>
-                    <p className="text-gray-500 text-sm md:text-base">
-                        Join Normalite EDGE for LET preparation as a reviewee.
+                </>
+            }
+        >
+            {error && (
+                <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    <AlertCircle size={18} className="shrink-0" />
+                    {error}
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="rounded-xl border border-[#e6ddd3] bg-white/60 p-4">
+                    <p className="text-sm font-semibold text-[#1A0E0E]">Profile photo (optional)</p>
+                    <p className="mt-1 text-xs text-[#6B5B5B]">
+                        Add your picture now for a personalized learner profile.
                     </p>
+                    <div className="mt-3 flex items-center gap-4">
+                        {avatarPreview ? (
+                            <img src={avatarPreview} alt="Avatar preview" className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/15" />
+                        ) : (
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-400 ring-1 ring-gray-200">
+                                <Camera size={20} />
+                            </div>
+                        )}
+                        <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => {
+                                const file = event.target.files?.[0] || null;
+                                if (avatarPreview) {
+                                    URL.revokeObjectURL(avatarPreview);
+                                }
+                                setAvatarFile(file);
+                                if (file) {
+                                    setAvatarPreview(URL.createObjectURL(file));
+                                } else {
+                                    setAvatarPreview(null);
+                                }
+                            }}
+                            className="text-xs"
+                        />
+                    </div>
                 </div>
 
-                {error && (
-                    <div className="mx-8 mt-4 p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2">
-                        <ShieldCheck size={18} />
-                        {error}
-                    </div>
-                )}
+                <Input type="hidden" {...register('trackId')} />
+                <Input type="hidden" {...register('campusId')} />
 
-                <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-4">
-                    <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
-                        <p className="text-sm font-semibold text-gray-800">
-                            Profile photo (optional)
-                        </p>
-                        <p className="mt-1 text-xs text-gray-600">
-                            Add your picture now if you want a personalized learner profile.
-                        </p>
-                        <div className="mt-3 flex items-center gap-4">
-                            {avatarPreview ? (
-                                <img src={avatarPreview} alt="Avatar preview" className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/15" />
-                            ) : (
-                                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-400 ring-1 ring-gray-200">
-                                    <Camera size={20} />
-                                </div>
-                            )}
-                            <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={(event) => {
-                                    const file = event.target.files?.[0] || null;
-                                    if (avatarPreview) {
-                                        URL.revokeObjectURL(avatarPreview);
-                                    }
-                                    setAvatarFile(file);
-                                    if (file) {
-                                        setAvatarPreview(URL.createObjectURL(file));
-                                    } else {
-                                        setAvatarPreview(null);
-                                    }
-                                }}
-                                className="text-xs"
-                            />
-                        </div>
-                    </div>
-
-                    <Input type="hidden" {...register('trackId')} />
-                    <Input type="hidden" {...register('campusId')} />
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <Label>First Name</Label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
-                                    <UserRound size={18} />
-                                </div>
-                                <Input {...register('firstName')} className="pl-11" placeholder="Juan" />
-                            </div>
-                            {errors.firstName && <p className="text-xs text-red-500">{errors.firstName.message}</p>}
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>Last Name</Label>
-                            <Input {...register('lastName')} placeholder="Dela Cruz" />
-                            {errors.lastName && <p className="text-xs text-red-500">{errors.lastName.message}</p>}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <Label>Middle Initial</Label>
-                            <Input {...register('middleInitial')} placeholder="M" maxLength={1} />
-                            {errors.middleInitial && <p className="text-xs text-red-500">{errors.middleInitial.message}</p>}
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>Suffix (Optional)</Label>
-                            <Select
-                                value={watch('suffix') || NO_SUFFIX_VALUE}
-                                onValueChange={(value) => setValue('suffix', value === NO_SUFFIX_VALUE ? '' : value, { shouldValidate: true })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select suffix" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
-                                    {SUFFIX_OPTIONS.map((suffixOption) => (
-                                        <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.suffix && <p className="text-xs text-red-500">{errors.suffix.message}</p>}
-                        </div>
-                    </div>
-
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                        <Label>Program Track</Label>
+                        <Label htmlFor="firstName">First Name</Label>
+                        <div className="group relative">
+                            <div className={iconClass}>
+                                <UserRound size={18} />
+                            </div>
+                            <Input id="firstName" {...register('firstName')} className="pl-11" placeholder="Juan" />
+                        </div>
+                        {errors.firstName && <p className="text-xs text-red-500">{errors.firstName.message}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input id="lastName" {...register('lastName')} placeholder="Dela Cruz" />
+                        {errors.lastName && <p className="text-xs text-red-500">{errors.lastName.message}</p>}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="middleInitial">Middle Initial</Label>
+                        <Input id="middleInitial" {...register('middleInitial')} placeholder="M" maxLength={1} />
+                        {errors.middleInitial && <p className="text-xs text-red-500">{errors.middleInitial.message}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="suffix">Suffix (Optional)</Label>
                         <Select
-                            value={watch('trackId')}
-                            onValueChange={(value) => setValue('trackId', value, { shouldValidate: true })}
-                            disabled={tracksLoading || tracks.length === 0}
+                            value={watch('suffix') || NO_SUFFIX_VALUE}
+                            onValueChange={(value) => setValue('suffix', value === NO_SUFFIX_VALUE ? '' : value, { shouldValidate: true })}
                         >
-                            <SelectTrigger>
-                                <SelectValue placeholder={tracksLoading ? 'Loading tracks...' : 'Select program track'} />
+                            <SelectTrigger id="suffix">
+                                <SelectValue placeholder="Select suffix" />
                             </SelectTrigger>
                             <SelectContent>
-                                {tracks.map((track) => (
-                                    <SelectItem key={track.id} value={track.id}>
-                                        {track.name}
-                                    </SelectItem>
+                                <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
+                                {SUFFIX_OPTIONS.map((suffixOption) => (
+                                    <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        {errors.trackId && <p className="text-xs text-red-500">{errors.trackId.message}</p>}
+                        {errors.suffix && <p className="text-xs text-red-500">{errors.suffix.message}</p>}
                     </div>
+                </div>
 
+                <div className="space-y-1.5">
+                    <Label htmlFor="trackId">Program Track</Label>
+                    <Select
+                        value={watch('trackId')}
+                        onValueChange={(value) => setValue('trackId', value, { shouldValidate: true })}
+                        disabled={tracksLoading || tracks.length === 0}
+                    >
+                        <SelectTrigger id="trackId">
+                            <SelectValue placeholder={tracksLoading ? 'Loading tracks...' : 'Select program track'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {tracks.map((track) => (
+                                <SelectItem key={track.id} value={track.id}>
+                                    {track.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {errors.trackId && <p className="text-xs text-red-500">{errors.trackId.message}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="campusId">Campus</Label>
+                    <Select
+                        value={watch('campusId')}
+                        onValueChange={(value) => setValue('campusId', value, { shouldValidate: true })}
+                        disabled={campusesLoading || campuses.length === 0}
+                    >
+                        <SelectTrigger id="campusId">
+                            <SelectValue placeholder={campusesLoading ? 'Loading campuses...' : 'Select campus'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {campuses.map((campus) => (
+                                <SelectItem key={campus.id} value={campus.id}>
+                                    {campus.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {errors.campusId && <p className="text-xs text-red-500">{errors.campusId.message}</p>}
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                        <Label>Campus</Label>
+                        <Label htmlFor="yearLevel">Year</Label>
                         <Select
-                            value={watch('campusId')}
-                            onValueChange={(value) => setValue('campusId', value, { shouldValidate: true })}
-                            disabled={campusesLoading || campuses.length === 0}
+                            value={watch('yearLevel')}
+                            onValueChange={(value) => setValue('yearLevel', value, { shouldValidate: true })}
                         >
-                            <SelectTrigger>
-                                <SelectValue placeholder={campusesLoading ? 'Loading campuses...' : 'Select campus'} />
+                            <SelectTrigger id="yearLevel">
+                                <SelectValue placeholder="Select year level" />
                             </SelectTrigger>
                             <SelectContent>
-                                {campuses.map((campus) => (
-                                    <SelectItem key={campus.id} value={campus.id}>
-                                        {campus.name}
-                                    </SelectItem>
+                                {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
+                                    <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        {errors.campusId && <p className="text-xs text-red-500">{errors.campusId.message}</p>}
+                        {errors.yearLevel && <p className="text-xs text-red-500">{errors.yearLevel.message}</p>}
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <Label>Year</Label>
-                            <Select
-                                value={watch('yearLevel')}
-                                onValueChange={(value) => setValue('yearLevel', value, { shouldValidate: true })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select year level" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
-                                        <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.yearLevel && <p className="text-xs text-red-500">{errors.yearLevel.message}</p>}
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>Section</Label>
-                            <Input {...register('section')} placeholder="A" />
-                            {errors.section && <p className="text-xs text-red-500">{errors.section.message}</p>}
-                        </div>
-                    </div>
-
                     <div className="space-y-1.5">
-                        <Label>School Email</Label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
-                                <Mail size={18} />
-                            </div>
-                            <Input
-                                type="email"
-                                placeholder="juan@cnu.edu.ph"
-                                className="pl-11"
-                                {...register('email')}
-                            />
-                        </div>
-                        {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
+                        <Label htmlFor="section">Section</Label>
+                        <Input id="section" {...register('section')} placeholder="A" />
+                        {errors.section && <p className="text-xs text-red-500">{errors.section.message}</p>}
                     </div>
-
-                    <div className="space-y-1.5">
-                        <Label>Password</Label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
-                                <Lock size={18} />
-                            </div>
-                            <Input
-                                type="password"
-                                placeholder="••••••••"
-                                className="pl-11"
-                                {...register('password')}
-                            />
-                        </div>
-                        {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <Label>Confirm Password</Label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
-                                <Lock size={18} />
-                            </div>
-                            <Input
-                                type="password"
-                                placeholder="••••••••"
-                                className="pl-11"
-                                {...register('confirmPassword')}
-                            />
-                        </div>
-                        {errors.confirmPassword && <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>}
-                    </div>
-
-                    <div className="pt-2">
-                        <Button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-6 text-base font-bold bg-primary hover:bg-primary/90 text-white flex gap-2 shadow-lg transition-transform active:scale-[0.99]"
-                        >
-                            {loading ? 'Creating account...' : 'Sign Up'}
-                            {!loading && <ArrowRight size={20} />}
-                        </Button>
-                    </div>
-                </form>
-
-                <div className="bg-gray-50 py-4 text-center border-t border-gray-100">
-                    <p className="text-sm text-gray-600">
-                        Already have an account?{' '}
-                        <Link to="/login" className="font-bold text-primary hover:underline transition-colors">
-                            Login
-                        </Link>
-                    </p>
                 </div>
-            </div>
 
-            <div className="mt-8 text-center text-xs text-gray-500 opacity-80 z-10">
-                © 2024 Normalite EDGE. Cebu Normal University.
-            </div>
-        </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="email">School Email</Label>
+                    <div className="group relative">
+                        <div className={iconClass}>
+                            <Mail size={18} />
+                        </div>
+                        <Input
+                            id="email"
+                            type="email"
+                            placeholder="juan@cnu.edu.ph"
+                            className="pl-11"
+                            {...register('email')}
+                        />
+                    </div>
+                    {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="group relative">
+                        <div className={iconClass}>
+                            <Lock size={18} />
+                        </div>
+                        <Input
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            className="pl-11 pr-11"
+                            {...register('password')}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                        >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
+                    {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <div className="group relative">
+                        <div className={iconClass}>
+                            <Lock size={18} />
+                        </div>
+                        <Input
+                            id="confirmPassword"
+                            type={showConfirm ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            className="pl-11 pr-11"
+                            {...register('confirmPassword')}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirm(!showConfirm)}
+                            aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                        >
+                            {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
+                    {errors.confirmPassword && <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>}
+                </div>
+
+                <Button
+                    type="submit"
+                    disabled={loading}
+                    className="mt-2 flex h-12 w-full items-center gap-2 rounded-lg bg-primary text-base font-semibold text-white shadow-sm transition-all hover:bg-[#5a1010] active:scale-[0.99]"
+                >
+                    {loading ? 'Creating account…' : 'Create account'}
+                    {!loading && <ArrowRight size={18} />}
+                </Button>
+            </form>
+        </AuthLayout>
     );
 };
 

@@ -42,6 +42,11 @@ import CampusesPage from './pages/CampusesPage';
 import OnboardingPage from './pages/OnboardingPage';
 
 import LandingPage from './pages/LandingPage';
+import AboutPage from './pages/AboutPage';
+import FaqPage from './pages/FaqPage';
+import ContactPage from './pages/ContactPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsPage from './pages/TermsPage';
 import CalendarPage from './pages/CalendarPage';
 
 function LegacyManageExamAnalyticsRedirect() {
@@ -64,6 +69,11 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/faq" element={<FaqPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />

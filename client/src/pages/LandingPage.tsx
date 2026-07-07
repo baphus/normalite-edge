@@ -1,368 +1,354 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import MarketingLayout from '@/components/marketing/MarketingLayout';
+import { Eyebrow, BubbleList } from '@/components/marketing/Primitives';
+
+/** An answer-sheet row: the shaded choice marks the step you're on. */
+const AnswerRow: React.FC<{ marked: number }> = ({ marked }) => (
+    <div className="flex items-center gap-2" aria-hidden>
+        {['A', 'B', 'C', 'D'].map((letter, i) => (
+            <span
+                key={letter}
+                className={`inline-flex size-6 items-center justify-center rounded-full border font-mono text-[10px] transition-colors ${
+                    i === marked
+                        ? 'border-primary bg-secondary text-[#1A0E0E]'
+                        : 'border-primary/25 text-primary/40 dark:border-secondary/25 dark:text-secondary/40'
+                }`}
+            >
+                {letter}
+            </span>
+        ))}
+    </div>
+);
+
+const InitialsAvatar: React.FC<{ initials: string }> = ({ initials }) => (
+    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono text-xs font-semibold text-primary ring-1 ring-primary/20 dark:bg-secondary/15 dark:text-secondary dark:ring-secondary/25">
+        {initials}
+    </div>
+);
+
+const STEPS = [
+    {
+        title: 'Register with your CNU email',
+        body: 'Sign up with your @cnu.edu.ph account and pick the program track you’re reviewing for.',
+    },
+    {
+        title: 'Get approved by an admin',
+        body: 'An administrator reviews and activates your account — there are no public sign-ups, so the room stays CNU-only.',
+    },
+    {
+        title: 'Start reviewing',
+        body: 'Open your track materials, sit timed mock exams, and watch your scores sharpen week by week.',
+    },
+];
+
+const TESTIMONIALS = [
+    {
+        initials: 'MS',
+        name: 'Maria Santos',
+        track: 'BSED – English',
+        stars: 5,
+        quote: 'The timed mocks made the real exam feel familiar. By test day the format wasn’t the thing I had to worry about — only the content.',
+    },
+    {
+        initials: 'JD',
+        name: 'Juan Dela Cruz',
+        track: 'BSED – Mathematics',
+        stars: 5,
+        quote: 'I got through most of the Gen Ed decks on my commute. Having the rationale under each item is what actually made it stick.',
+    },
+    {
+        initials: 'AR',
+        name: 'Anna Reyes',
+        track: 'BEED – Generalist',
+        stars: 4,
+        quote: 'The score breakdown showed me Prof Ed was my weak spot. I put my next two weeks there instead of guessing where to start.',
+    },
+];
 
 const LandingPage: React.FC = () => {
     const navigate = useNavigate();
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-    const toggleMenu = () => {
-        setIsMenuOpen(!isMenuOpen);
-    };
 
     return (
-        <div className="font-display bg-background-light dark:bg-background-dark text-[#1d0c0c] dark:text-white antialiased">
-            <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
-                {/* Header */}
-                <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e5e7eb] bg-background-light px-3 py-2 md:px-8 dark:border-b-gray-800">
-                    <div className="flex items-center gap-2 md:gap-3">
-                        <div className="h-10 w-10 overflow-hidden rounded-sm md:h-12 md:w-12">
+        <MarketingLayout>
+            {/* Hero */}
+            <section className="answer-grid relative overflow-hidden border-b border-[#e6ddd3] dark:border-white/10">
+                <div className="mx-auto grid max-w-[1200px] items-center gap-12 px-6 py-16 md:px-8 md:py-24 lg:grid-cols-[1.05fr_0.95fr]">
+                    <div className="flex flex-col gap-7">
+                        <Eyebrow>LET Review · Cebu Normal University</Eyebrow>
+                        <h1 className="font-serif text-4xl font-semibold leading-[1.05] tracking-tight text-[#1A0E0E] md:text-6xl dark:text-white">
+                            Prepare for the <span className="marked-answer text-[#1A0E0E]">LET</span> the way you&rsquo;ll actually sit it.
+                        </h1>
+                        <p className="max-w-xl text-lg leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                            Normalite EDGE gives CNU reviewees full-length mock exams with rationalizations,
+                            program-track study materials, and one calendar for every conference and deadline &mdash;
+                            with your progress auto-saved as you go.
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                onClick={() => navigate('/register')}
+                                className="rounded-lg bg-primary px-7 py-3.5 font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#5a1010]"
+                            >
+                                Create your account
+                            </button>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="rounded-lg border border-primary/25 bg-white/60 px-7 py-3.5 font-semibold text-primary transition-colors hover:border-primary/50 dark:border-secondary/30 dark:bg-white/5 dark:text-secondary"
+                            >
+                                Log in
+                            </button>
+                        </div>
+                        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-primary/70 dark:text-secondary/70">
+                            For @cnu.edu.ph accounts · Self-register, then get admin-approved
+                        </p>
+                    </div>
+
+                    {/* Product frame with overlapping answer-sheet card */}
+                    <div className="relative">
+                        <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] bg-white shadow-2xl shadow-primary/10 dark:border-white/10 dark:bg-[#1a0a0a]">
+                            <div className="flex items-center gap-1.5 border-b border-[#eee3d8] px-4 py-3 dark:border-white/10">
+                                <span className="size-2.5 rounded-full bg-[#e5c0c0]" />
+                                <span className="size-2.5 rounded-full bg-[#eddab0]" />
+                                <span className="size-2.5 rounded-full bg-[#cfe0cf]" />
+                                <span className="ml-3 font-mono text-[10px] tracking-wide text-gray-400">
+                                    normalite-edge · mock exam
+                                </span>
+                            </div>
                             <img
-                                src="/NormaliteEdgeLogo.png"
-                                alt="Normalite EDGE logo mark"
-                                className="h-full w-auto max-w-none object-cover object-left"
+                                src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030327/Screenshot_2026-03-09_at_12-24-14_Normalite_EDGE_cgc5ry.png"
+                                alt="A timed Normalite EDGE mock exam in progress"
+                                className="aspect-[4/3] w-full object-cover object-top"
                             />
                         </div>
-                        <div className="flex flex-col leading-tight">
-                            <h2 className="text-primary text-base font-extrabold tracking-tight md:text-2xl md:leading-none">Normalite EDGE</h2>
-                            <p className="text-primary/90 text-[10px] font-medium md:text-sm">Everyday Digital Guide to Excellence</p>
-                        </div>
-                    </div>
-                    <div className="hidden flex-1 justify-end gap-8 md:flex">
-                        <div className="flex items-center gap-9">
-                            <a className="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Home</a>
-                            <a className="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#features">Features</a>
-                            <a className="text-[#1d0c0c] dark:text-gray-200 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#testimonials">Reviewee Journey</a>
-                        </div>
-                        <button
-                            className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-6 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#600000] transition-colors shadow-md shadow-primary/20"
-                            onClick={() => navigate('/login')}
-                        >
-                            <span className="truncate">Login</span>
-                        </button>
-                    </div>
-                    <button className="md:hidden text-[#1d0c0c] dark:text-white" onClick={toggleMenu}>
-                        <span className="material-symbols-outlined">menu</span>
-                    </button>
-                </header>
-
-                {/* Mobile Menu */}
-                <div className={`fixed inset-0 z-[100] ${isMenuOpen ? 'block' : 'hidden'}`}>
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={toggleMenu}></div>
-                    <div className={`fixed right-0 top-0 h-full w-64 bg-background-light dark:bg-background-dark p-6 shadow-xl transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                        <div className="flex flex-col gap-6">
-                            <div className="flex justify-between items-center mb-4 border-b dark:border-gray-800 pb-4">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-8 w-8 overflow-hidden rounded-sm">
-                                        <img
-                                            src="/NormaliteEdgeLogo.png"
-                                            alt="Normalite EDGE logo mark"
-                                            className="h-full w-auto max-w-none object-cover object-left"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col leading-tight">
-                                        <span className="text-primary text-xs font-bold">Normalite EDGE</span>
-                                        <span className="text-primary/90 text-[9px]">Everyday Digital Guide to Excellence</span>
-                                    </div>
-                                </div>
-                                <button className="text-[#1d0c0c] dark:text-white" onClick={toggleMenu}>
-                                    <span className="material-symbols-outlined">close</span>
-                                </button>
+                        <div className="absolute -bottom-6 -left-4 hidden w-56 rounded-xl border border-[#e6ddd3] bg-[#F7F4EE] p-4 shadow-xl sm:block dark:border-white/10 dark:bg-[#230f0f]">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary/70 dark:text-secondary/70">
+                                Item 24 · Prof Ed
+                            </p>
+                            <div className="mt-3">
+                                <AnswerRow marked={2} />
                             </div>
-                            <nav className="flex flex-col gap-4">
-                                <a className="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#" onClick={toggleMenu}>Home</a>
-                                <a className="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#features" onClick={toggleMenu}>Features</a>
-                                <a className="text-[#1d0c0c] dark:text-white text-lg font-medium hover:text-primary transition-colors" href="#testimonials" onClick={toggleMenu}>Reviewee Journey</a>
-                                <hr className="border-gray-200 dark:border-gray-800 my-2" />
-                                <button
-                                    className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-primary text-white text-sm font-bold shadow-md"
-                                    onClick={() => { navigate('/login'); toggleMenu(); }}
-                                >
-                                    <span className="truncate">Login</span>
-                                </button>
-                            </nav>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Hero Section */}
-                <div className="relative w-full">
-                    <div className="absolute inset-0 z-0">
-                        <div
-                            className="h-full w-full bg-cover bg-center bg-no-repeat"
-                            style={{ backgroundImage: 'url("https://res.cloudinary.com/dll6it35i/image/upload/v1773020900/CNU_Administration_Building_ta532z.jpg")' }}
-                        >
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary/90 to-primary/40 mix-blend-multiply"></div>
-                        <div className="absolute inset-0 bg-black/30"></div>
-                    </div>
-                    <div className="relative z-10 flex min-h-[600px] items-center justify-center px-4 py-20">
-                        <div className="flex max-w-[960px] flex-col items-center gap-8 text-center">
-                            <div className="flex flex-col gap-4">
-                                <span className="mx-auto w-fit rounded-full bg-secondary/20 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-secondary ring-1 ring-secondary/50 backdrop-blur-sm">
-                                    For CNU Reviewees
+                            <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-[#3a2727] dark:text-gray-300">
+                                <span className="material-symbols-outlined text-[16px] text-primary dark:text-secondary">
+                                    check_circle
                                 </span>
-                                <h1 className="text-white text-4xl font-black leading-tight tracking-[-0.033em] md:text-6xl drop-shadow-sm">
-                                    Prepare smarter for the LET with <span className="text-secondary">Normalite EDGE</span>
-                                </h1>
-                                <h2 className="text-gray-100 text-lg font-normal leading-relaxed md:text-xl max-w-2xl mx-auto">
-                                    Access study materials, take timed mock exams with rationalizations, resume auto-saved attempts, and join conferences based on your program track. Self-registration is for <span className="font-semibold">@cnu.edu.ph</span> accounts.
-                                </h2>
-                            </div>
-                            <div className="flex flex-wrap justify-center gap-4">
-                                <button
-                                    className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-8 bg-secondary text-primary text-base font-bold leading-normal hover:bg-[#ffe033] transition-transform hover:-translate-y-0.5 shadow-lg shadow-secondary/20"
-                                    onClick={() => navigate('/register')}
-                                >
-                                    <span className="truncate">Get Started</span>
-                                </button>
-                                <button
-                                    className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-8 bg-white/10 backdrop-blur-sm border border-white/30 text-white text-base font-bold leading-normal hover:bg-white/20 transition-colors"
-                                    onClick={() => navigate('/login')}
-                                >
-                                    <span className="truncate">Login</span>
-                                </button>
-                            </div>
+                                Rationale shown after you answer
+                            </p>
                         </div>
                     </div>
                 </div>
+            </section>
 
-                {/* Features Section */}
-                <div className="flex flex-col items-center justify-center py-24 bg-background-light dark:bg-background-dark" id="features">
-                    <div className="layout-content-container flex flex-col max-w-[1200px] w-full px-6">
-                        <div className="mb-20 flex flex-col gap-3 text-center">
-                            <h2 className="text-primary text-sm font-bold uppercase tracking-[0.2em]">Built for Reviewees</h2>
-                            <h3 className="text-[#1d0c0c] dark:text-white text-3xl font-extrabold leading-tight md:text-4xl">
-                                Everything you need to prepare and pass
-                            </h3>
-                            <div className="h-1 w-20 bg-secondary mx-auto mt-4"></div>
-                        </div>
-
-                        <div className="flex flex-col gap-24">
-                            {/* Feature 1: Mock Exams */}
-                            <div className="flex flex-col lg:flex-row items-center gap-12">
-                                <div className="flex-1 flex flex-col gap-6">
-                                    <div className="inline-flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                        <span className="material-symbols-outlined text-3xl">edit_note</span>
-                                    </div>
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-2xl md:text-3xl font-bold">Timed Mock Exams</h4>
-                                    <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
-                                        Take comprehensive exams with multiple sections and clear rationalizations. Build your test strategy under real time constraints, and rest easy knowing your progress is auto-saved.
-                                    </p>
-                                    <ul className="flex flex-col gap-3 mt-2">
-                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
-                                            Autosave & Resume support
-                                        </li>
-                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
-                                            Detailed rationalizations for every question
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
-                                    <img src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030327/Screenshot_2026-03-09_at_12-24-14_Normalite_EDGE_cgc5ry.png" alt="Mock Exams Feature" className="w-full h-full object-cover object-top" />
-                                </div>
-                            </div>
-
-                            {/* Feature 2: Calendar */}
-                            <div className="flex flex-col lg:flex-row-reverse items-center gap-12">
-                                <div className="flex-1 flex flex-col gap-6">
-                                    <div className="inline-flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                        <span className="material-symbols-outlined text-3xl">calendar_month</span>
-                                    </div>
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-2xl md:text-3xl font-bold">Stay Organized with Calendar</h4>
-                                    <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
-                                        Keep track of your review schedule. View upcoming mock exams, zoom conferences, and study milestones all in one centralized interactive calendar.
-                                    </p>
-                                    <ul className="flex flex-col gap-3 mt-2">
-                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
-                                            Never miss a study session
-                                        </li>
-                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
-                                            Track your deadlines and activities
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
-                                    <img src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030328/Screenshot_2026-03-09_at_12-14-48_Normalite_EDGE_qn3aji.png" alt="Calendar Feature" className="w-full h-full object-cover object-top" />
-                                </div>
-                            </div>
-
-                            {/* Feature 3: Materials & Results */}
-                            <div className="flex flex-col lg:flex-row items-center gap-12">
-                                <div className="flex-1 flex flex-col gap-6">
-                                    <div className="inline-flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                        <span className="material-symbols-outlined text-3xl">insights</span>
-                                    </div>
-                                    <h4 className="text-[#1d0c0c] dark:text-white text-2xl md:text-3xl font-bold">Materials, Conferences, Results</h4>
-                                    <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
-                                        Access program-track materials tailored to your major, easily join scheduled video conferences, and monitor your exam performance with intuitive analytics.
-                                    </p>
-                                    <ul className="flex flex-col gap-3 mt-2">
-                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
-                                            Program-specific study guides
-                                        </li>
-                                        <li className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
-                                            Detailed performance analytics
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div className="flex-[1.5] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl bg-gray-100 dark:bg-gray-900 aspect-video relative flex items-center justify-center">
-                                    <img src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030568/3_collge_pupz05.png" alt="Materials and Results Feature" className="w-full h-full object-cover object-top" />
-                                </div>
-                            </div>
-                        </div>
+            {/* How it works */}
+            <section id="how" className="border-b border-[#e6ddd3] py-20 md:py-28 dark:border-white/10">
+                <div className="mx-auto max-w-[1200px] px-6 md:px-8">
+                    <div className="mb-14 max-w-2xl">
+                        <Eyebrow>How it works</Eyebrow>
+                        <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-[#1A0E0E] md:text-4xl dark:text-white">
+                            Three steps from sign-up to your first mock exam.
+                        </h2>
                     </div>
-                </div>
-
-                {/* Testimonials Section */}
-                <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#1a0a0a]" id="testimonials">
-                    <div className="layout-content-container flex flex-col max-w-[960px] w-full px-6">
-                        <div className="mb-12 text-center">
-                            <h2 className="text-[#1d0c0c] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">Reviewee Success Stories</h2>
-                            <p className="mt-4 text-gray-600 dark:text-gray-400">See how fellow reviewees stayed consistent and exam-ready.</p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <div className="flex flex-col justify-between rounded-xl bg-background-light dark:bg-[#230f0f] p-6 border border-gray-100 dark:border-gray-800">
-                                <div>
-                                    <div className="flex gap-1 mb-4 text-secondary">
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                    </div>
-                                    <p className="text-[#1d0c0c] dark:text-gray-200 text-sm italic leading-relaxed">
-                                        "The adaptive exams were a game changer. I felt so prepared walking into the testing center. This portal helped me top the boards!"
-                                    </p>
-                                </div>
-                                <div className="mt-6 flex items-center gap-3">
-                                    <div
-                                        className="h-10 w-10 overflow-hidden rounded-full bg-gray-200 bg-cover bg-center"
-                                        style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAKn061WQl7nb2w-pA7CxNk32iNmnmhhkcfTVBvVr8Fi7sknyMzZn4FrCaomPqkZmmGcwMGhdyLfje-D9op5qClyPi9lRRwuLpNq_u_kfe0JABnluNSUd3w7l3lj1Rjju9MMxDstBgWdujsEQPYMlltuLvqapq7Vdw9oVs07wtK_N2OvU3w16FgtfLxnPCFuHgrH41Hsb2D5oFa7n7BzVKfxjNUbhOYGH8aovRieI0TiCN77uPUXu5Vh3HlFR_a-TRJKM8bQcXObsQn")' }}
-                                    >
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-[#1d0c0c] dark:text-white">Maria Santos, LPT</p>
-                                        <p className="text-xs text-primary font-medium">Top 4, LET 2023</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex flex-col justify-between rounded-xl bg-background-light dark:bg-[#230f0f] p-6 border border-gray-100 dark:border-gray-800">
-                                <div>
-                                    <div className="flex gap-1 mb-4 text-secondary">
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                    </div>
-                                    <p className="text-[#1d0c0c] dark:text-gray-200 text-sm italic leading-relaxed">
-                                        "The review materials helped me master Gen Ed concepts during my commute. Highly recommended for every Normalite."
-                                    </p>
-                                </div>
-                                <div className="mt-6 flex items-center gap-3">
-                                    <div
-                                        className="h-10 w-10 overflow-hidden rounded-full bg-gray-200 bg-cover bg-center"
-                                        style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD4tLIhBtGP40gGIruajYZshf4ajOcCoHxWBysah8GEp8QI6VtHOMomajeJIIAvEHZSoeYVaMDdN6vRwfVj-oaYJUnH4To0NCFzvl1mSOWpD-6xqNHRf0KR0QYxZwGpyzwlCTkL5AZue7wGChbKsGSAoKWkz4-fSoQ1VwsqvJO_5Q2z32xW1vOzzgBEhZr0S1xrv6J1Ey4WWYIMABOS_7GM1P6-JVHOls-l1VrhQPEdEptcosqUaSRSInadrjYeIcSiye-PvIMy9MW4")' }}
-                                    >
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-[#1d0c0c] dark:text-white">Juan Dela Cruz, LPT</p>
-                                        <p className="text-xs text-primary font-medium">BSED Math</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex flex-col justify-between rounded-xl bg-background-light dark:bg-[#230f0f] p-6 border border-gray-100 dark:border-gray-800">
-                                <div>
-                                    <div className="flex gap-1 mb-4 text-secondary">
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[20px] fill-current">star_half</span>
-                                    </div>
-                                    <p className="text-[#1d0c0c] dark:text-gray-200 text-sm italic leading-relaxed">
-                                        "The analytics showed me exactly where I was weak in Prof Ed. I focused my review there and it paid off big time."
-                                    </p>
-                                </div>
-                                <div className="mt-6 flex items-center gap-3">
-                                    <div
-                                        className="h-10 w-10 overflow-hidden rounded-full bg-gray-200 bg-cover bg-center"
-                                        style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDoJ6rrB8dp2GuOiA_5S7dZNqeYUZk_4YirEaoijgK-Zf5fsAk7pSl16uAYs1niySSQdCI9oQ-TAf0vSGMyCoY85pimHyjXydF2AzcbhUEZCqtasqS2EkNvX5L_yrngqvpjN-Xd8R3ZPQnMg4c0MOgkg_c455RPgvs-Eb-bIpUY4cOmSMRXdApVV-Wq4M2kPjty93WcsxJnhfJb9Wyu4gM5aX8NaGQBfyIWY5n9ZO0loq47A2_loPs-I65QwdPzxnvWFycsOMch244p")' }}
-                                    >
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-[#1d0c0c] dark:text-white">Anna Reyes, LPT</p>
-                                        <p className="text-xs text-primary font-medium">BEED Generalist</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* CTA Section */}
-                <div className="bg-primary py-16 text-center">
-                    <div className="layout-content-container mx-auto flex max-w-[960px] flex-col items-center gap-6 px-6">
-                        <h2 className="text-3xl font-bold text-white md:text-4xl">Ready to start your review journey?</h2>
-                        <p className="max-w-xl text-lg text-white/90">Register with your CNU account, access your track materials, and begin your LET preparation today.</p>
-                        <button
-                            className="mt-2 rounded-lg bg-secondary px-8 py-3 text-base font-bold text-primary shadow-lg hover:bg-[#ffe033] transition-colors"
-                            onClick={() => navigate('/register')}
-                        >
-                            I'm In!
-                        </button>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <footer className="bg-background-dark text-white pt-16 pb-8 border-t border-primary/20">
-                    <div className="layout-content-container mx-auto max-w-[960px] px-6">
-                        <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
-                            <div className="col-span-1 md:col-span-2">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <span className="material-symbols-outlined text-3xl text-primary">school</span>
-                                    <h3 className="text-xl font-bold">Normalite EDGE</h3>
-                                </div>
-                                <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-                                    The official LET reviewer platform designed exclusively for the students and alumni of Cebu Normal University.
+                    <ol className="grid gap-6 md:grid-cols-3">
+                        {STEPS.map((step, i) => (
+                            <li
+                                key={step.title}
+                                className="relative flex flex-col gap-4 rounded-2xl border border-[#e6ddd3] bg-white/60 p-7 dark:border-white/10 dark:bg-white/5"
+                            >
+                                <span className="flex size-12 items-center justify-center rounded-full border-2 border-primary/25 font-mono text-lg font-semibold text-primary dark:border-secondary/30 dark:text-secondary">
+                                    {String(i + 1).padStart(2, '0')}
+                                </span>
+                                <h3 className="font-serif text-xl font-semibold text-[#1A0E0E] dark:text-white">
+                                    {step.title}
+                                </h3>
+                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                    {step.body}
                                 </p>
+                            </li>
+                        ))}
+                    </ol>
+                </div>
+            </section>
+
+            {/* Features */}
+            <section id="features" className="py-20 md:py-28">
+                <div className="mx-auto max-w-[1200px] px-6 md:px-8">
+                    <div className="mb-16 max-w-2xl">
+                        <Eyebrow>What you get</Eyebrow>
+                        <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-[#1A0E0E] md:text-4xl dark:text-white">
+                            Everything a Normalite needs to walk in ready.
+                        </h2>
+                    </div>
+
+                    <div className="flex flex-col gap-20 md:gap-28">
+                        {/* Feature 1 */}
+                        <div className="grid items-center gap-10 lg:grid-cols-2">
+                            <div className="flex flex-col gap-5">
+                                <Eyebrow>Timed mock exams</Eyebrow>
+                                <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
+                                    Practice under the same clock.
+                                </h3>
+                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                    Full-length mocks, timed like the real thing. Every item carries a written rationale,
+                                    so you learn <em>why</em> an answer is right &mdash; not just which one. Step away
+                                    anytime; your attempt is saved and waiting when you return.
+                                </p>
+                                <BubbleList
+                                    items={[
+                                        'Autosave and resume on any attempt',
+                                        'A written rationale for every item',
+                                        'Gen Ed, Prof Ed, and majorship coverage',
+                                    ]}
+                                />
                             </div>
-                            <div>
-                                <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-secondary">Platform</h4>
-                                <ul className="flex flex-col gap-2 text-sm text-gray-400">
-                                    <li><a className="hover:text-white transition-colors" href="#">Mock Exams</a></li>
-                                    <li><a className="hover:text-white transition-colors" href="#">Study Materials</a></li>
-                                    <li><a className="hover:text-white transition-colors" href="#">Conferences</a></li>
-                                    <li><a className="hover:text-white transition-colors" href="#">My Results</a></li>
-                                    <li><a className="hover:text-white transition-colors" href="/login">Login</a></li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-secondary">Contact</h4>
-                                <ul className="flex flex-col gap-2 text-sm text-gray-400">
-                                    <li>Osmeña Blvd, Cebu City</li>
-                                    <li>6000 Philippines</li>
-                                    <li>support@cnu.edu.ph</li>
-                                    <li className="flex gap-4 mt-2">
-                                        <a className="text-gray-400 hover:text-white" href="#"><span className="material-symbols-outlined text-xl">public</span></a>
-                                        <a className="text-gray-400 hover:text-white" href="#"><span className="material-symbols-outlined text-xl">mail</span></a>
-                                    </li>
-                                </ul>
+                            <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 dark:border-white/10">
+                                <img
+                                    src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030327/Screenshot_2026-03-09_at_12-24-14_Normalite_EDGE_cgc5ry.png"
+                                    alt="Mock exam interface"
+                                    className="aspect-video w-full object-cover object-top"
+                                />
                             </div>
                         </div>
-                        <div className="mt-12 border-t border-gray-800 pt-8 text-center text-xs text-gray-500">
-                            <p>© 2024 Cebu Normal University. All rights reserved.</p>
+
+                        {/* Feature 2 */}
+                        <div className="grid items-center gap-10 lg:grid-cols-2">
+                            <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 lg:order-last dark:border-white/10">
+                                <img
+                                    src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030328/Screenshot_2026-03-09_at_12-14-48_Normalite_EDGE_qn3aji.png"
+                                    alt="Review calendar"
+                                    className="aspect-video w-full object-cover object-top"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-5">
+                                <Eyebrow>One calendar</Eyebrow>
+                                <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
+                                    Nothing slips past you.
+                                </h3>
+                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                    Mock-exam windows, Zoom conferences, and study milestones sit side by side in one
+                                    view. Plan your week around what&rsquo;s actually coming up.
+                                </p>
+                                <BubbleList
+                                    items={[
+                                        'Conferences and exam windows in one place',
+                                        'Deadlines you can see coming',
+                                    ]}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Feature 3 */}
+                        <div className="grid items-center gap-10 lg:grid-cols-2">
+                            <div className="flex flex-col gap-5">
+                                <Eyebrow>Materials, conferences &amp; results</Eyebrow>
+                                <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
+                                    Know where your next hour should go.
+                                </h3>
+                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                    Study materials matched to your program track, conferences you can join in a click,
+                                    and score analytics that point to exactly where to spend your next study hour.
+                                </p>
+                                <BubbleList
+                                    items={[
+                                        'Track-specific study decks',
+                                        'Join conferences without leaving the app',
+                                        'Score breakdowns by subject area',
+                                    ]}
+                                />
+                            </div>
+                            <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 dark:border-white/10">
+                                <img
+                                    src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030568/3_collge_pupz05.png"
+                                    alt="Study materials and results"
+                                    className="aspect-video w-full object-cover object-top"
+                                />
+                            </div>
                         </div>
                     </div>
-                </footer>
-            </div>
-        </div>
+                </div>
+            </section>
+
+            {/* Testimonials */}
+            <section id="stories" className="border-y border-[#e6ddd3] bg-white/50 py-20 md:py-24 dark:border-white/10 dark:bg-white/5">
+                <div className="mx-auto max-w-[1200px] px-6 md:px-8">
+                    <div className="mb-8 max-w-2xl">
+                        <Eyebrow>Reviewee stories</Eyebrow>
+                        <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-[#1A0E0E] md:text-4xl dark:text-white">
+                            What a review week can look like.
+                        </h2>
+                    </div>
+
+                    {/* Placeholder disclaimer — required: these are not real reviewees */}
+                    <div className="mb-10 flex items-start gap-3 rounded-xl border border-secondary/50 bg-secondary/10 p-4">
+                        <span className="material-symbols-outlined mt-0.5 text-[20px] text-[#8a6a10] dark:text-secondary">info</span>
+                        <div>
+                            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a6a10] dark:text-secondary">
+                                Sample content
+                            </p>
+                            <p className="mt-1 text-sm leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                These quotes are <strong>illustrative placeholders, not real reviewees</strong>. We&rsquo;ll
+                                replace them with genuine stories once reviewees choose to share them.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-3">
+                        {TESTIMONIALS.map((t) => (
+                            <figure
+                                key={t.name}
+                                className="flex flex-col justify-between rounded-2xl border border-[#e6ddd3] bg-[#F7F4EE] p-6 dark:border-white/10 dark:bg-[#230f0f]"
+                            >
+                                <div>
+                                    <div className="mb-4 flex gap-0.5 text-secondary" aria-label={`${t.stars} out of 5`}>
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <span
+                                                key={i}
+                                                className="material-symbols-outlined text-[18px]"
+                                                style={{
+                                                    fontVariationSettings: `'FILL' ${i < t.stars ? 1 : 0}`,
+                                                }}
+                                            >
+                                                star
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <blockquote className="text-[15px] italic leading-relaxed text-[#3a2727] dark:text-gray-200">
+                                        &ldquo;{t.quote}&rdquo;
+                                    </blockquote>
+                                </div>
+                                <figcaption className="mt-6 flex items-center gap-3">
+                                    <InitialsAvatar initials={t.initials} />
+                                    <div>
+                                        <p className="text-sm font-semibold text-[#1A0E0E] dark:text-white">{t.name}</p>
+                                        <p className="font-mono text-[11px] tracking-wide text-primary/80 dark:text-secondary/80">
+                                            {t.track} · sample
+                                        </p>
+                                    </div>
+                                </figcaption>
+                            </figure>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* CTA */}
+            <section className="bg-primary py-16 md:py-20">
+                <div className="mx-auto flex max-w-[900px] flex-col items-center gap-6 px-6 text-center">
+                    <Eyebrow className="text-secondary dark:text-secondary">Ready when you are</Eyebrow>
+                    <h2 className="font-serif text-3xl font-semibold text-white md:text-4xl">
+                        Your CNU account is your way in.
+                    </h2>
+                    <p className="max-w-xl text-lg leading-relaxed text-white/85">
+                        Register with your @cnu.edu.ph email, get approved by an admin, and start your LET review
+                        this week.
+                    </p>
+                    <button
+                        onClick={() => navigate('/register')}
+                        className="mt-2 rounded-lg bg-secondary px-8 py-3.5 font-semibold text-[#1A0E0E] shadow-lg transition-all hover:-translate-y-0.5 hover:bg-[#ffca4d]"
+                    >
+                        Create your account
+                    </button>
+                </div>
+            </section>
+        </MarketingLayout>
     );
 };
 

@@ -28,6 +28,56 @@
   @apply border-border;
 }
 
+/* --- Marketing site: answer-sheet (OMR) motif --------------------------- */
+/* Faint shaded-bubble grid used as ambient texture behind hero/section
+   headers. Evokes the LET optical answer sheet without shouting. */
+.answer-grid {
+  background-image: radial-gradient(circle at center, rgba(122, 30, 30, 0.06) 1.6px, transparent 1.8px);
+  background-size: 26px 26px;
+  background-position: 0 0;
+}
+
+.dark .answer-grid {
+  background-image: radial-gradient(circle at center, rgba(242, 183, 68, 0.07) 1.6px, transparent 1.8px);
+}
+
+/* Answer-sheet texture for use on the maroon brand panel (light dots). */
+.answer-grid-invert {
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 1.6px, transparent 1.8px);
+  background-size: 26px 26px;
+}
+
+/* The "shaded answer" highlight applied to a single hero word — a gold
+   highlighter stroke behind the text (no negative z-index, so it never
+   drops behind a section background). */
+.marked-answer {
+  padding-inline: 0.1em;
+  border-radius: 0.14em;
+  background-image: linear-gradient(
+    105deg,
+    rgba(242, 183, 68, 0) 0.4%,
+    #f2b744 1.2%,
+    #f2b744 98%,
+    rgba(242, 183, 68, 0) 99%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 82%;
+  background-position: 0 78%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 body {
   @apply bg-background text-foreground;
   font-family: 'Lexend', 'Noto Sans', sans-serif;
@@ -63,6 +113,8 @@ body {
   --color-ring: var(--ring);
   --font-display: 'Lexend', sans-serif;
   --font-lexend: 'Lexend', sans-serif;
+  --font-serif: 'Fraunces', 'Georgia', serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
