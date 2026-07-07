@@ -1,10 +1,9 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const PendingApprovalPage: React.FC = () => {
-    const location = useLocation();
     const navigate = useNavigate();
     const [error] = React.useState<string | null>(null);
 
