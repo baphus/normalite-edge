@@ -3,13 +3,15 @@ import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
 import { userService } from '../services/user.service';
 import { auditService } from '../services/audit.service';
+import { parsePagination } from '../utils/pagination';
 
 export const userController = {
     listUsers: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, role, status, search, trackId, campusId } = req.query;
+        const { role, status, search, trackId, campusId } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const result = await userService.listUsers({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
             role: role as any,
             status: status as any,
             search: search as string,
@@ -26,7 +28,16 @@ export const userController = {
     }),
 
     getStudentProfile: catchAsync(async (req: Request, res: Response) => {
-        const profile = await userService.getStudentProfile(req.params.id as string);
+        const requestedId = req.params.id as string;
+        const requesterId = req.user!.userId;
+        const requesterRole = req.user!.role;
+
+        // Only allow access to own profile or admin/reviewer roles
+        if (requestedId !== requesterId && requesterRole !== 'ADMIN' && requesterRole !== 'REVIEWER') {
+            return ApiResponse.error(res, 403, 'Access denied');
+        }
+
+        const profile = await userService.getStudentProfile(requestedId);
         ApiResponse.success(res, profile);
     }),
 

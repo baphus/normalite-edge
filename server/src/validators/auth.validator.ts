@@ -15,7 +15,7 @@ export const registerSchema = z.object({
         (email) => email.toLowerCase().endsWith('@cnu.edu.ph'),
         { message: 'Only @cnu.edu.ph emails are allowed' }
     ),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password must not exceed 128 characters'),
     picture: z.string().url('picture must be a valid URL').optional(),
     track_id: z.string().uuid('Invalid track id').optional(),
     campus_id: z.string().uuid('Invalid campus id'),

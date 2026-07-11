@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../lib/axios';
+import { tokenStore } from '../lib/tokenStore';
 import { formatUserDisplayName } from '../lib/formatUserDisplayName';
 
 interface User {
@@ -48,18 +49,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         const initAuth = async () => {
-            const token = localStorage.getItem('accessToken');
-            if (token && token !== 'undefined' && token !== 'null') {
-                try {
-                    const response = await api.get('/auth/me');
-                    const userData = normalizeUser(response.data.data as User);
-                    setUser(userData);
-                    localStorage.setItem('user', JSON.stringify(userData));
-                } catch (error) {
-                    console.error('Failed to restore session', error);
-                    localStorage.removeItem('accessToken');
-                    localStorage.removeItem('user');
-                }
+            // On page load, attempt to restore session via refresh token cookie.
+            // Access token is memory-only and lost on refresh, so we always
+            // try to get a fresh one via the refresh endpoint.
+            try {
+                const refreshRes = await api.post('/auth/refresh');
+                const { accessToken, user: userData } = refreshRes.data.data;
+                tokenStore.setToken(accessToken);
+                const normalizedUser = normalizeUser(userData as User);
+                setUser(normalizedUser);
+                localStorage.setItem('user', JSON.stringify(normalizedUser));
+            } catch {
+                // No valid refresh token — user needs to log in
+                tokenStore.clearToken();
+                localStorage.removeItem('user');
             }
             setLoading(false);
         };
@@ -69,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const login = (accessToken: string, userData: User) => {
         const normalizedUser = normalizeUser(userData);
-        localStorage.setItem('accessToken', accessToken);
+        tokenStore.setToken(accessToken);
         localStorage.setItem('user', JSON.stringify(normalizedUser));
         setUser(normalizedUser);
     };
@@ -77,10 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = async () => {
         try {
             await api.post('/auth/logout');
-        } catch (error) {
-            console.error('Logout error', error);
+        } catch {
+            // Ignore logout errors — clear state regardless
         } finally {
-            localStorage.removeItem('accessToken');
+            tokenStore.clearToken();
             localStorage.removeItem('user');
             setUser(null);
             window.location.href = '/login';

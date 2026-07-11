@@ -6,7 +6,7 @@ import { uploadImageSchema, uploadPublicProfileImageSchema } from '../../validat
 
 const router = Router();
 
-router.post('/public-profile-image', validate(uploadPublicProfileImageSchema), uploadController.uploadPublicProfileImage);
+router.post('/public-profile-image', authenticate, validate(uploadPublicProfileImageSchema), uploadController.uploadPublicProfileImage);
 router.post('/image', authenticate, validate(uploadImageSchema), uploadController.uploadImage);
 
 export default router;

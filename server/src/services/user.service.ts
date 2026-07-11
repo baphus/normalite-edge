@@ -90,8 +90,11 @@ export class UserService {
 
         const stats = await dashboardService.getRevieweeProfilePerformance(id);
 
+        // Strip sensitive fields before returning
+        const { passwordHash, refreshTokenHash, ...safeUser } = user;
+
         return {
-            ...user,
+            ...safeUser,
             status: fromDbUserStatus(user.status),
             programTrack: resolveProgramTrack({ programTrack: user.track?.code || undefined }),
             performance: stats,
@@ -208,7 +211,7 @@ export class UserService {
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) throw ApiError.conflict('User with this email already exists');
 
-        const passwordHash = await bcrypt.hash(data.password, 10);
+        const passwordHash = await bcrypt.hash(data.password, 12);
         const resolvedTrack = await this.resolveActiveTrack({
             track_id: data.track_id,
             program_track: resolveProgramTrack({ program_track: data.program_track }),
@@ -299,7 +302,7 @@ export class UserService {
         if (data.middleInitial !== undefined) updateData.middleInitial = data.middleInitial || null;
         if (data.suffix !== undefined) updateData.suffix = data.suffix || null;
         if (data.email !== undefined) updateData.email = data.email.toLowerCase().trim();
-        if (data.password !== undefined) updateData.passwordHash = await bcrypt.hash(data.password, 10);
+        if (data.password !== undefined) updateData.passwordHash = await bcrypt.hash(data.password, 12);
         if (data.track_id !== undefined) updateData.trackId = data.track_id || null;
         if (data.campus_id !== undefined) updateData.campusId = data.campus_id || null;
         if (data.yearLevel !== undefined) updateData.yearLevel = data.yearLevel || null;
@@ -314,8 +317,11 @@ export class UserService {
             },
         });
 
+        // Strip sensitive fields before returning
+        const { passwordHash: _ph, refreshTokenHash: _rth, ...safeUpdated } = updated;
+
         return {
-            ...updated,
+            ...safeUpdated,
             name: `${updated.firstName} ${updated.lastName}`.trim(),
             status: fromDbUserStatus(updated.status as string),
             program: updated.track?.name || updated.programTrack || null,

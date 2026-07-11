@@ -1,1 +1,32 @@
+# Dependencies
 node_modules
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# Build output
+dist
+build
+out
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Coverage
+coverage

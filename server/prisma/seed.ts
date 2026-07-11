@@ -2,6 +2,12 @@ import { Role, UserStatus, ExamStatus, FeedbackMode, Visibility, ApplicableCateg
 import bcrypt from 'bcryptjs';
 import prisma from '../src/config/db';
 
+// ─── Safety Guard ──────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+    console.error('ERROR: Seed script cannot run in production environment.');
+    process.exit(1);
+}
+
 const TRACK_SEEDS: Array<{ name: string; code: string }> = [
     { name: 'Bachelor of Elementary Education', code: 'BEED' },
     { name: 'Bachelor of Secondary Education', code: 'BSED' },

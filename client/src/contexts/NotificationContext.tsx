@@ -116,14 +116,23 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
         };
 
-        const connect = () => {
+        const connect = async () => {
             clearReconnectTimer();
 
-            const token = localStorage.getItem('accessToken');
-            if (!token) return;
+            // Obtain a single-use SSE ticket (short-lived, not exposed in URL long-term)
+            let ticket: string;
+            try {
+                const ticketRes = await api.post('/notifications/sse-ticket');
+                ticket = ticketRes.data?.data?.ticket;
+                if (!ticket) return;
+            } catch {
+                // If ticket fetch fails, retry after delay
+                reconnectTimerRef.current = window.setTimeout(connect, 5000);
+                return;
+            }
 
             const baseUrl = String(api.defaults.baseURL || 'http://localhost:5000/api/v1').replace(/\/$/, '');
-            const streamUrl = `${baseUrl}/notifications/stream?accessToken=${encodeURIComponent(token)}`;
+            const streamUrl = `${baseUrl}/notifications/stream?ticket=${encodeURIComponent(ticket)}`;
             eventSource = new EventSource(streamUrl, { withCredentials: true });
 
             eventSource.addEventListener('notification:new', (event) => {

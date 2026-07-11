@@ -1,0 +1,113 @@
+version: 2
+updates:
+  # Server dependencies
+  - package-ecosystem: "npm"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "JKsars"
+    labels:
+      - "dependencies"
+      - "security"
+    groups:
+      production-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@types/*"
+          - "typescript"
+          - "tsx"
+          - "prisma"
+        update-types:
+          - "patch"
+          - "minor"
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "typescript"
+          - "tsx"
+          - "prisma"
+        update-types:
+          - "patch"
+          - "minor"
+
+  # Client dependencies
+  - package-ecosystem: "npm"
+    directory: "/client"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "JKsars"
+    labels:
+      - "dependencies"
+      - "security"
+    groups:
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+        update-types:
+          - "patch"
+          - "minor"
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-router-dom"
+          - "react-hook-form"
+          - "@hookform/*"
+        update-types:
+          - "patch"
+      build-tools:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+          - "eslint"
+          - "typescript-eslint"
+          - "@eslint/*"
+          - "eslint-plugin-*"
+          - "@tailwindcss/*"
+          - "tailwindcss"
+          - "postcss"
+          - "autoprefixer"
+        update-types:
+          - "patch"
+          - "minor"
+      production-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@radix-ui/*"
+          - "react"
+          - "react-dom"
+          - "react-router-dom"
+          - "react-hook-form"
+          - "@hookform/*"
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+          - "eslint"
+          - "typescript-eslint"
+          - "@eslint/*"
+          - "eslint-plugin-*"
+          - "@tailwindcss/*"
+          - "tailwindcss"
+          - "postcss"
+          - "autoprefixer"
+        update-types:
+          - "patch"
+          - "minor"
+
+  # GitHub Actions (if any)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"

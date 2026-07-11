@@ -25,7 +25,7 @@ export const authController = {
         // Set refresh token in httpOnly cookie
         res.cookie('refreshToken', result.refreshToken, {
             httpOnly: true,
-            secure: false, // Explicitly false for localhost HTTP
+            secure: env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             path: '/',
@@ -40,6 +40,7 @@ export const authController = {
     /**
      * POST /api/v1/auth/refresh
      * Refresh the access token using the refresh token cookie.
+     * Implements token rotation — issues a new refresh token each time.
      */
     refreshToken: catchAsync(async (req: Request, res: Response) => {
         const refreshToken = req.cookies?.refreshToken;
@@ -50,7 +51,19 @@ export const authController = {
         }
 
         const result = await authService.refreshAccessToken(refreshToken);
-        ApiResponse.success(res, result, 'Token refreshed');
+
+        // Set the new rotated refresh token cookie
+        if (result.refreshToken) {
+            res.cookie('refreshToken', result.refreshToken, {
+                httpOnly: true,
+                secure: env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                path: '/',
+            });
+        }
+
+        ApiResponse.success(res, { accessToken: result.accessToken, user: result.user }, 'Token refreshed');
     }),
 
     /**
@@ -59,7 +72,12 @@ export const authController = {
     logout: catchAsync(async (req: Request, res: Response) => {
         await authService.logout(req.user!.userId);
 
-        res.clearCookie('refreshToken', { path: '/' });
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+        });
         ApiResponse.success(res, null, 'Logged out successfully');
     }),
 

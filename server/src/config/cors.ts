@@ -1,11 +1,12 @@
 import cors from 'cors';
 import { env } from './env';
 
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    env.CLIENT_URL
-];
+const allowedOrigins: string[] = [env.CLIENT_URL];
+
+// Only allow localhost origins in development
+if (env.NODE_ENV !== 'production') {
+    allowedOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173');
+}
 
 export const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
@@ -17,5 +18,5 @@ export const corsOptions: cors.CorsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };

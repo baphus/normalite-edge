@@ -13,9 +13,7 @@ export const authorize = (...allowedRoles: Role[]) => {
         }
 
         if (!allowedRoles.includes(req.user.role as Role)) {
-            throw ApiError.forbidden(
-                `Access denied. Required roles: ${allowedRoles.join(', ')}`
-            );
+            throw ApiError.forbidden('You do not have permission to perform this action');
         }
 
         next();

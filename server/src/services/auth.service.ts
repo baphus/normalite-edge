@@ -11,6 +11,49 @@ import { fromDbUserStatus, resolveProgramTrack } from '../utils/requirementsComp
 
 const ALLOWED_DOMAIN = 'cnu.edu.ph';
 
+// ─── Brute Force Protection ───────────────────────────
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+interface LoginAttemptRecord {
+    attempts: number;
+    lockedUntil: number | null;
+}
+
+const loginAttempts = new Map<string, LoginAttemptRecord>();
+
+function checkLoginAttempts(email: string): void {
+    const record = loginAttempts.get(email);
+    if (!record) return;
+
+    if (record.lockedUntil && Date.now() < record.lockedUntil) {
+        const remainingMinutes = Math.ceil((record.lockedUntil - Date.now()) / 60000);
+        throw ApiError.unauthorized(
+            `Account temporarily locked due to too many failed attempts. Try again in ${remainingMinutes} minute(s).`
+        );
+    }
+
+    // Reset if lockout has expired
+    if (record.lockedUntil && Date.now() >= record.lockedUntil) {
+        loginAttempts.delete(email);
+    }
+}
+
+function recordFailedAttempt(email: string): void {
+    const record = loginAttempts.get(email) || { attempts: 0, lockedUntil: null };
+    record.attempts += 1;
+
+    if (record.attempts >= MAX_LOGIN_ATTEMPTS) {
+        record.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+    }
+
+    loginAttempts.set(email, record);
+}
+
+function clearLoginAttempts(email: string): void {
+    loginAttempts.delete(email);
+}
+
 export class AuthService {
     private async resolveActiveTrack(input?: { track_id?: string; rawTrack?: string }) {
         if (!input?.track_id && !input?.rawTrack) {
@@ -130,7 +173,7 @@ export class AuthService {
         }
 
         // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         // New self-registered reviewees require admin approval.
         const user = await prisma.user.create({
@@ -182,6 +225,10 @@ export class AuthService {
      */
     async login(email: string, password: string) {
         const normalizedEmail = email.trim().toLowerCase();
+
+        // Check if account is locked due to brute force
+        checkLoginAttempts(normalizedEmail);
+
         let user = await prisma.user.findUnique({
             where: { email: normalizedEmail },
             include: {
@@ -195,12 +242,14 @@ export class AuthService {
         });
 
         if (!user) {
+            recordFailedAttempt(normalizedEmail);
             throw ApiError.unauthorized('Invalid email or password');
         }
 
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
         if (!isPasswordValid) {
+            recordFailedAttempt(normalizedEmail);
             await auditService.log({
                 actorId: user.id,
                 actorRole: user.role,
@@ -210,6 +259,9 @@ export class AuthService {
             });
             throw ApiError.unauthorized('Invalid email or password');
         }
+
+        // Clear failed attempts on successful login
+        clearLoginAttempts(normalizedEmail);
 
         if (user.status === 'PENDING') {
             throw ApiError.forbidden('Your account is pending admin approval');
@@ -281,15 +333,27 @@ export class AuthService {
         // Verify stored refresh token matches
         const isValid = await bcrypt.compare(refreshTokenValue, refreshTokenHash);
         if (!isValid) {
-            throw ApiError.unauthorized('Invalid refresh token');
+            // Possible token reuse attack — invalidate all sessions for this user
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { refreshTokenHash: null },
+            });
+            throw ApiError.unauthorized('Invalid refresh token — all sessions revoked');
         }
 
-        const accessToken = generateAccessToken({
-            userId: user.id,
-            role: user.role,
+        // Rotate: issue new access + refresh tokens
+        const tokenPayload = { userId: user.id, role: user.role };
+        const accessToken = generateAccessToken(tokenPayload);
+        const newRefreshToken = generateRefreshToken(tokenPayload);
+
+        // Store the new refresh token hash (invalidates the old one)
+        const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { refreshTokenHash: hashedNewRefreshToken },
         });
 
-        return { accessToken, user: this.sanitizeUser(user) };
+        return { accessToken, refreshToken: newRefreshToken, user: this.sanitizeUser(user) };
     }
 
     /**

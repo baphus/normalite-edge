@@ -1,17 +1,19 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
+import { parsePagination } from '../utils/pagination';
 import { deckService } from '../services/deck.service';
 import { auditService } from '../services/audit.service';
 
 export const deckController = {
     listDecks: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, subject, category, search, visibility, trackId } = req.query;
+        const { subject, category, search, visibility, trackId } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const isReviewee = req.user!.role === 'REVIEWEE';
 
         const result = await deckService.listDecks({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
             subject: subject as string,
             category: category as any,
             search: search as string,
@@ -29,12 +31,12 @@ export const deckController = {
     }),
 
     listManagedDecks: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const isAdmin = req.user!.role === 'ADMIN';
 
         const result = await deckService.listDecks({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
             createdBy: isAdmin ? undefined : req.user!.userId,
         });
 

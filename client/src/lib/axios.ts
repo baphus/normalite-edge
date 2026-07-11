@@ -1,16 +1,18 @@
 import axios from 'axios';
+import { tokenStore } from './tokenStore';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1',
     withCredentials: true, // Required for refresh token cookie
     headers: {
         'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest', // CSRF protection
     },
 });
 
-// Interceptor to attach access token to requests
+// Interceptor to attach access token from memory to requests
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = tokenStore.getToken();
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,17 +35,20 @@ api.interceptors.response.use(
                 const response = await axios.post(
                     `${api.defaults.baseURL}/auth/refresh`,
                     {},
-                    { withCredentials: true }
+                    {
+                        withCredentials: true,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    }
                 );
 
                 const { accessToken } = response.data.data;
-                localStorage.setItem('accessToken', accessToken);
+                tokenStore.setToken(accessToken);
 
                 originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                 return api(originalRequest);
             } catch (refreshError) {
-                // Refresh token failed, clear local storage and redirect to login
-                localStorage.removeItem('accessToken');
+                // Refresh token failed, clear memory and redirect to login
+                tokenStore.clearToken();
                 localStorage.removeItem('user');
                 window.location.href = '/login';
                 return Promise.reject(refreshError);

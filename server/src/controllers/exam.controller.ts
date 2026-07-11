@@ -1,18 +1,20 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
+import { parsePagination } from '../utils/pagination';
 import { examService } from '../services/exam.service';
 import { auditService } from '../services/audit.service';
 import { resolveProgramTrack } from '../utils/requirementsCompat';
 
 export const examController = {
     listExams: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, subject, category, program, program_track, isPublished } = req.query;
+        const { subject, category, program, program_track, isPublished } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const publishedOrMine = req.user?.role === 'REVIEWEE' ? req.user.userId : undefined;
 
         const result = await examService.listExams({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
             subject: subject as string,
             category: category as any,
             program: resolveProgramTrack({
@@ -31,10 +33,10 @@ export const examController = {
     }),
 
     listManagedExams: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const result = await examService.listExams({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
         });
 
         ApiResponse.paginated(res, result.exams, {

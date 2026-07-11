@@ -9,9 +9,9 @@ import { env } from '../config/env';
  * and keep the server awake.
  */
 
-// Use RENDER_EXTERNAL_URL if available (Render sets this automatically), 
-// otherwise fallback to a hardcoded URL or environment variable.
-const BACKEND_URL = process.env.RENDER_EXTERNAL_URL || 'https://normalite-edge-api.onrender.com';
+// Use RENDER_EXTERNAL_URL if available (Render sets this automatically).
+// Do not use hardcoded fallback — fail gracefully if env var is not set.
+const BACKEND_URL = process.env.RENDER_EXTERNAL_URL || '';
 const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
 
 function pingServer() {
@@ -33,13 +33,15 @@ function pingServer() {
 
 // Start the ping interval
 export function startKeepAlive() {
-    // Only run in production
-    if (env.NODE_ENV === 'production') {
+    // Only run in production with a configured URL
+    if (env.NODE_ENV === 'production' && BACKEND_URL) {
         console.log(`[Keep-Alive] Started service. Pinging every 14 minutes.`);
         // Run immediately once
         pingServer();
         // Then run on interval
         setInterval(pingServer, PING_INTERVAL);
+    } else if (env.NODE_ENV === 'production' && !BACKEND_URL) {
+        console.log(`[Keep-Alive] Disabled (RENDER_EXTERNAL_URL not set)`);
     } else {
         console.log(`[Keep-Alive] Disabled (not in production environment)`);
     }

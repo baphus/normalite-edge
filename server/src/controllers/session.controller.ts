@@ -1,16 +1,18 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
+import { parsePagination } from '../utils/pagination';
 import { sessionService } from '../services/session.service';
 import { auditService } from '../services/audit.service';
 import { resolveProgramTrack } from '../utils/requirementsCompat';
 
 export const sessionController = {
     listSessions: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, upcoming } = req.query;
+        const { upcoming } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const result = await sessionService.listSessions({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
             upcoming: upcoming === 'true',
         });
 

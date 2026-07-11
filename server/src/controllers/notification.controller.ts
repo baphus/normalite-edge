@@ -3,29 +3,33 @@ import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
 import { notificationService } from '../services/notification.service';
 import { notificationRealtimeService } from '../services/notificationRealtime.service';
-import { verifyAccessToken } from '../utils/jwt';
+import { sseTicketService } from '../services/sseTicket.service';
+import { parsePagination } from '../utils/pagination';
 
 export const notificationController = {
+    /**
+     * POST /api/v1/notifications/sse-ticket
+     * Generate a short-lived, single-use ticket for SSE connection.
+     * Requires authentication.
+     */
+    createSseTicket: catchAsync(async (req: Request, res: Response) => {
+        const ticket = sseTicketService.createTicket(req.user!.userId);
+        ApiResponse.success(res, { ticket });
+    }),
+
     streamNotifications: (req: Request, res: Response) => {
-        const authHeader = req.headers.authorization;
-        const queryToken = typeof req.query.accessToken === 'string' ? req.query.accessToken : undefined;
-        const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined;
-        const token = bearerToken || queryToken;
+        const ticket = typeof req.query.ticket === 'string' ? req.query.ticket : undefined;
 
-        if (!token) {
-            res.status(401).json({ success: false, message: 'Access token required' });
+        if (!ticket) {
+            res.status(401).json({ success: false, message: 'SSE ticket required' });
             return;
         }
 
-        let payload;
-        try {
-            payload = verifyAccessToken(token);
-        } catch {
-            res.status(401).json({ success: false, message: 'Invalid or expired access token' });
+        const userId = sseTicketService.consumeTicket(ticket);
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Invalid or expired SSE ticket' });
             return;
         }
-
-        const userId = payload.userId;
 
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -47,10 +51,11 @@ export const notificationController = {
     },
 
     listNotifications: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, unreadOnly } = req.query;
+        const { unreadOnly } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const result = await notificationService.listNotifications(req.user!.userId, {
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
             unreadOnly: unreadOnly === 'true',
         });
 

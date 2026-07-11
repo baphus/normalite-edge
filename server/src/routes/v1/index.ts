@@ -14,8 +14,22 @@ import reportRoutes from './report.routes';
 import uploadRoutes from './upload.routes';
 import calendarRoutes from './calendar.routes';
 import systemSettingRoutes from './system-setting.routes';
+import { ApiError } from '../../utils/ApiError';
 
 const router = Router();
+
+// ─── Global UUID Validation for Path Parameters ────────
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PARAM_NAMES = ['id', 'sessionId', 'examId', 'attemptId', 'deckId'];
+
+for (const paramName of UUID_PARAM_NAMES) {
+    router.param(paramName, (req, _res, next, value) => {
+        if (!UUID_REGEX.test(value)) {
+            return next(ApiError.badRequest(`Invalid ${paramName} format`));
+        }
+        next();
+    });
+}
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);

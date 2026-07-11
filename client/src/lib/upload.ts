@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import { tokenStore } from '@/lib/tokenStore';
 
 const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -10,9 +11,9 @@ const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) 
 export const uploadImageToCloudinary = async (file: File, folder: 'profile-pics' | 'question-images') => {
     const fileDataUrl = await readFileAsDataUrl(file);
 
-    const isPublicProfileUpload = folder === 'profile-pics' && !localStorage.getItem('accessToken');
-    const endpoint = isPublicProfileUpload ? '/uploads/public-profile-image' : '/uploads/image';
-    const payload = isPublicProfileUpload ? { fileDataUrl } : { fileDataUrl, folder };
+    // All uploads now require authentication (public endpoint removed)
+    const endpoint = '/uploads/image';
+    const payload = { fileDataUrl, folder };
 
     const response = await api.post(endpoint, payload);
 

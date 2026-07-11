@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authController } from '../../controllers/auth.controller';
 import { authenticate } from '../../middleware/authenticate';
+import { requireCsrfHeader } from '../../middleware/csrfProtection';
 import { validate } from '../../middleware/validate';
 import {
 	registerSchema,
@@ -15,7 +16,7 @@ const router = Router();
 // Public
 router.post('/register', validate(registerSchema), authController.register);
 router.post('/login', validate(loginSchema), authController.login);
-router.post('/refresh', authController.refreshToken);
+router.post('/refresh', requireCsrfHeader, authController.refreshToken);
 
 // Protected
 router.post('/logout', authenticate, authController.logout);

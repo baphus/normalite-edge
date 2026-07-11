@@ -1,15 +1,17 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
+import { parsePagination } from '../utils/pagination';
 import { auditService } from '../services/audit.service';
 
 export const auditController = {
     listLogs: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, action, entityType, actorId, actorRole, from, to, search } = req.query;
+        const { action, entityType, actorId, actorRole, from, to, search } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
 
         const result = await auditService.listLogs({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
             action: action as string | undefined,
             entityType: entityType as string | undefined,
             actorId: actorId as string | undefined,
@@ -27,10 +29,10 @@ export const auditController = {
     }),
 
     listContentActivity: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const result = await auditService.listContentActivity({
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
         });
 
         ApiResponse.paginated(res, result.activities, {

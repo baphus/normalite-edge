@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
+import { parsePagination } from '../utils/pagination';
 import { attemptService } from '../services/attempt.service';
 
 export const attemptController = {
@@ -36,14 +37,15 @@ export const attemptController = {
     }),
 
     listAttempts: catchAsync(async (req: Request, res: Response) => {
-        const { page, limit, examId } = req.query;
+        const { examId } = req.query;
+        const { page, limit } = parsePagination(req.query as any);
         const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'REVIEWER';
 
         const result = await attemptService.listAttempts({
             userId: isAdmin ? undefined : req.user!.userId,
             examId: examId as string,
-            page: page ? parseInt(page as string) : undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
+            page,
+            limit,
         });
 
         ApiResponse.paginated(res, result.attempts, {

@@ -8,6 +8,7 @@ router.get('/stream', notificationController.streamNotifications);
 
 router.use(authenticate);
 
+router.post('/sse-ticket', notificationController.createSseTicket);
 router.get('/', notificationController.listNotifications);
 router.get('/unread-count', notificationController.getUnreadCount);
 router.patch('/:id/read', notificationController.markAsRead);

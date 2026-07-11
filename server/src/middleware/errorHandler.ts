@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../utils/ApiError';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 
 /**
  * Global error handling middleware.
@@ -24,9 +25,10 @@ export const errorHandler = (
     if (err.constructor.name === 'PrismaClientKnownRequestError') {
         const prismaError = err as any;
         if (prismaError.code === 'P2002') {
+            // Do NOT expose field names — use a generic message
             return res.status(409).json({
                 success: false,
-                message: `Duplicate value for: ${prismaError.meta?.target?.join(', ')}`,
+                message: 'A record with this value already exists',
             });
         }
         if (prismaError.code === 'P2025') {
@@ -50,6 +52,6 @@ export const errorHandler = (
 
     return res.status(500).json({
         success: false,
-        message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
+        message: env.NODE_ENV === 'development' ? err.message : 'Internal server error',
     });
 };
