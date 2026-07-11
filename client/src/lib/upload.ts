@@ -1,5 +1,4 @@
 import api from '@/lib/axios';
-import { tokenStore } from '@/lib/tokenStore';
 
 const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
