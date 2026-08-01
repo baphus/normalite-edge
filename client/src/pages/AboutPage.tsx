@@ -6,7 +6,7 @@ import { Eyebrow, PageHero } from '@/components/marketing/Primitives';
 const VALUES = [
     {
         title: 'CNU-only, on purpose',
-        body: 'Access is limited to @cnu.edu.ph accounts that an administrator approves. The review room stays a community of Normalites, not a public forum.',
+        body: 'Access is limited to @cnu.edu.ph Google accounts. The review room stays a community of Normalites, not a public forum.',
     },
     {
         title: 'Practice that mirrors the exam',
@@ -41,7 +41,7 @@ const AboutPage: React.FC = () => {
                         deadlines, and analytics that show where your next study hour will do the most good.
                     </p>
                     <p className="text-[16px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
-                        Because it&rsquo;s tied to CNU accounts and gated by admin approval, reviewers and administrators
+                        Because it&rsquo;s tied to verified CNU Google accounts, reviewers and administrators
                         can see who&rsquo;s in the room, share the right materials with the right tracks, and keep the
                         experience focused on the people it was made for.
                     </p>

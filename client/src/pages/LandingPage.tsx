@@ -29,12 +29,12 @@ const InitialsAvatar: React.FC<{ initials: string }> = ({ initials }) => (
 
 const STEPS = [
     {
-        title: 'Register with your CNU email',
-        body: 'Sign up with your @cnu.edu.ph account and pick the program track you’re reviewing for.',
+        title: 'Sign in with your CNU Google account',
+        body: 'One tap with your @cnu.edu.ph account — no new password to create or remember.',
     },
     {
-        title: 'Get approved by an admin',
-        body: 'An administrator reviews and activates your account — there are no public sign-ups, so the room stays CNU-only.',
+        title: 'Tell us what you’re reviewing for',
+        body: 'Pick your program track, campus, year and section so you only see material that applies to you.',
     },
     {
         title: 'Start reviewing',
@@ -99,7 +99,7 @@ const LandingPage: React.FC = () => {
                             </button>
                         </div>
                         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-primary/70 dark:text-secondary/70">
-                            For @cnu.edu.ph accounts · Self-register, then get admin-approved
+                            For @cnu.edu.ph accounts · Sign in with Google
                         </p>
                     </div>
 
@@ -337,8 +337,8 @@ const LandingPage: React.FC = () => {
                         Your CNU account is your way in.
                     </h2>
                     <p className="max-w-xl text-lg leading-relaxed text-white/85">
-                        Register with your @cnu.edu.ph email, get approved by an admin, and start your LET review
-                        this week.
+                        Sign in with your @cnu.edu.ph Google account and start your LET review in under a
+                        minute.
                     </p>
                     <button
                         onClick={() => navigate('/register')}

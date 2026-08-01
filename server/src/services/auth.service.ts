@@ -1,58 +1,20 @@
 import prisma from '../config/db';
-import {
-    generateAccessToken,
-    generateRefreshToken,
-    verifyRefreshToken,
-} from '../utils/jwt';
 import { ApiError } from '../utils/ApiError';
-import bcrypt from 'bcryptjs';
 import { auditService } from './audit.service';
 import { fromDbUserStatus, resolveProgramTrack } from '../utils/requirementsCompat';
+import { importRemoteAvatar } from '../utils/importRemoteAvatar';
+import { isInternalEmail, INTERNAL_EMAIL_DOMAIN } from '../config/env';
+import type { SupabaseIdentity } from '../utils/supabaseJwt';
+import type { AppUser } from '../middleware/authenticate';
 
-const ALLOWED_DOMAIN = 'cnu.edu.ph';
-
-// ─── Brute Force Protection ───────────────────────────
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-
-interface LoginAttemptRecord {
-    attempts: number;
-    lockedUntil: number | null;
-}
-
-const loginAttempts = new Map<string, LoginAttemptRecord>();
-
-function checkLoginAttempts(email: string): void {
-    const record = loginAttempts.get(email);
-    if (!record) return;
-
-    if (record.lockedUntil && Date.now() < record.lockedUntil) {
-        const remainingMinutes = Math.ceil((record.lockedUntil - Date.now()) / 60000);
-        throw ApiError.unauthorized(
-            `Account temporarily locked due to too many failed attempts. Try again in ${remainingMinutes} minute(s).`
-        );
-    }
-
-    // Reset if lockout has expired
-    if (record.lockedUntil && Date.now() >= record.lockedUntil) {
-        loginAttempts.delete(email);
-    }
-}
-
-function recordFailedAttempt(email: string): void {
-    const record = loginAttempts.get(email) || { attempts: 0, lockedUntil: null };
-    record.attempts += 1;
-
-    if (record.attempts >= MAX_LOGIN_ATTEMPTS) {
-        record.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
-    }
-
-    loginAttempts.set(email, record);
-}
-
-function clearLoginAttempts(email: string): void {
-    loginAttempts.delete(email);
-}
+const USER_INCLUDE = {
+    track: {
+        select: { id: true, name: true, code: true },
+    },
+    campus: {
+        select: { id: true, name: true, code: true },
+    },
+} as const;
 
 export class AuthService {
     private async resolveActiveTrack(input?: { track_id?: string; rawTrack?: string }) {
@@ -121,86 +83,135 @@ export class AuthService {
     }
 
     /**
-     * Register a new reviewee.
+     * Report the caller's authentication state.
+     *
+     * Returns 200 whether or not a profile exists. This is deliberate: a
+     * freshly signed-in Google user has a valid session but no application
+     * account yet, and answering that with a 401 would send the client's
+     * refresh interceptor into a loop against a session that is perfectly
+     * valid. The client reads `profileComplete` and routes accordingly.
      */
-    async register(data: {
-        name?: string;
+    async getAuthState(identity: SupabaseIdentity) {
+        const user = await prisma.user.findUnique({
+            where: { id: identity.id },
+            include: USER_INCLUDE,
+        });
+
+        if (!user) {
+            const suggestedName = identity.fullName
+                ? this.splitName(identity.fullName)
+                : null;
+
+            return {
+                profileComplete: false,
+                email: identity.email,
+                // Whether this identity is even allowed to create a profile.
+                // Surfaced so the client can show an accurate message instead
+                // of letting the user fill in a form that will be rejected.
+                eligible: isInternalEmail(identity.email),
+                suggested: {
+                    firstName: suggestedName?.firstName ?? null,
+                    lastName: suggestedName?.lastName ?? null,
+                },
+                user: null,
+            };
+        }
+
+        if (user.status === 'DISABLED') {
+            throw ApiError.forbidden('Account is disabled');
+        }
+
+        return {
+            profileComplete: true,
+            email: user.email,
+            eligible: true,
+            suggested: null,
+            user: this.sanitizeUser(user),
+        };
+    }
+
+    /**
+     * Create the application account for a Google-authenticated reviewee.
+     *
+     * This is where the `@cnu.edu.ph` restriction is enforced. Google will
+     * happily authenticate any Google account — the `hd` parameter is a UI
+     * hint, not a security control — so the domain check has to live at the
+     * point where application access is actually granted. A Supabase identity
+     * with no row in this table can reach nothing.
+     */
+    async completeProfile(identity: SupabaseIdentity, data: {
         firstName?: string;
         lastName?: string;
         middleInitial?: string;
         suffix?: string;
-        email: string;
-        password: string;
+        track_id?: string;
         program?: string;
         program_track?: string;
         programTrack?: string;
-        track_id?: string;
-        major?: string;
         campus_id?: string;
         yearLevel?: string;
         section?: string;
-        picture?: string;
     }) {
-        const { password } = data;
-        const email = data.email.trim().toLowerCase();
+        if (!isInternalEmail(identity.email)) {
+            throw ApiError.forbidden(
+                `Only @${INTERNAL_EMAIL_DOMAIN} accounts can register. ` +
+                'External accounts are created by an administrator.'
+            );
+        }
+
+        const existingById = await prisma.user.findUnique({ where: { id: identity.id } });
+        if (existingById) {
+            throw ApiError.conflict('Profile already exists for this account');
+        }
+
+        // Guards the case where an account with this address was provisioned
+        // under a different Supabase identity. Without this the unique index
+        // on email would surface as an opaque 500.
+        const existingByEmail = await prisma.user.findUnique({
+            where: { email: identity.email },
+        });
+        if (existingByEmail) {
+            throw ApiError.conflict(
+                'An account already exists for this email address. Contact an administrator.'
+            );
+        }
+
         const resolvedTrack = await this.resolveActiveTrack({
             track_id: data.track_id,
             rawTrack: resolveProgramTrack(data),
         });
         const resolvedCampus = await this.resolveActiveCampus(data.campus_id);
-        const resolvedName = data.name
-            ? this.splitName(data.name)
-            : {
-                firstName: data.firstName?.trim() || 'User',
-                lastName: data.lastName?.trim() || 'Account',
-            };
+
         const middleInitial = data.middleInitial?.trim()
             ? data.middleInitial.trim()[0].toUpperCase()
             : undefined;
-        const suffix = data.suffix?.trim() || undefined;
-        const yearLevel = data.yearLevel?.trim() || undefined;
-        const section = data.section?.trim() || undefined;
 
-        // Enforce cnu.edu.ph domain
-        if (!email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
-            throw ApiError.badRequest(`Only @${ALLOWED_DOMAIN} accounts are allowed`);
-        }
+        // Best-effort: a failed avatar import must not block registration.
+        const profilePicture = identity.pictureUrl
+            ? await importRemoteAvatar(identity.pictureUrl)
+            : null;
 
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) {
-            throw ApiError.conflict('User with this email already exists');
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 12);
-
-        // New self-registered reviewees require admin approval.
         const user = await prisma.user.create({
             data: {
-                firstName: resolvedName.firstName,
-                lastName: resolvedName.lastName,
+                // Shares the primary key with auth.users so the two tables
+                // never need reconciling.
+                id: identity.id,
+                firstName: data.firstName?.trim() || 'User',
+                lastName: data.lastName?.trim() || 'Account',
                 middleInitial,
-                suffix,
-                email: email.toLowerCase(),
-                passwordHash: hashedPassword,
+                suffix: data.suffix?.trim() || undefined,
+                email: identity.email,
                 role: 'REVIEWEE',
-                status: 'PENDING',
+                status: 'ACTIVE',
                 trackId: resolvedTrack?.id,
                 campusId: resolvedCampus?.id,
                 programTrack: resolvedTrack?.name,
-                yearLevel,
-                section,
-                profilePicture: data.picture,
+                yearLevel: data.yearLevel?.trim() || undefined,
+                section: data.section?.trim() || undefined,
+                profilePicture: profilePicture ?? undefined,
+                isExternalEmail: false,
             },
-            include: {
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
+            include: USER_INCLUDE,
         });
 
         await auditService.log({
@@ -211,159 +222,47 @@ export class AuthService {
             entityId: user.id,
             summary: `User registered: ${user.email}`,
             metadata: {
-                source: 'self-registration',
+                source: 'google-sso',
+                provider: identity.provider,
             },
         });
 
-        return {
-            user: this.sanitizeUser(user),
-        };
+        return this.sanitizeUser(user);
     }
 
     /**
-     * Login with email and password.
+     * Record a sign-in.
+     *
+     * Authentication happens between the browser and Supabase, so this service
+     * never observes it directly. The client reports a new session here so the
+     * application audit log still carries LOGIN events — Supabase's own auth
+     * logs are not a substitute, since free-tier retention is far too short to
+     * serve as evidence.
+     *
+     * Best-effort by nature: a client that skips this call simply produces no
+     * record.
      */
-    async login(email: string, password: string) {
-        const normalizedEmail = email.trim().toLowerCase();
-
-        // Check if account is locked due to brute force
-        checkLoginAttempts(normalizedEmail);
-
-        let user = await prisma.user.findUnique({
-            where: { email: normalizedEmail },
-            include: {
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
-        });
-
-        if (!user) {
-            recordFailedAttempt(normalizedEmail);
-            throw ApiError.unauthorized('Invalid email or password');
-        }
-
-        // Verify password
-        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isPasswordValid) {
-            recordFailedAttempt(normalizedEmail);
-            await auditService.log({
-                actorId: user.id,
-                actorRole: user.role,
-                action: 'REJECT',
-                entityType: 'auth',
-                summary: `Failed login attempt: ${user.email}`,
-            });
-            throw ApiError.unauthorized('Invalid email or password');
-        }
-
-        // Clear failed attempts on successful login
-        clearLoginAttempts(normalizedEmail);
-
-        if (user.status === 'PENDING') {
-            throw ApiError.forbidden('Your account is pending admin approval');
-        }
-
-        const currentStatus = user.status as string;
-        if (currentStatus === 'REJECTED' || currentStatus === 'DISABLED') {
-            throw ApiError.forbidden('Your account is disabled');
-        }
-
-        // Generate tokens
-        const tokenPayload = { userId: user.id, role: user.role };
-        const accessToken = generateAccessToken(tokenPayload);
-        const refreshToken = generateRefreshToken(tokenPayload);
-
-        // Store hashed refresh token
-        const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { refreshTokenHash: hashedRefreshToken },
-        });
-
+    async recordSessionStart(user: AppUser, provider: string | null) {
         await auditService.log({
-            actorId: user.id,
+            actorId: user.userId,
             actorRole: user.role,
             action: 'LOGIN',
             entityType: 'auth',
             summary: `User logged in: ${user.email}`,
+            metadata: { provider },
         });
-
-        return {
-            accessToken,
-            refreshToken,
-            user: this.sanitizeUser(user),
-        };
     }
 
     /**
-     * Refresh access token using a valid refresh token.
-     */
-    async refreshAccessToken(refreshTokenValue: string) {
-        const decoded = verifyRefreshToken(refreshTokenValue);
-
-        let user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            include: {
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
-        });
-
-        if (!user || !user.refreshTokenHash) {
-            throw ApiError.unauthorized('Invalid refresh token');
-        }
-
-        if (user.status === 'PENDING') {
-            throw ApiError.forbidden('Your account is pending admin approval');
-        }
-
-        const refreshTokenHash = user.refreshTokenHash;
-        if (!refreshTokenHash) {
-            throw ApiError.unauthorized('Invalid refresh token');
-        }
-
-        // Verify stored refresh token matches
-        const isValid = await bcrypt.compare(refreshTokenValue, refreshTokenHash);
-        if (!isValid) {
-            // Possible token reuse attack — invalidate all sessions for this user
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { refreshTokenHash: null },
-            });
-            throw ApiError.unauthorized('Invalid refresh token — all sessions revoked');
-        }
-
-        // Rotate: issue new access + refresh tokens
-        const tokenPayload = { userId: user.id, role: user.role };
-        const accessToken = generateAccessToken(tokenPayload);
-        const newRefreshToken = generateRefreshToken(tokenPayload);
-
-        // Store the new refresh token hash (invalidates the old one)
-        const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { refreshTokenHash: hashedNewRefreshToken },
-        });
-
-        return { accessToken, refreshToken: newRefreshToken, user: this.sanitizeUser(user) };
-    }
-
-    /**
-     * Invalidate refresh token (logout).
+     * Record a sign-out. The session itself is ended client-side by Supabase.
      */
     async logout(userId: string) {
-        const user = await prisma.user.update({
+        const user = await prisma.user.findUnique({
             where: { id: userId },
-            data: { refreshTokenHash: null },
+            select: { id: true, email: true, role: true },
         });
+
+        if (!user) return;
 
         await auditService.log({
             actorId: user.id,
@@ -378,16 +277,9 @@ export class AuthService {
      * Get current user by ID.
      */
     async getCurrentUser(userId: string) {
-        let user = await prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: {
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
+            include: USER_INCLUDE,
         });
 
         if (!user) throw ApiError.notFound('User not found');
@@ -452,14 +344,7 @@ export class AuthService {
                 yearLevel: data.yearLevel !== undefined ? (data.yearLevel?.trim() || null) : undefined,
                 section: data.section !== undefined ? (data.section?.trim() || null) : undefined,
             },
-            include: {
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
+            include: USER_INCLUDE,
         });
 
         await auditService.log({
@@ -497,14 +382,7 @@ export class AuthService {
                 isOnboarded: true,
                 profilePicture: data.picture !== undefined ? data.picture : undefined,
             },
-            include: {
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
+            include: USER_INCLUDE,
         });
 
         await auditService.log({
@@ -545,14 +423,7 @@ export class AuthService {
         if (existing.completedTours?.includes(normalizedTourId)) {
             const user = await prisma.user.findUnique({
                 where: { id: userId },
-                include: {
-                    track: {
-                        select: { id: true, name: true, code: true },
-                    },
-                    campus: {
-                        select: { id: true, name: true, code: true },
-                    },
-                },
+                include: USER_INCLUDE,
             });
 
             if (!user) {
@@ -569,35 +440,31 @@ export class AuthService {
                     push: normalizedTourId,
                 },
             },
-            include: {
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
+            include: USER_INCLUDE,
         });
 
         return this.sanitizeUser(user);
     }
 
     /**
-     * Remove sensitive fields from the user object.
+     * Shape the user object for API responses.
+     *
+     * Credentials no longer live in this table, so there is nothing secret
+     * left to strip — the mapping below exists to preserve the field names the
+     * client already consumes.
      */
     private sanitizeUser(user: any) {
-        const { passwordHash, refreshTokenHash, ...sanitized } = user;
-        const resolvedProgram = sanitized.track?.name || sanitized.programTrack || null;
+        const resolvedProgram = user.track?.name || user.programTrack || null;
         return {
-            ...sanitized,
-            name: `${sanitized.firstName} ${sanitized.lastName}`.trim(),
-            picture: sanitized.profilePicture || null,
-            status: fromDbUserStatus(sanitized.status),
+            ...user,
+            name: `${user.firstName} ${user.lastName}`.trim(),
+            picture: user.profilePicture || null,
+            status: fromDbUserStatus(user.status),
             program: resolvedProgram,
             program_track: resolvedProgram,
-            track_id: sanitized.trackId || sanitized.track?.id || null,
-            campus: sanitized.campus?.name || null,
-            campus_id: sanitized.campusId || sanitized.campus?.id || null,
+            track_id: user.trackId || user.track?.id || null,
+            campus: user.campus?.name || null,
+            campus_id: user.campusId || user.campus?.id || null,
         };
     }
 }

@@ -49,7 +49,7 @@ const Wordmark: React.FC<{ size?: 'sm' | 'md' }> = ({ size = 'md' }) => (
                 Normalite EDGE
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary/70 dark:text-secondary/70">
-                Digital Guide to Excellence
+                Everyday Digital Guide to Excellence
             </span>
         </div>
     </Link>
@@ -161,7 +161,7 @@ const MarketingLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                                     place.
                                 </p>
                                 <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.18em] text-secondary/80">
-                                    @cnu.edu.ph accounts · admin-approved
+                                    @cnu.edu.ph accounts · Google sign-in
                                 </p>
                             </div>
 

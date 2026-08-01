@@ -55,15 +55,19 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import api from '@/lib/axios';
-import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
+import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useSearchParams } from 'react-router-dom';
 
 type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
-type CreateUserRole = 'REVIEWER' | 'REVIEWEE';
-type UiStatus = 'active' | 'pending' | 'inactive';
-type ApiStatus = 'PENDING' | 'ACTIVE' | 'DISABLED' | 'APPROVED' | 'REJECTED';
+/**
+ * Reviewees are never provisioned here — they self-register with an
+ * institutional Google account. Only external staff are invited.
+ */
+type CreateUserRole = 'ADMIN' | 'REVIEWER';
+type UiStatus = 'active' | 'inactive';
+type ApiStatus = 'ACTIVE' | 'DISABLED';
 type UserColumn = 'user' | 'academic' | 'role' | 'status' | 'joined';
 type SortDirection = 'asc' | 'desc';
 type SortKey = 'name' | 'program' | 'role' | 'status' | 'dateJoined';
@@ -113,23 +117,12 @@ interface UserApiItem {
     campusId?: string | null;
 }
 
-interface TrackOption {
-    id: string;
-    name: string;
-    code?: string | null;
-}
 
-const statusFromApi = (status: UserApiItem['status']): UiStatus => {
-    if (status === 'ACTIVE' || status === 'APPROVED') return 'active';
-    if (status === 'DISABLED' || status === 'REJECTED') return 'inactive';
-    return 'pending';
-};
+const statusFromApi = (status: UserApiItem['status']): UiStatus =>
+    status === 'DISABLED' ? 'inactive' : 'active';
 
-const statusToApi = (status: UiStatus): ApiStatus => {
-    if (status === 'active') return 'ACTIVE';
-    if (status === 'inactive') return 'DISABLED';
-    return 'PENDING';
-};
+const statusToApi = (status: UiStatus): ApiStatus =>
+    status === 'inactive' ? 'DISABLED' : 'ACTIVE';
 
 const toUiUser = (item: UserApiItem): User => ({
     id: item.id,
@@ -166,14 +159,8 @@ const defaultCreateForm = {
     lastName: '',
     suffix: '',
     email: '',
-    password: '',
-    role: 'REVIEWEE' as CreateUserRole,
-    status: 'ACTIVE' as ApiStatus,
-    track_id: '',
+    role: 'REVIEWER' as CreateUserRole,
     campus_id: '',
-    program_track: '',
-    yearLevel: '',
-    section: '',
 };
 
 const roleBadgeClass: Record<UserRole, string> = {
@@ -184,13 +171,11 @@ const roleBadgeClass: Record<UserRole, string> = {
 
 const statusBadgeClass: Record<UiStatus, string> = {
     active: 'bg-green-50 text-green-700 border-green-100',
-    pending: 'bg-amber-50 text-amber-700 border-amber-100',
     inactive: 'bg-rose-50 text-rose-700 border-rose-100',
 };
 
 const statusRank: Record<UiStatus, number> = {
-    active: 3,
-    pending: 2,
+    active: 2,
     inactive: 1,
 };
 
@@ -231,7 +216,6 @@ const UserManagementPage: React.FC = () => {
     const [editMiddleInitial, setEditMiddleInitial] = useState('');
     const [editSuffix, setEditSuffix] = useState('');
     const [editEmail, setEditEmail] = useState('');
-    const [editPassword, setEditPassword] = useState('');
     const [editTrackId, setEditTrackId] = useState('');
     const [editCampusId, setEditCampusId] = useState('');
     const [editYearLevel, setEditYearLevel] = useState('');
@@ -241,14 +225,15 @@ interface CampusOption {
     name: string;
     code?: string | null;
 }
-    const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [campuses, setCampuses] = useState<CampusOption[]>([]);
-    const [tracksLoading, setTracksLoading] = useState(false);
     const [campusesLoading, setCampusesLoading] = useState(false);
     const [createForm, setCreateForm] = useState({ ...defaultCreateForm });
     const [createError, setCreateError] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
-    const [studentCreateFlow, setStudentCreateFlow] = useState(false);
+    // Invite and recovery links are shown once, right after they are created.
+    // They are never stored — the admin copies and delivers them.
+    const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [inviteEmail, setInviteEmail] = useState<string>('');
     const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [sortBy, setSortBy] = useState<SortKey>('dateJoined');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -290,18 +275,6 @@ interface CampusOption {
     }, [page, roleFilter, statusFilter]);
 
     useEffect(() => {
-        const fetchTracks = async () => {
-            setTracksLoading(true);
-            try {
-                const response = await api.get('/tracks');
-                setTracks((response.data?.data || []) as TrackOption[]);
-            } catch {
-                setTracks([]);
-            } finally {
-                setTracksLoading(false);
-            }
-        };
-
         const fetchCampuses = async () => {
             setCampusesLoading(true);
             try {
@@ -314,7 +287,6 @@ interface CampusOption {
             }
         };
 
-        fetchTracks();
         fetchCampuses();
     }, []);
 
@@ -331,10 +303,11 @@ interface CampusOption {
         const create = searchParams.get('create');
         if (create !== 'reviewee') return;
 
-        setCreateError(null);
-        setCreateForm({ ...defaultCreateForm, role: 'REVIEWEE' });
-        setStudentCreateFlow(true);
-        setIsCreateModalOpen(true);
+        // Students are no longer created by an administrator — they register
+        // themselves with their university Google account.
+        toast.info(
+            'Students register themselves with their @cnu.edu.ph Google account. Share the sign-up link with them instead.'
+        );
 
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('create');
@@ -355,7 +328,6 @@ interface CampusOption {
         setEditMiddleInitial(user.middleInitial || '');
         setEditSuffix(user.suffix || '');
         setEditEmail(user.email);
-        setEditPassword('');
         setEditTrackId(user.trackId || '');
         setEditCampusId(user.campusId || '');
         setEditYearLevel(user.yearLevel);
@@ -389,45 +361,60 @@ interface CampusOption {
 
     const handleCreate = async () => {
         setCreateError(null);
-        if (!createForm.firstName.trim() || !createForm.lastName.trim() || !createForm.email.trim() || !createForm.password.trim()) {
-            setCreateError('First name, last name, email, and password are required.');
+        if (!createForm.firstName.trim() || !createForm.lastName.trim() || !createForm.email.trim()) {
+            setCreateError('First name, last name, and email are required.');
             return;
         }
-        if (createForm.role === 'REVIEWEE') {
-            if (!createForm.track_id.trim() || !createForm.yearLevel.trim() || !createForm.section.trim()) {
-                setCreateError('Program track, year level, and section are required for reviewees.');
-                return;
-            }
+        if (createForm.email.trim().toLowerCase().endsWith('@cnu.edu.ph')) {
+            setCreateError(
+                'CNU accounts sign in with Google and cannot be invited. Ask them to sign in, then change their role here.'
+            );
+            return;
         }
-        if (!createForm.campus_id.trim()) {
-            setCreateError('Campus is required for reviewers and reviewees.');
+        if (createForm.role === 'REVIEWER' && !createForm.campus_id.trim()) {
+            setCreateError('Campus is required for reviewers.');
             return;
         }
         try {
             setCreating(true);
-            await api.post('/users', {
+            const response = await api.post('/users', {
                 firstName: createForm.firstName.trim(),
                 middleInitial: createForm.middleInitial.trim() || undefined,
                 lastName: createForm.lastName.trim(),
                 suffix: createForm.suffix.trim() || undefined,
                 email: createForm.email.trim(),
-                password: createForm.password,
                 role: createForm.role,
-                status: createForm.status,
-                track_id: createForm.role === 'REVIEWEE' ? createForm.track_id : undefined,
-                campus_id: createForm.campus_id,
-                yearLevel: createForm.yearLevel.trim() || undefined,
-                section: createForm.section.trim() || undefined,
+                campus_id: createForm.campus_id || undefined,
             });
+
+            // Shown once, right here. No email is sent — the admin copies the
+            // link and delivers it over a channel they trust.
+            setInviteLink(response.data?.data?.inviteLink ?? null);
+            setInviteEmail(createForm.email.trim());
             setIsCreateModalOpen(false);
             setCreateForm({ ...defaultCreateForm });
-            setStudentCreateFlow(false);
             await fetchUsers();
-            toast.success(studentCreateFlow ? 'Student added successfully.' : 'User created successfully.');
+            toast.success('Invite link created.');
         } catch (error: any) {
             setCreateError(error?.response?.data?.message || 'Failed to create user');
         } finally {
             setCreating(false);
+        }
+    };
+
+    /** Fresh set-password link — covers an expired invite and a lost password. */
+    const handleGenerateAccessLink = async (user: User) => {
+        try {
+            setMutatingId(user.id);
+            const response = await api.post(`/users/${user.id}/access-link`);
+            setInviteLink(response.data?.data?.accessLink ?? null);
+            setInviteEmail(user.email);
+            setIsEditModalOpen(false);
+            toast.success('Access link created.');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to generate an access link.');
+        } finally {
+            setMutatingId(null);
         }
     };
 
@@ -445,11 +432,9 @@ interface CampusOption {
             if (editMiddleInitial !== (selectedUser.middleInitial || '')) body.middleInitial = editMiddleInitial || undefined;
             if (editSuffix !== (selectedUser.suffix || '')) body.suffix = editSuffix || undefined;
             
-            // Email
-            if (editEmail !== selectedUser.email) body.email = editEmail;
-            
-            // Password (only if admin entered a new one)
-            if (editPassword) body.password = editPassword;
+            // Email and password are intentionally not sent. Both live in
+            // Supabase Auth: email is the shared key with auth.users, and a
+            // password is set by its owner through an access link.
 
             // Academic fields
             if (editTrackId !== (selectedUser.trackId || '')) body.track_id = editTrackId || undefined;
@@ -516,9 +501,8 @@ interface CampusOption {
 
     const summary = useMemo(() => {
         const active = users.filter((u) => u.status === 'active').length;
-        const pending = users.filter((u) => u.status === 'pending').length;
         const inactive = users.filter((u) => u.status === 'inactive').length;
-        return { active, pending, inactive };
+        return { active, inactive };
     }, [users]);
 
     const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length + 1;
@@ -556,7 +540,6 @@ interface CampusOption {
                 <Button
                     onClick={() => {
                         setCreateError(null);
-                        setStudentCreateFlow(false);
                         setCreateForm({ ...defaultCreateForm });
                         setIsCreateModalOpen(true);
                     }}
@@ -595,9 +578,11 @@ interface CampusOption {
                 <Card className="border border-[#800000]/5 rounded-xl shadow-sm bg-white">
                     <CardContent className="p-6 flex items-start justify-between">
                         <div>
-                            <p className="text-sm font-medium text-slate-500">Pending Users</p>
-                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{summary.pending}</h3>
-                            <p className="text-xs text-[#D4AF37] font-medium mt-2">Waiting for activation or approval</p>
+                            <p className="text-sm font-medium text-slate-500">External Accounts</p>
+                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">
+                                {users.filter((u) => !u.email.toLowerCase().endsWith('@cnu.edu.ph')).length}
+                            </h3>
+                            <p className="text-xs text-[#D4AF37] font-medium mt-2">Invited reviewers and admins</p>
                         </div>
                         <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
                             <Clock className="w-5 h-5" />
@@ -888,16 +873,16 @@ interface CampusOption {
             </section>
             </div>
 
-            <Dialog open={isCreateModalOpen} onOpenChange={(open) => { if (!creating) { setIsCreateModalOpen(open); setCreateError(null); if (!open) setStudentCreateFlow(false); } }}>
+            <Dialog open={isCreateModalOpen} onOpenChange={(open) => { if (!creating) { setIsCreateModalOpen(open); setCreateError(null); } }}>
                 <DialogContent className="sm:max-w-md rounded-lg font-lexend">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
-                            <UserPlus className="w-4 h-4 text-primary" /> {studentCreateFlow ? 'Add Student' : 'Create User'}
+                            <UserPlus className="w-4 h-4 text-primary" /> Invite External User
                         </DialogTitle>
                         <DialogDescription className="text-sm text-gray-500">
-                            {studentCreateFlow
-                                ? 'Enter student details to create a new reviewee account.'
-                                : 'Choose whether you are creating a reviewee or reviewer account.'}
+                            For reviewers and administrators from outside the university. Anyone with a
+                            @cnu.edu.ph address signs in with Google instead — invite them by asking them
+                            to sign in, then change their role here.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -905,26 +890,18 @@ interface CampusOption {
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5 col-span-2">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">User Type</Label>
-                                {studentCreateFlow ? (
-                                    <Input value="Reviewee" disabled className="h-8 rounded-md border-gray-200 bg-gray-50 text-xs" />
-                                ) : (
-                                    <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({
-                                        ...prev,
-                                        role: v as CreateUserRole,
-                                        track_id: v === 'REVIEWEE' ? prev.track_id : '',
-                                        program_track: '',
-                                        yearLevel: v === 'REVIEWEE' ? prev.yearLevel : '',
-                                        section: v === 'REVIEWEE' ? prev.section : '',
-                                    }))}>
-                                        <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="font-lexend">
-                                            <SelectItem value="REVIEWEE">Reviewee</SelectItem>
-                                            <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
+                                <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({
+                                    ...prev,
+                                    role: v as CreateUserRole,
+                                }))}>
+                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-lexend">
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                        <SelectItem value="ADMIN">Administrator</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">First Name <span className="text-rose-500">*</span></Label>
@@ -978,38 +955,17 @@ interface CampusOption {
                                 type="email"
                                 value={createForm.email}
                                 onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
-                                placeholder="user@example.com"
+                                placeholder="reviewer@partner.edu.ph"
                                 className="h-8 rounded-md border-gray-200 text-xs"
                             />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Password <span className="text-rose-500">*</span></Label>
-                            <Input
-                                type="password"
-                                value={createForm.password}
-                                onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
-                                placeholder="Min. 6 characters"
-                                className="h-8 rounded-md border-gray-200 text-xs"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</Label>
-                                <Select value={createForm.status} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, status: v as ApiStatus }))}>
-                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        <SelectItem value="ACTIVE">Active</SelectItem>
-                                        <SelectItem value="PENDING">Pending</SelectItem>
-                                        <SelectItem value="DISABLED">Disabled</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <p className="text-[10px] leading-relaxed text-gray-500">
+                                No password is set here. You will get a one-time link to send them, and
+                                they choose their own password.
+                            </p>
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                Campus <span className="text-rose-500">*</span>
+                                Campus {createForm.role === 'REVIEWER' && <span className="text-rose-500">*</span>}
                             </Label>
                             <Select
                                 value={createForm.campus_id}
@@ -1028,73 +984,68 @@ interface CampusOption {
                                 </SelectContent>
                             </Select>
                         </div>
-                        {createForm.role === 'REVIEWEE' && (
-                        <>
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                Program Track <span className="text-rose-500">*</span>
-                            </Label>
-                            <Select
-                                value={createForm.track_id}
-                                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, track_id: value, program_track: '' }))}
-                                disabled={tracksLoading || tracks.length === 0}
-                            >
-                                <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                    <SelectValue placeholder={tracksLoading ? 'Loading program tracks...' : 'Select a program track'} />
-                                </SelectTrigger>
-                                <SelectContent className="font-lexend">
-                                    {tracks.map((track) => (
-                                        <SelectItem key={track.id} value={track.id}>
-                                            {track.code ? `${track.name} (${track.code})` : track.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                    Year Level <span className="text-rose-500">*</span>
-                                </Label>
-                                <Select
-                                    value={createForm.yearLevel}
-                                    onValueChange={(value) => setCreateForm((prev) => ({ ...prev, yearLevel: value }))}
-                                >
-                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                        <SelectValue placeholder="Select year level" />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        {YEAR_LEVEL_OPTIONS.map((yearLevelOption) => (
-                                            <SelectItem key={yearLevelOption} value={yearLevelOption}>{yearLevelOption}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                    Section <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    value={createForm.section}
-                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, section: e.target.value }))}
-                                    placeholder="e.g. A"
-                                    className="h-8 rounded-md border-gray-200 text-xs"
-                                />
-                            </div>
-                        </div>
-                        </>
-                        )}
                         {createError && (
                             <p className="text-xs font-semibold text-rose-600 rounded-md border border-rose-100 bg-rose-50 px-3 py-2">{createError}</p>
                         )}
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => { setIsCreateModalOpen(false); setStudentCreateFlow(false); }} disabled={creating} className="h-8 rounded-md border-gray-200 text-xs font-semibold">
+                        <Button variant="outline" onClick={() => setIsCreateModalOpen(false)} disabled={creating} className="h-8 rounded-md border-gray-200 text-xs font-semibold">
                             Cancel
                         </Button>
                         <Button onClick={handleCreate} disabled={creating} className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white text-xs font-semibold">
-                            {creating ? 'Creating...' : studentCreateFlow ? 'Add Student' : 'Create User'}
+                            {creating ? 'Creating...' : 'Create invite link'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Shown once after an invite or reset. No email is sent — the
+                admin delivers this over a channel they trust. */}
+            <Dialog open={Boolean(inviteLink)} onOpenChange={(open) => !open && setInviteLink(null)}>
+                <DialogContent className="sm:max-w-lg rounded-lg font-lexend">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <UserPlus className="w-4 h-4 text-primary" /> Send this link to {inviteEmail}
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-gray-500">
+                            It lets them set their own password. It expires, and it is shown only once —
+                            copy it now. You can always generate a new one from their profile.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 py-1">
+                        <textarea
+                            readOnly
+                            value={inviteLink ?? ''}
+                            onFocus={(e) => e.currentTarget.select()}
+                            rows={3}
+                            className="w-full resize-none rounded-md border border-gray-200 bg-gray-50 p-3 font-mono text-[11px] leading-relaxed text-gray-700"
+                        />
+                        <p className="text-[11px] leading-relaxed text-amber-700">
+                            Treat it like a password: anyone holding this link can take over the account
+                            until it is used or expires. Avoid group chats.
+                        </p>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setInviteLink(null)}
+                            className="h-8 rounded-md border-gray-200 text-xs font-semibold"
+                        >
+                            Done
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (inviteLink) {
+                                    void navigator.clipboard.writeText(inviteLink);
+                                    toast.success('Link copied to clipboard.');
+                                }
+                            }}
+                            className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white text-xs font-semibold"
+                        >
+                            Copy link
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1180,16 +1131,30 @@ interface CampusOption {
                                 </div>
                             </div>
 
-                            {/* Email & Password */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Email</Label>
-                                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="h-8 rounded-md border-gray-200 text-xs" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">New Password (leave blank to keep)</Label>
-                                    <Input value={editPassword} onChange={(e) => setEditPassword(e.target.value)} type="password" placeholder="••••••••" className="h-8 rounded-md border-gray-200 text-xs" />
-                                </div>
+                            {/* Email & credentials */}
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Email</Label>
+                                <Input value={editEmail} disabled className="h-8 rounded-md border-gray-200 bg-gray-50 text-xs" />
+                                {selectedUser.email.toLowerCase().endsWith('@cnu.edu.ph') ? (
+                                    <p className="text-[10px] leading-relaxed text-gray-500">
+                                        Signs in with Google. There is no password to change, and the email
+                                        is fixed to their university account.
+                                    </p>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                                        <p className="text-[10px] leading-relaxed text-gray-500">
+                                            External account. Generate a link so they can set a new password.
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => handleGenerateAccessLink(selectedUser)}
+                                            disabled={mutatingId === selectedUser.id}
+                                            className="h-7 shrink-0 rounded-md border-gray-200 text-[11px] font-semibold"
+                                        >
+                                            {mutatingId === selectedUser.id ? 'Working…' : 'Reset link'}
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Role & Status */}

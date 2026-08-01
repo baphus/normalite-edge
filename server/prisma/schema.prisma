@@ -17,7 +17,6 @@ enum Role {
 }
 
 enum UserStatus {
-  PENDING
   ACTIVE
   DISABLED
 }
@@ -82,16 +81,17 @@ enum DeckSessionStatus {
 
 // ─── Models ────────────────────────────────────────────────
 model User {
-  id               String     @id @default(uuid()) @db.Uuid
+  // Mirrors auth.users.id — supplied by Supabase Auth at provisioning time,
+  // never generated here. Credentials live in auth.users; this table holds
+  // only application state (role, academic profile, relations).
+  id               String     @id @db.Uuid
   firstName        String     @map("first_name")
   lastName         String     @map("last_name")
   middleInitial    String?    @map("middle_initial") @db.Char(1)
   suffix           String?
   email            String     @unique
-  passwordHash     String     @map("password_hash")
-  refreshTokenHash String?    @map("refresh_token_hash")
   role             Role
-  status           UserStatus @default(PENDING)
+  status           UserStatus @default(ACTIVE)
   trackId          String?    @map("track_id") @db.Uuid
   campusId         String?    @map("campus_id") @db.Uuid
   programTrack     String?    @map("program_track")

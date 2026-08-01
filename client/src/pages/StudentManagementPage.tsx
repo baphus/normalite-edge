@@ -452,10 +452,12 @@ const StudentManagementPage: React.FC = () => {
         (student.status || '').toUpperCase() === 'ACTIVE'
         || student.inProgressAttempts > 0
     )).length;
-    const pendingStudents = studentSummaries.filter((student) => {
-        const normalizedStatus = (student.status || '').toUpperCase();
-        return normalizedStatus.includes('PENDING') || normalizedStatus.includes('APPROVAL');
-    }).length;
+    // Students self-register with Google and are active immediately, so there
+    // is no approval queue to count. Disabled accounts are what an admin
+    // actually needs to see.
+    const disabledStudents = studentSummaries.filter(
+        (student) => (student.status || '').toUpperCase() === 'DISABLED'
+    ).length;
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     const newThisMonth = studentSummaries.filter((student) => {
@@ -525,9 +527,9 @@ const StudentManagementPage: React.FC = () => {
                     <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
                         <div className="flex items-start justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-500">Pending Registrations</p>
-                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{pendingStudents.toLocaleString()}</h3>
-                                <p className="text-xs text-[#D4AF37] font-medium mt-2">Requires admin review</p>
+                                <p className="text-sm font-medium text-slate-500">Disabled Accounts</p>
+                                <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{disabledStudents.toLocaleString()}</h3>
+                                <p className="text-xs text-[#D4AF37] font-medium mt-2">Revoked or suspended access</p>
                             </div>
                             <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
                                 <Clock3 className="w-5 h-5" />

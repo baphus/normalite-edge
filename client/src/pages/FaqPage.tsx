@@ -8,21 +8,21 @@ type Faq = { q: string; a: React.ReactNode };
 const FAQS: Faq[] = [
     {
         q: 'Who can use Normalite EDGE?',
-        a: 'The platform is for reviewees of Cebu Normal University. You register with a valid @cnu.edu.ph email address, and an administrator approves your account before you can sign in.',
+        a: 'The platform is for reviewees of Cebu Normal University. You sign in with your @cnu.edu.ph Google account, which is how we confirm you belong to the university. Reviewers and partners from outside CNU are added by an administrator.',
     },
     {
         q: 'How do I register?',
         a: (
             <>
-                Go to the <Link to="/register" className="font-medium text-primary underline underline-offset-2 dark:text-secondary">register page</Link>,
-                sign up with your @cnu.edu.ph email, and choose your program track, campus, year, and section. Your
-                account then waits for an administrator to review and activate it.
+                Go to the <Link to="/register" className="font-medium text-primary underline underline-offset-2 dark:text-secondary">sign-up page</Link>,
+                choose <em>Sign up with Google</em> and use your @cnu.edu.ph account. You then pick your program
+                track, campus, year and section — and you are in straight away, with no waiting for approval.
             </>
         ),
     },
     {
-        q: 'Why isn’t my account working right after I sign up?',
-        a: 'New accounts are pending until an administrator approves them. This keeps the platform limited to verified CNU reviewees. You’ll be able to log in once your account is activated.',
+        q: 'Do I need to wait for approval after signing up?',
+        a: 'No. Signing in with your @cnu.edu.ph Google account already proves you belong to the university, so access is immediate once you have filled in your program track, campus, year and section.',
     },
     {
         q: 'What’s inside a mock exam?',

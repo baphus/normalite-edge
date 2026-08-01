@@ -9,7 +9,9 @@ import { Toaster } from './components/ui/sonner';
 // Pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-import PendingApprovalPage from './pages/auth/PendingApprovalPage';
+import AuthCallbackPage from './pages/auth/AuthCallbackPage';
+import CompleteProfilePage from './pages/auth/CompleteProfilePage';
+import SetPasswordPage from './pages/auth/SetPasswordPage';
 
 import DashboardPage from './pages/DashboardPage';
 import ExamsPage from './pages/ExamsPage';
@@ -77,7 +79,13 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/pending" element={<PendingApprovalPage />} />
+
+            {/* Supabase auth landings. These sit outside ProtectedRoute: the
+                user is mid-authentication and has no profile yet, so the guard
+                would bounce them straight back out. */}
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
+            <Route path="/complete-profile" element={<CompleteProfilePage />} />
+            <Route path="/set-password" element={<SetPasswordPage />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>

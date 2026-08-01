@@ -423,7 +423,10 @@ export class DashboardService {
             recentAuditLogs,
         ] = await Promise.all([
             prisma.user.count(),
-            prisma.user.count({ where: { status: 'PENDING' } }),
+            // Admin approval was removed with the move to Google SSO, so there
+            // is no pending queue. Kept as a constant zero to preserve the
+            // dashboard response shape for existing clients.
+            Promise.resolve(0),
             prisma.exam.count(),
             prisma.attempt.count({ where: { status: { not: 'IN_PROGRESS' } } }),
             prisma.studyDeck.count(),

@@ -1,6 +1,39 @@
 import { Role, UserStatus, ExamStatus, FeedbackMode, Visibility, ApplicableCategory } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 import prisma from '../src/config/db';
+import { supabaseAdmin } from '../src/config/supabase';
+
+const SEED_PASSWORD = 'password123';
+
+/**
+ * Create (or find) the Supabase identity for a seed account and return its id.
+ *
+ * public.users.id mirrors auth.users.id, so the identity has to exist first —
+ * the application row is created with the id this returns rather than
+ * generating its own.
+ */
+async function ensureAuthUser(email: string): Promise<string> {
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: SEED_PASSWORD,
+        email_confirm: true,
+    });
+
+    if (created?.user?.id) return created.user.id;
+
+    // Already provisioned by a previous seed run — look the id up instead.
+    const { data: list, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+    });
+
+    const existing = list?.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+    if (existing) return existing.id;
+
+    throw new Error(
+        `Could not provision the Supabase identity for ${email}: ` +
+        `${error?.message || listError?.message || 'unknown error'}`
+    );
+}
 
 // ─── Safety Guard ──────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -864,8 +897,6 @@ async function upsertDeckWithContent(deckSeed: SeedDeck, reviewerId: string, tra
 async function seed() {
     console.log('🌱 Seeding database...');
 
-    const passwordHash = await bcrypt.hash('password123', 10);
-
     for (const track of TRACK_SEEDS) {
         await prisma.track.upsert({
             where: { code: track.code },
@@ -900,8 +931,23 @@ async function seed() {
     const beedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BEED' } });
     const mainCampus = await prisma.campus.findUniqueOrThrow({ where: { code: 'CNU-MAIN' } });
 
+    // Seed sign-in accounts.
+    //
+    // The admin and reviewer use addresses OUTSIDE @cnu.edu.ph on purpose: in
+    // this system an institutional address means Google-only sign-in, so a
+    // cnu.edu.ph seed account could not be signed into locally without a
+    // configured Google OAuth client. External addresses exercise the same
+    // password path real external staff use.
+    //
+    // The reviewee keeps a cnu.edu.ph address because reviewees are locked to
+    // that domain — it owns the demo attempt data. Signing in as that account
+    // requires Google; the login form deliberately refuses a password for it.
+    const adminAuthId = await ensureAuthUser('admin@normalite.test');
+    const reviewerAuthId = await ensureAuthUser('reviewer@normalite.test');
+    const revieweeAuthId = await ensureAuthUser('reviewee@cnu.edu.ph');
+
     const admin = await prisma.user.upsert({
-        where: { email: 'admin@cnu.edu.ph' },
+        where: { email: 'admin@normalite.test' },
         update: {
             firstName: 'Admin',
             lastName: 'User',
@@ -909,20 +955,21 @@ async function seed() {
             suffix: 'Sr.',
         },
         create: {
+            id: adminAuthId,
             firstName: 'Admin',
             lastName: 'User',
             middleInitial: 'A',
             suffix: 'Sr.',
-            email: 'admin@cnu.edu.ph',
-            passwordHash,
+            email: 'admin@normalite.test',
             role: Role.ADMIN,
             status: UserStatus.ACTIVE,
             createdByAdmin: true,
+            isExternalEmail: true,
         },
     });
 
     const reviewer = await prisma.user.upsert({
-        where: { email: 'reviewer@cnu.edu.ph' },
+        where: { email: 'reviewer@normalite.test' },
         update: {
             firstName: 'Maria',
             lastName: 'Santos',
@@ -937,14 +984,15 @@ async function seed() {
             lastName: 'Santos',
             middleInitial: 'L',
             suffix: 'Jr.',
-            email: 'reviewer@cnu.edu.ph',
-            passwordHash,
+            id: reviewerAuthId,
+            email: 'reviewer@normalite.test',
             role: Role.REVIEWER,
             status: UserStatus.ACTIVE,
             trackId: bsedTrack.id,
             campusId: mainCampus.id,
             programTrack: bsedTrack.name,
             createdByAdmin: true,
+            isExternalEmail: true,
         },
     });
 
@@ -964,8 +1012,8 @@ async function seed() {
             lastName: 'Dela Cruz',
             middleInitial: 'R',
             suffix: 'III',
+            id: revieweeAuthId,
             email: 'reviewee@cnu.edu.ph',
-            passwordHash,
             role: Role.REVIEWEE,
             status: UserStatus.ACTIVE,
             trackId: beedTrack.id,
@@ -1057,10 +1105,11 @@ async function seed() {
     });
 
     console.log('✅ Seed completed successfully');
-    console.log('Test accounts (password: password123):');
-    console.log(' - admin@cnu.edu.ph');
-    console.log(' - reviewer@cnu.edu.ph');
-    console.log(' - reviewee@cnu.edu.ph');
+    console.log(`Password sign-in (external accounts, password: ${SEED_PASSWORD}):`);
+    console.log(' - admin@normalite.test      (ADMIN)');
+    console.log(' - reviewer@normalite.test   (REVIEWER)');
+    console.log('Google sign-in only (institutional account):');
+    console.log(' - reviewee@cnu.edu.ph       (REVIEWEE, owns the demo attempt data)');
 }
 
 seed()
