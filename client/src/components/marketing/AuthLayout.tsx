@@ -4,7 +4,7 @@ import { BubbleMark } from '@/components/marketing/Primitives';
 
 const TRUST_POINTS = [
     'Exclusive to @cnu.edu.ph accounts',
-    'Access activated by an administrator',
+    'Secure Google sign-in — no extra password',
     'Timed mock exams with rationalizations',
 ];
 

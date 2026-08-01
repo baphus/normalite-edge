@@ -135,20 +135,14 @@ describe('Authentication Security', () => {
         assert.equal(res.status, 401);
     });
 
-    it('should require CSRF header on refresh endpoint', async () => {
-        const res = await request('POST', '/api/v1/auth/refresh', {
-            headers: {}, // No X-Requested-With header
-        });
-        assert.equal(res.status, 403);
-        assert.ok(res.body.message.includes('CSRF'));
-    });
-
-    it('should allow refresh with proper CSRF header', async () => {
-        const res = await request('POST', '/api/v1/auth/refresh', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        });
-        // Should be 401 (no cookie) not 403 (CSRF blocked)
+    // There is no longer a cookie-authenticated endpoint to protect: the
+    // session is a bearer token issued by Supabase, and bearer tokens are not
+    // attached by the browser on cross-site requests, so CSRF does not apply.
+    // Authorization is asserted directly instead.
+    it('should reject a protected endpoint with no Authorization header', async () => {
+        const res = await request('GET', '/api/v1/users', { headers: {} });
         assert.equal(res.status, 401);
+        assert.equal(res.body.success, false);
     });
 });
 
@@ -179,39 +173,43 @@ describe('Input Validation', () => {
         assert.ok(res.status < 500, `Expected client error, got ${res.status}`);
     });
 
-    it('should reject password shorter than 8 characters on registration', async () => {
-        const res = await request('POST', '/api/v1/auth/register', {
-            body: {
-                firstName: 'Test',
-                lastName: 'User',
-                middleInitial: 'T',
-                email: 'test@cnu.edu.ph',
-                password: 'short',  // < 8 chars
-                campus_id: '11111111-1111-1111-1111-111111111111',
-                track_id: '11111111-1111-1111-1111-111111111111',
-                yearLevel: '1',
-                section: 'A',
-            },
+    // Credential handling moved to Supabase Auth. These endpoints must be gone
+    // rather than merely unused — a lingering one would still mint tokens this
+    // service no longer trusts.
+    for (const removed of ['/api/v1/auth/register', '/api/v1/auth/login', '/api/v1/auth/refresh']) {
+        it(`should no longer expose ${removed}`, async () => {
+            const res = await request('POST', removed, { body: {} });
+            assert.equal(res.status, 404, `${removed} should not exist`);
         });
-        assert.equal(res.status, 400);
+    }
+
+    it('should reject /auth/me without an access token', async () => {
+        const res = await request('GET', '/api/v1/auth/me');
+        assert.equal(res.status, 401);
         assert.equal(res.body.success, false);
     });
 
-    it('should reject password longer than 128 characters on registration', async () => {
-        const res = await request('POST', '/api/v1/auth/register', {
+    it('should reject /auth/complete-profile without an access token', async () => {
+        const res = await request('POST', '/api/v1/auth/complete-profile', {
             body: {
                 firstName: 'Test',
                 lastName: 'User',
                 middleInitial: 'T',
-                email: 'test@cnu.edu.ph',
-                password: 'a'.repeat(129),  // > 128 chars
-                campus_id: '11111111-1111-1111-1111-111111111111',
                 track_id: '11111111-1111-1111-1111-111111111111',
-                yearLevel: '1',
+                campus_id: '11111111-1111-1111-1111-111111111111',
+                yearLevel: '3rd Year',
                 section: 'A',
             },
         });
-        assert.equal(res.status, 400);
+        assert.equal(res.status, 401);
+        assert.equal(res.body.success, false);
+    });
+
+    it('should reject a forged bearer token', async () => {
+        const res = await request('GET', '/api/v1/auth/me', {
+            headers: { Authorization: 'Bearer not.a.real.token' },
+        });
+        assert.equal(res.status, 401);
         assert.equal(res.body.success, false);
     });
 

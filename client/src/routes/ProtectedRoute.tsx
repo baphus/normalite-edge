@@ -3,23 +3,25 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedRoute: React.FC = () => {
-    const { user, loading } = useAuth();
+    const { user, status } = useAuth();
     const location = useLocation();
 
-    if (loading) {
+    if (status === 'loading') {
         return <div className="flex items-center justify-center h-screen">Loading...</div>;
     }
 
-    if (!user) {
+    if (status === 'signedOut') {
         return <Navigate to="/login" replace />;
     }
 
-    if (user.status === 'PENDING') {
-        return <Navigate to="/pending" replace />;
+    // Signed in with Supabase but no application account yet — every new user
+    // passes through this on their first visit. Sending them to /login would
+    // loop, because Google would silently sign them straight back in.
+    if (status === 'needsProfile') {
+        return <Navigate to="/complete-profile" replace />;
     }
 
-    if (user.status === 'DISABLED') {
-        localStorage.removeItem('user');
+    if (!user || user.status === 'DISABLED') {
         return <Navigate to="/login" replace />;
     }
 

@@ -30,7 +30,22 @@ export interface SupabaseIdentity {
  * project still on the legacy shared-secret (HS256) setting will fail every
  * verification here until it is migrated.
  */
-const jwks = createRemoteJWKSet(new URL(env.SUPABASE_JWKS_URL));
+let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+/**
+ * Built on first use rather than at import time, so a missing SUPABASE_URL
+ * surfaces as a clear 401/500 on an authenticated request instead of crashing
+ * the process while modules are still loading.
+ */
+const getJwks = () => {
+    if (!jwksCache) {
+        if (!env.SUPABASE_URL) {
+            throw ApiError.internal('SUPABASE_URL is not configured; cannot verify access tokens');
+        }
+        jwksCache = createRemoteJWKSet(new URL(env.SUPABASE_JWKS_URL));
+    }
+    return jwksCache;
+};
 
 const asString = (value: unknown): string | null =>
     typeof value === 'string' && value.trim() ? value : null;
@@ -41,6 +56,8 @@ const asString = (value: unknown): string | null =>
  */
 export async function verifySupabaseAccessToken(token: string): Promise<SupabaseIdentity> {
     let claims: Record<string, unknown>;
+
+    const jwks = getJwks();
 
     try {
         const { payload } = await jwtVerify(token, jwks, {
