@@ -203,7 +203,7 @@ const CompleteProfilePage: React.FC = () => {
             subtitle={
                 pending?.email
                     ? `Signed in as ${pending.email}. Tell us what you're reviewing for.`
-                    : 'Tell us what you're reviewing for.'
+                    : "Tell us what you're reviewing for."
             }
             footer={
                 <button
