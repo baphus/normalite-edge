@@ -38,8 +38,14 @@ export type AuthStatus = 'loading' | 'signedOut' | 'needsProfile' | 'ready';
 
 interface PendingRegistration {
     email: string;
-    /** False when the address is outside the institution's Workspace. */
+    /** False when this identity may not create a profile at all. */
     eligible: boolean;
+    /**
+     * Why not: 'domain' for an address outside the institution's Workspace,
+     * 'provider' for an institutional address that signed up with a password
+     * instead of Google.
+     */
+    ineligibleReason: 'domain' | 'provider' | null;
     firstName: string | null;
     lastName: string | null;
 }
@@ -128,6 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setPending({
                     email: state.email,
                     eligible: Boolean(state.eligible),
+                    ineligibleReason: state.ineligibleReason ?? null,
                     firstName: state.suggested?.firstName ?? null,
                     lastName: state.suggested?.lastName ?? null,
                 });

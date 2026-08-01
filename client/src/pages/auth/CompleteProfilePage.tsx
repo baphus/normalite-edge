@@ -137,17 +137,25 @@ const CompleteProfilePage: React.FC = () => {
         return (
             <AuthLayout
                 title="That account can’t be used"
-                subtitle="Normalite EDGE is limited to Cebu Normal University accounts."
+                subtitle="Normalite EDGE is limited to Cebu Normal University Google accounts."
                 footer={<>Need help? Contact your administrator.</>}
             >
                 <div className="space-y-5">
                     <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                         <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                        <span>
-                            You signed in as <strong>{pending.email}</strong>, which is not a
-                            <strong> @cnu.edu.ph</strong> account. Sign in again with your university
-                            Google account.
-                        </span>
+                        {pending.ineligibleReason === 'provider' ? (
+                            <span>
+                                <strong>{pending.email}</strong> is a university address, but you signed
+                                in with a password. CNU accounts must use{' '}
+                                <strong>Sign in with Google</strong>.
+                            </span>
+                        ) : (
+                            <span>
+                                You signed in as <strong>{pending.email}</strong>, which is not a
+                                <strong> @cnu.edu.ph</strong> account. Sign in again with your university
+                                Google account.
+                            </span>
+                        )}
                     </div>
                     <Button
                         type="button"
