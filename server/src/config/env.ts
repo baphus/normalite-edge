@@ -6,7 +6,11 @@ const isProduction = process.env.NODE_ENV === 'production';
 // ─── Startup Validation ────────────────────────────────
 // Crash immediately if critical secrets are missing in production
 if (isProduction) {
-    const requiredSecrets = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL'] as const;
+    const requiredSecrets = [
+        'DATABASE_URL',
+        'SUPABASE_URL',
+        'SUPABASE_SERVICE_ROLE_KEY',
+    ] as const;
     const missing = requiredSecrets.filter((key) => !process.env[key]);
     if (missing.length > 0) {
         throw new Error(
@@ -14,16 +18,9 @@ if (isProduction) {
             'The application cannot start without these values.'
         );
     }
-
-    // Reject known weak/default secrets
-    const weakSecrets = ['dev-access-secret', 'dev-refresh-secret', 'secret', 'password'];
-    if (weakSecrets.includes(process.env.JWT_ACCESS_SECRET!)) {
-        throw new Error('FATAL: JWT_ACCESS_SECRET is set to a known weak/default value in production.');
-    }
-    if (weakSecrets.includes(process.env.JWT_REFRESH_SECRET!)) {
-        throw new Error('FATAL: JWT_REFRESH_SECRET is set to a known weak/default value in production.');
-    }
 }
+
+const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 
 export const env = {
     NODE_ENV: process.env.NODE_ENV || 'development',
@@ -31,14 +28,28 @@ export const env = {
     HOST: process.env.HOST || (isProduction ? '0.0.0.0' : '127.0.0.1'),
     DATABASE_URL: process.env.DATABASE_URL!,
     DIRECT_URL: process.env.DIRECT_URL || '',
-    JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
-    JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
-    JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
-    JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
-    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+
+    // ─── Supabase Auth ─────────────────────────────────
+    // SUPABASE_SERVICE_ROLE_KEY bypasses row-level security and can provision
+    // or delete any identity. Server-only: it must never reach the browser
+    // bundle or source control.
+    SUPABASE_URL: supabaseUrl,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    // Public JWKS endpoint for verifying access tokens against the project's
+    // asymmetric signing key — no shared secret needed.
+    SUPABASE_JWKS_URL: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+    // Expected `iss` claim on every Supabase-issued access token.
+    SUPABASE_JWT_ISSUER: `${supabaseUrl}/auth/v1`,
+
     CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
     CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
 };
+
+/** Domain whose accounts authenticate exclusively through Google SSO. */
+export const INTERNAL_EMAIL_DOMAIN = 'cnu.edu.ph';
+
+/** True when the address belongs to the institution's Google Workspace. */
+export const isInternalEmail = (email: string): boolean =>
+    email.trim().toLowerCase().endsWith(`@${INTERNAL_EMAIL_DOMAIN}`);

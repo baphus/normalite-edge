@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import { authController } from '../../controllers/auth.controller';
-import { authenticate } from '../../middleware/authenticate';
-import { requireCsrfHeader } from '../../middleware/csrfProtection';
+import { authenticate, requireSupabaseSession } from '../../middleware/authenticate';
 import { validate } from '../../middleware/validate';
 import {
-	registerSchema,
-	loginSchema,
+	completeProfileSchema,
 	completeOnboardingSchema,
 	completeTourSchema,
 	updateProfileSchema,
@@ -13,14 +11,22 @@ import {
 
 const router = Router();
 
-// Public
-router.post('/register', validate(registerSchema), authController.register);
-router.post('/login', validate(loginSchema), authController.login);
-router.post('/refresh', requireCsrfHeader, authController.refreshToken);
+// Sign-in, sign-up, token refresh, and password management are handled by
+// Supabase Auth directly from the browser. This service never issues tokens —
+// it only verifies them and owns the application account behind them.
 
-// Protected
+// Reachable with a valid Supabase session but no application profile yet.
+router.get('/me', requireSupabaseSession, authController.getMe);
+router.post(
+	'/complete-profile',
+	requireSupabaseSession,
+	validate(completeProfileSchema),
+	authController.completeProfile
+);
+
+// Require a provisioned, enabled application account.
+router.post('/session-start', authenticate, authController.sessionStart);
 router.post('/logout', authenticate, authController.logout);
-router.get('/me', authenticate, authController.getMe);
 router.patch('/me/profile', authenticate, validate(updateProfileSchema), authController.updateProfile);
 router.post('/onboarding', authenticate, validate(completeOnboardingSchema), authController.completeOnboarding);
 router.post('/me/tours', authenticate, validate(completeTourSchema), authController.completeTour);

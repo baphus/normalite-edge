@@ -41,8 +41,8 @@ export const userController = {
         ApiResponse.success(res, profile);
     }),
 
-    createUser: catchAsync(async (req: Request, res: Response) => {
-        const user = await userService.createUser(req.body);
+    inviteUser: catchAsync(async (req: Request, res: Response) => {
+        const user = await userService.inviteExternalUser(req.body);
 
         await auditService.log({
             actorId: req.user!.userId,
@@ -50,13 +50,37 @@ export const userController = {
             action: 'CREATE',
             entityType: 'user',
             entityId: user.id,
-            summary: `Admin created user ${user.email}`,
+            summary: `Admin invited external user ${user.email} as ${user.role}`,
             metadata: {
                 title: user.email,
+                role: user.role,
             },
         });
 
-        ApiResponse.created(res, user, 'User created successfully');
+        ApiResponse.created(res, user, 'Invite link created. Send it to the user to finish setup.');
+    }),
+
+    /**
+     * POST /api/v1/users/:id/access-link
+     * Fresh set-password link for an external account — covers both an expired
+     * invite and a forgotten password.
+     */
+    createAccessLink: catchAsync(async (req: Request, res: Response) => {
+        const result = await userService.createAccessLink(req.params.id as string);
+
+        await auditService.log({
+            actorId: req.user!.userId,
+            actorRole: req.user!.role as any,
+            action: 'UPDATE',
+            entityType: 'user',
+            entityId: req.params.id as string,
+            summary: `Admin generated an access link for ${result.email}`,
+            metadata: {
+                title: result.email,
+            },
+        });
+
+        ApiResponse.success(res, result, 'Access link created');
     }),
 
     updateUserStatus: catchAsync(async (req: Request, res: Response) => {
@@ -65,7 +89,7 @@ export const userController = {
         await auditService.log({
             actorId: req.user!.userId,
             actorRole: req.user!.role as any,
-            action: req.body.status === 'PENDING' ? 'UPDATE' : 'APPROVE',
+            action: req.body.status === 'DISABLED' ? 'UPDATE' : 'APPROVE',
             entityType: 'user',
             entityId: user.id,
             summary: `Updated user status for ${user.email} to ${req.body.status}`,

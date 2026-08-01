@@ -62,10 +62,12 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Apply rate limiters
-app.use('/api/v1/auth/login', authLimiter);
-app.use('/api/v1/auth/register', authLimiter);
-app.use('/api/v1/auth/refresh', authLimiter);
+// Apply rate limiters.
+// Sign-in itself is rate-limited by Supabase, since it never reaches this
+// service. What is limited here is account creation and the admin
+// provisioning surface.
+app.use('/api/v1/auth/complete-profile', authLimiter);
+app.use('/api/v1/auth/session-start', authLimiter);
 app.use('/api/v1/upload', uploadLimiter);
 app.use('/api/v1', globalLimiter);
 

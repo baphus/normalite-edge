@@ -1,10 +1,14 @@
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { Role } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 import { dashboardService } from './dashboard.service';
 import { fromDbUserStatus, resolveProgramTrack, toDbUserStatus } from '../utils/requirementsCompat';
 import { notificationService } from './notification.service';
+import { supabaseAdmin } from '../config/supabase';
+import { env, isInternalEmail, INTERNAL_EMAIL_DOMAIN } from '../config/env';
+
+/** Where an invite or recovery link drops the user once Supabase verifies it. */
+const SET_PASSWORD_REDIRECT = `${env.CLIENT_URL}/set-password`;
 
 export class UserService {
     private splitName(name: string) {
@@ -90,11 +94,10 @@ export class UserService {
 
         const stats = await dashboardService.getRevieweeProfilePerformance(id);
 
-        // Strip sensitive fields before returning
-        const { passwordHash, refreshTokenHash, ...safeUser } = user;
-
+        // Credentials live in Supabase Auth, so this table no longer holds any
+        // secret that needs stripping before serialisation.
         return {
-            ...safeUser,
+            ...user,
             status: fromDbUserStatus(user.status),
             programTrack: resolveProgramTrack({ programTrack: user.track?.code || undefined }),
             performance: stats,
@@ -179,24 +182,46 @@ export class UserService {
         return { users: normalized, total, page, limit };
     }
 
-    async createUser(data: {
+    /**
+     * Provision an external staff account and return a single-use invite link.
+     *
+     * No password is set here. Supabase mints the identity and an invite URL;
+     * the admin passes that URL to the person out-of-band and they choose their
+     * own password. The admin therefore never learns another user's credential,
+     * and no SMTP provider or verified sending domain is required.
+     *
+     * Restricted to addresses outside the institution's Workspace. Anyone with
+     * an `@cnu.edu.ph` address signs in with Google instead — enforced here as
+     * well as in the validator, because this is the boundary that actually
+     * grants access.
+     */
+    async inviteExternalUser(data: {
         name?: string;
         firstName?: string;
         lastName?: string;
         middleInitial?: string;
         suffix?: string;
         email: string;
-        password: string;
         role: Role;
-        status?: string;
-        program_track?: string;
-        track_id?: string;
         campus_id?: string;
-        major?: string;
-        yearLevel?: string;
-        section?: string;
     }) {
         const email = data.email.trim().toLowerCase();
+
+        if (isInternalEmail(email)) {
+            throw ApiError.badRequest(
+                `@${INTERNAL_EMAIL_DOMAIN} accounts sign in with Google and cannot be invited.`
+            );
+        }
+
+        // Reviewees are institutional accounts without exception, so there is
+        // no provisioning path that can create one from an external address.
+        if (data.role === 'REVIEWEE') {
+            throw ApiError.badRequest('Reviewees must use an institutional Google account');
+        }
+
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) throw ApiError.conflict('User with this email already exists');
+
         const resolvedName = data.name
             ? this.splitName(data.name)
             : {
@@ -207,68 +232,113 @@ export class UserService {
             ? data.middleInitial.trim()[0].toUpperCase()
             : undefined;
         const suffix = data.suffix?.trim() || undefined;
-
-        const existing = await prisma.user.findUnique({ where: { email } });
-        if (existing) throw ApiError.conflict('User with this email already exists');
-
-        const passwordHash = await bcrypt.hash(data.password, 12);
-        const resolvedTrack = await this.resolveActiveTrack({
-            track_id: data.track_id,
-            program_track: resolveProgramTrack({ program_track: data.program_track }),
-        });
         const resolvedCampus = await this.resolveActiveCampus(data.campus_id);
 
-        const user = await prisma.user.create({
-            data: {
-                firstName: resolvedName.firstName,
-                lastName: resolvedName.lastName,
-                middleInitial,
-                suffix,
-                email,
-                passwordHash,
-                role: data.role,
-                status: toDbUserStatus(data.status || 'ACTIVE') as any,
-                trackId: resolvedTrack?.id,
-                campusId: resolvedCampus?.id,
-                programTrack: resolvedTrack?.name,
-                yearLevel: data.yearLevel?.trim() || null,
-                section: data.section?.trim() || null,
-                createdByAdmin: true,
-            },
-            select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                middleInitial: true,
-                suffix: true,
-                role: true,
-                status: true,
-                trackId: true,
-                campusId: true,
-                programTrack: true,
-                yearLevel: true,
-                section: true,
-                createdAt: true,
-                track: {
-                    select: { id: true, name: true, code: true },
-                },
-                campus: {
-                    select: { id: true, name: true, code: true },
-                },
-            },
+        // Step 1 — mint the Supabase identity and the invite URL.
+        const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'invite',
+            email,
+            options: { redirectTo: SET_PASSWORD_REDIRECT },
         });
 
-        return {
-            ...user,
-            name: `${user.firstName} ${user.lastName}`.trim(),
-            status: fromDbUserStatus(user.status as string),
-            program: user.track?.name || user.programTrack || null,
-            program_track: user.track?.name || user.programTrack || null,
-            track_id: user.trackId || user.track?.id || null,
-            campus: user.campus?.name || null,
-            campus_id: user.campusId || user.campus?.id || null,
-        };
+        if (error || !link?.user?.id) {
+            throw ApiError.internal(
+                `Could not create the account in Supabase: ${error?.message || 'unknown error'}`
+            );
+        }
+
+        const authUserId = link.user.id;
+
+        // Step 2 — create the application account under the same id.
+        //
+        // These two steps are not atomic. If this insert fails we would be left
+        // with an orphaned Supabase identity holding a live invite link and no
+        // application account behind it, so the identity is removed again
+        // before the error propagates.
+        try {
+            const user = await prisma.user.create({
+                data: {
+                    id: authUserId,
+                    firstName: resolvedName.firstName,
+                    lastName: resolvedName.lastName,
+                    middleInitial,
+                    suffix,
+                    email,
+                    role: data.role,
+                    status: 'ACTIVE',
+                    campusId: resolvedCampus?.id,
+                    createdByAdmin: true,
+                    isExternalEmail: true,
+                },
+                select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    middleInitial: true,
+                    suffix: true,
+                    role: true,
+                    status: true,
+                    campusId: true,
+                    createdAt: true,
+                    campus: {
+                        select: { id: true, name: true, code: true },
+                    },
+                },
+            });
+
+            return {
+                ...user,
+                name: `${user.firstName} ${user.lastName}`.trim(),
+                status: fromDbUserStatus(user.status as string),
+                campus: user.campus?.name || null,
+                campus_id: user.campusId || user.campus?.id || null,
+                // Shown once in the admin UI. The admin is responsible for
+                // delivering it over a channel they trust.
+                inviteLink: link.properties?.action_link ?? null,
+            };
+        } catch (err) {
+            await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => undefined);
+            throw err;
+        }
+    }
+
+    /**
+     * Generate a fresh link for an external account to set or reset its
+     * password — used both when an invite expires and when someone forgets
+     * their password.
+     *
+     * A recovery link is used in both cases: the identity already exists, so a
+     * second invite would be rejected, and recovery lands on the same
+     * set-password screen.
+     */
+    async createAccessLink(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, email: true, isExternalEmail: true },
+        });
+
+        if (!user) throw ApiError.notFound('User not found');
+
+        if (!user.isExternalEmail || isInternalEmail(user.email)) {
+            throw ApiError.badRequest(
+                'This account signs in with Google and has no password to reset.'
+            );
+        }
+
+        const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email: user.email,
+            options: { redirectTo: SET_PASSWORD_REDIRECT },
+        });
+
+        if (error || !link?.properties?.action_link) {
+            throw ApiError.internal(
+                `Could not generate an access link: ${error?.message || 'unknown error'}`
+            );
+        }
+
+        return { email: user.email, accessLink: link.properties.action_link };
     }
 
     /**
@@ -279,8 +349,6 @@ export class UserService {
         lastName?: string;
         middleInitial?: string;
         suffix?: string;
-        email?: string;
-        password?: string;
         track_id?: string;
         campus_id?: string;
         yearLevel?: string;
@@ -289,11 +357,11 @@ export class UserService {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw ApiError.notFound('User not found');
 
-        // If email is changing, check it's not taken
-        if (data.email && data.email !== user.email) {
-            const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase().trim() } });
-            if (existing) throw ApiError.conflict('Email is already in use by another user');
-        }
+        // Email and password are deliberately not editable here. Both live in
+        // Supabase Auth: email is the shared identity key with auth.users and
+        // changing it on one side only would desynchronise the two, and
+        // passwords are set by their owner via an access link
+        // (see createAccessLink).
 
         // Build update payload with only provided fields
         const updateData: any = {};
@@ -301,8 +369,6 @@ export class UserService {
         if (data.lastName !== undefined) updateData.lastName = data.lastName;
         if (data.middleInitial !== undefined) updateData.middleInitial = data.middleInitial || null;
         if (data.suffix !== undefined) updateData.suffix = data.suffix || null;
-        if (data.email !== undefined) updateData.email = data.email.toLowerCase().trim();
-        if (data.password !== undefined) updateData.passwordHash = await bcrypt.hash(data.password, 12);
         if (data.track_id !== undefined) updateData.trackId = data.track_id || null;
         if (data.campus_id !== undefined) updateData.campusId = data.campus_id || null;
         if (data.yearLevel !== undefined) updateData.yearLevel = data.yearLevel || null;
@@ -317,11 +383,8 @@ export class UserService {
             },
         });
 
-        // Strip sensitive fields before returning
-        const { passwordHash: _ph, refreshTokenHash: _rth, ...safeUpdated } = updated;
-
         return {
-            ...safeUpdated,
+            ...updated,
             name: `${updated.firstName} ${updated.lastName}`.trim(),
             status: fromDbUserStatus(updated.status as string),
             program: updated.track?.name || updated.programTrack || null,
@@ -424,6 +487,13 @@ export class UserService {
             await tx.auditLog.deleteMany({ where: { actorId: userId } });
             await tx.user.delete({ where: { id: userId } });
         });
+
+        // Remove the Supabase identity too, otherwise the person could still
+        // authenticate and would land in the "no profile" state instead of
+        // being locked out. Deliberately after the local delete and
+        // non-fatal — a stranded auth.users row grants no access on its own,
+        // so it is a cleanup concern rather than a security one.
+        await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => undefined);
 
         return { id: userId, email: user.email, role: user.role };
     }

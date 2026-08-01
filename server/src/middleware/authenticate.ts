@@ -1,54 +1,107 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, TokenPayload } from '../utils/jwt';
+import { verifySupabaseAccessToken, SupabaseIdentity } from '../utils/supabaseJwt';
+import { catchAsync } from '../utils/catchAsync';
 import { ApiError } from '../utils/ApiError';
 import prisma from '../config/db';
 
-// Extend Express Request to include user
+export interface AppUser {
+    userId: string;
+    role: string;
+    status: string;
+    email: string;
+}
+
 declare global {
     namespace Express {
         interface Request {
-            user?: TokenPayload & { status?: string };
+            /**
+             * Verified Supabase identity. Present whenever a valid access token
+             * was supplied — even if this person has no application account.
+             */
+            supabaseUser?: SupabaseIdentity;
+            /**
+             * The application user. Present only when a `public.users` row
+             * exists for the Supabase identity. This — not `supabaseUser` — is
+             * what authorizes access to anything.
+             */
+            user?: AppUser;
         }
     }
 }
 
-/**
- * Middleware to verify JWT access token from Authorization header.
- * Attaches decoded user payload to req.user.
- * Also checks that the user still exists and is not disabled/rejected.
- */
-export const authenticate = async (req: Request, _res: Response, next: NextFunction) => {
+const readBearerToken = (req: Request): string => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         throw ApiError.unauthorized('Access token required');
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.slice('Bearer '.length).trim();
+    if (!token) {
+        throw ApiError.unauthorized('Access token required');
+    }
 
-    try {
-        const decoded = verifyAccessToken(token);
+    return token;
+};
 
-        // Verify user still exists and is active
+/**
+ * Verify the Supabase access token and attach the identity — nothing more.
+ *
+ * Used by the small set of endpoints that must be reachable by someone who is
+ * authenticated but has no profile yet: reading their own auth state, and
+ * completing registration.
+ */
+export const requireSupabaseSession = catchAsync(
+    async (req: Request, _res: Response, next: NextFunction) => {
+        req.supabaseUser = await verifySupabaseAccessToken(readBearerToken(req));
+        next();
+    }
+);
+
+/**
+ * Full authentication: a verified Supabase identity **and** a matching
+ * application account that is not disabled.
+ *
+ * `public.users` is the authorization gate. A Supabase identity with no row
+ * here reaches nothing, which is what lets the `@cnu.edu.ph` restriction be
+ * enforced entirely at profile-creation time rather than in Supabase config.
+ *
+ * Role and status are read from the database on every request rather than from
+ * token claims, so a role change or a disable takes effect on the next request
+ * instead of waiting for the token to refresh.
+ */
+export const authenticate = catchAsync(
+    async (req: Request, _res: Response, next: NextFunction) => {
+        const identity = await verifySupabaseAccessToken(readBearerToken(req));
+        req.supabaseUser = identity;
+
         const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: { id: true, status: true, role: true },
+            where: { id: identity.id },
+            select: { id: true, status: true, role: true, email: true },
         });
 
         if (!user) {
-            throw ApiError.unauthorized('User no longer exists');
+            // Authenticated with Supabase, but not registered with this app.
+            // Deliberately 403 and not 401: a 401 would trigger the client's
+            // token-refresh interceptor, which would refresh successfully
+            // (the Supabase session is valid), retry, fail again, and bounce
+            // the user to /login — where Google would silently re-authenticate
+            // them straight back into the same state. See GET /auth/me, which
+            // reports this condition as a normal 200 response.
+            throw ApiError.forbidden('Profile setup required');
         }
 
-        // Block disabled, rejected, or pending users
-        const blockedStatuses = ['DISABLED', 'REJECTED', 'SUSPENDED'];
-        if (blockedStatuses.includes(user.status as string)) {
-            throw ApiError.unauthorized('Account is disabled or suspended');
+        if (user.status === 'DISABLED') {
+            throw ApiError.forbidden('Account is disabled');
         }
 
-        req.user = { ...decoded, status: user.status as string };
+        req.user = {
+            userId: user.id,
+            role: user.role,
+            status: user.status as string,
+            email: user.email,
+        };
+
         next();
-    } catch (err) {
-        if (err instanceof ApiError) throw err;
-        throw ApiError.unauthorized('Invalid or expired access token');
     }
-};
+);
