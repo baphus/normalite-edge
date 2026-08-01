@@ -12,13 +12,19 @@ export interface SupabaseIdentity {
     /** auth.users.id — also the primary key of the matching public.users row. */
     id: string;
     email: string;
-    /** Sign-in provider, e.g. 'google' or 'email'. */
+    /** Provider used for this sign-in, e.g. 'google' or 'email'. */
     provider: string | null;
+    /** Every provider linked to the identity. */
+    providers: string[];
     /** Display name supplied by the provider, when present. */
     fullName: string | null;
     /** Avatar URL supplied by the provider, when present. */
     pictureUrl: string | null;
 }
+
+/** True when this identity was established through Google. */
+export const isGoogleIdentity = (identity: SupabaseIdentity): boolean =>
+    identity.provider === 'google' || identity.providers.includes('google');
 
 /**
  * Remote JWKS, fetched from the Supabase project's public endpoint and cached
@@ -86,6 +92,9 @@ export async function verifySupabaseAccessToken(token: string): Promise<Supabase
         id,
         email,
         provider: asString(appMetadata.provider),
+        providers: Array.isArray(appMetadata.providers)
+            ? appMetadata.providers.filter((value): value is string => typeof value === 'string')
+            : [],
         // user_metadata is user-writable, so these are treated strictly as
         // display hints. Nothing security-relevant is ever read from it.
         fullName: asString(userMetadata.full_name) ?? asString(userMetadata.name),

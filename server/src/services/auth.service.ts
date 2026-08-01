@@ -4,7 +4,7 @@ import { auditService } from './audit.service';
 import { fromDbUserStatus, resolveProgramTrack } from '../utils/requirementsCompat';
 import { importRemoteAvatar } from '../utils/importRemoteAvatar';
 import { isInternalEmail, INTERNAL_EMAIL_DOMAIN } from '../config/env';
-import type { SupabaseIdentity } from '../utils/supabaseJwt';
+import { isGoogleIdentity, type SupabaseIdentity } from '../utils/supabaseJwt';
 import type { AppUser } from '../middleware/authenticate';
 
 const USER_INCLUDE = {
@@ -102,13 +102,17 @@ export class AuthService {
                 ? this.splitName(identity.fullName)
                 : null;
 
+            // Whether this identity may create a profile at all. Surfaced so
+            // the client can explain the actual problem rather than letting
+            // someone fill in a form that will be rejected on submit.
+            const wrongDomain = !isInternalEmail(identity.email);
+            const wrongProvider = !wrongDomain && !isGoogleIdentity(identity);
+
             return {
                 profileComplete: false,
                 email: identity.email,
-                // Whether this identity is even allowed to create a profile.
-                // Surfaced so the client can show an accurate message instead
-                // of letting the user fill in a form that will be rejected.
-                eligible: isInternalEmail(identity.email),
+                eligible: !wrongDomain && !wrongProvider,
+                ineligibleReason: wrongDomain ? 'domain' : wrongProvider ? 'provider' : null,
                 suggested: {
                     firstName: suggestedName?.firstName ?? null,
                     lastName: suggestedName?.lastName ?? null,
@@ -125,6 +129,7 @@ export class AuthService {
             profileComplete: true,
             email: user.email,
             eligible: true,
+            ineligibleReason: null,
             suggested: null,
             user: this.sanitizeUser(user),
         };
@@ -156,6 +161,21 @@ export class AuthService {
             throw ApiError.forbidden(
                 `Only @${INTERNAL_EMAIL_DOMAIN} accounts can register. ` +
                 'External accounts are created by an administrator.'
+            );
+        }
+
+        // Institutional accounts must arrive through Google, never through a
+        // self-chosen password.
+        //
+        // Supabase's "allow new users to sign up" switch is global, not
+        // per-provider — turning it off to block email sign-ups also blocks the
+        // Google sign-ups this platform depends on. So it stays on, and the
+        // restriction is enforced here instead: without this check, anyone
+        // could sign up with a password against an @cnu.edu.ph address they do
+        // not own and be handed a reviewee account.
+        if (!isGoogleIdentity(identity)) {
+            throw ApiError.forbidden(
+                `@${INTERNAL_EMAIL_DOMAIN} accounts must sign in with Google.`
             );
         }
 
