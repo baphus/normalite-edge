@@ -29,7 +29,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        flowType: 'pkce',
+        // PKCE is incompatible with admin-generated invite/recovery links,
+        // which use the implicit flow (tokens in URL hash). In incognito
+        // windows there is no stored code-verifier, so the PKCE exchange
+        // fails and the session is never established.  Implicit flow
+        // handles both OAuth redirects and invite links correctly.
+        flowType: 'implicit',
     },
 });
 

@@ -25,9 +25,9 @@ export const inviteUserSchema = z.object({
                 'Ask the user to sign in with Google, then change their role.',
         }),
     // ADMIN is permitted so a break-glass administrator can exist outside the
-    // Google dependency. REVIEWEE is absent by design — reviewees are always
-    // institutional accounts.
-    role: z.enum(['ADMIN', 'REVIEWER']).default('REVIEWER'),
+    // Google dependency. REVIEWEE can also be invited for external accounts
+    // that need to take reviews (e.g. partner institutions).
+    role: z.enum(['ADMIN', 'REVIEWER', 'REVIEWEE']).default('REVIEWER'),
     campus_id: z.string().uuid('Invalid campus id').optional(),
 }).superRefine((data, ctx) => {
     const hasCombinedName = Boolean(data.name?.trim());

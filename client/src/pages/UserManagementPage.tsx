@@ -62,10 +62,10 @@ import { useSearchParams } from 'react-router-dom';
 
 type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 /**
- * Reviewees are never provisioned here — they self-register with an
- * institutional Google account. Only external staff are invited.
+ * External staff and reviewees can be invited. Reviewees who are external
+ * (non-@cnu.edu.ph) accounts are provisioned here via invite link.
  */
-type CreateUserRole = 'ADMIN' | 'REVIEWER';
+type CreateUserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 type UiStatus = 'active' | 'inactive';
 type ApiStatus = 'ACTIVE' | 'DISABLED';
 type UserColumn = 'user' | 'academic' | 'role' | 'status' | 'joined';
@@ -899,6 +899,7 @@ interface CampusOption {
                                     </SelectTrigger>
                                     <SelectContent className="font-lexend">
                                         <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
                                         <SelectItem value="ADMIN">Administrator</SelectItem>
                                     </SelectContent>
                                 </Select>

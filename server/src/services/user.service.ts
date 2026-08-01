@@ -213,12 +213,6 @@ export class UserService {
             );
         }
 
-        // Reviewees are institutional accounts without exception, so there is
-        // no provisioning path that can create one from an external address.
-        if (data.role === 'REVIEWEE') {
-            throw ApiError.badRequest('Reviewees must use an institutional Google account');
-        }
-
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) throw ApiError.conflict('User with this email already exists');
 
