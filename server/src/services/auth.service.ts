@@ -125,24 +125,30 @@ export class AuthService {
             throw ApiError.forbidden('Account is disabled');
         }
 
+        // Invited users created by an admin have placeholder names until
+        // they complete their profile via the invite link.
+        const profileComplete = !user.createdByAdmin ||
+            (user.firstName !== 'User' || user.lastName !== 'Account');
+
         return {
-            profileComplete: true,
+            profileComplete,
             email: user.email,
             eligible: true,
             ineligibleReason: null,
             suggested: null,
-            user: this.sanitizeUser(user),
+            role: user.role,
+            user: profileComplete ? this.sanitizeUser(user) : null,
         };
     }
 
     /**
-     * Create the application account for a Google-authenticated reviewee.
+     * Complete a user's profile after authentication.
      *
-     * This is where the `@cnu.edu.ph` restriction is enforced. Google will
-     * happily authenticate any Google account — the `hd` parameter is a UI
-     * hint, not a security control — so the domain check has to live at the
-     * point where application access is actually granted. A Supabase identity
-     * with no row in this table can reach nothing.
+     * Handles two distinct flows:
+     * 1. Google SSO users: Creates a new application account (no row exists yet).
+     * 2. Invited users: Updates the placeholder profile created by the admin.
+     *
+     * For Google accounts, the @cnu.edu.ph restriction is enforced here.
      */
     async completeProfile(identity: SupabaseIdentity, data: {
         firstName?: string;
@@ -157,6 +163,52 @@ export class AuthService {
         yearLevel?: string;
         section?: string;
     }) {
+        const existingById = await prisma.user.findUnique({ where: { id: identity.id } });
+
+        // ── Invited user completing their profile ────────────────────────
+        // The admin already created a Supabase identity + application row
+        // with placeholder names. The user now fills in their real details.
+        if (existingById && existingById.createdByAdmin) {
+            const resolvedTrack = await this.resolveActiveTrack({
+                track_id: data.track_id,
+                rawTrack: resolveProgramTrack(data),
+            });
+            const resolvedCampus = await this.resolveActiveCampus(data.campus_id);
+
+            const middleInitial = data.middleInitial?.trim()
+                ? data.middleInitial.trim()[0].toUpperCase()
+                : existingById.middleInitial;
+
+            const user = await prisma.user.update({
+                where: { id: identity.id },
+                data: {
+                    firstName: data.firstName?.trim() || existingById.firstName,
+                    lastName: data.lastName?.trim() || existingById.lastName,
+                    middleInitial,
+                    suffix: data.suffix?.trim() || existingById.suffix,
+                    trackId: resolvedTrack?.id ?? existingById.trackId,
+                    campusId: resolvedCampus?.id ?? existingById.campusId,
+                    programTrack: resolvedTrack?.name ?? existingById.programTrack,
+                    yearLevel: data.yearLevel?.trim() || existingById.yearLevel,
+                    section: data.section?.trim() || existingById.section,
+                },
+                include: USER_INCLUDE,
+            });
+
+            await auditService.log({
+                actorId: user.id,
+                actorRole: user.role,
+                action: 'UPDATE',
+                entityType: 'user',
+                entityId: user.id,
+                summary: `Profile completed: ${user.email}`,
+                metadata: { source: 'invite-link' },
+            });
+
+            return this.sanitizeUser(user);
+        }
+
+        // ── Google SSO user registering for the first time ───────────────
         if (!isInternalEmail(identity.email)) {
             throw ApiError.forbidden(
                 `Only @${INTERNAL_EMAIL_DOMAIN} accounts can register. ` +
@@ -164,29 +216,16 @@ export class AuthService {
             );
         }
 
-        // Institutional accounts must arrive through Google, never through a
-        // self-chosen password.
-        //
-        // Supabase's "allow new users to sign up" switch is global, not
-        // per-provider — turning it off to block email sign-ups also blocks the
-        // Google sign-ups this platform depends on. So it stays on, and the
-        // restriction is enforced here instead: without this check, anyone
-        // could sign up with a password against an @cnu.edu.ph address they do
-        // not own and be handed a reviewee account.
         if (!isGoogleIdentity(identity)) {
             throw ApiError.forbidden(
                 `@${INTERNAL_EMAIL_DOMAIN} accounts must sign in with Google.`
             );
         }
 
-        const existingById = await prisma.user.findUnique({ where: { id: identity.id } });
         if (existingById) {
             throw ApiError.conflict('Profile already exists for this account');
         }
 
-        // Guards the case where an account with this address was provisioned
-        // under a different Supabase identity. Without this the unique index
-        // on email would surface as an opaque 500.
         const existingByEmail = await prisma.user.findUnique({
             where: { email: identity.email },
         });
@@ -206,15 +245,12 @@ export class AuthService {
             ? data.middleInitial.trim()[0].toUpperCase()
             : undefined;
 
-        // Best-effort: a failed avatar import must not block registration.
         const profilePicture = identity.pictureUrl
             ? importRemoteAvatar(identity.pictureUrl)
             : null;
 
         const user = await prisma.user.create({
             data: {
-                // Shares the primary key with auth.users so the two tables
-                // never need reconciling.
                 id: identity.id,
                 firstName: data.firstName?.trim() || 'User',
                 lastName: data.lastName?.trim() || 'Account',

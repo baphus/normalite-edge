@@ -14,32 +14,52 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import AuthLayout from '@/components/marketing/AuthLayout';
 
-const profileSchema = z.object({
-    firstName: z.string().trim().min(1, 'First name is required'),
-    lastName: z.string().trim().min(1, 'Last name is required'),
-    middleInitial: z
-        .string()
-        .trim()
-        .min(1, 'Middle initial is required')
-        .refine((value) => value.length === 1, { message: 'Middle initial must be 1 character' }),
-    suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
-    trackId: z.string().trim().min(1, 'Program track is required'),
-    campusId: z.string().trim().min(1, 'Campus is required'),
-    yearLevel: z.string().trim().min(1, 'Year is required'),
-    section: z.string().trim().min(1, 'Section is required'),
-});
+/**
+ * Build the Zod schema based on the user's role.
+ * - ADMIN: only name fields
+ * - REVIEWER: name + campus
+ * - REVIEWEE: name + track + campus + year + section
+ */
+const buildProfileSchema = (role?: string) => {
+    const base = {
+        firstName: z.string().trim().min(1, 'First name is required'),
+        lastName: z.string().trim().min(1, 'Last name is required'),
+        middleInitial: z.string().trim().max(1, 'Middle initial must be 1 character').optional(),
+        suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
+    };
 
-type ProfileFormValues = z.infer<typeof profileSchema>;
+    if (role === 'ADMIN') {
+        return z.object(base);
+    }
+
+    if (role === 'REVIEWER') {
+        return z.object({
+            ...base,
+            campusId: z.string().trim().min(1, 'Campus is required'),
+        });
+    }
+
+    // REVIEWEE or default
+    return z.object({
+        ...base,
+        trackId: z.string().trim().min(1, 'Program track is required'),
+        campusId: z.string().trim().min(1, 'Campus is required'),
+        yearLevel: z.string().trim().min(1, 'Year is required'),
+        section: z.string().trim().min(1, 'Section is required'),
+    });
+};
+
+type ProfileFormValues = z.infer<ReturnType<typeof buildProfileSchema>>;
 
 type Option = { id: string; name: string; code?: string | null };
 
 /**
- * Second half of registration.
+ * Profile completion page for both Google SSO and invited users.
  *
- * Google supplies an email, a name and a photo — but not the program track,
- * campus, year or section that drive exam visibility, so they are collected
- * here. Reaching this page means the user is authenticated with Supabase but
- * has no application account yet.
+ * - Google SSO users: creating a new account (no row exists yet).
+ * - Invited users: updating placeholder names set by the admin.
+ *
+ * Fields shown depend on the user's role.
  */
 const CompleteProfilePage: React.FC = () => {
     const { status, pending, refreshProfile, logout } = useAuth();
@@ -49,6 +69,9 @@ const CompleteProfilePage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [tracks, setTracks] = useState<Option[]>([]);
     const [campuses, setCampuses] = useState<Option[]>([]);
+
+    const role = pending?.role;
+    const profileSchema = buildProfileSchema(role);
 
     const {
         register,
@@ -63,10 +86,8 @@ const CompleteProfilePage: React.FC = () => {
             lastName: '',
             middleInitial: '',
             suffix: '',
-            trackId: '',
-            campusId: '',
-            yearLevel: '',
-            section: '',
+            ...(role === 'REVIEWER' || role === 'REVIEWEE' ? { campusId: '' } : {}),
+            ...(role === 'REVIEWEE' ? { trackId: '', yearLevel: '', section: '' } : {}),
         },
     });
 
@@ -77,7 +98,7 @@ const CompleteProfilePage: React.FC = () => {
         if (status === 'signedOut') navigate('/login', { replace: true });
     }, [status, navigate]);
 
-    // Prefill the name Google gave us; the user can correct it.
+    // Prefill the name if available (from Google or from the invite).
     useEffect(() => {
         if (pending?.firstName) setValue('firstName', pending.firstName);
         if (pending?.lastName) setValue('lastName', pending.lastName);
@@ -103,12 +124,12 @@ const CompleteProfilePage: React.FC = () => {
             await api.post('/auth/complete-profile', {
                 firstName: data.firstName.trim(),
                 lastName: data.lastName.trim(),
-                middleInitial: data.middleInitial.trim(),
-                suffix: data.suffix?.trim() || undefined,
-                track_id: data.trackId,
-                campus_id: data.campusId,
-                yearLevel: data.yearLevel.trim(),
-                section: data.section.trim(),
+                middleInitial: (data as any).middleInitial?.trim() || undefined,
+                suffix: (data as any).suffix?.trim() || undefined,
+                track_id: (data as any).trackId || undefined,
+                campus_id: (data as any).campusId || undefined,
+                yearLevel: (data as any).yearLevel?.trim() || undefined,
+                section: (data as any).section?.trim() || undefined,
             });
 
             await refreshProfile();
@@ -131,12 +152,11 @@ const CompleteProfilePage: React.FC = () => {
         );
     }
 
-    // Signed in with Google, but not with an institutional account. Say so
-    // plainly rather than letting them fill in a form that will be rejected.
+    // Signed in with Google, but not with an institutional account.
     if (pending && !pending.eligible) {
         return (
             <AuthLayout
-                title="That account can’t be used"
+                title="That account can't be used"
                 subtitle="Normalite EDGE is limited to Cebu Normal University Google accounts."
                 footer={<>Need help? Contact your administrator.</>}
             >
@@ -171,7 +191,10 @@ const CompleteProfilePage: React.FC = () => {
 
     const iconClass =
         'absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 transition-colors group-focus-within:text-primary pointer-events-none';
-    const suffixValue = watch('suffix');
+    const suffixValue = watch('suffix' as any);
+    const showCampus = role === 'REVIEWER' || role === 'REVIEWEE';
+    const showTrack = role === 'REVIEWEE';
+    const showYearSection = role === 'REVIEWEE';
 
     return (
         <AuthLayout
@@ -179,8 +202,8 @@ const CompleteProfilePage: React.FC = () => {
             title="Finish your profile"
             subtitle={
                 pending?.email
-                    ? `Signed in as ${pending.email}. Tell us what you’re reviewing for.`
-                    : 'Tell us what you’re reviewing for.'
+                    ? `Signed in as ${pending.email}. Tell us what you're reviewing for.`
+                    : 'Tell us what you're reviewing for.'
             }
             footer={
                 <button
@@ -193,8 +216,8 @@ const CompleteProfilePage: React.FC = () => {
             }
         >
             {error && (
-                <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    <AlertCircle size={18} className="shrink-0" />
+                <div className="mb-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    <AlertCircle size={18} className="mt-0.5 shrink-0" />
                     {error}
                 </div>
             )}
@@ -219,7 +242,7 @@ const CompleteProfilePage: React.FC = () => {
                     </div>
 
                     <div className="space-y-1.5">
-                        <Label htmlFor="middleInitial">Middle initial</Label>
+                        <Label htmlFor="middleInitial">Middle initial <span className="text-gray-400 normal-case font-normal">(optional)</span></Label>
                         <Input id="middleInitial" maxLength={1} className="h-12" {...register('middleInitial')} />
                         {errors.middleInitial && (
                             <p className="text-xs text-red-500">{errors.middleInitial.message}</p>
@@ -231,7 +254,7 @@ const CompleteProfilePage: React.FC = () => {
                         <Select
                             value={suffixValue || NO_SUFFIX_VALUE}
                             onValueChange={(value) =>
-                                setValue('suffix', value === NO_SUFFIX_VALUE ? '' : value, {
+                                setValue('suffix' as any, value === NO_SUFFIX_VALUE ? '' : value, {
                                     shouldValidate: true,
                                 })
                             }
@@ -251,73 +274,79 @@ const CompleteProfilePage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="space-y-1.5">
-                    <Label>Program track</Label>
-                    <Select
-                        value={watch('trackId')}
-                        onValueChange={(value) => setValue('trackId', value, { shouldValidate: true })}
-                    >
-                        <SelectTrigger className="h-12">
-                            <SelectValue placeholder="Select your program track" />
-                        </SelectTrigger>
-                        <SelectContent sideOffset={5}>
-                            {tracks.map((track) => (
-                                <SelectItem key={track.id} value={track.id}>
-                                    {track.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    {errors.trackId && <p className="text-xs text-red-500">{errors.trackId.message}</p>}
-                </div>
-
-                <div className="space-y-1.5">
-                    <Label>Campus</Label>
-                    <Select
-                        value={watch('campusId')}
-                        onValueChange={(value) => setValue('campusId', value, { shouldValidate: true })}
-                    >
-                        <SelectTrigger className="h-12">
-                            <SelectValue placeholder="Select your campus" />
-                        </SelectTrigger>
-                        <SelectContent sideOffset={5}>
-                            {campuses.map((campus) => (
-                                <SelectItem key={campus.id} value={campus.id}>
-                                    {campus.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    {errors.campusId && <p className="text-xs text-red-500">{errors.campusId.message}</p>}
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
+                {showTrack && (
                     <div className="space-y-1.5">
-                        <Label>Year level</Label>
+                        <Label>Program track</Label>
                         <Select
-                            value={watch('yearLevel')}
-                            onValueChange={(value) => setValue('yearLevel', value, { shouldValidate: true })}
+                            value={watch('trackId' as any)}
+                            onValueChange={(value) => setValue('trackId' as any, value, { shouldValidate: true })}
                         >
                             <SelectTrigger className="h-12">
-                                <SelectValue placeholder="Select year" />
+                                <SelectValue placeholder="Select your program track" />
                             </SelectTrigger>
-                            <SelectContent>
-                                {YEAR_LEVEL_OPTIONS.map((option) => (
-                                    <SelectItem key={option} value={option}>
-                                        {option}
+                            <SelectContent sideOffset={5}>
+                                {tracks.map((track) => (
+                                    <SelectItem key={track.id} value={track.id}>
+                                        {track.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        {errors.yearLevel && <p className="text-xs text-red-500">{errors.yearLevel.message}</p>}
+                        {(errors as any).trackId && <p className="text-xs text-red-500">{(errors as any).trackId.message}</p>}
                     </div>
+                )}
 
+                {showCampus && (
                     <div className="space-y-1.5">
-                        <Label htmlFor="section">Section</Label>
-                        <Input id="section" className="h-12" placeholder="e.g. A" {...register('section')} />
-                        {errors.section && <p className="text-xs text-red-500">{errors.section.message}</p>}
+                        <Label>Campus</Label>
+                        <Select
+                            value={watch('campusId' as any)}
+                            onValueChange={(value) => setValue('campusId' as any, value, { shouldValidate: true })}
+                        >
+                            <SelectTrigger className="h-12">
+                                <SelectValue placeholder="Select your campus" />
+                            </SelectTrigger>
+                            <SelectContent sideOffset={5}>
+                                {campuses.map((campus) => (
+                                    <SelectItem key={campus.id} value={campus.id}>
+                                        {campus.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {(errors as any).campusId && <p className="text-xs text-red-500">{(errors as any).campusId.message}</p>}
                     </div>
-                </div>
+                )}
+
+                {showYearSection && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <Label>Year level</Label>
+                            <Select
+                                value={watch('yearLevel' as any)}
+                                onValueChange={(value) => setValue('yearLevel' as any, value, { shouldValidate: true })}
+                            >
+                                <SelectTrigger className="h-12">
+                                    <SelectValue placeholder="Select year" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {YEAR_LEVEL_OPTIONS.map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                            {option}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {(errors as any).yearLevel && <p className="text-xs text-red-500">{(errors as any).yearLevel.message}</p>}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="section">Section</Label>
+                            <Input id="section" className="h-12" placeholder="e.g. A" {...register('section' as any)} />
+                            {(errors as any).section && <p className="text-xs text-red-500">{(errors as any).section.message}</p>}
+                        </div>
+                    </div>
+                )}
 
                 <Button
                     type="submit"

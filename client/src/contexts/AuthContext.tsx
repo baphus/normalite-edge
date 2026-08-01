@@ -48,6 +48,8 @@ interface PendingRegistration {
     ineligibleReason: 'domain' | 'provider' | null;
     firstName: string | null;
     lastName: string | null;
+    /** Role assigned by the admin during invite. */
+    role?: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 }
 
 interface AuthContextType {
@@ -137,6 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ineligibleReason: state.ineligibleReason ?? null,
                     firstName: state.suggested?.firstName ?? null,
                     lastName: state.suggested?.lastName ?? null,
+                    role: state.role ?? undefined,
                 });
             }
         } catch {

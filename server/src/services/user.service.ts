@@ -196,11 +196,6 @@ export class UserService {
      * grants access.
      */
     async inviteExternalUser(data: {
-        name?: string;
-        firstName?: string;
-        lastName?: string;
-        middleInitial?: string;
-        suffix?: string;
         email: string;
         role: Role;
         campus_id?: string;
@@ -216,16 +211,8 @@ export class UserService {
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) throw ApiError.conflict('User with this email already exists');
 
-        const resolvedName = data.name
-            ? this.splitName(data.name)
-            : {
-                firstName: data.firstName?.trim() || 'User',
-                lastName: data.lastName?.trim() || 'Account',
-            };
-        const middleInitial = data.middleInitial?.trim()
-            ? data.middleInitial.trim()[0].toUpperCase()
-            : undefined;
-        const suffix = data.suffix?.trim() || undefined;
+        // Names are placeholders — the invited user fills in their real
+        // profile when they set their password via the invite link.
         const resolvedCampus = await this.resolveActiveCampus(data.campus_id);
 
         // Step 1 — mint the Supabase identity and the invite URL.
@@ -253,10 +240,8 @@ export class UserService {
             const user = await prisma.user.create({
                 data: {
                     id: authUserId,
-                    firstName: resolvedName.firstName,
-                    lastName: resolvedName.lastName,
-                    middleInitial,
-                    suffix,
+                    firstName: 'User',
+                    lastName: 'Account',
                     email,
                     role: data.role,
                     status: 'ACTIVE',
@@ -269,8 +254,6 @@ export class UserService {
                     email: true,
                     firstName: true,
                     lastName: true,
-                    middleInitial: true,
-                    suffix: true,
                     role: true,
                     status: true,
                     campusId: true,

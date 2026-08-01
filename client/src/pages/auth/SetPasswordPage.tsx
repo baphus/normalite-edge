@@ -60,7 +60,7 @@ const SetPasswordPage: React.FC = () => {
         }
 
         await refreshProfile();
-        navigate('/dashboard', { replace: true });
+        navigate('/complete-profile', { replace: true });
     };
 
     if (status === 'loading') {

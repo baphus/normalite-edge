@@ -4,18 +4,10 @@ import { INTERNAL_EMAIL_DOMAIN, isInternalEmail } from '../config/env';
 /**
  * Admin provisioning of an external account.
  *
- * Only reachable for addresses outside the institution's Workspace: anyone
- * with an `@cnu.edu.ph` address signs in with Google instead, and reviewees
- * are locked to that domain with no exemption. No password is accepted — the
- * invited person sets their own via the generated invite link, so an admin
- * never learns another user's credential.
+ * Only email and role are required — the invited user fills in their own
+ * profile details (name, campus, etc.) when they set their password.
  */
 export const inviteUserSchema = z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-    firstName: z.string().min(1, 'First name is required').optional(),
-    lastName: z.string().min(1, 'Last name is required').optional(),
-    middleInitial: z.string().max(1, 'Middle initial must be 1 character').optional(),
-    suffix: z.string().max(20, 'Suffix is too long').optional(),
     email: z
         .string()
         .email('Invalid email address')
@@ -24,23 +16,9 @@ export const inviteUserSchema = z.object({
                 `@${INTERNAL_EMAIL_DOMAIN} accounts sign in with Google and cannot be invited. ` +
                 'Ask the user to sign in with Google, then change their role.',
         }),
-    // ADMIN is permitted so a break-glass administrator can exist outside the
-    // Google dependency. REVIEWEE can also be invited for external accounts
-    // that need to take reviews (e.g. partner institutions).
     role: z.enum(['ADMIN', 'REVIEWER', 'REVIEWEE']).default('REVIEWER'),
     campus_id: z.string().uuid('Invalid campus id').optional(),
 }).superRefine((data, ctx) => {
-    const hasCombinedName = Boolean(data.name?.trim());
-    const hasSplitName = Boolean(data.firstName?.trim() && data.lastName?.trim());
-
-    if (!hasCombinedName && !hasSplitName) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'First name and last name are required',
-            path: ['firstName'],
-        });
-    }
-
     if (data.role === 'REVIEWER' && !data.campus_id) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
