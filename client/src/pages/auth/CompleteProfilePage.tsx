@@ -260,7 +260,7 @@ const CompleteProfilePage: React.FC = () => {
                         <SelectTrigger className="h-12">
                             <SelectValue placeholder="Select your program track" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent sideOffset={5}>
                             {tracks.map((track) => (
                                 <SelectItem key={track.id} value={track.id}>
                                     {track.name}
@@ -280,7 +280,7 @@ const CompleteProfilePage: React.FC = () => {
                         <SelectTrigger className="h-12">
                             <SelectValue placeholder="Select your campus" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent sideOffset={5}>
                             {campuses.map((campus) => (
                                 <SelectItem key={campus.id} value={campus.id}>
                                     {campus.name}
