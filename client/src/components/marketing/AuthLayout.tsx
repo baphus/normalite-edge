@@ -34,7 +34,7 @@ const AuthLayout: React.FC<{
                 <div className="flex flex-col leading-tight">
                     <span className="font-serif text-xl font-semibold tracking-tight">Normalite EDGE</span>
                     <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-secondary/90">
-                        Digital Guide to Excellence
+                        Everyday Digital Guide to Excellence
                     </span>
                 </div>
             </Link>

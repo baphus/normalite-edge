@@ -49,7 +49,7 @@ const Wordmark: React.FC<{ size?: 'sm' | 'md' }> = ({ size = 'md' }) => (
                 Normalite EDGE
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary/70 dark:text-secondary/70">
-                Digital Guide to Excellence
+                Everyday Digital Guide to Excellence
             </span>
         </div>
     </Link>
