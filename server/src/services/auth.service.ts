@@ -208,7 +208,7 @@ export class AuthService {
 
         // Best-effort: a failed avatar import must not block registration.
         const profilePicture = identity.pictureUrl
-            ? await importRemoteAvatar(identity.pictureUrl)
+            ? importRemoteAvatar(identity.pictureUrl)
             : null;
 
         const user = await prisma.user.create({
