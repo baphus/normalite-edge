@@ -55,7 +55,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import api from '@/lib/axios';
-import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useSearchParams } from 'react-router-dom';
@@ -154,10 +153,6 @@ const normalizeProfileImageUrl = (rawUrl?: string | null): string => {
 };
 
 const defaultCreateForm = {
-    firstName: '',
-    middleInitial: '',
-    lastName: '',
-    suffix: '',
     email: '',
     role: 'REVIEWER' as CreateUserRole,
     campus_id: '',
@@ -361,8 +356,8 @@ interface CampusOption {
 
     const handleCreate = async () => {
         setCreateError(null);
-        if (!createForm.firstName.trim() || !createForm.lastName.trim() || !createForm.email.trim()) {
-            setCreateError('First name, last name, and email are required.');
+        if (!createForm.email.trim()) {
+            setCreateError('Email is required.');
             return;
         }
         if (createForm.email.trim().toLowerCase().endsWith('@cnu.edu.ph')) {
@@ -378,10 +373,6 @@ interface CampusOption {
         try {
             setCreating(true);
             const response = await api.post('/users', {
-                firstName: createForm.firstName.trim(),
-                middleInitial: createForm.middleInitial.trim() || undefined,
-                lastName: createForm.lastName.trim(),
-                suffix: createForm.suffix.trim() || undefined,
                 email: createForm.email.trim(),
                 role: createForm.role,
                 campus_id: createForm.campus_id || undefined,
@@ -887,66 +878,19 @@ interface CampusOption {
                     </DialogHeader>
 
                     <div className="grid gap-3 py-1">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5 col-span-2">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">User Type</Label>
-                                <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({
-                                    ...prev,
-                                    role: v as CreateUserRole,
-                                }))}>
-                                    <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="font-lexend">
-                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                                        <SelectItem value="REVIEWEE">Reviewee</SelectItem>
-                                        <SelectItem value="ADMIN">Administrator</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">First Name <span className="text-rose-500">*</span></Label>
-                                <Input
-                                    value={createForm.firstName}
-                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                                    placeholder="Juan"
-                                    className="h-8 rounded-md border-gray-200 text-xs"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Middle Initial</Label>
-                                <Input
-                                    value={createForm.middleInitial}
-                                    onChange={(e) => setCreateForm((prev) => ({ ...prev, middleInitial: e.target.value.slice(0, 1) }))}
-                                    placeholder="M"
-                                    maxLength={1}
-                                    className="h-8 rounded-md border-gray-200 text-xs"
-                                />
-                            </div>
-                        </div>
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Last Name <span className="text-rose-500">*</span></Label>
-                            <Input
-                                value={createForm.lastName}
-                                onChange={(e) => setCreateForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                                placeholder="Dela Cruz"
-                                className="h-8 rounded-md border-gray-200 text-xs"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Suffix <span className="text-gray-400 normal-case font-normal">(optional)</span></Label>
-                            <Select
-                                value={createForm.suffix || NO_SUFFIX_VALUE}
-                                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, suffix: value === NO_SUFFIX_VALUE ? '' : value }))}
-                            >
+                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">User Type</Label>
+                            <Select value={createForm.role} onValueChange={(v) => setCreateForm((prev) => ({
+                                ...prev,
+                                role: v as CreateUserRole,
+                            }))}>
                                 <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                    <SelectValue placeholder="Select suffix" />
+                                    <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="font-lexend">
-                                    <SelectItem value={NO_SUFFIX_VALUE}>No suffix</SelectItem>
-                                    {SUFFIX_OPTIONS.map((suffixOption) => (
-                                        <SelectItem key={suffixOption} value={suffixOption}>{suffixOption}</SelectItem>
-                                    ))}
+                                    <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                    <SelectItem value="REVIEWEE">Reviewee</SelectItem>
+                                    <SelectItem value="ADMIN">Administrator</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -961,7 +905,7 @@ interface CampusOption {
                             />
                             <p className="text-[10px] leading-relaxed text-gray-500">
                                 No password is set here. You will get a one-time link to send them, and
-                                they choose their own password.
+                                they choose their own password and fill in their name.
                             </p>
                         </div>
                         <div className="space-y-1.5">
