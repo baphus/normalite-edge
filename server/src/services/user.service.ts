@@ -245,7 +245,7 @@ export class UserService {
                     email,
                     role: data.role,
                     status: 'ACTIVE',
-                    campusId: resolvedCampus?.id,
+                    campusId: resolvedCampus?.id ?? null,
                     createdByAdmin: true,
                     isExternalEmail: true,
                 },
