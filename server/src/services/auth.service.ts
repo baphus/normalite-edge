@@ -155,6 +155,7 @@ export class AuthService {
         lastName?: string;
         middleInitial?: string;
         suffix?: string;
+        picture?: string;
         track_id?: string;
         program?: string;
         program_track?: string;
@@ -186,6 +187,7 @@ export class AuthService {
                     lastName: data.lastName?.trim() || existingById.lastName,
                     middleInitial,
                     suffix: data.suffix?.trim() || existingById.suffix,
+                    profilePicture: data.picture || existingById.profilePicture,
                     trackId: resolvedTrack?.id ?? existingById.trackId,
                     campusId: resolvedCampus?.id ?? existingById.campusId,
                     programTrack: resolvedTrack?.name ?? existingById.programTrack,
@@ -245,9 +247,8 @@ export class AuthService {
             ? data.middleInitial.trim()[0].toUpperCase()
             : undefined;
 
-        const profilePicture = identity.pictureUrl
-            ? importRemoteAvatar(identity.pictureUrl)
-            : null;
+        const profilePicture = data.picture
+            || (identity.pictureUrl ? importRemoteAvatar(identity.pictureUrl) : null);
 
         const user = await prisma.user.create({
             data: {

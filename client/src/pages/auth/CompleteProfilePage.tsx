@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { isAxiosError } from 'axios';
-import { AlertCircle, ArrowRight, UserRound } from 'lucide-react';
+import { AlertCircle, ArrowRight, Camera, UserRound } from 'lucide-react';
 import api from '@/lib/axios';
+import { uploadImageToCloudinary } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import AuthLayout from '@/components/marketing/AuthLayout';
+import ImageCropDialog from '@/components/ui/image-crop-dialog';
 
 /**
  * Build the Zod schema based on the user's role.
@@ -69,6 +71,12 @@ const CompleteProfilePage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [tracks, setTracks] = useState<Option[]>([]);
     const [campuses, setCampuses] = useState<Option[]>([]);
+    const [picture, setPicture] = useState<string>('');
+    const [isUploadingPicture, setIsUploadingPicture] = useState(false);
+    const [imgError, setImgError] = useState(false);
+    const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+    const [showCropDialog, setShowCropDialog] = useState(false);
+    const profileImageInputRef = useRef<HTMLInputElement>(null);
 
     const role = pending?.role;
     const profileSchema = buildProfileSchema(role);
@@ -116,6 +124,48 @@ const CompleteProfilePage: React.FC = () => {
             .catch(() => setError('Unable to load campuses. Please refresh and try again.'));
     }, [pending?.eligible]);
 
+    const handleProfilePictureSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            setError('Please select an image file.');
+            return;
+        }
+
+        const maxFileSizeInBytes = 3 * 1024 * 1024;
+        if (file.size > maxFileSizeInBytes) {
+            setError('Image must be 3MB or smaller.');
+            return;
+        }
+
+        // Read the file and show crop dialog
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropImageSrc(reader.result as string);
+            setShowCropDialog(true);
+        };
+        reader.readAsDataURL(file);
+
+        // Reset the input so the same file can be selected again
+        event.target.value = '';
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        try {
+            setIsUploadingPicture(true);
+            const file = new File([croppedBlob], 'profile-pic.jpg', { type: 'image/jpeg' });
+            const secureUrl = await uploadImageToCloudinary(file, 'profile-pics');
+            setPicture(secureUrl);
+            setImgError(false);
+        } catch {
+            setError('Failed to upload profile picture. Please try again.');
+        } finally {
+            setIsUploadingPicture(false);
+            setCropImageSrc(null);
+        }
+    };
+
     const onSubmit = async (data: ProfileFormValues) => {
         setSubmitting(true);
         setError(null);
@@ -126,6 +176,7 @@ const CompleteProfilePage: React.FC = () => {
                 lastName: data.lastName.trim(),
                 middleInitial: (data as any).middleInitial?.trim() || undefined,
                 suffix: (data as any).suffix?.trim() || undefined,
+                picture: picture || undefined,
                 track_id: (data as any).trackId || undefined,
                 campus_id: (data as any).campusId || undefined,
                 yearLevel: (data as any).yearLevel?.trim() || undefined,
@@ -223,6 +274,46 @@ const CompleteProfilePage: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                {/* Profile Photo Upload */}
+                <div className="flex flex-col items-center gap-3">
+                    <div className="relative group">
+                        {picture && !imgError ? (
+                            <img
+                                src={picture}
+                                alt="Profile"
+                                className="h-24 w-24 rounded-full object-cover border-2 border-primary"
+                                onError={() => setImgError(true)}
+                            />
+                        ) : (
+                            <div className="h-24 w-24 rounded-full bg-primary/10 text-primary flex items-center justify-center border-2 border-primary">
+                                <UserRound size={40} />
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => profileImageInputRef.current?.click()}
+                            className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full border border-gray-200 bg-white text-gray-400 flex items-center justify-center group-hover:text-primary transition-colors shadow-sm"
+                        >
+                            <Camera size={14} />
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => profileImageInputRef.current?.click()}
+                        disabled={isUploadingPicture}
+                        className="text-xs font-semibold text-primary disabled:opacity-50"
+                    >
+                        {isUploadingPicture ? 'Uploading...' : 'Add profile photo'}
+                    </button>
+                    <input
+                        ref={profileImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => { void handleProfilePictureSelect(event); }}
+                        className="hidden"
+                    />
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                         <Label htmlFor="firstName">First name</Label>
@@ -357,6 +448,20 @@ const CompleteProfilePage: React.FC = () => {
                     {!submitting && <ArrowRight size={18} />}
                 </Button>
             </form>
+
+            {cropImageSrc && (
+                <ImageCropDialog
+                    open={showCropDialog}
+                    onClose={() => {
+                        setShowCropDialog(false);
+                        setCropImageSrc(null);
+                    }}
+                    imageSrc={cropImageSrc}
+                    onCropComplete={handleCropComplete}
+                    aspect={1}
+                    title="Crop profile photo"
+                />
+            )}
         </AuthLayout>
     );
 };

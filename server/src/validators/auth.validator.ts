@@ -19,6 +19,7 @@ export const completeProfileSchema = z.object({
         .transform((value) => (value ? value[0].toUpperCase() : value))
         .refine((value) => value.length <= 1, { message: 'Middle initial must be 1 character' }),
     suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
+    picture: z.string().url('Profile picture must be a valid URL').optional(),
     track_id: z.string().uuid('Invalid track id'),
     campus_id: z.string().uuid('Invalid campus id'),
     yearLevel: z.string().trim().min(1, 'Year is required'),

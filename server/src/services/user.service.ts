@@ -198,7 +198,6 @@ export class UserService {
     async inviteExternalUser(data: {
         email: string;
         role: Role;
-        campus_id?: string;
     }) {
         const email = data.email.trim().toLowerCase();
 
@@ -211,9 +210,8 @@ export class UserService {
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) throw ApiError.conflict('User with this email already exists');
 
-        // Names are placeholders — the invited user fills in their real
-        // profile when they set their password via the invite link.
-        const resolvedCampus = await this.resolveActiveCampus(data.campus_id);
+        // Names and campus are placeholders — the invited user fills in their
+        // real profile when they set their password via the invite link.
 
         // Step 1 — mint the Supabase identity and the invite URL.
         const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
@@ -245,7 +243,6 @@ export class UserService {
                     email,
                     role: data.role,
                     status: 'ACTIVE',
-                    campusId: resolvedCampus?.id ?? null,
                     createdByAdmin: true,
                     isExternalEmail: true,
                 },
@@ -258,9 +255,6 @@ export class UserService {
                     status: true,
                     campusId: true,
                     createdAt: true,
-                    campus: {
-                        select: { id: true, name: true, code: true },
-                    },
                 },
             });
 
@@ -268,8 +262,6 @@ export class UserService {
                 ...user,
                 name: `${user.firstName} ${user.lastName}`.trim(),
                 status: fromDbUserStatus(user.status as string),
-                campus: user.campus?.name || null,
-                campus_id: user.campusId || user.campus?.id || null,
                 // Shown once in the admin UI. The admin is responsible for
                 // delivering it over a channel they trust.
                 inviteLink: link.properties?.action_link ?? null,

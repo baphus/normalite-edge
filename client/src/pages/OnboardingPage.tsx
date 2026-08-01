@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import ImageCropDialog from '@/components/ui/image-crop-dialog';
 
 const OnboardingPage: React.FC = () => {
     const { user, updateUser } = useAuth();
@@ -14,6 +15,8 @@ const OnboardingPage: React.FC = () => {
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+    const [showCropDialog, setShowCropDialog] = useState(false);
 
     const roleMessage = useMemo(
         () => 'Set up your learner profile so your study sessions and exams are personalized from day one.',
@@ -53,6 +56,12 @@ const OnboardingPage: React.FC = () => {
         }
     };
 
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        const file = new File([croppedBlob], 'profile-pic.jpg', { type: 'image/jpeg' });
+        setAvatarFile(file);
+        setAvatarPreview(URL.createObjectURL(croppedBlob));
+    };
+
     return (
         <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,#f0fdf4,transparent_38%),radial-gradient(circle_at_top_left,#eff6ff,transparent_40%),#f8fafc] px-6 py-10">
             <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-xl backdrop-blur">
@@ -85,15 +94,27 @@ const OnboardingPage: React.FC = () => {
                             accept="image/*"
                             onChange={(event) => {
                                 const file = event.target.files?.[0] || null;
-                                if (avatarPreview) {
-                                    URL.revokeObjectURL(avatarPreview);
+                                if (!file) return;
+
+                                if (!file.type.startsWith('image/')) {
+                                    setError('Please select an image file.');
+                                    return;
                                 }
+
+                                const maxFileSizeInBytes = 3 * 1024 * 1024;
+                                if (file.size > maxFileSizeInBytes) {
+                                    setError('Image must be 3MB or smaller.');
+                                    return;
+                                }
+
                                 setAvatarFile(file);
-                                if (file) {
-                                    setAvatarPreview(URL.createObjectURL(file));
-                                } else {
-                                    setAvatarPreview(null);
-                                }
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                    setCropImageSrc(reader.result as string);
+                                    setShowCropDialog(true);
+                                };
+                                reader.readAsDataURL(file);
+                                event.target.value = '';
                             }}
                             className="mt-3 text-xs"
                         />
@@ -123,6 +144,20 @@ const OnboardingPage: React.FC = () => {
                     </Button>
                 </div>
             </div>
+
+            {cropImageSrc && (
+                <ImageCropDialog
+                    open={showCropDialog}
+                    onClose={() => {
+                        setShowCropDialog(false);
+                        setCropImageSrc(null);
+                    }}
+                    imageSrc={cropImageSrc}
+                    onCropComplete={handleCropComplete}
+                    aspect={1}
+                    title="Crop profile photo"
+                />
+            )}
         </div>
     );
 };

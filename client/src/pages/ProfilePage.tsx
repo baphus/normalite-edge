@@ -22,6 +22,7 @@ import { formatUserDisplayName } from '@/lib/formatUserDisplayName';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
+import ImageCropDialog from '@/components/ui/image-crop-dialog';
 
 type ProfilePerformanceStats = {
     totalExamsAnswered: number;
@@ -218,6 +219,8 @@ const ProfilePage: React.FC = () => {
     const [performance, setPerformance] = useState<ProfilePerformanceStats | null>(null);
     const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
     const [performanceError, setPerformanceError] = useState('');
+    const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+    const [showCropDialog, setShowCropDialog] = useState(false);
 
     const profileImageInputRef = useRef<HTMLInputElement | null>(null);
     const isReviewee = user?.role === 'REVIEWEE';
@@ -366,8 +369,19 @@ const ProfilePage: React.FC = () => {
             return;
         }
 
+        // Read the file and show crop dialog
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropImageSrc(reader.result as string);
+            setShowCropDialog(true);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
         try {
             setIsUploadingPicture(true);
+            const file = new File([croppedBlob], 'profile-pic.jpg', { type: 'image/jpeg' });
             const secureUrl = await uploadImageToCloudinary(file, 'profile-pics');
             setPicture(secureUrl);
             toast.success('Profile picture updated.');
@@ -376,6 +390,7 @@ const ProfilePage: React.FC = () => {
             toast.error('Failed to upload profile picture. Please try again.');
         } finally {
             setIsUploadingPicture(false);
+            setCropImageSrc(null);
         }
     };
 
@@ -791,6 +806,20 @@ const ProfilePage: React.FC = () => {
                         )}
                     </CardContent>
                 </Card>
+            )}
+
+            {cropImageSrc && (
+                <ImageCropDialog
+                    open={showCropDialog}
+                    onClose={() => {
+                        setShowCropDialog(false);
+                        setCropImageSrc(null);
+                    }}
+                    imageSrc={cropImageSrc}
+                    onCropComplete={handleCropComplete}
+                    aspect={1}
+                    title="Crop profile photo"
+                />
             )}
         </div>
     );

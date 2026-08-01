@@ -17,15 +17,6 @@ export const inviteUserSchema = z.object({
                 'Ask the user to sign in with Google, then change their role.',
         }),
     role: z.enum(['ADMIN', 'REVIEWER', 'REVIEWEE']).default('REVIEWER'),
-    campus_id: z.string().uuid('Invalid campus id').optional(),
-}).superRefine((data, ctx) => {
-    if (data.role === 'REVIEWER' && !data.campus_id) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Campus is required for reviewers',
-            path: ['campus_id'],
-        });
-    }
 });
 
 export const updateUserStatusSchema = z.object({

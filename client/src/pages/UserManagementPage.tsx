@@ -155,7 +155,6 @@ const normalizeProfileImageUrl = (rawUrl?: string | null): string => {
 const defaultCreateForm = {
     email: '',
     role: 'REVIEWER' as CreateUserRole,
-    campus_id: '',
 };
 
 const roleBadgeClass: Record<UserRole, string> = {
@@ -215,21 +214,14 @@ const UserManagementPage: React.FC = () => {
     const [editCampusId, setEditCampusId] = useState('');
     const [editYearLevel, setEditYearLevel] = useState('');
     const [editSection, setEditSection] = useState('');
-interface CampusOption {
-    id: string;
-    name: string;
-    code?: string | null;
-}
-    const [campuses, setCampuses] = useState<CampusOption[]>([]);
-    const [campusesLoading, setCampusesLoading] = useState(false);
-    const [createForm, setCreateForm] = useState({ ...defaultCreateForm });
+    const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [createError, setCreateError] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
+    const [createForm, setCreateForm] = useState({ ...defaultCreateForm });
     // Invite and recovery links are shown once, right after they are created.
     // They are never stored — the admin copies and delivers them.
     const [inviteLink, setInviteLink] = useState<string | null>(null);
     const [inviteEmail, setInviteEmail] = useState<string>('');
-    const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
     const [sortBy, setSortBy] = useState<SortKey>('dateJoined');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
@@ -268,22 +260,6 @@ interface CampusOption {
     useEffect(() => {
         fetchUsers();
     }, [page, roleFilter, statusFilter]);
-
-    useEffect(() => {
-        const fetchCampuses = async () => {
-            setCampusesLoading(true);
-            try {
-                const response = await api.get('/campuses');
-                setCampuses((response.data?.data || []) as CampusOption[]);
-            } catch {
-                setCampuses([]);
-            } finally {
-                setCampusesLoading(false);
-            }
-        };
-
-        fetchCampuses();
-    }, []);
 
     useEffect(() => {
         const timeout = setTimeout(() => {
@@ -366,16 +342,11 @@ interface CampusOption {
             );
             return;
         }
-        if (createForm.role === 'REVIEWER' && !createForm.campus_id.trim()) {
-            setCreateError('Campus is required for reviewers.');
-            return;
-        }
         try {
             setCreating(true);
             const response = await api.post('/users', {
                 email: createForm.email.trim(),
                 role: createForm.role,
-                campus_id: createForm.campus_id || undefined,
             });
 
             // Shown once, right here. No email is sent — the admin copies the
@@ -905,29 +876,8 @@ interface CampusOption {
                             />
                             <p className="text-[10px] leading-relaxed text-gray-500">
                                 No password is set here. You will get a one-time link to send them, and
-                                they choose their own password and fill in their name.
+                                they choose their own password and fill in their details.
                             </p>
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                Campus {createForm.role === 'REVIEWER' && <span className="text-rose-500">*</span>}
-                            </Label>
-                            <Select
-                                value={createForm.campus_id}
-                                onValueChange={(value) => setCreateForm((prev) => ({ ...prev, campus_id: value }))}
-                                disabled={campusesLoading || campuses.length === 0}
-                            >
-                                <SelectTrigger className="h-8 rounded-md border-gray-200 bg-white font-semibold text-xs">
-                                    <SelectValue placeholder={campusesLoading ? 'Loading campuses...' : 'Select a campus'} />
-                                </SelectTrigger>
-                                <SelectContent className="font-lexend">
-                                    {campuses.map((campus) => (
-                                        <SelectItem key={campus.id} value={campus.id}>
-                                            {campus.code ? `${campus.name} (${campus.code})` : campus.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         </div>
                         {createError && (
                             <p className="text-xs font-semibold text-rose-600 rounded-md border border-rose-100 bg-rose-50 px-3 py-2">{createError}</p>
