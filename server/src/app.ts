@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler';
 import v1Routes from './routes/v1';
 
 const app = express();
+app.set('trust proxy', 1); // Trust Render's reverse proxy for correct IP identification
 
 // ─── Security Headers ──────────────────────────────────
 app.use(helmet({

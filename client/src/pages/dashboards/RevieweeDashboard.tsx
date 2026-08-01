@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowRight,
     BookOpen,
     CheckCircle2,
     ClipboardList,
+    Clock,
     FileText,
+    Flame,
     Lightbulb,
     PlayCircle,
     Sparkles,
+    Target,
     Video,
     XCircle,
     Zap,
@@ -25,6 +28,10 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import CalendarEventsWidget from './CalendarEventsWidget';
+
+/* -------------------------------------------------------------------------- */
+/*                                   Types                                     */
+/* -------------------------------------------------------------------------- */
 
 type UpcomingSession = {
     id: string;
@@ -78,12 +85,6 @@ type MotivationalQuote = {
     author: string;
 };
 
-const QUOTE_STORAGE_KEY = 'reviewee-dashboard-daily-quote';
-const DAILY_ANSWER_STORAGE_KEY = 'reviewee-dashboard-daily-answer';
-
-/** The LET headline passing mark is a 75% general average. */
-const PASS_MARK = 75;
-
 type DailyAnswerCache = {
     date: string;
     userId: string;
@@ -101,12 +102,144 @@ interface RevieweeDashboardProps {
     } | null;
 }
 
-/** Small mono eyebrow that labels a section (shared look with the marketing site). */
+/* -------------------------------------------------------------------------- */
+/*                                  Constants                                  */
+/* -------------------------------------------------------------------------- */
+
+const QUOTE_STORAGE_KEY = 'reviewee-dashboard-daily-quote';
+const DAILY_ANSWER_STORAGE_KEY = 'reviewee-dashboard-daily-answer';
+/** The LET headline passing mark is a 75% general average. */
+const PASS_MARK = 75;
+
+/** Compact subject label palette — maps subject keywords to accent colours. */
+const SUBJECT_ACCENTS: Record<string, { bg: string; text: string; bar: string }> = {
+    general:  { bg: 'bg-primary/8',  text: 'text-primary',       bar: 'bg-primary' },
+    math:     { bg: 'bg-amber-50',   text: 'text-amber-700',     bar: 'bg-amber-500' },
+    science:  { bg: 'bg-emerald-50', text: 'text-emerald-700',   bar: 'bg-emerald-500' },
+    english:  { bg: 'bg-blue-50',    text: 'text-blue-700',       bar: 'bg-blue-500' },
+    filipino: { bg: 'bg-violet-50',  text: 'text-violet-700',    bar: 'bg-violet-500' },
+    social:   { bg: 'bg-rose-50',    text: 'text-rose-700',       bar: 'bg-rose-500' },
+};
+
+const getSubjectAccent = (subject: string) => {
+    const lower = subject.toLowerCase();
+    for (const [key, accent] of Object.entries(SUBJECT_ACCENTS)) {
+        if (lower.includes(key)) return accent;
+    }
+    return SUBJECT_ACCENTS.general;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                Helper hooks                                 */
+/* -------------------------------------------------------------------------- */
+
+/** Derive subject-level performance stats from recent attempts. */
+function useSubjectPerformance(attempts: RecentAttempt[]) {
+    return useMemo(() => {
+        const grouped: Record<string, { total: number; count: number; best: number }> = {};
+        for (const a of attempts) {
+            if (a.status !== 'SUBMITTED') continue;
+            const raw = a.exam?.subject;
+            const subject = (!raw || raw.toLowerCase() === 'general section')
+                ? 'General'
+                : raw;
+            if (!grouped[subject]) grouped[subject] = { total: 0, count: 0, best: 0 };
+            grouped[subject].total += Number(a.percentage || 0);
+            grouped[subject].count += 1;
+            grouped[subject].best = Math.max(grouped[subject].best, Number(a.percentage || 0));
+        }
+        return Object.entries(grouped)
+            .map(([subject, data]) => ({
+                subject,
+                avg: Math.round(data.total / data.count),
+                best: data.best,
+                count: data.count,
+            }))
+            .sort((a, b) => b.count - a.count || b.avg - a.avg)
+            .slice(0, 5);
+    }, [attempts]);
+}
+
+/** Compute study-progress metrics from attempts. */
+function useStudyProgress(attempts: RecentAttempt[]) {
+    return useMemo(() => {
+        const submitted = attempts.filter((a) => a.status === 'SUBMITTED');
+        const totalQuestions = submitted.reduce(
+            (sum, a) => sum + (a.exam?.timeLimitMinutes ?? 0),
+            0,
+        );
+        // Estimated question count: ~1.5 questions per minute (LET standard)
+        const estimatedQuestions = Math.round(totalQuestions * 1.5);
+
+        // Streak: count unique days (in reverse) from most recent
+        const days = new Set<number>();
+        for (const a of submitted) {
+            if (a.submittedAt) {
+                const d = new Date(a.submittedAt);
+                days.add(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
+            }
+        }
+        const sortedDays = [...days].sort((a, b) => b - a);
+        let streak = 0;
+        if (sortedDays.length > 0) {
+            const msPerDay = 86_400_000;
+            const today = new Date();
+            const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+            let cursor = todayMidnight;
+            for (const day of sortedDays) {
+                if (day === cursor || day === cursor - msPerDay) {
+                    streak++;
+                    cursor = day - msPerDay;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Average time per question (estimated from timeLimitMinutes, since
+        // we don't have actual elapsed-time data on the client).
+        const avgMinutesPerQ = submitted.length > 0
+            ? Math.round((totalQuestions * 1.5) > 0 ? (totalQuestions / submitted.length) : 0)
+            : 0;
+
+        return {
+            totalQuestions: estimatedQuestions,
+            streak,
+            avgTimePerQ: avgMinutesPerQ,
+        };
+    }, [attempts]);
+}
+
+/** Compute stat-tile contextual hints. */
+function useStatHints(attempts: RecentAttempt[]) {
+    return useMemo(() => {
+        const now = new Date();
+        const weekAgo = new Date(now);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const monthAgo = new Date(now);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+        const thisWeek = attempts.filter(
+            (a) => a.status === 'SUBMITTED' && a.submittedAt && new Date(a.submittedAt) >= weekAgo,
+        ).length;
+        const thisMonth = attempts.filter(
+            (a) => a.status === 'SUBMITTED' && a.submittedAt && new Date(a.submittedAt) >= monthAgo,
+        ).length;
+
+        return { thisWeek, thisMonth };
+    }, [attempts]);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                             Shared components                               */
+/* -------------------------------------------------------------------------- */
+
+/** Small mono eyebrow that labels a section. */
 const SectionLabel: React.FC<{ children: React.ReactNode; action?: React.ReactNode }> = ({
     children,
     action,
 }) => (
-    <div className="mb-2.5 flex items-center justify-between">
+    <div className="mb-2 flex items-center justify-between">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-gray-500">
             {children}
         </p>
@@ -120,6 +253,152 @@ const scoreTone = (pct: number) =>
         : pct >= 50
             ? 'text-amber-600'
             : 'text-red-500';
+
+const scoreBg = (pct: number) =>
+    pct >= PASS_MARK
+        ? 'bg-emerald-500'
+        : pct >= 50
+            ? 'bg-amber-500'
+            : 'bg-red-400';
+
+/** Inline mini progress bar for scores. */
+const MiniScoreBar: React.FC<{ pct: number }> = ({ pct }) => (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div
+            className={`h-full rounded-full transition-all duration-500 ${scoreBg(pct)}`}
+            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+        />
+    </div>
+);
+
+/* -------------------------------------------------------------------------- */
+/*                            Internal sub-sections                            */
+/* -------------------------------------------------------------------------- */
+
+/** Subject performance breakdown — top subjects with horizontal bars. */
+const SubjectPerformance: React.FC<{ subjects: ReturnType<typeof useSubjectPerformance> }> = ({ subjects }) => {
+    if (subjects.length === 0) return null;
+    const maxAvg = Math.max(...subjects.map((s) => s.avg), 1);
+
+    return (
+        <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+                <SectionLabel>Subject performance</SectionLabel>
+                <div className="mt-2 space-y-3">
+                    {subjects.map((s) => {
+                        const accent = getSubjectAccent(s.subject);
+                        return (
+                            <div key={s.subject} className="group">
+                                <div className="mb-1 flex items-center justify-between">
+                                    <span className={`text-xs font-semibold ${accent.text}`}>
+                                        {s.subject}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono text-[10px] text-gray-400">
+                                            {s.count} attempt{s.count === 1 ? '' : 's'}
+                                        </span>
+                                        <span className={`font-mono text-[11px] font-semibold ${scoreTone(s.avg)}`}>
+                                            {s.avg}%
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${accent.bar}`}
+                                        style={{ width: `${Math.min(100, (s.avg / maxAvg) * 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+/** Study progress strip — quick stats between hero and daily challenge. */
+const StudyProgressStrip: React.FC<{ progress: ReturnType<typeof useStudyProgress> }> = ({ progress }) => (
+    <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+            <div className="flex items-center gap-2">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                    <Target size={14} />
+                </div>
+                <div>
+                    <p className="font-serif text-lg font-semibold leading-none text-[#1A0E0E]">
+                        {progress.totalQuestions}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-gray-500">
+                        Questions answered
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+            <div className="flex items-center gap-2">
+                <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${progress.streak > 0 ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>
+                    <Flame size={14} />
+                </div>
+                <div>
+                    <p className="font-serif text-lg font-semibold leading-none text-[#1A0E0E]">
+                        {progress.streak}
+                        <span className="text-xs font-normal text-gray-400 ml-0.5">d</span>
+                    </p>
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-gray-500">
+                        Current streak
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+            <div className="flex items-center gap-2">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <Clock size={14} />
+                </div>
+                <div>
+                    <p className="font-serif text-lg font-semibold leading-none text-[#1A0E0E]">
+                        {progress.avgTimePerQ || '—'}
+                        <span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
+                    </p>
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-gray-500">
+                        Avg per question
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+/** Enhanced stat tile with contextual hint. */
+const StatTile: React.FC<{
+    to: string;
+    icon: React.ReactNode;
+    value: React.ReactNode;
+    label: string;
+    hint?: string;
+    accent?: string;
+}> = ({ to, icon, value, label, hint, accent = 'bg-primary/5 text-primary' }) => (
+    <Link
+        to={to}
+        className="group flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md sm:p-4 lg:flex-row lg:items-center"
+    >
+        <div>
+            <span className="font-serif text-2xl font-semibold text-[#1A0E0E]">{value}</span>
+            <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-gray-500">{label}</p>
+            {hint && (
+                <p className="mt-0.5 font-mono text-[10px] text-gray-400">{hint}</p>
+            )}
+        </div>
+        <span className={`mt-2 flex size-8 items-center justify-center rounded-lg transition-colors group-hover:scale-110 ${accent} lg:mt-0`}>
+            {icon}
+        </span>
+    </Link>
+);
+
+/* -------------------------------------------------------------------------- */
+/*                              Main Dashboard                                 */
+/* -------------------------------------------------------------------------- */
 
 const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const { user } = useAuth();
@@ -142,12 +421,17 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
 
     const todayKey = new Date().toISOString().slice(0, 10);
 
-    // Readiness figures
+    // Derived data
     const hasAttempts = recentAttempts.length > 0 || (stats?.overallAverage ?? 0) > 0;
     const average = Math.round(Number(stats?.overallAverage ?? 0));
     const meetsPassMark = average >= PASS_MARK;
     const pointsToPass = Math.max(0, PASS_MARK - average);
     const inProgress = recentAttempts.find((a) => a.status === 'IN_PROGRESS');
+    const submittedCount = recentAttempts.filter((a) => a.status === 'SUBMITTED').length;
+
+    const subjectPerformance = useSubjectPerformance(recentAttempts);
+    const studyProgress = useStudyProgress(recentAttempts);
+    const statHints = useStatHints(recentAttempts);
 
     const hour = today.getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -298,13 +582,21 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         }
     };
 
+    /* ------------------------------------------------------------------ */
+    /*                              RENDER                                 */
+    /* ------------------------------------------------------------------ */
+
     return (
-        <div className="flex flex-col gap-5 pb-8 font-lexend text-[#1A0E0E]">
-            {/* Header */}
+        <div className="flex flex-col gap-4 pb-8 font-lexend text-[#1A0E0E] sm:gap-5">
+
+            {/* ── Header ─────────────────────────────────────────────── */}
             <header data-guide="dashboard-header" className="flex flex-col gap-1">
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-gray-500">{dateLabel}</p>
                 <div className="flex flex-wrap items-end justify-between gap-2">
-                    <h1 className="font-serif text-2xl font-semibold tracking-tight text-[#1A0E0E] sm:text-3xl">
+                    <h1
+                        className="font-serif text-2xl font-semibold tracking-tight text-[#1A0E0E] sm:text-3xl"
+                        style={{ textWrap: 'balance' }}
+                    >
                         {greeting}, {firstName}.
                     </h1>
                     <span className="rounded-full bg-primary/10 px-3 py-1 font-mono text-[11px] font-medium tracking-wide text-primary">
@@ -313,11 +605,11 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </div>
             </header>
 
-            {/* Resume banner — only when an attempt is mid-flight and linkable */}
+            {/* ── Resume banner ──────────────────────────────────────── */}
             {inProgress?.exam?.id && (
                 <Link
                     to={`/exams/${inProgress.exam?.id}/take`}
-                    className="group flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary px-4 py-3.5 text-white shadow-sm transition-all hover:-translate-y-0.5"
+                    className="group flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary px-4 py-3.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                 >
                     <PlayCircle className="h-5 w-5 shrink-0 text-secondary" />
                     <div className="min-w-0 flex-1">
@@ -328,10 +620,12 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </Link>
             )}
 
-            {/* Readiness hero — the one question a reviewee is really asking */}
+            {/* ── Readiness hero + stat tiles ────────────────────────── */}
             <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
                 <Card className="relative overflow-hidden rounded-2xl border-gray-100 shadow-sm">
                     <div className="answer-grid pointer-events-none absolute inset-0 opacity-60" aria-hidden />
+                    {/* Subtle gradient overlay for depth */}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-primary/[0.03]" aria-hidden />
                     <CardContent className="relative p-5 sm:p-6">
                         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-gray-500">Exam readiness</p>
 
@@ -343,19 +637,28 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                                         <span className="text-2xl">%</span>
                                     </span>
                                     <span className="mb-1 text-sm text-gray-500">
-                                        your overall average across all mock exams
+                                        your overall average
+                                    </span>
+                                </div>
+
+                                {/* Attempt count pill */}
+                                <div className="mt-2">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-mono text-[10px] font-medium text-gray-500">
+                                        <ClipboardList size={10} />
+                                        {submittedCount} submitted mock{submittedCount === 1 ? '' : 's'}
                                     </span>
                                 </div>
 
                                 {/* Meter with the 75% pass-line marker */}
-                                <div className="mt-5">
+                                <div className="mt-4">
                                     <div className="relative h-3 w-full rounded-full bg-gray-100">
                                         <div
-                                            className={`h-full rounded-full ${meetsPassMark ? 'bg-emerald-500' : 'bg-primary'}`}
+                                            className={`h-full rounded-full transition-all duration-700 ease-out ${meetsPassMark ? 'bg-emerald-500' : 'bg-gradient-to-r from-primary/80 to-primary'}`}
                                             style={{ width: `${Math.min(100, Math.max(2, average))}%` }}
                                         />
+                                        {/* Pass-line marker */}
                                         <div
-                                            className="absolute -top-1 -bottom-1 w-0.5 bg-[#1A0E0E]"
+                                            className="absolute -top-1 -bottom-1 w-0.5 bg-[#1A0E0E]/80"
                                             style={{ left: `${PASS_MARK}%` }}
                                             aria-hidden
                                         />
@@ -370,7 +673,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                                     </div>
                                 </div>
 
-                                <p className="mt-3 text-sm font-medium">
+                                <p className="mt-2 text-sm font-medium" style={{ textWrap: 'balance' }}>
                                     {meetsPassMark ? (
                                         <span className="text-emerald-700">Above the 75% passing average. Keep it steady across every area.</span>
                                     ) : (
@@ -403,6 +706,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                         icon={<ClipboardList className="h-4 w-4" />}
                         value={recentAttempts.length}
                         label="Mocks taken"
+                        hint={statHints.thisWeek > 0 ? `${statHints.thisWeek} this week` : statHints.thisMonth > 0 ? `${statHints.thisMonth} this month` : undefined}
                     />
                     <StatTile
                         to="/exams"
@@ -419,7 +723,10 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </div>
             </section>
 
-            {/* Daily challenge */}
+            {/* ── Study progress strip ───────────────────────────────── */}
+            <StudyProgressStrip progress={studyProgress} />
+
+            {/* ── Daily challenge ────────────────────────────────────── */}
             <Card data-guide="dashboard-daily-challenge" className="overflow-hidden rounded-2xl border-gray-100 shadow-sm">
                 <CardContent className="flex items-center gap-3.5 border-l-4 border-secondary p-4">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
@@ -462,7 +769,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </CardContent>
             </Card>
 
-            {/* Daily Question Modal (logic unchanged) */}
+            {/* ── Daily Question Modal ───────────────────────────────── */}
             <Dialog open={isDailyModalOpen} onOpenChange={(open) => { if (!isSubmittingDaily) setIsDailyModalOpen(open); }}>
                 <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 font-lexend sm:max-w-lg">
                     <DialogHeader className="border-b border-gray-100 px-5 pb-4 pt-5">
@@ -594,88 +901,118 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </DialogContent>
             </Dialog>
 
-            {/* Main grid */}
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                {/* Recent attempts */}
-                <section data-guide="dashboard-primary-panel" className="lg:col-span-2">
-                    <SectionLabel
-                        action={
-                            <Link to="/exams" className="font-mono text-[11px] font-semibold text-primary hover:underline">
-                                View all
-                            </Link>
-                        }
-                    >
-                        Recent mock attempts
-                    </SectionLabel>
+            {/* ── Main content grid ──────────────────────────────────── */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
 
-                    <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm">
-                        {recentAttempts.length > 0 ? (
-                            <ul className="divide-y divide-gray-100">
-                                {recentAttempts.map((attempt) => {
-                                    const pct = Number(attempt.percentage || 0);
-                                    const isDone = attempt.status === 'SUBMITTED';
-                                    const href = attempt.exam?.id
-                                        ? (isDone ? `/exams/${attempt.exam.id}/result` : `/exams/${attempt.exam.id}/take`)
-                                        : null;
-                                    const rowClass = 'flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between';
-                                    const rowInner = (
-                                        <>
-                                            <div className="min-w-0">
-                                                <p className="truncate text-sm font-semibold text-gray-900">{attempt.exam?.title || 'Mock Exam'}</p>
-                                                <p className="mt-0.5 font-mono text-[11px] text-gray-500">
-                                                    {attempt.exam?.timeLimitMinutes || 0} min
-                                                    {attempt.submittedAt
-                                                        ? ` · ${new Date(attempt.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                                                        : ' · in progress'}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                {isDone ? (
-                                                    <div className="text-left sm:text-right">
-                                                        <p className={`font-serif text-xl font-semibold leading-none ${scoreTone(pct)}`}>{pct.toFixed(0)}%</p>
-                                                        <p className="mt-0.5 font-mono text-[10px] text-gray-500">{attempt.score} pts</p>
-                                                    </div>
-                                                ) : (
-                                                    <span className="font-mono text-[11px] font-medium uppercase tracking-wide text-amber-600">Resume</span>
-                                                )}
-                                                <Badge className={`border-none text-[9px] font-bold uppercase ${
-                                                    attempt.submissionType === 'AUTO' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                                                }`}>
-                                                    {attempt.submissionType === 'AUTO' ? 'Auto' : 'Submitted'}
-                                                </Badge>
-                                            </div>
-                                        </>
-                                    );
-                                    return (
-                                        <li key={attempt.id}>
-                                            {href ? (
-                                                <Link to={href} className={`${rowClass} transition-colors hover:bg-gray-50/70`}>
-                                                    {rowInner}
-                                                </Link>
-                                            ) : (
-                                                <div className={rowClass}>{rowInner}</div>
-                                            )}
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        ) : (
-                            <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                                <ClipboardList className="h-6 w-6 text-gray-300" />
-                                <p className="text-sm font-medium text-gray-500">No attempts yet</p>
-                                <p className="max-w-xs text-xs text-gray-400">
-                                    Your mock exam scores will show up here once you finish your first one.
-                                </p>
-                                <Link to="/exams">
-                                    <Button variant="outline" className="mt-2 h-9 rounded-lg text-xs font-semibold">Browse exams</Button>
+                {/* Primary panel — Recent attempts + Subject performance */}
+                <section data-guide="dashboard-primary-panel" className="lg:col-span-2 flex flex-col gap-4">
+                    {/* Subject performance breakdown */}
+                    {subjectPerformance.length > 0 && (
+                        <SubjectPerformance subjects={subjectPerformance} />
+                    )}
+
+                    {/* Recent attempts */}
+                    <div>
+                        <SectionLabel
+                            action={
+                                <Link to="/exams" className="font-mono text-[11px] font-semibold text-primary hover:underline">
+                                    View all
                                 </Link>
-                            </div>
-                        )}
-                    </Card>
+                            }
+                        >
+                            Recent mock attempts
+                        </SectionLabel>
+
+                        <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm">
+                            {recentAttempts.length > 0 ? (
+                                <ul className="divide-y divide-gray-100">
+                                    {recentAttempts.map((attempt) => {
+                                        const pct = Number(attempt.percentage || 0);
+                                        const isDone = attempt.status === 'SUBMITTED';
+                                        const href = attempt.exam?.id
+                                            ? (isDone ? `/exams/${attempt.exam.id}/result` : `/exams/${attempt.exam.id}/take`)
+                                            : null;
+
+                                        // Subject label
+                                        const rawSubject = attempt.exam?.subject;
+                                        const subjectLabel = (!rawSubject || rawSubject.toLowerCase() === 'general section')
+                                            ? null
+                                            : rawSubject;
+                                        const subjectAccent = subjectLabel ? getSubjectAccent(subjectLabel) : null;
+
+                                        const rowClass = 'flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between';
+                                        const rowInner = (
+                                            <>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-semibold text-gray-900">{attempt.exam?.title || 'Mock Exam'}</p>
+                                                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                        <span className="font-mono text-[11px] text-gray-500">
+                                                            {attempt.exam?.timeLimitMinutes || 0} min
+                                                            {attempt.submittedAt
+                                                                ? ` · ${new Date(attempt.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                                                : ' · in progress'}
+                                                        </span>
+                                                        {subjectLabel && subjectAccent && (
+                                                            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold ${subjectAccent.bg} ${subjectAccent.text}`}>
+                                                                {subjectLabel}
+                                                            </span>
+                                                        )}
+                                                        <Badge className={`border-none text-[9px] font-bold uppercase ${
+                                                            attempt.submissionType === 'AUTO' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                                                        }`}>
+                                                            {attempt.submissionType === 'AUTO' ? 'Auto' : 'Submitted'}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    {isDone ? (
+                                                        <div className="min-w-[72px]">
+                                                            <div className="flex items-center justify-between sm:justify-end sm:text-right">
+                                                                <p className={`font-serif text-xl font-semibold leading-none ${scoreTone(pct)}`}>{pct.toFixed(0)}%</p>
+                                                                <span className="font-mono text-[10px] text-gray-500 sm:hidden">{attempt.score} pts</span>
+                                                            </div>
+                                                            <div className="mt-1.5">
+                                                                <MiniScoreBar pct={pct} />
+                                                            </div>
+                                                            <p className="mt-0.5 font-mono text-[10px] text-gray-500 sm:text-right">{attempt.score} pts</p>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="font-mono text-[11px] font-medium uppercase tracking-wide text-amber-600">Resume</span>
+                                                    )}
+                                                </div>
+                                            </>
+                                        );
+                                        return (
+                                            <li key={attempt.id}>
+                                                {href ? (
+                                                    <Link to={href} className={`${rowClass} transition-colors hover:bg-gray-50/70`}>
+                                                        {rowInner}
+                                                    </Link>
+                                                ) : (
+                                                    <div className={rowClass}>{rowInner}</div>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                                    <ClipboardList className="h-6 w-6 text-gray-300" />
+                                    <p className="text-sm font-medium text-gray-500">No attempts yet</p>
+                                    <p className="max-w-xs text-xs text-gray-400">
+                                        Your mock exam scores will show up here once you finish your first one.
+                                    </p>
+                                    <Link to="/exams">
+                                        <Button variant="outline" className="mt-2 h-9 rounded-lg text-xs font-semibold">Browse exams</Button>
+                                    </Link>
+                                </div>
+                            )}
+                        </Card>
+                    </div>
                 </section>
 
-                {/* Sidebar */}
-                <div data-guide="dashboard-side-panel" className="flex flex-col gap-5">
+                {/* ── Sidebar ──────────────────────────────────────── */}
+                <div data-guide="dashboard-side-panel" className="flex flex-col gap-4 lg:gap-5">
                     {/* Upcoming conferences */}
                     <div>
                         <SectionLabel
@@ -757,26 +1094,5 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         </div>
     );
 };
-
-/** Compact, tappable metric that navigates somewhere useful. */
-const StatTile: React.FC<{
-    to: string;
-    icon: React.ReactNode;
-    value: React.ReactNode;
-    label: string;
-}> = ({ to, icon, value, label }) => (
-    <Link
-        to={to}
-        className="group flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 sm:p-4 lg:flex-row lg:items-center"
-    >
-        <div>
-            <span className="font-serif text-2xl font-semibold text-[#1A0E0E]">{value}</span>
-            <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-gray-500">{label}</p>
-        </div>
-        <span className="mt-2 flex size-8 items-center justify-center rounded-lg bg-primary/5 text-primary transition-colors group-hover:bg-primary/10 lg:mt-0">
-            {icon}
-        </span>
-    </Link>
-);
 
 export default RevieweeDashboard;
