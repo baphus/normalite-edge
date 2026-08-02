@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError';
 import { Role } from '@prisma/client';
 import { notificationService } from './notification.service';
 import { deckService } from './deck.service';
+import { buildTrackVisibilityFilter } from './revieweeVisibility';
 
 export class ExamService {
     private readonly defaultMultipleAttemptsLimit = 3;
@@ -225,23 +226,7 @@ export class ExamService {
                 },
             });
 
-            const visibilityOr: any[] = [
-                {
-                    trackLinks: { none: {} },
-                },
-            ];
-
-            if (reviewee?.trackId) {
-                visibilityOr.push({
-                    trackLinks: {
-                        some: {
-                            trackId: reviewee.trackId,
-                        },
-                    },
-                });
-            }
-
-            whereAnd.push({ OR: visibilityOr });
+            whereAnd.push(buildTrackVisibilityFilter(reviewee?.trackId));
             whereAnd.push({ status: { in: ['LIVE', 'CLOSED', 'ARCHIVED'] } });
         } else {
             if (params.isPublished !== undefined) {
