@@ -106,6 +106,15 @@ function compareForBrowse(a: Exam, b: Exam) {
     return publishedAt(b) - publishedAt(a);
 }
 
+/** The section strip shown under the title, in both forms. */
+function sectionSummary(exam: Exam) {
+    const titles = (exam.sections || [])
+        .map((section) => section.title?.trim())
+        .filter((title): title is string => Boolean(title));
+    if (titles.length === 0) return 'Full exam';
+    return titles.slice(0, 3).join(' · ') + (titles.length > 3 ? ` +${titles.length - 3}` : '');
+}
+
 function scoreClasses(score: number) {
     if (score >= 75) return 'text-emerald-700';
     if (score >= 50) return 'text-amber-700';
@@ -315,12 +324,18 @@ const ExamsPage: React.FC = () => {
         return <StatusPill tone={tone} label={label} />;
     }, []);
 
+    // Urgency carries a word, not just a colour — the date string is otherwise
+    // identical in both branches, which would make red the sole differentiator.
     const renderDeadline = useCallback(
-        (exam: Exam) => (
-            <span className={cn(isDeadlineSoon(exam.deadline) ? 'font-semibold text-red-600' : '')}>
-                {formatShortDate(exam.deadline, 'No deadline')}
-            </span>
-        ),
+        (exam: Exam) =>
+            isDeadlineSoon(exam.deadline) ? (
+                <span className="font-semibold text-red-600">
+                    {formatShortDate(exam.deadline, 'No deadline')}
+                    <span className="ml-1 font-semibold">· Due soon</span>
+                </span>
+            ) : (
+                <span>{formatShortDate(exam.deadline, 'No deadline')}</span>
+            ),
         [],
     );
 
@@ -332,13 +347,18 @@ const ExamsPage: React.FC = () => {
                 primary: true,
                 sortable: true,
                 sortValue: (exam) => exam.title,
+                // Sections ride along under the title rather than taking a column
+                // of their own, so the table shows exactly what the card shows.
                 cell: (exam) => (
-                    <Link
-                        to={`/exams/${exam.id}/view`}
-                        className="line-clamp-2 font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    >
-                        {exam.title}
-                    </Link>
+                    <div className="min-w-0">
+                        <Link
+                            to={`/exams/${exam.id}/view`}
+                            className="line-clamp-2 font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                            {exam.title}
+                        </Link>
+                        <p className="mt-0.5 truncate text-[12px] text-slate-400">{sectionSummary(exam)}</p>
+                    </div>
                 ),
             },
             {
@@ -422,9 +442,6 @@ const ExamsPage: React.FC = () => {
         (exam: Exam) => {
             const { attemptsRemaining, hasSubmitted } = examState(exam);
             const score = exam.latestSubmittedScore ?? exam.lastScore;
-            const sectionTitles = (exam.sections || [])
-                .map((section) => section.title?.trim())
-                .filter((title): title is string => Boolean(title));
 
             return (
                 <div className="flex h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-primary/30">
@@ -440,12 +457,7 @@ const ExamsPage: React.FC = () => {
                         >
                             {exam.title}
                         </Link>
-                        <p className="mt-0.5 truncate text-[12px] text-slate-400">
-                            {sectionTitles.length > 0
-                                ? sectionTitles.slice(0, 3).join(' · ') +
-                                  (sectionTitles.length > 3 ? ` +${sectionTitles.length - 3}` : '')
-                                : 'Full exam'}
-                        </p>
+                        <p className="mt-0.5 truncate text-[12px] text-slate-400">{sectionSummary(exam)}</p>
                     </div>
 
                     <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
@@ -460,6 +472,12 @@ const ExamsPage: React.FC = () => {
                         <div className="flex justify-between gap-2">
                             <dt className="text-slate-400">Deadline</dt>
                             <dd className="font-semibold text-slate-700">{renderDeadline(exam)}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Published</dt>
+                            <dd className="font-semibold text-slate-700">
+                                {formatShortDate(exam.scheduledDate || exam.createdAt, 'Not published')}
+                            </dd>
                         </div>
                         <div className="flex justify-between gap-2">
                             <dt className="text-slate-400">{hasSubmitted && score != null ? 'Score' : 'Attempts'}</dt>

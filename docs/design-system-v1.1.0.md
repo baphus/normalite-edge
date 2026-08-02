@@ -30,9 +30,16 @@ Dialect A is the target. The rest are migration debt, tracked in §9.
 
 ## 2. Type scale
 
-**Nothing below 12px.** Density comes from row height and padding, never from
-smaller glyphs. Shrinking type to 9px while keeping ten metadata rows per card
-buys neither density nor clarity — that was the state before this system.
+**12px floor for anything you read; 11px only for the two structural roles
+below** — column/section headers and badges, which are scanned rather than read
+and are already set in uppercase or short labels. Nothing goes below 11px, ever.
+Density comes from row height and padding, never from smaller glyphs. Shrinking
+type to 9px while keeping ten metadata rows per card buys neither density nor
+clarity — that was the state before this system.
+
+> v1.0.0 stated a flat "nothing below 12px" while its own table sanctioned 11px
+> for headers and badges. The rule was unapplyable as written; this is the
+> version that was actually being followed.
 
 | Role | Size | Weight | Notes |
 | --- | --- | --- | --- |
@@ -68,9 +75,12 @@ display face and is not used in dense app UI.
   owns it. Tinting a whole card by category was tried on `/study` and removed:
   `Category` is a database model with an admin CRUD page, so a map keyed on
   literal category names silently collapsed every admin-created category to one
-  fallback colour and lost the colour entirely on rename. Tones are derived from
-  the category id so they are stable, and the badge always carries the name, so
-  category is never conveyed by colour alone either.
+  fallback colour. Tones are now derived from the category id, so an
+  admin-created category gets a distinct tone that survives a rename. The three
+  seeded categories are still matched by name, for continuity with the colours
+  reviewees already know — renaming one of those moves it to its id-derived tone
+  once, which is a change of value, not a collapse to a shared default. The badge
+  always carries the name, so category is never conveyed by colour alone.
 
 ---
 
@@ -265,9 +275,9 @@ having written it.
 | `ManageExamViewPage`, `MaterialViewPage`, `RevieweeExamViewPage`, `RevieweeMaterialViewPage` | B | Pending — the jarring transition out of the new tables and grids |
 | `ExamPerformancePage`, `CalendarPage`, `TakeExamPage`, `VideoConferencePage`, `ProfilePage`, `SettingsPage`, dashboards | C | Long tail — large, bespoke, low shared-component leverage |
 
-Repo-wide drift measured at v1.0.0: **475** sub-12px sizes, **272**
-`font-black`, **1,735** `-gray-*` (vs 602 `-slate-*`). `/exams` and `/study` have
-since been removed from those counts; the rest stand.
+Repo-wide drift, re-measured at v1.1.0: **252** `font-black` (was 272),
+**1,594** `-gray-*` (was 1,735) against **632** `-slate-*` (was 602). The
+movement is this release's two pages; the rest stands.
 
 ---
 

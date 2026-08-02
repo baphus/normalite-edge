@@ -28,12 +28,22 @@ const TONES = [
     'border-cyan-200 bg-cyan-50 text-cyan-700',
 ] as const;
 
-/** Continuity with the colours reviewees already associate with the seeded categories. */
-const SEEDED_TONES: Record<string, (typeof TONES)[number]> = {
-    'general education': TONES[0],
-    'professional education': TONES[1],
-    specialization: TONES[2],
-};
+/**
+ * Continuity with the colours reviewees already associate with the seeded
+ * categories. A Map, not an object literal: category names are admin-editable
+ * free text, and a plain-object lookup for a category named "constructor" or
+ * "toString" would return an inherited function — truthy, and straight into a
+ * className.
+ *
+ * Matching here is by name, so renaming a seeded category drops it to the
+ * id-derived tone below. That is a one-time change to a stable value, not a
+ * collapse to a shared default.
+ */
+const SEEDED_TONES = new Map<string, (typeof TONES)[number]>([
+    ['general education', TONES[0]],
+    ['professional education', TONES[1]],
+    ['specialization', TONES[2]],
+]);
 
 const NEUTRAL_TONE = 'border-slate-200 bg-slate-100 text-slate-600';
 
@@ -56,7 +66,7 @@ export function categoryToneClasses(name: string | null | undefined, key?: strin
     const trimmed = (name || '').trim();
     if (!trimmed || trimmed.toLowerCase() === 'no category') return NEUTRAL_TONE;
 
-    const seeded = SEEDED_TONES[trimmed.toLowerCase()];
+    const seeded = SEEDED_TONES.get(trimmed.toLowerCase());
     if (seeded) return seeded;
 
     return TONES[hash(key || trimmed) % TONES.length];

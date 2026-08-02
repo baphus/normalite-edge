@@ -39,12 +39,12 @@ export interface ResourceGridProps<T> {
     emptyTitle: string;
     emptyDescription: string;
     emptyAction?: React.ReactNode;
-
-    /** Placeholder cards drawn while loading. */
-    skeletonCount?: number;
 }
 
 const GRID_CLASSES = 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3';
+
+/** One full row at every breakpoint, so the skeleton never reads as a short list. */
+const SKELETON_COUNT = 6;
 
 function ResourceGridInner<T>({
     rows,
@@ -59,7 +59,6 @@ function ResourceGridInner<T>({
     emptyTitle,
     emptyDescription,
     emptyAction,
-    skeletonCount = 6,
 }: ResourceGridProps<T>) {
     // ── Error ────────────────────────────────────────────────────────────────
     if (state === 'error') {
@@ -73,7 +72,7 @@ function ResourceGridInner<T>({
         return (
             <>
                 <div className={GRID_CLASSES} aria-hidden="true">
-                    {Array.from({ length: skeletonCount }).map((_, index) => (
+                    {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
                         <div
                             key={index}
                             className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3"
