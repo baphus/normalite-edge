@@ -19,7 +19,7 @@ import {
 import { ManageToolbar, type ActiveFilterChip, type ManageView } from '@/components/manage/ManageToolbar';
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 import { StatusPill } from '@/components/manage/StatusPill';
-import { CollectionEmpty, CollectionError } from '@/components/manage/CollectionState';
+import { ResourceGrid } from '@/components/manage/ResourceGrid';
 import api from '@/lib/axios';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { formatShortDate } from '@/lib/formatters';
@@ -343,6 +343,52 @@ const ManageMaterialsPage: React.FC = () => {
         [getDisplayCreatorName],
     );
 
+    const renderDeckCard = useCallback(
+        (deck: Deck) => (
+            <Card className="h-full w-full rounded-xl border-slate-200 bg-white shadow-none transition-colors hover:border-primary/30">
+                <CardContent className="flex h-full flex-col gap-2 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                        <StatusPill
+                            tone={deck.visibility === 'PUBLISHED' ? 'live' : 'draft'}
+                            label={deck.visibility === 'PUBLISHED' ? 'Published' : 'Draft'}
+                        />
+                        {renderRowActions(deck)}
+                    </div>
+                    <div className="min-w-0">
+                        <Link
+                            to={`/materials/${deck.id}/view`}
+                            className="line-clamp-2 text-[13px] font-semibold text-slate-900 transition-colors hover:text-primary"
+                        >
+                            {deck.title}
+                        </Link>
+                        <p className="mt-0.5 truncate text-[12px] text-slate-400">
+                            {formatVisibilityTracks(deck.tracks)}
+                        </p>
+                    </div>
+                    <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Items</dt>
+                            <dd className="font-semibold text-slate-700 tabular-nums">{deck.totalItems}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Category</dt>
+                            <dd className="truncate font-semibold text-slate-700">{deck.category}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Author</dt>
+                            <dd className="truncate font-semibold text-slate-700">{getDisplayCreatorName(deck)}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Created</dt>
+                            <dd className="font-semibold text-slate-700">{formatShortDate(deck.createdAt)}</dd>
+                        </div>
+                    </dl>
+                </CardContent>
+            </Card>
+        ),
+        [getDisplayCreatorName, renderRowActions],
+    );
+
     const createAction = (
         <Button asChild className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90">
             <Link to="/materials/create">
@@ -415,16 +461,19 @@ const ManageMaterialsPage: React.FC = () => {
                     resetKey={`${search}|${categoryFilter}|${visibilityFilter}`}
                 />
             ) : (
-                <DeckGrid
-                    decks={filteredDecks}
-                    isLoading={isLoading}
+                <ResourceGrid
+                    rows={filteredDecks}
+                    getRowId={(deck) => deck.id}
+                    renderCard={renderDeckCard}
+                    caption="Study materials you manage"
+                    state={tableState}
                     error={error}
                     onRetry={() => void fetchManagedDecks()}
                     filtersActive={chips.length > 0}
                     onClearFilters={clearAllFilters}
+                    emptyTitle="No materials yet"
+                    emptyDescription="Create your first study material for your reviewees."
                     emptyAction={createAction}
-                    renderRowActions={renderRowActions}
-                    getDisplayCreatorName={getDisplayCreatorName}
                 />
             )}
 
@@ -439,101 +488,6 @@ const ManageMaterialsPage: React.FC = () => {
                 variant="destructive"
                 onConfirm={confirmDelete}
             />
-        </div>
-    );
-};
-
-interface DeckGridProps {
-    decks: Deck[];
-    isLoading: boolean;
-    error: string | null;
-    onRetry: () => void;
-    filtersActive: boolean;
-    onClearFilters: () => void;
-    emptyAction: React.ReactNode;
-    renderRowActions: (deck: Deck) => React.ReactNode;
-    getDisplayCreatorName: (deck: Deck) => string;
-}
-
-const DeckGrid: React.FC<DeckGridProps> = ({
-    decks,
-    isLoading,
-    error,
-    onRetry,
-    filtersActive,
-    onClearFilters,
-    emptyAction,
-    renderRowActions,
-    getDisplayCreatorName,
-}) => {
-    if (isLoading) {
-        return (
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-[13px] text-slate-500" role="status">
-                Loading…
-            </div>
-        );
-    }
-
-    if (error) {
-        return <CollectionError message={error} onRetry={onRetry} />;
-    }
-
-    if (decks.length === 0) {
-        return (
-            <CollectionEmpty
-                filtersActive={filtersActive}
-                onClearFilters={onClearFilters}
-                emptyTitle={"No materials yet"}
-                emptyDescription={"Create your first study material for your reviewees."}
-                emptyAction={emptyAction}
-            />
-        );
-    }
-
-    return (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {decks.map((deck) => (
-                <Card key={deck.id} className="rounded-xl border-slate-200 bg-white shadow-none transition-colors hover:border-primary/30">
-                    <CardContent className="flex h-full flex-col gap-2 p-3">
-                        <div className="flex items-start justify-between gap-2">
-                            <StatusPill
-                                tone={deck.visibility === 'PUBLISHED' ? 'live' : 'draft'}
-                                label={deck.visibility === 'PUBLISHED' ? 'Published' : 'Draft'}
-                            />
-                            {renderRowActions(deck)}
-                        </div>
-                        <div className="min-w-0">
-                            <Link
-                                to={`/materials/${deck.id}/view`}
-                                className="line-clamp-2 text-[13px] font-semibold text-slate-900 transition-colors hover:text-primary"
-                            >
-                                {deck.title}
-                            </Link>
-                            <p className="mt-0.5 truncate text-[12px] text-slate-400">
-                                {formatVisibilityTracks(deck.tracks)}
-                            </p>
-                        </div>
-                        <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Items</dt>
-                                <dd className="font-semibold text-slate-700 tabular-nums">{deck.totalItems}</dd>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Category</dt>
-                                <dd className="truncate font-semibold text-slate-700">{deck.category}</dd>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Author</dt>
-                                <dd className="truncate font-semibold text-slate-700">{getDisplayCreatorName(deck)}</dd>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Created</dt>
-                                <dd className="font-semibold text-slate-700">{formatShortDate(deck.createdAt)}</dd>
-                            </div>
-                        </dl>
-                    </CardContent>
-                </Card>
-            ))}
         </div>
     );
 };
