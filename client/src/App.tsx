@@ -41,6 +41,7 @@ import ZoomMeetingPage from './pages/ZoomMeetingPage';
 import StudentManagementPage from './pages/StudentManagementPage';
 import ProgramsPage from './pages/ProgramsPage';
 import CampusesPage from './pages/CampusesPage';
+import ManageCategoriesPage from './pages/ManageCategoriesPage';
 import OnboardingPage from './pages/OnboardingPage';
 
 import LandingPage from './pages/LandingPage';
@@ -130,6 +131,7 @@ function App() {
                   <Route path="/admin/users" element={<UserManagementPage />} />
                   <Route path="/admin/programs" element={<ProgramsPage />} />
                   <Route path="/admin/campuses" element={<CampusesPage />} />
+                  <Route path="/admin/categories" element={<ManageCategoriesPage />} />
                   <Route path="/admin/logs" element={<LogsPage />} />
                 </Route>
 

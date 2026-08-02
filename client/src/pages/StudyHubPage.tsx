@@ -71,7 +71,7 @@ const StudyHubPage: React.FC = () => {
                     id: deck.id,
                     title: deck.title,
                     description: deck.description || `${deck.subject || 'General'} Deck`,
-                    category: deck.subject || 'General',
+                    category: deck.category || 'No Category',
                     tracks: Array.isArray(deck.tracks)
                         ? deck.tracks.map((track: any) => track.code || track.name)
                         : [],

@@ -7,7 +7,7 @@ import { auditService } from '../services/audit.service';
 
 export const deckController = {
     listDecks: catchAsync(async (req: Request, res: Response) => {
-        const { subject, category, search, visibility, trackId } = req.query;
+        const { subject, categoryId, search, visibility, trackId } = req.query;
         const { page, limit } = parsePagination(req.query as any);
         const isReviewee = req.user!.role === 'REVIEWEE';
 
@@ -15,7 +15,7 @@ export const deckController = {
             page,
             limit,
             subject: subject as string,
-            category: category as any,
+            categoryId: categoryId as string,
             search: search as string,
             trackId: trackId as string,
             visibility: visibility as any,

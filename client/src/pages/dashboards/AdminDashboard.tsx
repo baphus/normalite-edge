@@ -273,7 +273,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ stats }) => {
 
     const parsedMaterials = recentMats.map((item) => ({
         title: item.title,
-        category: toLabelCase(item.category),
+        category: item.category,
         time: formatRelativeTime(item.createdAt),
         uploaderName: item.uploaderName,
         uploaderAvatar: item.uploaderAvatar,

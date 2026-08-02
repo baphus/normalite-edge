@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const categorySchema = z.enum(['GENERAL_EDUCATION', 'PROFESSIONAL_EDUCATION', 'SPECIALIZATION']);
+const categoryIdSchema = z.string().uuid().nullable().optional();
 const requiredTrimmedString = (field: string) => z.string().trim().min(1, `${field} is required`);
 const imageUrlSchema = z
     .string()
@@ -25,7 +25,7 @@ const examQuestionSchema = z.object({
 export const createExamSchema = z.object({
     title: requiredTrimmedString('Title'),
     subject: requiredTrimmedString('Subject'),
-    category: categorySchema.nullable().optional(),
+    categoryId: categoryIdSchema,
     program: z.string().trim().optional(),
     program_track: z.string().trim().optional(),
     programTrack: z.string().trim().optional(),
@@ -43,7 +43,7 @@ export const createExamSchema = z.object({
 export const updateExamSchema = z.object({
     title: requiredTrimmedString('Title').optional(),
     subject: requiredTrimmedString('Subject').optional(),
-    category: categorySchema.nullable().optional(),
+    categoryId: categoryIdSchema,
     program: z.string().trim().optional(),
     program_track: z.string().trim().optional(),
     programTrack: z.string().trim().optional(),

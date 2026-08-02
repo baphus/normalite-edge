@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CategorySelect } from '@/components/CategorySelect';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
 import { parseCsvRecords } from '@/lib/parseCsvRecords';
@@ -39,13 +39,6 @@ interface TrackOption {
     code?: string | null;
 }
 
-const categoryOptions = [
-    { value: 'NONE', label: 'No Category' },
-    { value: 'GENERAL_EDUCATION', label: 'General Education' },
-    { value: 'PROFESSIONAL_EDUCATION', label: 'Professional Education' },
-    { value: 'SPECIALIZATION', label: 'Specialization' },
-] as const;
-
 const OPTION_DISPLAY_ORDER = [0, 2, 1, 3];
 
 const CustomDeckPage: React.FC = () => {
@@ -55,7 +48,7 @@ const CustomDeckPage: React.FC = () => {
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState<(typeof categoryOptions)[number]['value']>('NONE');
+    const [category, setCategory] = useState<string | null>(null);
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
     const [tracks, setTracks] = useState<TrackOption[]>([]);
@@ -300,7 +293,7 @@ const CustomDeckPage: React.FC = () => {
                 title,
                 description: description || undefined,
                 subject: tags[0] || 'General',
-                category: category === 'NONE' ? null : category,
+                categoryId: category,
                 visibility: isAdminOrReviewer ? 'PUBLISHED' : 'DRAFT',
                 trackIds: selectedTrackIds,
                 questions: cards.map(c => {
@@ -386,19 +379,13 @@ const CustomDeckPage: React.FC = () => {
 
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-gray-400 pl-1">Category</Label>
-                                <Select value={category} onValueChange={(value) => setCategory(value as (typeof categoryOptions)[number]['value'])}>
-                                    <SelectTrigger className="h-12 rounded-2xl border-gray-100 shadow-none focus:ring-primary/20 font-bold">
-                                        <SelectValue placeholder="Select category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categoryOptions.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {category === 'NONE' ? (
+                                <CategorySelect
+                                    value={category}
+                                    onChange={setCategory}
+                                    placeholder="Select category"
+                                    allowCreate={true}
+                                />
+                                {category === null ? (
                                     <p className="text-[11px] text-gray-500 font-medium">
                                         No Category selected. This deck will stay uncategorized.
                                     </p>

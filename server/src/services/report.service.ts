@@ -239,6 +239,7 @@ export class ReportService {
                                 email: true,
                             },
                         },
+                        category: true,
                         sections: {
                             orderBy: { orderNo: 'asc' },
                             include: {
@@ -298,7 +299,7 @@ export class ReportService {
                 kv('Title', exam.title);
                 kv('Description', exam.description || 'N/A');
                 kv('Subject', exam.subject || 'N/A');
-                kv('Category', enumLabel(exam.category));
+                kv('Category', exam.category?.name || 'No Category');
                 kv('Status', enumLabel(exam.status));
                 kv('Program Track (Legacy)', exam.programTrack || 'N/A');
                 kv('Created By', `${exam.creator.firstName} ${exam.creator.lastName}`.trim() || exam.creator.email || 'N/A');

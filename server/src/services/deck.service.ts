@@ -1,27 +1,14 @@
-import { ApplicableCategory, DeckSessionMode, DeckSessionStatus, Role, Visibility } from '@prisma/client';
+import { DeckSessionMode, DeckSessionStatus, Role, Visibility } from '@prisma/client';
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { notificationService } from './notification.service';
 
 export class DeckService {
-    private categoryLabel(category?: ApplicableCategory | null) {
-        switch (category) {
-            case 'GENERAL_EDUCATION':
-                return 'General Education';
-            case 'PROFESSIONAL_EDUCATION':
-                return 'Professional Education';
-            case 'SPECIALIZATION':
-                return 'Specialization';
-            default:
-                return 'No Category';
-        }
-    }
-
     private normalizeDeck(deck: any) {
         return {
             ...deck,
-            categoryCode: deck.category,
-            category: this.categoryLabel(deck.category),
+            categoryCode: deck.category?.id || null,
+            category: deck.category?.name || 'No Category',
             tracks: (deck.trackLinks || []).map((link: any) => ({
                 id: link.track.id,
                 name: link.track.name,
@@ -54,7 +41,7 @@ export class DeckService {
         page?: number;
         limit?: number;
         subject?: string;
-        category?: ApplicableCategory;
+        categoryId?: string;
         trackId?: string;
         search?: string;
         visibility?: Visibility;
@@ -68,7 +55,7 @@ export class DeckService {
 
         const where: any = {};
         if (params.subject) where.subject = params.subject;
-        if (params.category) where.category = params.category;
+        if (params.categoryId) where.categoryId = params.categoryId;
         if (params.trackId) {
             where.trackLinks = { some: { trackId: params.trackId } };
         }
@@ -115,6 +102,7 @@ export class DeckService {
                 where,
                 include: {
                     creator: { select: { id: true, firstName: true, lastName: true } },
+                    category: true,
                     trackLinks: { include: { track: true } },
                     _count: { select: { questions: true } },
                 },
@@ -138,6 +126,7 @@ export class DeckService {
             where: { id },
             include: {
                 creator: { select: { id: true, firstName: true, lastName: true } },
+                category: true,
                 trackLinks: { include: { track: true } },
                 questions: includeQuestions ? { orderBy: { orderNo: 'asc' } } : false,
                 _count: { select: { questions: true } },
@@ -152,7 +141,7 @@ export class DeckService {
         title: string;
         description?: string;
         subject?: string;
-        category?: ApplicableCategory | null;
+        categoryId?: string | null;
         visibility?: Visibility;
         trackIds?: string[];
         questions?: {
@@ -184,7 +173,7 @@ export class DeckService {
                     title: data.title,
                     description: data.description,
                     subject: data.subject,
-                    category: data.category,
+                    categoryId: data.categoryId,
                     visibility: data.visibility || 'DRAFT',
                     createdBy: data.createdBy,
                 },
@@ -222,6 +211,7 @@ export class DeckService {
                 where: { id: createdDeck.id },
                 include: {
                     creator: { select: { id: true, firstName: true, lastName: true } },
+                    category: true,
                     trackLinks: { include: { track: true } },
                     questions: { orderBy: { orderNo: 'asc' } },
                     _count: { select: { questions: true } },
@@ -256,7 +246,7 @@ export class DeckService {
             title?: string;
             description?: string;
             subject?: string;
-            category?: ApplicableCategory | null;
+            categoryId?: string | null;
             visibility?: Visibility;
             trackIds?: string[];
             questions?: {
@@ -297,7 +287,7 @@ export class DeckService {
                     title: data.title,
                     description: data.description,
                     subject: data.subject,
-                    category: data.category,
+                    categoryId: data.categoryId,
                     visibility: data.visibility,
                 },
             });
@@ -338,6 +328,7 @@ export class DeckService {
                 where: { id: deckId },
                 include: {
                     creator: { select: { id: true, firstName: true, lastName: true } },
+                    category: true,
                     trackLinks: { include: { track: true } },
                     questions: { orderBy: { orderNo: 'asc' } },
                     _count: { select: { questions: true } },

@@ -1,4 +1,4 @@
-import { Role, UserStatus, ExamStatus, FeedbackMode, Visibility, ApplicableCategory } from '@prisma/client';
+import { Role, UserStatus, ExamStatus, FeedbackMode, Visibility } from '@prisma/client';
 import prisma from '../src/config/db';
 import { supabaseAdmin } from '../src/config/supabase';
 
@@ -86,7 +86,7 @@ type SeedExam = {
     title: string;
     description: string;
     subject: string;
-    category: ApplicableCategory;
+    categoryName: string;
     programTrack: string;
     timeLimitMinutes: number;
     maxAttempts: number;
@@ -114,7 +114,7 @@ type SeedDeck = {
     title: string;
     description: string;
     subject: string;
-    category: ApplicableCategory;
+    categoryName: string;
     trackCodes: string[];
     cards: SeedDeckCard[];
 };
@@ -125,7 +125,7 @@ const EXAM_SEEDS: SeedExam[] = [
         title: 'General Education Mock Exam',
         description: 'Comprehensive baseline exam for language, mathematics, and science readiness.',
         subject: 'General Education',
-        category: ApplicableCategory.GENERAL_EDUCATION,
+        categoryName: 'General Education',
         programTrack: 'BEED',
         timeLimitMinutes: 60,
         maxAttempts: 3,
@@ -255,7 +255,7 @@ const EXAM_SEEDS: SeedExam[] = [
         title: 'Professional Education Foundations',
         description: 'Pedagogy, assessment, and classroom management essentials for LET preparation.',
         subject: 'Professional Education',
-        category: ApplicableCategory.PROFESSIONAL_EDUCATION,
+        categoryName: 'Professional Education',
         programTrack: 'BSED',
         timeLimitMinutes: 75,
         maxAttempts: 2,
@@ -385,7 +385,7 @@ const EXAM_SEEDS: SeedExam[] = [
         title: 'Major Specialization: Mathematics',
         description: 'Targeted content for BSED Mathematics reviewees.',
         subject: 'Mathematics',
-        category: ApplicableCategory.SPECIALIZATION,
+        categoryName: 'Specialization',
         programTrack: 'BSED-MATH',
         timeLimitMinutes: 90,
         maxAttempts: 2,
@@ -460,7 +460,7 @@ const DECK_SEEDS: SeedDeck[] = [
         title: 'GenEd Foundations Flashcards',
         description: 'High-frequency General Education concepts for recall practice.',
         subject: 'General Education',
-        category: ApplicableCategory.GENERAL_EDUCATION,
+        categoryName: 'General Education',
         trackCodes: ['BEED', 'BSED'],
         cards: [
             {
@@ -558,7 +558,7 @@ const DECK_SEEDS: SeedDeck[] = [
         title: 'Professional Education Quick Drill',
         description: 'Core pedagogy and assessment terms every reviewee should master.',
         subject: 'Professional Education',
-        category: ApplicableCategory.PROFESSIONAL_EDUCATION,
+        categoryName: 'Professional Education',
         trackCodes: ['BEED', 'BSED'],
         cards: [
             {
@@ -634,7 +634,7 @@ const DECK_SEEDS: SeedDeck[] = [
         title: 'Math Major Concept Cards',
         description: 'Specialization flashcards for BSED Mathematics review.',
         subject: 'Mathematics',
-        category: ApplicableCategory.SPECIALIZATION,
+        categoryName: 'Specialization',
         trackCodes: ['BSED-MATH'],
         cards: [
             {
@@ -707,14 +707,16 @@ const DECK_SEEDS: SeedDeck[] = [
     },
 ];
 
-async function upsertExamWithContent(examSeed: SeedExam, reviewerId: string, tracksByCode: Map<string, string>) {
+async function upsertExamWithContent(examSeed: SeedExam, reviewerId: string, tracksByCode: Map<string, string>, categoriesByName: Map<string, string>) {
+    const categoryId = categoriesByName.get(examSeed.categoryName) || null;
+
     const exam = await prisma.exam.upsert({
         where: { id: examSeed.id },
         update: {
             title: examSeed.title,
             description: examSeed.description,
             subject: examSeed.subject,
-            category: examSeed.category,
+            categoryId,
             programTrack: examSeed.programTrack,
             timeLimitMinutes: examSeed.timeLimitMinutes,
             maxAttempts: examSeed.maxAttempts,
@@ -728,7 +730,7 @@ async function upsertExamWithContent(examSeed: SeedExam, reviewerId: string, tra
             title: examSeed.title,
             description: examSeed.description,
             subject: examSeed.subject,
-            category: examSeed.category,
+            categoryId,
             programTrack: examSeed.programTrack,
             timeLimitMinutes: examSeed.timeLimitMinutes,
             maxAttempts: examSeed.maxAttempts,
@@ -816,14 +818,16 @@ async function upsertExamWithContent(examSeed: SeedExam, reviewerId: string, tra
     return exam;
 }
 
-async function upsertDeckWithContent(deckSeed: SeedDeck, reviewerId: string, tracksByCode: Map<string, string>) {
+async function upsertDeckWithContent(deckSeed: SeedDeck, reviewerId: string, tracksByCode: Map<string, string>, categoriesByName: Map<string, string>) {
+    const categoryId = categoriesByName.get(deckSeed.categoryName) || null;
+
     const deck = await prisma.studyDeck.upsert({
         where: { id: deckSeed.id },
         update: {
             title: deckSeed.title,
             description: deckSeed.description,
             subject: deckSeed.subject,
-            category: deckSeed.category,
+            categoryId,
             visibility: Visibility.PUBLISHED,
             createdBy: reviewerId,
         },
@@ -832,7 +836,7 @@ async function upsertDeckWithContent(deckSeed: SeedDeck, reviewerId: string, tra
             title: deckSeed.title,
             description: deckSeed.description,
             subject: deckSeed.subject,
-            category: deckSeed.category,
+            categoryId,
             visibility: Visibility.PUBLISHED,
             createdBy: reviewerId,
         },
@@ -925,6 +929,18 @@ async function seed() {
                 isActive: true,
             },
         });
+    }
+
+    // Seed categories
+    const categoryNames = ['General Education', 'Professional Education', 'Specialization'];
+    const categoriesByName = new Map<string, string>();
+    for (const name of categoryNames) {
+        const category = await prisma.category.upsert({
+            where: { name },
+            update: { name },
+            create: { name },
+        });
+        categoriesByName.set(name, category.id);
     }
 
     const bsedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BSED' } });
@@ -1046,12 +1062,12 @@ async function seed() {
 
     const seededExams = [] as Array<{ id: string; title: string }>;
     for (const examSeed of EXAM_SEEDS) {
-        const seededExam = await upsertExamWithContent(examSeed, reviewer.id, tracksByCode);
+        const seededExam = await upsertExamWithContent(examSeed, reviewer.id, tracksByCode, categoriesByName);
         seededExams.push({ id: seededExam.id, title: seededExam.title });
     }
 
     for (const deckSeed of DECK_SEEDS) {
-        await upsertDeckWithContent(deckSeed, reviewer.id, tracksByCode);
+        await upsertDeckWithContent(deckSeed, reviewer.id, tracksByCode, categoriesByName);
     }
 
     const now = new Date();

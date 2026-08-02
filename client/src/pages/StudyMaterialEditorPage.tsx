@@ -21,7 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CategorySelect } from '@/components/CategorySelect';
 import {
     Dialog,
     DialogContent,
@@ -73,20 +73,11 @@ interface DeckApi {
     title: string;
     description?: string | null;
     subject?: string | null;
-    categoryCode?: 'GENERAL_EDUCATION' | 'PROFESSIONAL_EDUCATION' | 'SPECIALIZATION' | null;
+    categoryCode?: string | null;
     trackIds?: string[];
     visibility?: 'DRAFT' | 'PUBLISHED';
     questions?: DeckQuestionApi[];
 }
-
-const categoryOptions = [
-    { value: 'NONE', label: 'No Category' },
-    { value: 'GENERAL_EDUCATION', label: 'General Education' },
-    { value: 'PROFESSIONAL_EDUCATION', label: 'Professional Education' },
-    { value: 'SPECIALIZATION', label: 'Specialization' },
-] as const;
-
-type CategoryValue = (typeof categoryOptions)[number]['value'];
 
 const OPTION_DISPLAY_ORDER = [0, 2, 1, 3];
 
@@ -301,7 +292,7 @@ const StudyMaterialEditorPage: React.FC = () => {
     const [title, setTitle] = useState('');
     const [subject, setSubject] = useState('');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState<CategoryValue>('NONE');
+    const [category, setCategory] = useState<string | null>(null);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
     const [deckVisibility, setDeckVisibility] = useState<'DRAFT' | 'PUBLISHED'>('DRAFT');
@@ -353,7 +344,7 @@ const StudyMaterialEditorPage: React.FC = () => {
                 setTitle(deck.title || '');
                 setSubject(deck.subject || '');
                 setDescription(deck.description || '');
-                setCategory((deck.categoryCode as CategoryValue) || 'NONE');
+                setCategory(deck.categoryCode || null);
                 setSelectedTrackIds(deck.trackIds || []);
                 setDeckVisibility(deck.visibility === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT');
 
@@ -766,7 +757,7 @@ const StudyMaterialEditorPage: React.FC = () => {
             title: title.trim(),
             subject: subject.trim() || undefined,
             description: description.trim() || undefined,
-            category: category === 'NONE' ? null : category,
+            categoryId: category,
             visibility: nextVisibility,
             trackIds: selectedTrackIds,
             questions: cardsWithContent.map((card, index) => {
@@ -982,18 +973,7 @@ const StudyMaterialEditorPage: React.FC = () => {
 
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Category</Label>
-                                <Select value={category} onValueChange={(value) => setCategory(value as CategoryValue)}>
-                                    <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm">
-                                        <SelectValue placeholder="Select category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categoryOptions.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <CategorySelect value={category} onChange={setCategory} allowCreate={true} />
                             </div>
 
                             {isEditing && (

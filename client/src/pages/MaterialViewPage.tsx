@@ -31,7 +31,7 @@ interface DeckDetails {
     id: string;
     title: string;
     description?: string | null;
-    category: 'General Education' | 'Professional Education' | 'Specialization' | 'No Category';
+    category: string | null;
     visibility: 'DRAFT' | 'PUBLISHED';
     totalItems: number;
     tracks: Track[];

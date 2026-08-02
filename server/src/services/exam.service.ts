@@ -1,6 +1,6 @@
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
-import { ApplicableCategory, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { notificationService } from './notification.service';
 import { deckService } from './deck.service';
 
@@ -119,19 +119,6 @@ export class ExamService {
         };
     }
 
-    private categoryLabel(category?: ApplicableCategory | null) {
-        switch (category) {
-            case 'GENERAL_EDUCATION':
-                return 'General Education';
-            case 'PROFESSIONAL_EDUCATION':
-                return 'Professional Education';
-            case 'SPECIALIZATION':
-                return 'Specialization';
-            default:
-                return 'No Category';
-        }
-    }
-
     private normalizeExam(exam: any, options?: { allowMultipleAttempts?: boolean }) {
         const allowMultipleAttempts = Boolean(options?.allowMultipleAttempts);
         const attempts = exam.attempts || [];
@@ -146,8 +133,8 @@ export class ExamService {
 
         return {
             ...exam,
-            categoryCode: exam.category,
-            category: this.categoryLabel(exam.category),
+            categoryCode: exam.category?.id || null,
+            category: exam.category?.name || 'No Category',
             tracks: (exam.trackLinks || []).map((link: any) => ({
                 id: link.track.id,
                 name: link.track.name,
@@ -192,7 +179,7 @@ export class ExamService {
         page?: number;
         limit?: number;
         subject?: string;
-        category?: ApplicableCategory;
+        categoryId?: string;
         program?: string;
         isPublished?: boolean;
         createdBy?: string;
@@ -208,7 +195,7 @@ export class ExamService {
         const whereAnd: any[] = [];
 
         if (params.subject) whereAnd.push({ subject: params.subject });
-        if (params.category) whereAnd.push({ category: params.category });
+        if (params.categoryId) whereAnd.push({ categoryId: params.categoryId });
 
         if (params.program) {
             whereAnd.push({
@@ -272,6 +259,7 @@ export class ExamService {
                 where,
                 include: {
                     creator: { select: { id: true, firstName: true, lastName: true } },
+                    category: true,
                     trackLinks: { include: { track: true } },
                     attempts: params.publishedOrMine
                         ? {
@@ -317,6 +305,7 @@ export class ExamService {
                     }
                     : false,
                 creator: { select: { id: true, firstName: true, lastName: true } },
+                category: true,
                 trackLinks: { include: { track: true } },
                 sections: { select: { id: true, title: true, orderNo: true } },
                 _count: { select: { attempts: true, questions: true } },
@@ -383,7 +372,7 @@ export class ExamService {
             title: `${exam.title} Study Material`,
             description: descriptionParts.join(' '),
             subject: exam.subject || undefined,
-            category: exam.category,
+            categoryId: exam.categoryId,
             trackIds: exam.trackLinks.map((link) => link.trackId),
             visibility: 'DRAFT',
             questions: sortedQuestions.map((question, index) => {
@@ -512,7 +501,7 @@ export class ExamService {
     async createExam(data: {
         title: string;
         subject: string;
-        category?: ApplicableCategory | null;
+        categoryId?: string | null;
         program?: string;
         trackIds?: string[];
         timeLimit: number;
@@ -535,6 +524,13 @@ export class ExamService {
         const normalizedQuestions = data.questions.map((q) => this.normalizeQuestionPayload(q));
 
         const exam = await prisma.$transaction(async (tx) => {
+            if (data.categoryId) {
+                const category = await tx.category.findUnique({ where: { id: data.categoryId } });
+                if (!category) {
+                    throw ApiError.notFound('Category not found');
+                }
+            }
+
             const uniqueTrackIds = Array.from(new Set(data.trackIds || []));
             if (uniqueTrackIds.length > 0) {
                 const trackCount = await tx.track.count({ where: { id: { in: uniqueTrackIds }, isActive: true } });
@@ -547,7 +543,7 @@ export class ExamService {
                 data: {
                     title: this.toEncodingSafeText(data.title) || data.title,
                     subject: this.toEncodingSafeText(data.subject) || data.subject,
-                    category: data.category ?? null,
+                    categoryId: data.categoryId ?? null,
                     programTrack: this.toEncodingSafeText(data.program) || undefined,
                     timeLimitMinutes: data.timeLimit,
                     maxAttempts: data.maxAttempts ?? null,
@@ -615,6 +611,7 @@ export class ExamService {
                 include: {
                     questions: { orderBy: { orderNo: 'asc' } },
                     creator: { select: { id: true, firstName: true, lastName: true } },
+                    category: true,
                     trackLinks: { include: { track: true } },
                     sections: { select: { id: true, title: true, orderNo: true } },
                 },
@@ -647,7 +644,7 @@ export class ExamService {
     async updateExam(examId: string, userId: string, userRole: Role, data: {
         title?: string;
         subject?: string;
-        category?: ApplicableCategory | null;
+        categoryId?: string | null;
         program?: string;
         trackIds?: string[];
         timeLimit?: number;
@@ -681,6 +678,13 @@ export class ExamService {
         const wasLive = (exam.status as string) === 'LIVE';
 
         const updatedExam = await prisma.$transaction(async (tx) => {
+            if (data.categoryId) {
+                const category = await tx.category.findUnique({ where: { id: data.categoryId } });
+                if (!category) {
+                    throw ApiError.notFound('Category not found');
+                }
+            }
+
             const uniqueTrackIds = data.trackIds ? Array.from(new Set(data.trackIds)) : undefined;
             if (uniqueTrackIds && uniqueTrackIds.length > 0) {
                 const trackCount = await tx.track.count({ where: { id: { in: uniqueTrackIds }, isActive: true } });
@@ -692,7 +696,7 @@ export class ExamService {
             const updateData: any = {
                 title: this.toEncodingSafeText(data.title),
                 subject: this.toEncodingSafeText(data.subject),
-                category: data.category,
+                categoryId: data.categoryId,
                 programTrack: this.toEncodingSafeText(data.program),
                 timeLimitMinutes: data.timeLimit,
                 scheduleStart: data.scheduledDate,

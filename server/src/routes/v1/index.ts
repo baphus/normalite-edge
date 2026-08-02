@@ -14,6 +14,7 @@ import reportRoutes from './report.routes';
 import uploadRoutes from './upload.routes';
 import calendarRoutes from './calendar.routes';
 import systemSettingRoutes from './system-setting.routes';
+import categoryRoutes from './category.routes';
 import { ApiError } from '../../utils/ApiError';
 
 const router = Router();
@@ -46,5 +47,6 @@ router.use('/reports', reportRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/calendar', calendarRoutes);
 router.use('/settings', systemSettingRoutes);
+router.use('/categories', categoryRoutes);
 
 export default router;

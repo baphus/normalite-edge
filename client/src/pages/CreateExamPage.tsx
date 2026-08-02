@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CategorySelect } from '@/components/CategorySelect';
 import {
     Dialog,
     DialogContent,
@@ -97,7 +98,7 @@ interface ExamApi {
     title: string;
     subject?: string;
     description?: string | null;
-    categoryCode?: 'GENERAL_EDUCATION' | 'PROFESSIONAL_EDUCATION' | 'SPECIALIZATION' | null;
+    categoryCode?: string | null;
     program_track?: string | null;
     trackIds?: string[];
     tracks?: Array<{ id: string; name: string; code?: string | null }>;
@@ -119,15 +120,6 @@ const editableStatusOptions: Array<{ value: EditableExamStatus; label: string }>
     { value: 'CLOSED', label: 'Closed' },
     { value: 'ARCHIVED', label: 'Archived' },
 ];
-
-const categoryOptions = [
-    { value: 'NONE', label: 'No Category' },
-    { value: 'GENERAL_EDUCATION', label: 'General Education' },
-    { value: 'PROFESSIONAL_EDUCATION', label: 'Professional Education' },
-    { value: 'SPECIALIZATION', label: 'Specialization' },
-] as const;
-
-type CategoryValue = (typeof categoryOptions)[number]['value'];
 
 const DEFAULT_SECTION_TITLE = 'Main section';
 const NEW_SECTION_OPTION = '__NEW_SECTION_OPTION__';
@@ -524,7 +516,7 @@ const CreateExamPage: React.FC = () => {
     const [closeOnDeadline, setCloseOnDeadline] = useState(false);
     const [examStatus, setExamStatus] = useState<EditableExamStatus>('DRAFT');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState<CategoryValue>('NONE');
+    const [category, setCategory] = useState<string | null>(null);
     const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [sections, setSections] = useState<string[]>([DEFAULT_SECTION_TITLE]);
@@ -586,7 +578,7 @@ const CreateExamPage: React.FC = () => {
 
                 setTitle(exam.title || '');
                 setDescription(exam.description || '');
-                setCategory((exam.categoryCode as CategoryValue) || 'NONE');
+                setCategory(exam.categoryCode || null);
                 const loadedDuration = String(exam.timeLimit || exam.timeLimitMinutes || 120);
                 setDuration(loadedDuration);
                 setMaxAttempts(String(exam.maxAttempts ?? 3));
@@ -1266,7 +1258,7 @@ const CreateExamPage: React.FC = () => {
         const payload = {
             title: title.trim(),
             subject: displaySubject,
-            category: category === 'NONE' ? null : category,
+            categoryId: category,
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
             maxAttempts: parsedMaxAttempts,
@@ -1656,18 +1648,7 @@ const CreateExamPage: React.FC = () => {
                             {/* Category */}
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Category</Label>
-                                <Select value={category} onValueChange={(value) => setCategory(value as CategoryValue)}>
-                                    <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm">
-                                        <SelectValue placeholder="Category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categoryOptions.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <CategorySelect value={category} onChange={setCategory} />
                             </div>
 
                             {/* Duration */}

@@ -49,8 +49,8 @@ interface Deck {
     id: string;
     title: string;
     description?: string | null;
-    category: 'General Education' | 'Professional Education' | 'Specialization' | 'No Category';
-    categoryCode?: 'GENERAL_EDUCATION' | 'PROFESSIONAL_EDUCATION' | 'SPECIALIZATION' | null;
+    category: string;
+    categoryCode?: string | null;
     visibility: 'DRAFT' | 'PUBLISHED';
     totalItems: number;
     tracks: Track[];
@@ -84,7 +84,7 @@ const normalizeDeckItem = (deck: Partial<Deck> & Record<string, any>): Deck => {
         title: String(deck.title ?? 'Untitled Material'),
         description: deck.description ?? null,
         category: (deck.category as Deck['category']) || 'No Category',
-        categoryCode: (deck.categoryCode as Deck['categoryCode']) || null,
+        categoryCode: deck.categoryCode ?? null,
         visibility: (deck.visibility as Deck['visibility']) || 'DRAFT',
         totalItems: typeof deck.totalItems === 'number' ? deck.totalItems : 0,
         tracks,
@@ -100,7 +100,7 @@ const ManageMaterialsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-    const [categoryFilter, setCategoryFilter] = useState<'all' | 'General Education' | 'Professional Education' | 'Specialization'>('all');
+    const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'PUBLISHED' | 'DRAFT'>('all');
     const [search, setSearch] = useState('');
     const [deleteDeckTarget, setDeleteDeckTarget] = useState<Deck | null>(null);
@@ -170,13 +170,17 @@ const ManageMaterialsPage: React.FC = () => {
             || 'Unknown author';
     };
 
-    const countByCategory = useMemo(() => {
-        return {
-            all: decks.length,
-            'General Education': decks.filter((deck) => deck.category === 'General Education').length,
-            'Professional Education': decks.filter((deck) => deck.category === 'Professional Education').length,
-            Specialization: decks.filter((deck) => deck.category === 'Specialization').length,
-        };
+    const categoryCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        decks.forEach(deck => {
+            const cat = deck.category || 'No Category';
+            counts[cat] = (counts[cat] || 0) + 1;
+        });
+        return counts;
+    }, [decks]);
+
+    const categoryOptions = useMemo(() => {
+        return Array.from(new Set(decks.map((deck) => deck.category || 'No Category'))).sort((a, b) => a.localeCompare(b));
     }, [decks]);
 
     const handleDelete = (deck: Deck) => {
@@ -253,15 +257,15 @@ const ManageMaterialsPage: React.FC = () => {
                         <DropdownMenuContent align="end" className="w-[320px] rounded-lg p-3 space-y-3">
                             <div className="space-y-2">
                                 <Label>Category</Label>
-                                <Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as typeof categoryFilter)}>
+                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Category" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Categories</SelectItem>
-                                        <SelectItem value="General Education">General Education ({countByCategory['General Education']})</SelectItem>
-                                        <SelectItem value="Professional Education">Professional Education ({countByCategory['Professional Education']})</SelectItem>
-                                        <SelectItem value="Specialization">Specialization ({countByCategory.Specialization})</SelectItem>
+                                        <SelectItem value="all">All Categories ({decks.length})</SelectItem>
+                                        {categoryOptions.map((cat) => (
+                                            <SelectItem key={cat} value={cat}>{cat} ({categoryCounts[cat] || 0})</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>

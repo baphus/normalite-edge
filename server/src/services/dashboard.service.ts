@@ -543,7 +543,7 @@ export class DashboardService {
             recentMaterials: recentMaterials.map((material) => ({
                 id: material.id,
                 title: material.title,
-                category: material.category,
+                category: material.category?.name || 'No Category',
                 visibility: material.visibility,
                 createdAt: material.createdAt,
                 uploaderName: `${material.creator.firstName} ${material.creator.lastName}`.trim(),

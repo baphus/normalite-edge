@@ -8,7 +8,7 @@ import { resolveProgramTrack } from '../utils/requirementsCompat';
 
 export const examController = {
     listExams: catchAsync(async (req: Request, res: Response) => {
-        const { subject, category, program, program_track, isPublished } = req.query;
+        const { subject, categoryId, program, program_track, isPublished } = req.query;
         const { page, limit } = parsePagination(req.query as any);
         const publishedOrMine = req.user?.role === 'REVIEWEE' ? req.user.userId : undefined;
 
@@ -16,7 +16,7 @@ export const examController = {
             page,
             limit,
             subject: subject as string,
-            category: category as any,
+            categoryId: categoryId as string,
             program: resolveProgramTrack({
                 program: program as string,
                 program_track: program_track as string,

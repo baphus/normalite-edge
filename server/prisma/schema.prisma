@@ -48,10 +48,16 @@ enum ExamStatus {
   CLOSED
 }
 
-enum ApplicableCategory {
-  GENERAL_EDUCATION
-  PROFESSIONAL_EDUCATION
-  SPECIALIZATION
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  exams   Exam[]
+  decks   StudyDeck[]
+
+  @@map("categories")
 }
 
 enum AuditAction {
@@ -148,7 +154,7 @@ model Exam {
   title            String
   description      String?
   subject          String?
-  category         ApplicableCategory?
+  categoryId       String?            @map("category_id") @db.Uuid
   programTrack     String?             @map("program_track")
   timeLimitMinutes Int                 @map("time_limit_minutes")
   maxAttempts      Int?                @map("max_attempts")
@@ -163,6 +169,7 @@ model Exam {
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
   creator    User           @relation(fields: [createdBy], references: [id])
+  category   Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   sections   ExamSection[]
   questions  ExamQuestion[]
   attempts   Attempt[]
@@ -310,13 +317,14 @@ model StudyDeck {
   title       String
   description String?
   subject     String?
-  category    ApplicableCategory?
+  categoryId    String?            @map("category_id") @db.Uuid
   visibility  Visibility         @default(DRAFT)
   createdBy   String             @map("created_by") @db.Uuid
   createdAt   DateTime           @default(now()) @map("created_at")
   updatedAt   DateTime           @updatedAt @map("updated_at")
 
   creator    User                @relation(fields: [createdBy], references: [id])
+  category   Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   questions  StudyDeckQuestion[]
   sessions   DeckSession[]
   trackLinks StudyDeckTrack[]

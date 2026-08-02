@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Plus,
@@ -93,7 +93,7 @@ interface ManagedExamApi {
     deadline?: string | null;
     closeOnDeadline?: boolean;
     subject?: string;
-    categoryCode?: 'GENERAL_EDUCATION' | 'PROFESSIONAL_EDUCATION' | 'SPECIALIZATION';
+    categoryCode?: string | null;
     questions?: Array<{
         questionText?: string;
         imageUrl?: string;
@@ -140,6 +140,7 @@ const ManageExamsPage: React.FC = () => {
     const [exams, setExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [trackOptions, setTrackOptions] = useState<TrackOption[]>([]);
+    const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'draft' | 'archived' | 'closed'>('all');
@@ -247,9 +248,24 @@ const ManageExamsPage: React.FC = () => {
         fetchManagedExams();
     }, []);
 
+    const fetchCategories = useCallback(() => {
+        api.get('/categories')
+            .then((res) => setCategories(res.data?.data || []))
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        fetchCategories();
+    }, [fetchCategories]);
+
     const categoryOptions = useMemo(() => {
-        return Array.from(new Set(exams.map((exam) => exam.category))).sort((a, b) => a.localeCompare(b));
-    }, [exams]);
+        return Array.from(
+            new Set([
+                ...exams.map((exam) => exam.category),
+                ...categories.map((category) => category.name),
+            ])
+        ).sort((a, b) => a.localeCompare(b));
+    }, [exams, categories]);
 
     const programOptions = useMemo(() => {
         const tracked = Array.from(
@@ -409,7 +425,7 @@ const ManageExamsPage: React.FC = () => {
             const payload = {
                 title: `${exam.title} (Copy)`,
                 subject: exam.subject || 'General Education',
-                category: exam.categoryCode || 'GENERAL_EDUCATION',
+                categoryId: exam.categoryCode || null,
                 trackIds: exam.tracks?.map((track) => track.id) || [],
                 timeLimit: exam.timeLimit || 60,
                 isPublished: false,
