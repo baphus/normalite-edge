@@ -36,7 +36,7 @@ import {
 } from '@/components/manage/ManageToolbar';
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 import { StatusPill, type StatusTone } from '@/components/manage/StatusPill';
-import { CollectionEmpty, CollectionError } from '@/components/manage/CollectionState';
+import { ResourceGrid } from '@/components/manage/ResourceGrid';
 import api from '@/lib/axios';
 import { fetchAllPages, extractListPayload } from '@/lib/fetchAllPages';
 import { formatShortDate, formatDurationMinutes } from '@/lib/formatters';
@@ -821,6 +821,52 @@ const ManageExamsPage: React.FC = () => {
         [getDisplayAuthorName, renderStatusCell],
     );
 
+    const renderExamCard = useCallback(
+        (exam: Exam) => (
+            <Card className="h-full w-full rounded-xl border-slate-200 bg-white shadow-none transition-colors hover:border-primary/30">
+                <CardContent className="flex h-full flex-col gap-2 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                        {renderStatusCell(exam)}
+                        {renderRowActions(exam)}
+                    </div>
+                    <div className="min-w-0">
+                        <Link
+                            to={`/manage-exams/${exam.id}/view`}
+                            className="line-clamp-2 text-[13px] font-semibold text-slate-900 transition-colors hover:text-primary"
+                        >
+                            {exam.title}
+                        </Link>
+                        <p className="mt-0.5 truncate text-[12px] text-slate-400">
+                            {getDisplayAuthorName(exam)} ·{' '}
+                            {exam.tracks.length > 0
+                                ? exam.tracks.map((track) => track.name).join(', ')
+                                : exam.program || 'All programs'}
+                        </p>
+                    </div>
+                    <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Items</dt>
+                            <dd className="font-semibold text-slate-700 tabular-nums">{exam.questionCount}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Time</dt>
+                            <dd className="font-semibold text-slate-700">{formatDurationMinutes(exam.duration)}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Category</dt>
+                            <dd className="truncate font-semibold text-slate-700">{exam.category}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                            <dt className="text-slate-400">Deadline</dt>
+                            <dd className="font-semibold text-slate-700">{formatShortDate(exam.deadline)}</dd>
+                        </div>
+                    </dl>
+                </CardContent>
+            </Card>
+        ),
+        [getDisplayAuthorName, renderRowActions, renderStatusCell],
+    );
+
     const createAction = (
         <Button asChild className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90">
             <Link to="/manage-exams/create">
@@ -978,17 +1024,19 @@ const ManageExamsPage: React.FC = () => {
                     resetKey={`${search}|${statusFilter}|${categoryFilter}|${programFilter}|${authorFilter}|${deadlineFilter}|${publishedFilter}|${autoCloseFilter}|${ownershipFilter}`}
                 />
             ) : (
-                <ExamGrid
-                    exams={visibleExams}
-                    loading={loading}
+                <ResourceGrid
+                    rows={visibleExams}
+                    getRowId={(exam) => exam.id}
+                    renderCard={renderExamCard}
+                    caption="Mock exams you manage"
+                    state={tableState}
                     error={loadError}
                     onRetry={() => void fetchManagedExams()}
                     filtersActive={chips.length > 0 || ownershipFilter !== 'all'}
                     onClearFilters={clearAllFilters}
+                    emptyTitle="No exams yet"
+                    emptyDescription="Create your first mock exam to get started."
                     emptyAction={createAction}
-                    renderRowActions={renderRowActions}
-                    renderStatusCell={renderStatusCell}
-                    getDisplayAuthorName={getDisplayAuthorName}
                 />
             )}
 
@@ -1019,103 +1067,6 @@ const ManageExamsPage: React.FC = () => {
                 }
                 onConfirm={handleConfirmStatusChange}
             />
-        </div>
-    );
-};
-
-interface ExamGridProps {
-    exams: Exam[];
-    loading: boolean;
-    error: string | null;
-    onRetry: () => void;
-    filtersActive: boolean;
-    onClearFilters: () => void;
-    emptyAction: React.ReactNode;
-    renderRowActions: (exam: Exam) => React.ReactNode;
-    renderStatusCell: (exam: Exam) => React.ReactNode;
-    getDisplayAuthorName: (exam: Exam) => string;
-}
-
-const ExamGrid: React.FC<ExamGridProps> = ({
-    exams,
-    loading,
-    error,
-    onRetry,
-    filtersActive,
-    onClearFilters,
-    emptyAction,
-    renderRowActions,
-    renderStatusCell,
-    getDisplayAuthorName,
-}) => {
-    if (loading) {
-        return (
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-[13px] text-slate-500" role="status">
-                Loading…
-            </div>
-        );
-    }
-
-    if (error) {
-        return <CollectionError message={error} onRetry={onRetry} />;
-    }
-
-    if (exams.length === 0) {
-        return (
-            <CollectionEmpty
-                filtersActive={filtersActive}
-                onClearFilters={onClearFilters}
-                emptyTitle={"No exams yet"}
-                emptyDescription={"Create your first mock exam to get started."}
-                emptyAction={emptyAction}
-            />
-        );
-    }
-
-    return (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {exams.map((exam) => (
-                <Card key={exam.id} className="rounded-xl border-slate-200 bg-white shadow-none transition-colors hover:border-primary/30">
-                    <CardContent className="flex h-full flex-col gap-2 p-3">
-                        <div className="flex items-start justify-between gap-2">
-                            {renderStatusCell(exam)}
-                            {renderRowActions(exam)}
-                        </div>
-                        <div className="min-w-0">
-                            <Link
-                                to={`/manage-exams/${exam.id}/view`}
-                                className="line-clamp-2 text-[13px] font-semibold text-slate-900 transition-colors hover:text-primary"
-                            >
-                                {exam.title}
-                            </Link>
-                            <p className="mt-0.5 truncate text-[12px] text-slate-400">
-                                {getDisplayAuthorName(exam)} ·{' '}
-                                {exam.tracks.length > 0
-                                    ? exam.tracks.map((track) => track.name).join(', ')
-                                    : exam.program || 'All programs'}
-                            </p>
-                        </div>
-                        <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Items</dt>
-                                <dd className="font-semibold text-slate-700 tabular-nums">{exam.questionCount}</dd>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Time</dt>
-                                <dd className="font-semibold text-slate-700">{formatDurationMinutes(exam.duration)}</dd>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Category</dt>
-                                <dd className="truncate font-semibold text-slate-700">{exam.category}</dd>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-slate-400">Deadline</dt>
-                                <dd className="font-semibold text-slate-700">{formatShortDate(exam.deadline)}</dd>
-                            </div>
-                        </dl>
-                    </CardContent>
-                </Card>
-            ))}
         </div>
     );
 };

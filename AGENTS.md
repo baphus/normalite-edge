@@ -76,7 +76,7 @@ Both packages use `@/*` → `./src/*`:
 
 ## Frontend conventions
 
-**Read `docs/design-system-v1.0.0.md` before changing any authenticated app surface.** It defines the type scale (12px floor), colour, radius, the shared `components/manage/` and `components/editor/` inventory, the required list/editor patterns, and the accessibility bar. Four visual dialects exist in `pages/` — that doc says which one is the target and which are migration debt.
+**Read `docs/design-system-v1.1.0.md` before changing any authenticated app surface** (it supersedes `v1.0.0`; always read the highest version present). It defines the type scale (12px floor), colour, radius, the shared `components/manage/` and `components/editor/` inventory, the required list/editor patterns, the form default per surface type (grid for browse, table for audit), and the accessibility bar. Four visual dialects exist in `pages/` — that doc says which one is the target and which are migration debt.
 
 - UI components: Shadcn UI primitives in `client/src/components/ui/` — use these, don't rebuild from scratch
 - Forms: `react-hook-form` + `zod` resolvers
@@ -93,6 +93,7 @@ Both packages use `@/*` → `./src/*`:
 - DB: always use the shared Prisma client from `server/src/config/db.ts` (singleton in dev to avoid connection leaks)
 - Async: wrap async handlers with `catchAsync` utility
 - UUID params: globally validated by regex in `server/src/routes/v1/index.ts` for common param names
+- **Scoping a list to a reviewee**: read their track from the user row, never from `req.user`. `req.user` carries only `userId`, `role`, `status`, `email` — deriving a track from it yields `undefined` and silently disables the restriction, which is how `/decks` came to return every track's decks to every reviewee. Use `services/revieweeVisibility.ts`; a missing track must narrow the result set, never widen it.
 
 ## Issue tracker
 

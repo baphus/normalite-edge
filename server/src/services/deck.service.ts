@@ -2,6 +2,7 @@ import { DeckSessionMode, DeckSessionStatus, Prisma, Role, Visibility } from '@p
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { notificationService } from './notification.service';
+import { buildDeckListWhere } from './revieweeVisibility';
 
 export class DeckService {
     private normalizeDeck(deck: any) {
@@ -47,55 +48,36 @@ export class DeckService {
         visibility?: Visibility;
         createdBy?: string;
         revieweeOnlyPublished?: boolean;
-        revieweeProgramTrack?: string;
+        /**
+         * The reviewee's own user id. Their track is read from the user row here —
+         * `req.user` carries no track, so deriving it from the request silently
+         * disabled the restriction. See `revieweeVisibility.ts`.
+         */
+        revieweeId?: string;
     }) {
         const page = params.page || 1;
         const limit = params.limit || 20;
         const skip = (page - 1) * limit;
 
-        const where: any = {};
-        if (params.subject) where.subject = params.subject;
-        if (params.categoryId) where.categoryId = params.categoryId;
-        if (params.trackId) {
-            where.trackLinks = { some: { trackId: params.trackId } };
-        }
-        if (params.createdBy) where.createdBy = params.createdBy;
-
-        if (params.visibility) {
-            where.visibility = params.visibility;
-        } else if (params.revieweeOnlyPublished) {
-            where.visibility = 'PUBLISHED';
+        let revieweeTrackId: string | null = null;
+        if (params.revieweeOnlyPublished && params.revieweeId) {
+            const reviewee = await prisma.user.findUnique({
+                where: { id: params.revieweeId },
+                select: { trackId: true },
+            });
+            revieweeTrackId = reviewee?.trackId ?? null;
         }
 
-        if (params.search) {
-            where.OR = [
-                { title: { contains: params.search, mode: 'insensitive' } },
-                { description: { contains: params.search, mode: 'insensitive' } },
-            ];
-        }
-
-        if (params.revieweeOnlyPublished && params.revieweeProgramTrack) {
-            where.AND = [
-                ...(where.AND || []),
-                {
-                    OR: [
-                        { trackLinks: { none: {} } },
-                        {
-                            trackLinks: {
-                                some: {
-                                    track: {
-                                        OR: [
-                                            { name: { equals: params.revieweeProgramTrack, mode: 'insensitive' } },
-                                            { code: { equals: params.revieweeProgramTrack, mode: 'insensitive' } },
-                                        ],
-                                    },
-                                },
-                            },
-                        },
-                    ],
-                },
-            ];
-        }
+        const where = buildDeckListWhere({
+            subject: params.subject,
+            categoryId: params.categoryId,
+            trackId: params.trackId,
+            search: params.search,
+            visibility: params.visibility,
+            createdBy: params.createdBy,
+            revieweeOnlyPublished: params.revieweeOnlyPublished,
+            revieweeTrackId,
+        });
 
         const [decks, total] = await Promise.all([
             prisma.studyDeck.findMany({

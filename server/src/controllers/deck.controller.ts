@@ -20,7 +20,7 @@ export const deckController = {
             trackId: trackId as string,
             visibility: visibility as any,
             revieweeOnlyPublished: isReviewee,
-            revieweeProgramTrack: (req.user as any)?.programTrack || (req.user as any)?.program || (req.user as any)?.program_track,
+            revieweeId: isReviewee ? req.user!.userId : undefined,
         });
 
         ApiResponse.paginated(res, result.decks, {
