@@ -501,6 +501,7 @@ export class ExamService {
     async createExam(data: {
         title: string;
         subject: string;
+        description?: string | null;
         categoryId?: string | null;
         program?: string;
         trackIds?: string[];
@@ -543,6 +544,7 @@ export class ExamService {
                 data: {
                     title: this.toEncodingSafeText(data.title) || data.title,
                     subject: this.toEncodingSafeText(data.subject) || data.subject,
+                    description: this.toEncodingSafeText(data.description) ?? null,
                     categoryId: data.categoryId ?? null,
                     programTrack: this.toEncodingSafeText(data.program) || undefined,
                     timeLimitMinutes: data.timeLimit,
@@ -644,6 +646,7 @@ export class ExamService {
     async updateExam(examId: string, userId: string, userRole: Role, data: {
         title?: string;
         subject?: string;
+        description?: string | null;
         categoryId?: string | null;
         program?: string;
         trackIds?: string[];
@@ -704,6 +707,11 @@ export class ExamService {
                 closeOnDeadline: data.closeOnDeadline,
                 maxAttempts: data.maxAttempts,
             };
+
+            // Distinguish "not sent" (leave alone) from an explicit null (clear it).
+            if (data.description !== undefined) {
+                updateData.description = this.toEncodingSafeText(data.description) ?? null;
+            }
 
             if (typeof data.isPublished === 'boolean') {
                 updateData.status = data.isPublished ? 'LIVE' : 'DRAFT';

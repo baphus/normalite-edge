@@ -664,6 +664,8 @@ const CreateExamPage: React.FC = () => {
         const payload = {
             title: title.trim(),
             subject: normalizedSectionList[0] || title.trim(),
+            // null rather than undefined so clearing the field actually clears it.
+            description: description.trim() || null,
             categoryId: category,
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
