@@ -24,6 +24,8 @@ export interface User {
     major?: string;
     yearLevel?: string;
     section?: string;
+    studentId?: string;
+    contactNumber?: string;
     isOnboarded?: boolean;
     completedTours?: string[];
 }

@@ -38,6 +38,7 @@ const buildProfileSchema = (role?: string) => {
         return z.object({
             ...base,
             campusId: z.string().trim().min(1, 'Campus is required'),
+            contactNumber: z.string().trim().regex(/^09\d{9}$/, 'Contact number must be in Philippine format (09XXXXXXXXX)').optional(),
         });
     }
 
@@ -48,6 +49,8 @@ const buildProfileSchema = (role?: string) => {
         campusId: z.string().trim().min(1, 'Campus is required'),
         yearLevel: z.string().trim().min(1, 'Year is required'),
         section: z.string().trim().min(1, 'Section is required'),
+        studentId: z.string().trim().min(1, 'Student ID is required'),
+        contactNumber: z.string().trim().regex(/^09\d{9}$/, 'Contact number must be in Philippine format (09XXXXXXXXX)'),
     });
 };
 
@@ -95,7 +98,8 @@ const CompleteProfilePage: React.FC = () => {
             middleInitial: '',
             suffix: '',
             ...(role === 'REVIEWER' || role === 'REVIEWEE' ? { campusId: '' } : {}),
-            ...(role === 'REVIEWEE' ? { trackId: '', yearLevel: '', section: '' } : {}),
+            ...(role === 'REVIEWER' ? { contactNumber: '' } : {}),
+            ...(role === 'REVIEWEE' ? { trackId: '', yearLevel: '', section: '', studentId: '', contactNumber: '' } : {}),
         },
     });
 
@@ -181,6 +185,8 @@ const CompleteProfilePage: React.FC = () => {
                 campus_id: (data as any).campusId || undefined,
                 yearLevel: (data as any).yearLevel?.trim() || undefined,
                 section: (data as any).section?.trim() || undefined,
+                studentId: (data as any).studentId?.trim() || undefined,
+                contactNumber: (data as any).contactNumber?.trim() || undefined,
             });
 
             await refreshProfile();
@@ -435,6 +441,24 @@ const CompleteProfilePage: React.FC = () => {
                             <Label htmlFor="section">Section</Label>
                             <Input id="section" className="h-12" placeholder="e.g. A" {...register('section' as any)} />
                             {(errors as any).section && <p className="text-xs text-red-500">{(errors as any).section.message}</p>}
+                        </div>
+                    </div>
+                )}
+
+                {showCampus && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        {showYearSection && (
+                            <div className="space-y-1.5">
+                                <Label htmlFor="studentId">Student ID</Label>
+                                <Input id="studentId" className="h-12" placeholder="e.g. 2025-12345" {...register('studentId' as any)} />
+                                {(errors as any).studentId && <p className="text-xs text-red-500">{(errors as any).studentId.message}</p>}
+                            </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="contactNumber">Contact number</Label>
+                            <Input id="contactNumber" className="h-12" placeholder="09XXXXXXXXX" {...register('contactNumber' as any)} />
+                            {(errors as any).contactNumber && <p className="text-xs text-red-500">{(errors as any).contactNumber.message}</p>}
                         </div>
                     </div>
                 )}

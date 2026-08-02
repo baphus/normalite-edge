@@ -97,6 +97,8 @@ model User {
   programTrack     String?    @map("program_track")
   yearLevel        String?    @map("year_level")
   section          String?
+  studentId        String?    @map("student_id")
+  contactNumber    String?    @map("contact_number")
   profilePicture   String?    @map("profile_picture")
   isOnboarded      Boolean    @default(false) @map("is_onboarded")
   completedTours   String[]   @default([]) @map("completed_tours")

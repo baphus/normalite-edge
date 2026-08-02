@@ -108,15 +108,21 @@ export class AuthService {
             const wrongDomain = !isInternalEmail(identity.email);
             const wrongProvider = !wrongDomain && !isGoogleIdentity(identity);
 
+            const eligible = !wrongDomain && !wrongProvider;
+
             return {
                 profileComplete: false,
                 email: identity.email,
-                eligible: !wrongDomain && !wrongProvider,
+                eligible,
                 ineligibleReason: wrongDomain ? 'domain' : wrongProvider ? 'provider' : null,
                 suggested: {
                     firstName: suggestedName?.firstName ?? null,
                     lastName: suggestedName?.lastName ?? null,
                 },
+                // New Google SSO users are always REVIEWEE; surface the role
+                // so the CompleteProfilePage renders the full form (campus,
+                // track, year, section).
+                role: eligible ? 'REVIEWEE' as const : undefined,
                 user: null,
             };
         }
@@ -163,6 +169,8 @@ export class AuthService {
         campus_id?: string;
         yearLevel?: string;
         section?: string;
+        studentId?: string;
+        contactNumber?: string;
     }) {
         const existingById = await prisma.user.findUnique({ where: { id: identity.id } });
 
@@ -193,6 +201,8 @@ export class AuthService {
                     programTrack: resolvedTrack?.name ?? existingById.programTrack,
                     yearLevel: data.yearLevel?.trim() || existingById.yearLevel,
                     section: data.section?.trim() || existingById.section,
+                    studentId: data.studentId?.trim() || existingById.studentId,
+                    contactNumber: data.contactNumber?.trim() || existingById.contactNumber,
                 },
                 include: USER_INCLUDE,
             });
@@ -265,6 +275,8 @@ export class AuthService {
                 programTrack: resolvedTrack?.name,
                 yearLevel: data.yearLevel?.trim() || undefined,
                 section: data.section?.trim() || undefined,
+                studentId: data.studentId?.trim() || undefined,
+                contactNumber: data.contactNumber?.trim() || undefined,
                 profilePicture: profilePicture ?? undefined,
                 isExternalEmail: false,
             },
@@ -361,6 +373,8 @@ export class AuthService {
         campus_id?: string;
         yearLevel?: string;
         section?: string;
+        studentId?: string;
+        contactNumber?: string;
     }) {
         const nameParts = data.name ? this.splitName(data.name) : undefined;
         const firstName = nameParts?.firstName ?? (data.firstName !== undefined ? data.firstName.trim() : undefined);
@@ -400,6 +414,8 @@ export class AuthService {
                 programTrack: hasTrackInput ? resolvedTrack?.name || null : undefined,
                 yearLevel: data.yearLevel !== undefined ? (data.yearLevel?.trim() || null) : undefined,
                 section: data.section !== undefined ? (data.section?.trim() || null) : undefined,
+                studentId: data.studentId !== undefined ? (data.studentId?.trim() || null) : undefined,
+                contactNumber: data.contactNumber !== undefined ? (data.contactNumber?.trim() || null) : undefined,
             },
             include: USER_INCLUDE,
         });

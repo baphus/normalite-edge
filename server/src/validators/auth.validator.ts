@@ -24,6 +24,8 @@ export const completeProfileSchema = z.object({
     campus_id: z.string().uuid('Invalid campus id'),
     yearLevel: z.string().trim().min(1, 'Year is required'),
     section: z.string().trim().min(1, 'Section is required'),
+    studentId: z.string().trim().min(1, 'Student ID is required'),
+    contactNumber: z.string().trim().regex(/^09\d{9}$/, 'Contact number must be in Philippine format (09XXXXXXXXX)'),
 });
 
 export const updateProfileSchema = z.object({
@@ -47,6 +49,8 @@ export const updateProfileSchema = z.object({
     major: z.string().optional(),
     yearLevel: z.string().trim().min(1, 'Year is required').optional(),
     section: z.string().trim().min(1, 'Section is required').optional(),
+    studentId: z.string().trim().min(1, 'Student ID is required').optional(),
+    contactNumber: z.string().trim().regex(/^09\d{9}$/, 'Contact number must be in Philippine format (09XXXXXXXXX)').optional(),
 });
 
 export const completeOnboardingSchema = z.object({

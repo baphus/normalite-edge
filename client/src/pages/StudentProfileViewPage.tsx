@@ -44,6 +44,8 @@ type StudentProfilePayload = {
     profilePicture?: string | null;
     yearLevel?: string | null;
     section?: string | null;
+    studentId?: string | null;
+    contactNumber?: string | null;
     status?: string;
     role?: string;
     campus?: { name: string } | null;
@@ -284,6 +286,8 @@ const StudentProfileViewPage: React.FC = () => {
                             <div className="space-y-1.5"><Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Last Name</Label><Input value={profile.lastName || ''} readOnly className="h-9 rounded-md border-gray-200 text-xs" /></div>
                             <div className="space-y-1.5"><Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Middle Initial</Label><Input value={profile.middleInitial || ''} readOnly className="h-9 rounded-md border-gray-200 text-xs" /></div>
                             <div className="space-y-1.5"><Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Suffix</Label><Input value={profile.suffix || ''} readOnly className="h-9 rounded-md border-gray-200 text-xs" /></div>
+                            <div className="space-y-1.5"><Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Student ID</Label><Input value={profile.studentId || ''} readOnly className="h-9 rounded-md border-gray-200 text-xs" /></div>
+                            <div className="space-y-1.5"><Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Contact Number</Label><Input value={profile.contactNumber || ''} readOnly className="h-9 rounded-md border-gray-200 text-xs" /></div>
                             <div className="space-y-1.5 md:col-span-2">
                                 <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Email Address</Label>
                                 <div className="relative"><Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" size={14} /><Input value={profile.email} readOnly className="pl-8 h-9 rounded-md border-gray-200 text-xs bg-gray-50" /></div>

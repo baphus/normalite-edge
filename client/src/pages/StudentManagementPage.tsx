@@ -85,6 +85,8 @@ interface StudentSummary {
     campus: string;
     yearLevel?: string;
     section?: string;
+    studentId?: string;
+    contactNumber?: string;
     attempts: number;
     completedAttempts: number;
     inProgressAttempts: number;
@@ -109,6 +111,8 @@ interface StudentUserItem {
     campus?: string | null;
     yearLevel?: string | null;
     section?: string | null;
+    studentId?: string | null;
+    contactNumber?: string | null;
 }
 
 interface TrackItem {
@@ -273,6 +277,8 @@ const StudentManagementPage: React.FC = () => {
                 campus: student.campus || first?.user?.campus || 'Unassigned',
                 yearLevel: student.yearLevel || first?.user?.yearLevel || 'Unassigned',
                 section: student.section || first?.user?.section || 'Unassigned',
+                studentId: student.studentId || 'N/A',
+                contactNumber: student.contactNumber || 'N/A',
                 attempts: studentAttempts.length,
                 completedAttempts: submitted.length,
                 inProgressAttempts: inProgress.length,

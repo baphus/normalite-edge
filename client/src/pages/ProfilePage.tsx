@@ -210,6 +210,8 @@ const ProfilePage: React.FC = () => {
     const [campusId, setCampusId] = useState('');
     const [yearLevel, setYearLevel] = useState('');
     const [section, setSection] = useState('');
+    const [studentId, setStudentId] = useState('');
+    const [contactNumber, setContactNumber] = useState('');
     const [tracks, setTracks] = useState<Array<{ id: string; name: string }>>([]);
     const [campuses, setCampuses] = useState<Array<{ id: string; name: string }>>([]);
     const [tracksLoading, setTracksLoading] = useState(false);
@@ -242,6 +244,8 @@ const ProfilePage: React.FC = () => {
         setCampusId(user?.campus_id || '');
         setYearLevel(user?.yearLevel || '');
         setSection(user?.section || '');
+        setStudentId(user?.studentId || '');
+        setContactNumber(user?.contactNumber || '');
     }, [user]);
 
     useEffect(() => {
@@ -409,6 +413,8 @@ const ProfilePage: React.FC = () => {
         setCampusId(user?.campus_id || '');
         setYearLevel(user?.yearLevel || '');
         setSection(user?.section || '');
+        setStudentId(user?.studentId || '');
+        setContactNumber(user?.contactNumber || '');
     };
 
     const handleSaveProfile = async () => {
@@ -442,6 +448,21 @@ const ProfilePage: React.FC = () => {
             return;
         }
 
+        if (isReviewee && !studentId.trim()) {
+            toast.error('Student ID is required.');
+            return;
+        }
+
+        if (isReviewee && !contactNumber.trim()) {
+            toast.error('Contact number is required.');
+            return;
+        }
+
+        if (isReviewee && !/^09\d{9}$/.test(contactNumber.trim())) {
+            toast.error('Contact number must be in Philippine format (09XXXXXXXXX).');
+            return;
+        }
+
         try {
             setIsSavingProfile(true);
             const payload: Record<string, string | undefined> = {
@@ -456,6 +477,8 @@ const ProfilePage: React.FC = () => {
                 payload.track_id = trackId.trim() || undefined;
                 payload.yearLevel = yearLevel.trim() || undefined;
                 payload.section = section.trim() || undefined;
+                payload.studentId = studentId.trim() || undefined;
+                payload.contactNumber = contactNumber.trim() || undefined;
             }
 
             if (canEditCampus) {
@@ -698,6 +721,14 @@ const ProfilePage: React.FC = () => {
                                     <div className="space-y-1.5">
                                         <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Section</Label>
                                         <Input value={section} onChange={(event) => setSection(event.target.value)} placeholder="A" className="h-9 rounded-md border-gray-200 text-xs" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Student ID</Label>
+                                        <Input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="e.g. 2025-12345" className="h-9 rounded-md border-gray-200 text-xs" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">Contact Number</Label>
+                                        <Input value={contactNumber} onChange={(event) => setContactNumber(event.target.value)} placeholder="09XXXXXXXXX" className="h-9 rounded-md border-gray-200 text-xs" />
                                     </div>
                                 </>
                             )}

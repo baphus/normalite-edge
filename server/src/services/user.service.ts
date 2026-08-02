@@ -153,6 +153,8 @@ export class UserService {
                     programTrack: true,
                     yearLevel: true,
                     section: true,
+                    studentId: true,
+                    contactNumber: true,
                     createdAt: true,
                     track: {
                         select: { id: true, name: true, code: true },
