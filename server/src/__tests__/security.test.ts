@@ -253,6 +253,16 @@ describe('Input Validation', () => {
         // Should be rejected — either 400 (validation) or 401 (auth) or 413 (too large)
         assert.ok(res.status >= 400 && res.status < 500);
     });
+
+    // body-parser's own error used to fall through to the generic handler and
+    // be reported as a 500 — an internal fault, for a client sending too much.
+    it('should report an oversized body as 413, not 500', async () => {
+        const res = await request('POST', '/api/v1/auth/complete-profile', {
+            body: { firstName: 'A'.repeat(3_000_000) },
+        });
+        assert.equal(res.status, 413);
+        assert.equal(res.body.success, false);
+    });
 });
 
 describe('Rate Limiting', () => {

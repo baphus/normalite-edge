@@ -55,15 +55,12 @@ const authLimiter = rateLimit({
 // ─── Middleware ─────────────────────────────────────────
 app.use(cors(corsOptions));
 
-// Higher body limit for upload routes only (base64 images). Registered before
-// the global parser deliberately: whichever runs first consumes the stream, so
-// behind the 2mb one this could never take effect. The real ceiling on an
-// upload is still `uploadImageSchema`, which caps the payload well under 5mb —
-// this only decides whether an oversized body gets a clear 400 or a raw parser
-// error. A path spelled `//uploads/…` misses this and falls back to the 2mb
-// global limit, which errs in the safe direction.
-app.use('/api/v1/uploads', express.json({ limit: '5mb' }));
-
+// One body limit for everything, uploads included. A separate 5mb mount for
+// /api/v1/uploads used to sit here; it was dead (registered against the
+// singular /api/v1/upload, and behind this parser, which consumes the stream
+// first) and pointless either way — `uploadImageSchema` caps a payload at
+// 2,000,000 characters, which already fits inside 2mb. Reinstating it would
+// only have raised how much an unauthenticated caller can make us buffer.
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

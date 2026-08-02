@@ -12,6 +12,7 @@ import { isStorableAvatarUrl } from '../utils/importRemoteAvatar';
 const avatarUrlSchema = z
     .string()
     .url('Profile picture must be a valid URL')
+    .max(2048, 'Profile picture URL is too long')
     .refine(isStorableAvatarUrl, {
         message: 'Profile picture must be an uploaded image',
     });

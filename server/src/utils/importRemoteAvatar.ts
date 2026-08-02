@@ -9,6 +9,8 @@
  */
 const ALLOWED_AVATAR_HOSTS = ['googleusercontent.com'];
 
+import { env } from '../config/env';
+
 /** Our own upload bucket — where a picture the user uploaded lands. */
 const UPLOAD_BUCKET_HOST = 'res.cloudinary.com';
 
@@ -21,7 +23,21 @@ const UPLOAD_BUCKET_HOST = 'res.cloudinary.com';
 const isProviderAvatarHost = (hostname: string): boolean =>
     ALLOWED_AVATAR_HOSTS.some((host) => hostname.endsWith(`.${host}`));
 
-const isUploadBucketHost = (hostname: string): boolean => hostname === UPLOAD_BUCKET_HOST;
+/**
+ * The bucket host is shared by every Cloudinary customer — the account is
+ * identified by the first path segment. Matching on the host alone would accept
+ * `res.cloudinary.com/<somebody-elses-cloud>/…`, which is exactly the remote
+ * content this function exists to keep out.
+ *
+ * With no cloud name configured no upload can succeed anyway, so fall back to
+ * the host check rather than rejecting everything.
+ */
+const isOwnUploadUrl = (url: URL): boolean => {
+    if (url.hostname !== UPLOAD_BUCKET_HOST) return false;
+
+    const cloudName = env.CLOUDINARY_CLOUD_NAME;
+    return !cloudName || url.pathname.startsWith(`/${cloudName}/`);
+};
 
 /**
  * `URL.hostname` drops any `user:pass@` prefix, so a host check alone would
@@ -94,7 +110,7 @@ export function isStorableAvatarUrl(value: string): boolean {
         return url.protocol === 'https:'
             && !hasEmbeddedCredentials(url)
             && !hasExplicitPort(url)
-            && (isUploadBucketHost(url.hostname) || isProviderAvatarHost(url.hostname));
+            && (isOwnUploadUrl(url) || isProviderAvatarHost(url.hostname));
     } catch {
         return false;
     }

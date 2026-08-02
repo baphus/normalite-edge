@@ -129,6 +129,34 @@ describe('requireRegistrationSession', () => {
         assert.equal(error, undefined);
     });
 
+    // The domain test decides authorization here, so a suffix match is not
+    // enough — the address itself has to be well formed.
+    for (const email of [
+        'attacker@evil.com @cnu.edu.ph',
+        'attacker@evil.com\n@cnu.edu.ph',
+        '@cnu.edu.ph',
+        'ada@cnu.edu.ph.evil.com',
+        'ada@sub.cnu.edu.ph',
+    ]) {
+        it(`refuses ${JSON.stringify(email)}, which only resembles an internal address`, async () => {
+            identity = { ...GOOGLE_IDENTITY, email };
+            userRow = null;
+
+            const { error } = await run();
+
+            assert.equal(error?.statusCode, 403);
+        });
+    }
+
+    it('still admits an internal address with incidental surrounding whitespace', async () => {
+        identity = { ...GOOGLE_IDENTITY, email: '  ada@cnu.edu.ph  ' };
+        userRow = null;
+
+        const { error } = await run();
+
+        assert.equal(error, undefined);
+    });
+
     it('refuses a request with no bearer token', async () => {
         identity = GOOGLE_IDENTITY;
         userRow = null;

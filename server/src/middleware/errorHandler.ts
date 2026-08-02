@@ -69,6 +69,16 @@ export const errorHandler = (
         });
     }
 
+    // body-parser rejects an oversized body with this. Without a case here it
+    // falls through to the branch below and is reported as a 500 — an internal
+    // fault, logged with a stack, for what is squarely a client error.
+    if ((err as { type?: string }).type === 'entity.too.large') {
+        return res.status(413).json({
+            success: false,
+            message: 'Request payload is too large',
+        });
+    }
+
     // Unknown errors
     logger.error('Unhandled error:', err);
 

@@ -2,6 +2,7 @@ import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { importRemoteAvatar, isStorableAvatarUrl } from '../utils/importRemoteAvatar';
 import { completeProfileSchema, updateProfileSchema } from '../validators/auth.validator';
+import { env } from '../config/env';
 import type { SupabaseIdentity } from '../utils/supabaseJwt';
 
 /**
@@ -11,7 +12,12 @@ import type { SupabaseIdentity } from '../utils/supabaseJwt';
  */
 
 const GOOGLE_AVATAR = 'https://lh3.googleusercontent.com/a/ACg8ocKexample=s96-c';
-const CLOUDINARY_AVATAR = 'https://res.cloudinary.com/demo/image/upload/v1/profile-pics/x.jpg';
+
+// The bucket host is shared by every Cloudinary customer, so a storable URL has
+// to sit under *our* cloud. With none configured the check falls back to the
+// host alone, and the foreign-cloud case below has nothing to distinguish.
+const CLOUD = env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_AVATAR = `https://res.cloudinary.com/${CLOUD || 'demo'}/image/upload/v1/profile-pics/x.jpg`;
 
 describe('importRemoteAvatar', () => {
     it('upgrades the Google size directive so the avatar is crisp at 2x', () => {
@@ -107,6 +113,17 @@ describe('isStorableAvatarUrl', () => {
     it('rejects an explicit port', () => {
         assert.equal(isStorableAvatarUrl('https://res.cloudinary.com:1337/demo/x.jpg'), false);
     });
+
+    it(
+        "rejects another customer's cloud on the shared bucket host",
+        { skip: CLOUD ? false : 'needs CLOUDINARY_CLOUD_NAME to tell clouds apart' },
+        () => {
+            assert.equal(
+                isStorableAvatarUrl('https://res.cloudinary.com/someone-else/image/upload/x.jpg'),
+                false
+            );
+        }
+    );
 
     it('rejects plaintext http', () => {
         assert.equal(isStorableAvatarUrl('http://res.cloudinary.com/demo/x.jpg'), false);
