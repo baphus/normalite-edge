@@ -55,6 +55,17 @@ describe('importRemoteAvatar', () => {
         );
     });
 
+    it('rejects an explicit port, which the imgSrc directive would not render', () => {
+        assert.equal(importRemoteAvatar('https://lh3.googleusercontent.com:8443/a/x'), null);
+    });
+
+    it('accepts the redundant default port, which normalises away', () => {
+        assert.equal(
+            importRemoteAvatar('https://lh3.googleusercontent.com:443/a/x=s96-c'),
+            'https://lh3.googleusercontent.com/a/x=s256-c'
+        );
+    });
+
     it('rejects a lookalike host that merely ends in the allowed name', () => {
         assert.equal(importRemoteAvatar('https://evilgoogleusercontent.com/a/x=s96-c'), null);
     });
@@ -91,6 +102,10 @@ describe('isStorableAvatarUrl', () => {
 
     it('rejects credentials smuggled in front of an allowed host', () => {
         assert.equal(isStorableAvatarUrl('https://user:pass@res.cloudinary.com/demo/x.jpg'), false);
+    });
+
+    it('rejects an explicit port', () => {
+        assert.equal(isStorableAvatarUrl('https://res.cloudinary.com:1337/demo/x.jpg'), false);
     });
 
     it('rejects plaintext http', () => {

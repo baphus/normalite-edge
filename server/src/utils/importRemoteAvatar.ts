@@ -31,6 +31,13 @@ const isUploadBucketHost = (hostname: string): boolean => hostname === UPLOAD_BU
 const hasEmbeddedCredentials = (url: URL): boolean => Boolean(url.username || url.password);
 
 /**
+ * A CSP host-source with no port matches only the scheme's default, so an
+ * explicit port would be stored and then refused at render time. `URL.port` is
+ * empty when the port is absent or is the default for the scheme.
+ */
+const hasExplicitPort = (url: URL): boolean => url.port !== '';
+
+/**
  * Google serves an avatar at any size from the same URL, selected by a trailing
  * `=s<N>-c` directive on the *path*. The token typically carries `=s96-c`,
  * which is soft when rendered at 96 CSS pixels on a 2x display.
@@ -55,6 +62,7 @@ export function importRemoteAvatar(sourceUrl: string): string | null {
         if (
             url.protocol !== 'https:'
             || hasEmbeddedCredentials(url)
+            || hasExplicitPort(url)
             || !isProviderAvatarHost(url.hostname)
         ) {
             return null;
@@ -85,6 +93,7 @@ export function isStorableAvatarUrl(value: string): boolean {
 
         return url.protocol === 'https:'
             && !hasEmbeddedCredentials(url)
+            && !hasExplicitPort(url)
             && (isUploadBucketHost(url.hostname) || isProviderAvatarHost(url.hostname));
     } catch {
         return false;

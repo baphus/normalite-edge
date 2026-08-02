@@ -48,14 +48,9 @@ const authLimiter = rateLimit({
     message: { success: false, message: 'Too many authentication attempts, please try again later' },
 });
 
-// Upload: 20 uploads per hour
-const uploadLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, message: 'Upload limit reached, please try again later' },
-});
+// Upload limits are per-identity and live on the uploads router itself — an
+// `app.use` prefix is matched against the un-normalised URL, so `//uploads/…`
+// would slip past one registered here.
 
 // ─── Middleware ─────────────────────────────────────────
 app.use(cors(corsOptions));
@@ -65,7 +60,8 @@ app.use(cors(corsOptions));
 // behind the 2mb one this could never take effect. The real ceiling on an
 // upload is still `uploadImageSchema`, which caps the payload well under 5mb —
 // this only decides whether an oversized body gets a clear 400 or a raw parser
-// error.
+// error. A path spelled `//uploads/…` misses this and falls back to the 2mb
+// global limit, which errs in the safe direction.
 app.use('/api/v1/uploads', express.json({ limit: '5mb' }));
 
 app.use(express.json({ limit: '2mb' }));
@@ -78,10 +74,6 @@ app.use(cookieParser());
 // provisioning surface.
 app.use('/api/v1/auth/complete-profile', authLimiter);
 app.use('/api/v1/auth/session-start', authLimiter);
-// Note the plural: the router mounts at /api/v1/uploads, and an `app.use`
-// prefix only matches on segment boundaries — registered against the singular
-// form, this limiter applied to nothing.
-app.use('/api/v1/uploads', uploadLimiter);
 app.use('/api/v1', globalLimiter);
 
 // ─── Health Check ──────────────────────────────────────
