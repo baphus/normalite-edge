@@ -99,6 +99,8 @@ const ManageMaterialsPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [deleteDeckTarget, setDeleteDeckTarget] = useState<Deck | null>(null);
 
+    const userRole = user?.role;
+
     const fetchManagedDecks = useCallback(async () => {
         setIsLoading(true);
         setError(null);
@@ -113,7 +115,7 @@ const ManageMaterialsPage: React.FC = () => {
                 );
             } catch (requestError: any) {
                 const statusCode = requestError?.response?.status;
-                if (!(statusCode === 404 && user?.role === 'ADMIN')) throw requestError;
+                if (!(statusCode === 404 && userRole === 'ADMIN')) throw requestError;
 
                 usedFallback = true;
                 result = await fetchAllPages<Partial<Deck> & Record<string, any>>((page, limit) =>
@@ -133,7 +135,7 @@ const ManageMaterialsPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [user?.role]);
+    }, [userRole]);
 
     useEffect(() => {
         if (!user) return;

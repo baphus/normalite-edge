@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AlertCircle, ChevronLeft, ChevronRight, ChevronsUpDown, ArrowDown, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,9 +94,16 @@ function ResourceTableInner<T>({
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
 
-    useEffect(() => {
+    // Filtering or resizing the page must send the user back to page 1, otherwise a
+    // narrowed result set can strand them on a page that no longer exists. Adjusted
+    // during render (React's documented pattern) rather than in an effect, so there
+    // is no intermediate paint on the stale page.
+    const paginationResetKey = `${resetKey ?? ''}|${pageSize}`;
+    const [lastResetKey, setLastResetKey] = useState(paginationResetKey);
+    if (lastResetKey !== paginationResetKey) {
+        setLastResetKey(paginationResetKey);
         setPage(1);
-    }, [resetKey, pageSize]);
+    }
 
     const sortedRows = useMemo(() => {
         if (!sort) return rows;

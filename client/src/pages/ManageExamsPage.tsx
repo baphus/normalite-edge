@@ -239,10 +239,14 @@ const ManageExamsPage: React.FC = () => {
     const [actionExamId, setActionExamId] = useState<string | null>(null);
     const [statusChange, setStatusChange] = useState<{ exam: Exam; next: Exam['status'] } | null>(null);
 
-    // Reviewers land on their own exams; admins oversee everything.
-    useEffect(() => {
+    // Reviewers land on their own exams; admins oversee everything. The role arrives
+    // asynchronously with the session, so this reacts to it during render rather than
+    // in an effect, avoiding a paint of the wrong default.
+    const [lastKnownIsReviewer, setLastKnownIsReviewer] = useState(isReviewer);
+    if (lastKnownIsReviewer !== isReviewer) {
+        setLastKnownIsReviewer(isReviewer);
         setOwnershipFilter(isReviewer ? 'mine' : 'all');
-    }, [isReviewer]);
+    }
 
     const fetchManagedExams = useCallback(async () => {
         setLoading(true);
@@ -537,7 +541,7 @@ const ManageExamsPage: React.FC = () => {
         }
     };
 
-    const handleDuplicate = async (examId: string) => {
+    const handleDuplicate = useCallback(async (examId: string) => {
         setActionExamId(examId);
         try {
             const detailResponse = await api.get(`/exams/${examId}?questions=true`);
@@ -601,9 +605,9 @@ const ManageExamsPage: React.FC = () => {
         } finally {
             setActionExamId(null);
         }
-    };
+    }, [trackOptions, user?.id]);
 
-    const handleExportToStudyMaterial = async (examId: string) => {
+    const handleExportToStudyMaterial = useCallback(async (examId: string) => {
         setActionExamId(examId);
         try {
             const response = await api.post(`/exams/${examId}/export-to-deck`);
@@ -622,7 +626,7 @@ const ManageExamsPage: React.FC = () => {
         } finally {
             setActionExamId(null);
         }
-    };
+    }, []);
 
     const renderStatusCell = useCallback(
         (exam: Exam) => {
@@ -722,7 +726,7 @@ const ManageExamsPage: React.FC = () => {
                 </DropdownMenu>
             );
         },
-        [actionExamId, canEditExam, canManageExam],
+        [actionExamId, canEditExam, canManageExam, handleDuplicate, handleExportToStudyMaterial],
     );
 
     const columns = useMemo<ResourceColumn<Exam>[]>(
