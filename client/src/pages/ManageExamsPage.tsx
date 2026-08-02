@@ -2,31 +2,16 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Plus,
-    Search,
     MoreHorizontal,
     Edit,
     Trash2,
     Copy,
     BookOpen,
     Eye,
-    Clock,
-    Calendar,
-    CheckCircle2,
-    Lock,
-    Grid,
-    LayoutGrid,
-    List,
-    SlidersHorizontal,
     ChevronDown,
-    User,
-    Users,
-    BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     Select,
@@ -39,17 +24,20 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    ManageToolbar,
+    FilterField,
+    type ActiveFilterChip,
+    type ManageView,
+    type ToolbarSegment,
+} from '@/components/manage/ManageToolbar';
+import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
+import { StatusPill, type StatusTone } from '@/components/manage/StatusPill';
 import api from '@/lib/axios';
+import { fetchAllPages, extractListPayload } from '@/lib/fetchAllPages';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -118,13 +106,6 @@ interface ManagedExamApi {
     };
 }
 
-const STATUS_CHANGE_OPTIONS: Array<{ value: Exam['status']; label: string }> = [
-    { value: 'live', label: 'Live' },
-    { value: 'draft', label: 'Draft' },
-    { value: 'closed', label: 'Closed' },
-    { value: 'archived', label: 'Archived' },
-];
-
 const STATUS_TO_API: Record<Exam['status'], 'LIVE' | 'DRAFT' | 'CLOSED' | 'ARCHIVED'> = {
     live: 'LIVE',
     draft: 'DRAFT',
@@ -132,18 +113,119 @@ const STATUS_TO_API: Record<Exam['status'], 'LIVE' | 'DRAFT' | 'CLOSED' | 'ARCHI
     archived: 'ARCHIVED',
 };
 
+const STATUS_LABEL: Record<Exam['status'], string> = {
+    live: 'Live',
+    draft: 'Draft',
+    closed: 'Closed',
+    archived: 'Archived',
+};
+
+const STATUS_TONE: Record<Exam['status'], StatusTone> = {
+    live: 'live',
+    draft: 'draft',
+    closed: 'closed',
+    archived: 'archived',
+};
+
+/** Explains the consequence of each transition so the confirm is worth reading. */
+const STATUS_CONSEQUENCE: Record<Exam['status'], string> = {
+    live: 'Reviewees will be able to take this exam, and it can no longer be edited.',
+    draft: 'This exam will be hidden from reviewees and become editable again.',
+    closed: 'Reviewees will no longer be able to start or continue this exam.',
+    archived: 'This exam will be hidden from reviewees and moved out of active use.',
+};
+
+const ALL_PROGRAMS_FILTER = '__all_programs__';
+const LEGACY_PROGRAM_PREFIX = '__legacy__:';
+
+const formatDate = (value?: string) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatDuration = (minutes: number) => {
+    if (!minutes) return '—';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = minutes / 60;
+    return Number.isInteger(hours) ? `${hours}h` : `${minutes}m`;
+};
+
+const getAuthorAvatar = (name: string, creator?: ManagedExamApi['creator']) => {
+    if (creator?.avatarUrl) return creator.avatarUrl;
+    if (creator?.profilePicture) return creator.profilePicture;
+    const encoded = encodeURIComponent(name || 'User');
+    return `https://ui-avatars.com/api/?name=${encoded}&background=random&rounded=true`;
+};
+
+const resolveProgramLabel = (programText?: string | null, tracks: TrackOption[] = []) => {
+    if (!programText) return 'All Programs';
+    const parts = programText.split(',').map((part) => part.trim()).filter(Boolean);
+    if (parts.length === 0) return 'All Programs';
+
+    return parts
+        .map((part) => {
+            const match = tracks.find(
+                (track) =>
+                    track.name.toLowerCase() === part.toLowerCase()
+                    || (track.code || '').toLowerCase() === part.toLowerCase(),
+            );
+            return match?.name || part;
+        })
+        .join(', ');
+};
+
+const mapExam = (exam: ManagedExamApi, tracks: TrackOption[]): Exam => {
+    const authorName =
+        exam.creator?.name
+        || `${exam.creator?.firstName || ''} ${exam.creator?.lastName || ''}`.trim()
+        || 'Unknown';
+
+    return {
+        id: exam.id,
+        title: exam.title,
+        category: exam.category || exam.categoryCode || 'No Category',
+        program:
+            exam.tracks && exam.tracks.length > 0
+                ? exam.tracks.map((track) => track.name).join(', ')
+                : resolveProgramLabel(exam.program_track, tracks),
+        questionCount: exam.totalItems || 0,
+        duration: exam.timeLimit || 0,
+        status:
+            exam.status === 'LIVE' || exam.status === 'PUBLISHED'
+                ? 'live'
+                : exam.status === 'ARCHIVED'
+                    ? 'archived'
+                    : exam.status === 'CLOSED'
+                        ? 'closed'
+                        : 'draft',
+        maxAttempts: exam.maxAttempts ?? 1,
+        publishedAt: exam.scheduledDate || exam.createdAt || undefined,
+        deadline: exam.deadline || exam.scheduledDate || undefined,
+        closeOnDeadline: Boolean(exam.closeOnDeadline),
+        tracks: exam.tracks || [],
+        authorId: exam.creator?.id || '',
+        authorName,
+        authorAvatar: getAuthorAvatar(authorName, exam.creator),
+        sectionTitles: (exam.sections || [])
+            .slice()
+            .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
+            .map((section) => section.title?.trim())
+            .filter((title): title is string => Boolean(title)),
+    };
+};
+
 const ManageExamsPage: React.FC = () => {
     const { user } = useAuth();
-    const ALL_PROGRAMS_FILTER = '__all_programs__';
-    const LEGACY_PROGRAM_PREFIX = '__legacy__:';
+    const isReviewer = user?.role === 'REVIEWER';
 
     const [exams, setExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [trackOptions, setTrackOptions] = useState<TrackOption[]>([]);
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [view, setView] = useState<ManageView>('table');
 
-    const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'draft' | 'archived' | 'closed'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | Exam['status']>('all');
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [programFilter, setProgramFilter] = useState('all');
@@ -151,106 +233,50 @@ const ManageExamsPage: React.FC = () => {
     const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'mine' | 'others'>('all');
     const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'with-deadline' | 'without-deadline'>('all');
     const [publishedFilter, setPublishedFilter] = useState<'all' | 'last_7_days' | 'last_30_days'>('all');
-    const [sortBy, setSortBy] = useState<'default' | 'published_newest' | 'published_oldest'>('default');
     const [autoCloseFilter, setAutoCloseFilter] = useState<'all' | 'on' | 'off'>('all');
-    const [myExamsOpen, setMyExamsOpen] = useState(true);
-    const [othersOpen, setOthersOpen] = useState(true);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [examToDelete, setExamToDelete] = useState<string | null>(null);
+
+    const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
     const [actionExamId, setActionExamId] = useState<string | null>(null);
-    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-    const [statusDialogExamId, setStatusDialogExamId] = useState<string | null>(null);
-    const [statusDialogValue, setStatusDialogValue] = useState<Exam['status']>('live');
+    const [statusChange, setStatusChange] = useState<{ exam: Exam; next: Exam['status'] } | null>(null);
 
-    const getAuthorAvatar = (name: string, creator?: ManagedExamApi['creator']) => {
-        if (creator?.avatarUrl) return creator.avatarUrl;
-        if (creator?.profilePicture) return creator.profilePicture;
-        const encoded = encodeURIComponent(name || 'User');
-        return `https://ui-avatars.com/api/?name=${encoded}&background=random&rounded=true`;
-    };
+    // Reviewers land on their own exams; admins oversee everything.
+    useEffect(() => {
+        setOwnershipFilter(isReviewer ? 'mine' : 'all');
+    }, [isReviewer]);
 
-    const resolveProgramLabel = (programText?: string | null, tracks: TrackOption[] = []) => {
-        if (!programText) return 'All Programs';
+    const fetchManagedExams = useCallback(async () => {
+        setLoading(true);
+        setLoadError(null);
+        try {
+            const [examsResult, tracksResponse] = await Promise.all([
+                fetchAllPages<ManagedExamApi>((page, limit) =>
+                    api.get('/exams/managed', { params: { page, limit } }),
+                ),
+                api.get('/tracks'),
+            ]);
 
-        const parts = programText.split(',').map((part) => part.trim()).filter(Boolean);
-        if (parts.length === 0) return 'All Programs';
+            const tracks = extractListPayload<TrackOption>(tracksResponse);
+            setTrackOptions(tracks);
+            setExams(examsResult.items.map((exam) => mapExam(exam, tracks)));
 
-        const mapped = parts.map((part) => {
-            const match = tracks.find((track) =>
-                track.name.toLowerCase() === part.toLowerCase()
-                || (track.code || '').toLowerCase() === part.toLowerCase()
-            );
-            return match?.name || part;
-        });
-
-        return mapped.join(', ');
-    };
+            if (examsResult.truncated) {
+                toast.warning('This exam library is unusually large — some exams may not be shown.');
+            }
+        } catch (error) {
+            console.error('Failed to fetch managed exams', error);
+            setLoadError('Could not load exams');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchManagedExams = async () => {
-            setLoading(true);
-            try {
-                const [examsResponse, tracksResponse] = await Promise.all([
-                    api.get('/exams/managed?page=1&limit=100'),
-                    api.get('/tracks'),
-                ]);
-
-                const items = (examsResponse.data?.data || []) as ManagedExamApi[];
-                const tracks = (tracksResponse.data?.data || []) as TrackOption[];
-                setTrackOptions(tracks);
-
-                const mapped: Exam[] = items.map((exam) => {
-                    const authorName = exam.creator?.name
-                        || `${exam.creator?.firstName || ''} ${exam.creator?.lastName || ''}`.trim()
-                        || 'Unknown';
-
-                    return {
-                    id: exam.id,
-                    title: exam.title,
-                    category: exam.category || exam.categoryCode || 'No Category',
-                    program: exam.tracks && exam.tracks.length > 0
-                        ? exam.tracks.map((track) => track.name).join(', ')
-                        : resolveProgramLabel(exam.program_track, tracks),
-                    questionCount: exam.totalItems || 0,
-                    duration: exam.timeLimit || 0,
-                    status: exam.status === 'LIVE' || exam.status === 'PUBLISHED'
-                        ? 'live'
-                        : exam.status === 'ARCHIVED'
-                            ? 'archived'
-                            : exam.status === 'CLOSED'
-                                ? 'closed'
-                                : 'draft',
-                    maxAttempts: exam.maxAttempts ?? 1,
-                    publishedAt: exam.scheduledDate || exam.createdAt || undefined,
-                    deadline: exam.deadline || exam.scheduledDate || undefined,
-                    closeOnDeadline: Boolean(exam.closeOnDeadline),
-                    tracks: exam.tracks || [],
-                    authorId: exam.creator?.id || '',
-                    authorName,
-                    authorAvatar: getAuthorAvatar(authorName, exam.creator),
-                    sectionTitles: (exam.sections || [])
-                        .slice()
-                        .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
-                        .map((section) => section.title?.trim())
-                        .filter((title): title is string => Boolean(title)),
-                };
-                });
-
-                setExams(mapped);
-            } catch (error) {
-                console.error('Failed to fetch managed exams', error);
-                setExams([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchManagedExams();
-    }, []);
+        void fetchManagedExams();
+    }, [fetchManagedExams]);
 
     const fetchCategories = useCallback(() => {
         api.get('/categories')
-            .then((res) => setCategories(res.data?.data || []))
+            .then((response) => setCategories(extractListPayload<{ id: string; name: string }>(response)))
             .catch(() => {});
     }, []);
 
@@ -258,22 +284,17 @@ const ManageExamsPage: React.FC = () => {
         fetchCategories();
     }, [fetchCategories]);
 
-    const categoryOptions = useMemo(() => {
-        return Array.from(
-            new Set([
-                ...exams.map((exam) => exam.category),
-                ...categories.map((category) => category.name),
-            ])
-        ).sort((a, b) => a.localeCompare(b));
-    }, [exams, categories]);
+    const categoryOptions = useMemo(
+        () =>
+            Array.from(
+                new Set([...exams.map((exam) => exam.category), ...categories.map((category) => category.name)]),
+            ).sort((a, b) => a.localeCompare(b)),
+        [exams, categories],
+    );
 
     const programOptions = useMemo(() => {
         const tracked = Array.from(
-            new Map(
-                exams
-                    .flatMap((exam) => exam.tracks || [])
-                    .map((track) => [track.id, track])
-            ).values()
+            new Map(exams.flatMap((exam) => exam.tracks || []).map((track) => [track.id, track])).values(),
         ).sort((a, b) => a.name.localeCompare(b.name));
 
         const legacy = Array.from(
@@ -281,125 +302,238 @@ const ManageExamsPage: React.FC = () => {
                 exams
                     .filter((exam) => (exam.tracks || []).length === 0)
                     .map((exam) => exam.program)
-                    .filter((program) => program && program !== 'All Programs')
-            )
+                    .filter((program) => program && program !== 'All Programs'),
+            ),
         ).sort((a, b) => a.localeCompare(b));
 
-        return {
-            tracked,
-            legacy,
-        };
+        return { tracked, legacy };
     }, [exams]);
 
-    const authorOptions = useMemo(() => {
-        return Array.from(
-            new Set(
-                exams
-                    .map((exam) => exam.authorName)
-                    .filter((authorName) => authorName && authorName.trim().length > 0)
-            )
-        ).sort((a, b) => a.localeCompare(b));
-    }, [exams]);
+    const authorOptions = useMemo(
+        () =>
+            Array.from(
+                new Set(exams.map((exam) => exam.authorName).filter((name) => name && name.trim().length > 0)),
+            ).sort((a, b) => a.localeCompare(b)),
+        [exams],
+    );
 
-    const filteredExams = exams.filter(exam => {
-        const isReviewer = user?.role === 'REVIEWER';
-        const matchesOwnership = !isReviewer
-            || ownershipFilter === 'all'
-            || (ownershipFilter === 'mine' && exam.authorId === user?.id)
-            || (ownershipFilter === 'others' && exam.authorId !== user?.id);
-        const matchesStatus = statusFilter === 'all' || exam.status === statusFilter;
-        const matchesSearch = exam.title.toLowerCase().includes(search.toLowerCase());
-        const matchesCategory = categoryFilter === 'all' || exam.category === categoryFilter;
-        const matchesProgram = programFilter === 'all'
-            || (programFilter === ALL_PROGRAMS_FILTER && ((exam.tracks || []).length === 0 || exam.program === 'All Programs'))
-            || (programFilter.startsWith(LEGACY_PROGRAM_PREFIX) && exam.program === programFilter.slice(LEGACY_PROGRAM_PREFIX.length))
-            || (exam.tracks || []).some((track) => track.id === programFilter);
-        const matchesAuthor = authorFilter === 'all' || exam.authorName === authorFilter;
-        const matchesDeadline = deadlineFilter === 'all'
-            || (deadlineFilter === 'with-deadline' && Boolean(exam.deadline))
-            || (deadlineFilter === 'without-deadline' && !exam.deadline);
-        const publishedTimestamp = new Date(exam.publishedAt || 0).getTime();
-        const sevenDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
-        const thirtyDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
-        const matchesPublishedFilter = publishedFilter === 'all'
-            || (publishedFilter === 'last_7_days' && publishedTimestamp >= sevenDaysAgo)
-            || (publishedFilter === 'last_30_days' && publishedTimestamp >= thirtyDaysAgo);
-        const matchesAutoClose = autoCloseFilter === 'all'
-            || (autoCloseFilter === 'on' && exam.closeOnDeadline)
-            || (autoCloseFilter === 'off' && !exam.closeOnDeadline);
+    /** Every filter except ownership — so the segmented control can show honest counts. */
+    const examsBeforeOwnership = useMemo(
+        () =>
+            exams.filter((exam) => {
+                const matchesStatus = statusFilter === 'all' || exam.status === statusFilter;
+                const matchesSearch = exam.title.toLowerCase().includes(search.trim().toLowerCase());
+                const matchesCategory = categoryFilter === 'all' || exam.category === categoryFilter;
+                const matchesProgram =
+                    programFilter === 'all'
+                    || (programFilter === ALL_PROGRAMS_FILTER
+                        && ((exam.tracks || []).length === 0 || exam.program === 'All Programs'))
+                    || (programFilter.startsWith(LEGACY_PROGRAM_PREFIX)
+                        && exam.program === programFilter.slice(LEGACY_PROGRAM_PREFIX.length))
+                    || (exam.tracks || []).some((track) => track.id === programFilter);
+                const matchesAuthor = authorFilter === 'all' || exam.authorName === authorFilter;
+                const matchesDeadline =
+                    deadlineFilter === 'all'
+                    || (deadlineFilter === 'with-deadline' && Boolean(exam.deadline))
+                    || (deadlineFilter === 'without-deadline' && !exam.deadline);
 
-        return matchesOwnership && matchesStatus && matchesSearch && matchesCategory && matchesProgram && matchesAuthor && matchesDeadline && matchesPublishedFilter && matchesAutoClose;
-    });
+                const publishedTimestamp = new Date(exam.publishedAt || 0).getTime();
+                const sevenDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
+                const thirtyDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
+                const matchesPublished =
+                    publishedFilter === 'all'
+                    || (publishedFilter === 'last_7_days' && publishedTimestamp >= sevenDaysAgo)
+                    || (publishedFilter === 'last_30_days' && publishedTimestamp >= thirtyDaysAgo);
 
-    const filteredAndSortedExams = [...filteredExams].sort((a, b) => {
-        if (sortBy === 'published_newest') {
-            return new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime();
+                const matchesAutoClose =
+                    autoCloseFilter === 'all'
+                    || (autoCloseFilter === 'on' && exam.closeOnDeadline)
+                    || (autoCloseFilter === 'off' && !exam.closeOnDeadline);
+
+                return (
+                    matchesStatus
+                    && matchesSearch
+                    && matchesCategory
+                    && matchesProgram
+                    && matchesAuthor
+                    && matchesDeadline
+                    && matchesPublished
+                    && matchesAutoClose
+                );
+            }),
+        [
+            exams,
+            statusFilter,
+            search,
+            categoryFilter,
+            programFilter,
+            authorFilter,
+            deadlineFilter,
+            publishedFilter,
+            autoCloseFilter,
+        ],
+    );
+
+    const segments = useMemo<ToolbarSegment[] | undefined>(() => {
+        if (!isReviewer) return undefined;
+        return [
+            {
+                value: 'mine',
+                label: 'Mine',
+                count: examsBeforeOwnership.filter((exam) => exam.authorId === user?.id).length,
+            },
+            { value: 'all', label: 'All', count: examsBeforeOwnership.length },
+            {
+                value: 'others',
+                label: 'Others',
+                count: examsBeforeOwnership.filter((exam) => exam.authorId !== user?.id).length,
+            },
+        ];
+    }, [isReviewer, examsBeforeOwnership, user?.id]);
+
+    /** Newest first by default; column headers take over once the user sorts. */
+    const visibleExams = useMemo(() => {
+        const scoped = examsBeforeOwnership.filter((exam) => {
+            if (!isReviewer || ownershipFilter === 'all') return true;
+            if (ownershipFilter === 'mine') return exam.authorId === user?.id;
+            return exam.authorId !== user?.id;
+        });
+
+        return [...scoped].sort(
+            (a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime(),
+        );
+    }, [examsBeforeOwnership, isReviewer, ownershipFilter, user?.id]);
+
+    const clearAllFilters = useCallback(() => {
+        setStatusFilter('all');
+        setCategoryFilter('all');
+        setProgramFilter('all');
+        setAuthorFilter('all');
+        setDeadlineFilter('all');
+        setPublishedFilter('all');
+        setAutoCloseFilter('all');
+        setSearch('');
+    }, []);
+
+    const programLabelFor = useCallback(
+        (value: string) => {
+            if (value === ALL_PROGRAMS_FILTER) return 'All programs (public)';
+            if (value.startsWith(LEGACY_PROGRAM_PREFIX)) {
+                return resolveProgramLabel(value.slice(LEGACY_PROGRAM_PREFIX.length), trackOptions);
+            }
+            return programOptions.tracked.find((track) => track.id === value)?.name || value;
+        },
+        [programOptions.tracked, trackOptions],
+    );
+
+    const chips = useMemo(() => {
+        const next: ActiveFilterChip[] = [];
+        if (search.trim().length > 0) {
+            next.push({ id: 'search', label: `Search: ${search.trim()}`, onClear: () => setSearch('') });
         }
-        if (sortBy === 'published_oldest') {
-            return new Date(a.publishedAt || 0).getTime() - new Date(b.publishedAt || 0).getTime();
+        if (statusFilter !== 'all') {
+            next.push({
+                id: 'status',
+                label: `Status: ${STATUS_LABEL[statusFilter]}`,
+                onClear: () => setStatusFilter('all'),
+            });
         }
-        return 0;
-    });
+        if (categoryFilter !== 'all') {
+            next.push({
+                id: 'category',
+                label: `Category: ${categoryFilter}`,
+                onClear: () => setCategoryFilter('all'),
+            });
+        }
+        if (programFilter !== 'all') {
+            next.push({
+                id: 'program',
+                label: `Visible to: ${programLabelFor(programFilter)}`,
+                onClear: () => setProgramFilter('all'),
+            });
+        }
+        if (authorFilter !== 'all') {
+            next.push({ id: 'author', label: `Author: ${authorFilter}`, onClear: () => setAuthorFilter('all') });
+        }
+        if (deadlineFilter !== 'all') {
+            next.push({
+                id: 'deadline',
+                label: deadlineFilter === 'with-deadline' ? 'With deadline' : 'Without deadline',
+                onClear: () => setDeadlineFilter('all'),
+            });
+        }
+        if (publishedFilter !== 'all') {
+            next.push({
+                id: 'published',
+                label: publishedFilter === 'last_7_days' ? 'Published: last 7 days' : 'Published: last 30 days',
+                onClear: () => setPublishedFilter('all'),
+            });
+        }
+        if (autoCloseFilter !== 'all') {
+            next.push({
+                id: 'autoclose',
+                label: `Close on deadline: ${autoCloseFilter === 'on' ? 'On' : 'Off'}`,
+                onClear: () => setAutoCloseFilter('all'),
+            });
+        }
+        return next;
+    }, [
+        search,
+        statusFilter,
+        categoryFilter,
+        programFilter,
+        authorFilter,
+        deadlineFilter,
+        publishedFilter,
+        autoCloseFilter,
+        programLabelFor,
+    ]);
 
-    const activeFilterCount = useMemo(() => {
-        let count = 0;
-        if (statusFilter !== 'all') count += 1;
-        if (categoryFilter !== 'all') count += 1;
-        if (programFilter !== 'all') count += 1;
-        if (authorFilter !== 'all') count += 1;
-        if (deadlineFilter !== 'all') count += 1;
-        if (publishedFilter !== 'all') count += 1;
-        if (autoCloseFilter !== 'all') count += 1;
-        if (search.trim().length > 0) count += 1;
-        if (sortBy !== 'default') count += 1;
-        return count;
-    }, [statusFilter, categoryFilter, programFilter, authorFilter, ownershipFilter, deadlineFilter, publishedFilter, autoCloseFilter, search, sortBy, user?.role]);
+    const canManageExam = useCallback(
+        (exam: Exam) => user?.role === 'ADMIN' || exam.authorId === user?.id,
+        [user?.id, user?.role],
+    );
+
+    const canEditExam = useCallback(
+        (exam: Exam) => exam.status !== 'live' && canManageExam(exam),
+        [canManageExam],
+    );
+
+    const getDisplayAuthorName = useCallback(
+        (exam: Exam) => (isReviewer && exam.authorId === user?.id ? 'You' : exam.authorName),
+        [isReviewer, user?.id],
+    );
 
     const handleDelete = async () => {
-        if (examToDelete) {
-            try {
-                await api.delete(`/exams/${examToDelete}`);
-                setExams(prev => prev.filter(e => e.id !== examToDelete));
-                setIsDeleteDialogOpen(false);
-                setExamToDelete(null);
-                toast.success('Exam deleted successfully.');
-            } catch (error) {
-                console.error('Failed to delete exam', error);
-                toast.error('Failed to delete exam. Please try again.');
-            }
+        if (!examToDelete) return;
+        const target = examToDelete;
+        setExamToDelete(null);
+        try {
+            await api.delete(`/exams/${target.id}`);
+            setExams((prev) => prev.filter((exam) => exam.id !== target.id));
+            toast.success('Exam deleted successfully.');
+        } catch (error) {
+            console.error('Failed to delete exam', error);
+            toast.error('Failed to delete exam. Please try again.');
         }
     };
 
-    const closeStatusDialog = () => {
-        setStatusDialogOpen(false);
-        setStatusDialogExamId(null);
-    };
-
-    const handleUpdateExamStatus = async (examId: string, status: Exam['status']) => {
-        setActionExamId(examId);
+    const handleConfirmStatusChange = async () => {
+        if (!statusChange) return;
+        const { exam, next } = statusChange;
+        setStatusChange(null);
+        setActionExamId(exam.id);
         try {
-            await api.put(`/exams/${examId}`, { status: STATUS_TO_API[status] });
+            await api.put(`/exams/${exam.id}`, { status: STATUS_TO_API[next] });
             setExams((prev) =>
-                prev.map((exam) =>
-                    exam.id === examId ? { ...exam, status } : exam
-                )
+                prev.map((candidate) => (candidate.id === exam.id ? { ...candidate, status: next } : candidate)),
             );
-            toast.success('Exam status updated.');
-            return true;
+            toast.success(`Exam moved to ${STATUS_LABEL[next].toLowerCase()}.`);
         } catch (error) {
             console.error('Failed to update exam status', error);
             toast.error('Failed to update exam status. Please try again.');
-            return false;
         } finally {
             setActionExamId(null);
-        }
-    };
-
-    const handleStatusDialogConfirm = async () => {
-        if (!statusDialogExamId) return;
-        const success = await handleUpdateExamStatus(statusDialogExamId, statusDialogValue);
-        if (success) {
-            closeStatusDialog();
         }
     };
 
@@ -412,15 +546,15 @@ const ManageExamsPage: React.FC = () => {
 
             const sectionMap = new Map(
                 (exam.sections || [])
-                    .map((s) => [s.id, s.title?.trim()])
-                    .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1]))
+                    .map((section) => [section.id, section.title?.trim()])
+                    .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])),
             );
 
             const sectionTitles = (exam.sections || [])
                 .slice()
                 .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
-                .map((s) => s.title?.trim())
-                .filter((t): t is string => Boolean(t));
+                .map((section) => section.title?.trim())
+                .filter((title): title is string => Boolean(title));
 
             const payload = {
                 title: `${exam.title} (Copy)`,
@@ -430,61 +564,36 @@ const ManageExamsPage: React.FC = () => {
                 timeLimit: exam.timeLimit || 60,
                 isPublished: false,
                 sections: sectionTitles.length > 0 ? sectionTitles : undefined,
-                questions: questions.map((question) => {
-                    const resolvedSection =
-                        question.section?.title?.trim()
-                        || sectionMap.get(question.sectionId || '')
-                        || undefined;
-
-                    return {
-                        text: question.questionText || 'Untitled question',
-                        imageUrl: question.imageUrl || undefined,
-                        choices: [
-                            question.choiceA || '',
-                            question.choiceB || '',
-                            question.choiceC || '',
-                            question.choiceD || '',
-                        ],
-                        correctAnswer: (question.correctChoice || 'A').toUpperCase(),
-                        explanation: question.rationalization || undefined,
-                        section: resolvedSection,
-                    };
-                }),
+                questions: questions.map((question) => ({
+                    text: question.questionText || 'Untitled question',
+                    imageUrl: question.imageUrl || undefined,
+                    choices: [
+                        question.choiceA || '',
+                        question.choiceB || '',
+                        question.choiceC || '',
+                        question.choiceD || '',
+                    ],
+                    correctAnswer: (question.correctChoice || 'A').toUpperCase(),
+                    explanation: question.rationalization || undefined,
+                    section:
+                        question.section?.title?.trim() || sectionMap.get(question.sectionId || '') || undefined,
+                })),
             };
 
             const createResponse = await api.post('/exams', payload);
             const created = createResponse.data?.data as ManagedExamApi;
+            const nextExam = mapExam(created, trackOptions);
 
-            const authorName = created.creator?.name
-                || `${created.creator?.firstName || ''} ${created.creator?.lastName || ''}`.trim()
-                || 'Unknown';
-
-            const nextExam: Exam = {
-                id: created.id,
-                title: created.title,
-                category: created.category || created.categoryCode || 'No Category',
-                program: created.tracks && created.tracks.length > 0
-                    ? created.tracks.map((track) => track.name).join(', ')
-                    : resolveProgramLabel(created.program_track, trackOptions),
-                questionCount: created.totalItems || payload.questions.length,
-                duration: created.timeLimit || payload.timeLimit,
-                status: 'draft',
-                maxAttempts: created.maxAttempts ?? 1,
-                publishedAt: created.scheduledDate || created.createdAt || undefined,
-                deadline: created.deadline || created.scheduledDate || undefined,
-                closeOnDeadline: Boolean(created.closeOnDeadline),
-                tracks: created.tracks || [],
-                authorId: created.creator?.id || user?.id || '',
-                authorName,
-                authorAvatar: getAuthorAvatar(authorName, created.creator),
-                sectionTitles: (created.sections || [])
-                    .slice()
-                    .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
-                    .map((section) => section.title?.trim())
-                    .filter((title): title is string => Boolean(title)),
-            };
-
-            setExams((prev) => [nextExam, ...prev]);
+            setExams((prev) => [
+                {
+                    ...nextExam,
+                    status: 'draft',
+                    questionCount: created.totalItems || payload.questions.length,
+                    duration: created.timeLimit || payload.timeLimit,
+                    authorId: created.creator?.id || user?.id || '',
+                },
+                ...prev,
+            ]);
             toast.success('Exam duplicated as draft.');
         } catch (error) {
             console.error('Failed to duplicate exam', error);
@@ -499,605 +608,505 @@ const ManageExamsPage: React.FC = () => {
         try {
             const response = await api.post(`/exams/${examId}/export-to-deck`);
             const deck = response.data?.data as { title?: string } | undefined;
-            toast.success(deck?.title
-                ? `Exported to study materials as "${deck.title}".`
-                : 'Mock exam exported to study materials.');
+            toast.success(
+                deck?.title
+                    ? `Exported to study materials as "${deck.title}".`
+                    : 'Mock exam exported to study materials.',
+            );
         } catch (error: any) {
             console.error('Failed to export exam to study materials', error);
-            const message = error?.response?.data?.message || 'Failed to export exam to study materials. Please try again.';
-            toast.error(message);
+            toast.error(
+                error?.response?.data?.message
+                    || 'Failed to export exam to study materials. Please try again.',
+            );
         } finally {
             setActionExamId(null);
         }
     };
 
-    const canManageExam = (exam: Exam) => {
-        if (user?.role === 'ADMIN') return true;
-        return exam.authorId === user?.id;
-    };
+    const renderStatusCell = useCallback(
+        (exam: Exam) => {
+            const pill = <StatusPill tone={STATUS_TONE[exam.status]} label={STATUS_LABEL[exam.status]} />;
+            if (!canManageExam(exam)) return pill;
 
-    const canEditExam = (exam: Exam) => {
-        if (exam.status === 'live') return false;
-        return canManageExam(exam);
-    };
+            const transitions = (Object.keys(STATUS_LABEL) as Exam['status'][]).filter(
+                (status) => status !== exam.status,
+            );
 
-    const getDisplayAuthorName = (exam: Exam) => {
-        if (user?.role === 'REVIEWER' && exam.authorId === user.id) return 'You';
-        return exam.authorName;
-    };
-
-    const formatPublishedDate = (publishedDate?: string) => {
-        if (!publishedDate) return 'Not published';
-        return new Date(publishedDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        });
-    };
-
-    const renderExamCard = (exam: Exam) => (
-        <Card key={exam.id} className={`group border-gray-100 hover:border-primary/20 hover:shadow-md transition-all duration-200 overflow-hidden bg-white h-full ${viewMode === 'grid' ? 'rounded-lg' : 'rounded-md'}`}>
-            <CardContent className="p-3 flex flex-col h-full">
-                {(() => {
-                    const isManageable = canManageExam(exam);
-                    const isEditable = canEditExam(exam);
-
-                    return (
-                        <>
-                <div className="flex justify-between items-start mb-2 gap-2">
-                    <Badge
-                        variant="outline"
-                        className="text-[9px] font-semibold uppercase tracking-wider text-primary border-primary/20 bg-primary/5 rounded px-1.5 max-w-[60%] truncate"
-                    >
-                        {exam.category}
-                    </Badge>
-                    <div className="flex items-center gap-1">
-                        <Badge className={`font-semibold text-[9px] uppercase tracking-wider border-none ${exam.status === 'live' ? 'bg-green-50 text-green-600' :
-                            exam.status === 'draft' ? 'bg-amber-50 text-amber-600' :
-                                exam.status === 'closed' ? 'bg-red-50 text-red-600' :
-                                    'bg-gray-50 text-gray-500'
-                            }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${exam.status === 'live' ? 'bg-green-600' :
-                                exam.status === 'draft' ? 'bg-amber-600' :
-                                    exam.status === 'closed' ? 'bg-red-600' :
-                                        'bg-gray-500'
-                                }`} />
-                            {exam.status}
-                        </Badge>
-
-                        {isManageable ? (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-400">
-                                        <MoreHorizontal size={18} />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-xl border-gray-100 shadow-xl w-48">
-                                <Link to={`/manage-exams/${exam.id}/view`}>
-                                    <DropdownMenuItem
-                                        className="gap-2 font-bold text-xs py-2.5"
-                                        disabled={actionExamId === exam.id}
-                                    >
-                                        <Eye size={14} /> View
-                                    </DropdownMenuItem>
-                                </Link>
-                                <DropdownMenuItem
-                                    className="gap-2 font-bold text-xs py-2.5"
-                                    onClick={() => handleDuplicate(exam.id)}
-                                    disabled={actionExamId === exam.id}
-                                >
-                                    <Copy size={14} /> Duplicate
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="gap-2 font-bold text-xs py-2.5"
-                                    onClick={() => handleExportToStudyMaterial(exam.id)}
-                                    disabled={actionExamId === exam.id}
-                                >
-                                    <BookOpen size={14} /> Export as Study Material
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="gap-2 font-bold text-xs py-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
-                                    disabled={actionExamId === exam.id}
-                                    onClick={() => {
-                                        setExamToDelete(exam.id);
-                                        setIsDeleteDialogOpen(true);
-                                    }}
-                                >
-                                    <Trash2 size={14} /> Delete
-                                </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        ) : (
-                            <Link to={`/manage-exams/${exam.id}/view`}>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-400">
-                                    <BarChart3 size={16} />
-                                </Button>
-                            </Link>
-                        )}
-                    </div>
-                </div>
-
-                <div className="space-y-1.5 mb-2">
-                    <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors leading-tight overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
-                        {exam.title}
-                    </h3>
-                    <div className="flex items-center gap-1.5">
-                        <Avatar className="h-5 w-5">
-                            <AvatarImage src={exam.authorAvatar} alt={exam.authorName} />
-                            <AvatarFallback className="text-[9px] font-semibold">{getDisplayAuthorName(exam).slice(0, 1).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <p className="text-[10px] text-gray-500 font-medium truncate">Author: {getDisplayAuthorName(exam)}</p>
-                    </div>
-                    <p className="text-[10px] text-gray-500 font-medium truncate">
-                        Sections: {exam.sectionTitles.length > 0 ? exam.sectionTitles.join(', ') : 'Full Exam'}
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 py-2 border-y border-gray-100 mb-2">
-                    <div className="space-y-0.5">
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                            <Grid size={11} /> Questions
-                        </p>
-                        <p className="text-xs font-semibold text-gray-700">{exam.questionCount} Items</p>
-                    </div>
-                    <div className="space-y-0.5">
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                            <Clock size={11} /> Timer
-                        </p>
-                        <p className="text-xs font-semibold text-gray-700">{exam.duration} Min</p>
-                    </div>
-                </div>
-
-                <div className="space-y-1.5 mb-2">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                            <CheckCircle2 size={11} className="text-accent" /> Attempts
-                        </span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-semibold text-gray-900">{exam.maxAttempts}</span>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                            <Calendar size={11} className="text-blue-500" /> Date Published
-                        </span>
-                        <span className="text-[11px] font-semibold text-gray-900">
-                            {formatPublishedDate(exam.publishedAt)}
-                        </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                            <Calendar size={11} className="text-red-500" /> Deadline
-                        </span>
-                        <span className="text-[11px] font-semibold text-gray-900">
-                            {exam.deadline
-                                ? new Date(exam.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                : 'No deadline'}
-                        </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                            <Calendar size={11} className="text-blue-500" /> Close on Deadline
-                        </span>
-                        <span className={`text-[11px] font-semibold ${exam.closeOnDeadline ? 'text-blue-600' : 'text-gray-500'}`}>
-                            {exam.closeOnDeadline ? 'On' : 'Off'}
-                        </span>
-                    </div>
-                </div>
-
-                {(() => {
-                    const trackLabels = exam.tracks.length > 0
-                        ? exam.tracks.map((t) => t.name)
-                        : exam.program
-                            ? exam.program.split(',').map((s) => s.trim()).filter(Boolean)
-                            : ['All Tracks'];
-                    return (
-                        <div className="flex flex-wrap gap-1 mb-2">
-                            {trackLabels.map((label) => (
-                                <span key={label} className="inline-flex items-center rounded px-1.5 py-px text-[9px] font-semibold bg-primary/5 text-primary border border-primary/15 leading-4">
-                                    {label}
-                                </span>
-                            ))}
-                        </div>
-                    );
-                })()}
-
-                <div className={`mt-auto ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex items-center gap-2 justify-end'}`}>
-                    <Link to={`/manage-exams/${exam.id}/view`} className={viewMode === 'grid' ? 'w-full' : ''}>
-                        <Button variant="outline" className={`h-8 rounded-md border-gray-200 font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
-                            <Eye size={13} /> View Details
-                        </Button>
-                    </Link>
-                    {isEditable ? (
-                        <Link to={`/manage-exams/${exam.id}/edit`} className={viewMode === 'grid' ? 'w-full' : ''}>
-                            <Button className={`h-8 rounded-md bg-primary/5 hover:bg-primary/10 text-primary border-none font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
-                                <Edit size={13} /> Edit Exam
-                            </Button>
-                        </Link>
-                    ) : (
-                        <Button disabled className={`h-8 rounded-md border-gray-200 bg-gray-100 text-gray-500 font-semibold text-xs gap-1.5 ${viewMode === 'grid' ? 'w-full' : 'px-3'}`}>
-                            <Lock size={13} /> {exam.status === 'live' ? 'Published' : 'Read Only'}
-                        </Button>
-                    )}
-                </div>
-                        </>
-                    );
-                })()}
-            </CardContent>
-        </Card>
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            disabled={actionExamId === exam.id}
+                            aria-label={`Change status of ${exam.title}. Currently ${STATUS_LABEL[exam.status]}`}
+                            className="inline-flex items-center gap-1 rounded-md transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 disabled:opacity-50"
+                        >
+                            {pill}
+                            <ChevronDown size={11} className="text-slate-400" aria-hidden="true" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-44 rounded-lg">
+                        {transitions.map((status) => (
+                            <DropdownMenuItem
+                                key={status}
+                                onClick={() => setStatusChange({ exam, next: status })}
+                                className="gap-2 py-2 text-[12px] font-semibold"
+                            >
+                                Move to {STATUS_LABEL[status].toLowerCase()}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+        [actionExamId, canManageExam],
     );
 
-    return (
-        <div className="flex flex-col gap-3 font-lexend pb-6">
-            <header className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Exam Library</h1>
-                    <p className="text-[11px] text-gray-400 mt-0.5">Manage and organize all LET preparation exams.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative w-full sm:w-52 group">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={13} />
-                        <Input
-                            placeholder="Search exams..."
-                            className="pl-8 h-8 rounded-md border-gray-200 text-xs"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className="h-8 rounded-md border-gray-200 font-semibold gap-1.5 text-xs bg-white"
-                            >
-                                <SlidersHorizontal size={13} /> Filters
-                                {activeFilterCount > 0 && (
-                                    <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full bg-primary/10 text-primary text-[9px] font-semibold">
-                                        {activeFilterCount}
-                                    </span>
-                                )}
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-90 rounded-xl p-4 space-y-3">
-                            <div className="space-y-2">
-                                <Label>Status</Label>
-                                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Statuses</SelectItem>
-                                        <SelectItem value="live">Live</SelectItem>
-                                        <SelectItem value="draft">Draft</SelectItem>
-                                        <SelectItem value="archived">Archived</SelectItem>
-                                        <SelectItem value="closed">Closed</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Category</Label>
-                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Categories</SelectItem>
-                                        {categoryOptions.map((category) => (
-                                            <SelectItem key={category} value={category}>{category}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Visible To</Label>
-                                <Select value={programFilter} onValueChange={setProgramFilter}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Visible To" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Programs</SelectItem>
-                                        <SelectItem value={ALL_PROGRAMS_FILTER}>All Programs (Public)</SelectItem>
-                                        {programOptions.tracked.map((track) => (
-                                            <SelectItem key={track.id} value={track.id}>{track.name}</SelectItem>
-                                        ))}
-                                        {programOptions.legacy.map((program) => (
-                                            <SelectItem key={`${LEGACY_PROGRAM_PREFIX}${program}`} value={`${LEGACY_PROGRAM_PREFIX}${program}`}>
-                                                {resolveProgramLabel(program, trackOptions)}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Author</Label>
-                                <Select value={authorFilter} onValueChange={setAuthorFilter}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Author" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Authors</SelectItem>
-                                        {authorOptions.map((author) => (
-                                            <SelectItem key={author} value={author}>{author}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+    const renderRowActions = useCallback(
+        (exam: Exam) => {
+            const manageable = canManageExam(exam);
+            const editable = canEditExam(exam);
 
-                            <div className="space-y-2">
-                                <Label>Deadline</Label>
-                                <Select value={deadlineFilter} onValueChange={(value) => setDeadlineFilter(value as typeof deadlineFilter)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Deadline" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Deadlines</SelectItem>
-                                        <SelectItem value="with-deadline">With Deadline</SelectItem>
-                                        <SelectItem value="without-deadline">Without Deadline</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Date Published</Label>
-                                <Select value={publishedFilter} onValueChange={(value) => setPublishedFilter(value as typeof publishedFilter)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Date Published" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Dates</SelectItem>
-                                        <SelectItem value="last_7_days">Last 7 days</SelectItem>
-                                        <SelectItem value="last_30_days">Last 30 days</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Sort By</Label>
-                                <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Sort By" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="default">Default</SelectItem>
-                                        <SelectItem value="published_newest">Date Published: Newest</SelectItem>
-                                        <SelectItem value="published_oldest">Date Published: Oldest</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Close on Deadline</Label>
-                                <Select value={autoCloseFilter} onValueChange={(value) => setAutoCloseFilter(value as typeof autoCloseFilter)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Close on Deadline" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Close Modes</SelectItem>
-                                        <SelectItem value="on">Close on Deadline: On</SelectItem>
-                                        <SelectItem value="off">Close on Deadline: Off</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="pt-2 flex justify-end">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        setStatusFilter('all');
-                                        setCategoryFilter('all');
-                                        setProgramFilter('all');
-                                        setAuthorFilter('all');
-                                        setOwnershipFilter('all');
-                                        setDeadlineFilter('all');
-                                        setPublishedFilter('all');
-                                        setAutoCloseFilter('all');
-                                        setSortBy('default');
-                                        setSearch('');
-                                    }}
-                                >
-                                    Clear Filters
-                                </Button>
-                            </div>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <div className="flex items-center gap-0.5 rounded-md border border-gray-200 p-0.5 bg-white">
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                         <Button
-                            type="button"
-                            variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                            className="h-7 px-2.5 rounded text-xs"
-                            onClick={() => setViewMode('grid')}
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-lg text-slate-400 hover:text-slate-700"
+                            aria-label={`Actions for ${exam.title}`}
+                            disabled={actionExamId === exam.id}
                         >
-                            <LayoutGrid size={12} className="mr-1" /> Grid
+                            <MoreHorizontal size={15} aria-hidden="true" />
                         </Button>
-                        <Button
-                            type="button"
-                            variant={viewMode === 'list' ? 'default' : 'ghost'}
-                            className="h-7 px-2.5 rounded text-xs"
-                            onClick={() => setViewMode('list')}
-                        >
-                            <List size={12} className="mr-1" /> List
-                        </Button>
-                    </div>
-                    <Link to="/manage-exams/create">
-                        <Button className="h-8 rounded-md bg-primary hover:bg-primary/95 text-white font-semibold gap-1.5 text-xs px-3">
-                            <Plus size={13} /> Create Exam
-                        </Button>
-                    </Link>
-                </div>
-            </header>
-
-{(() => {
-                const gridClass = viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3' : 'flex flex-col gap-2';
-                const CreateCard = () => (
-                    <Link to="/manage-exams/create" className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50 hover:bg-primary/2 hover:border-primary/50 transition-all group min-h-40">
-                        <div className="bg-white p-2.5 rounded-full shadow-sm group-hover:scale-110 transition-transform">
-                            <Plus size={20} className="text-primary" />
-                        </div>
-                        <div className="text-center">
-                            <p className="font-semibold text-xs text-gray-900">Create New Mock Exam</p>
-                            <p className="text-[10px] text-gray-400 font-medium mt-0.5 max-w-45">Start from scratch or use a predefined template</p>
-                        </div>
-                    </Link>
-                );
-
-                const SectionToggle = ({
-                    icon,
-                    label,
-                    count,
-                    open,
-                    onToggle,
-                    accent,
-                }: {
-                    icon: React.ReactNode;
-                    label: string;
-                    count: number;
-                    open: boolean;
-                    onToggle: () => void;
-                    accent: string;
-                }) => (
-                    <button
-                        type="button"
-                        onClick={onToggle}
-                        className="w-full flex items-center gap-2.5 group/toggle select-none"
-                    >
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${accent}`}>
-                            {icon}
-                            <span className="text-[11px] font-bold tracking-wide">{label}</span>
-                            <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full bg-white/60 text-[10px] font-bold">
-                                {count}
-                            </span>
-                        </div>
-                        <div className="flex-1 h-px bg-gray-100" />
-                        <div className={`flex items-center justify-center h-6 w-6 rounded-full border border-gray-200 bg-white text-gray-400 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}>
-                            <ChevronDown size={12} />
-                        </div>
-                    </button>
-                );
-
-                if (user?.role === 'REVIEWER') {
-                    const myExams = filteredAndSortedExams.filter((e) => e.authorId === user.id);
-                    const otherExams = filteredAndSortedExams.filter((e) => e.authorId !== user.id);
-                    return (
-                        <div className="flex flex-col gap-5 mt-1">
-                            {/* My Exams */}
-                            <div className="flex flex-col gap-3">
-                                <SectionToggle
-                                    icon={<User size={12} />}
-                                    label="My Exams"
-                                    count={myExams.length}
-                                    open={myExamsOpen}
-                                    onToggle={() => setMyExamsOpen((v) => !v)}
-                                    accent="bg-primary/5 border-primary/20 text-primary"
-                                />
-                                {myExamsOpen && (
-                                    <div className={gridClass}>
-                                        {loading && (
-                                            <Card className="border-gray-100 rounded-lg bg-white">
-                                                <CardContent className="p-4 text-xs text-gray-400 font-medium">Loading exams...</CardContent>
-                                            </Card>
-                                        )}
-                                        {myExams.map(renderExamCard)}
-                                        <CreateCard />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Other Reviewers' Exams */}
-                            <div className="flex flex-col gap-3">
-                                <SectionToggle
-                                    icon={<Users size={12} />}
-                                    label="Other Reviewers' Exams"
-                                    count={otherExams.length}
-                                    open={othersOpen}
-                                    onToggle={() => setOthersOpen((v) => !v)}
-                                    accent="bg-violet-50 border-violet-200 text-violet-600"
-                                />
-                                {othersOpen && (
-                                    otherExams.length === 0 ? (
-                                        <div className="flex items-center gap-2 py-6 px-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
-                                            <Grid size={14} className="text-gray-300 shrink-0" />
-                                            <p className="text-xs text-gray-400 font-medium">No exams from other reviewers match your filters.</p>
-                                        </div>
-                                    ) : (
-                                        <div className={gridClass}>
-                                            {otherExams.map(renderExamCard)}
-                                        </div>
-                                    )
-                                )}
-                            </div>
-                        </div>
-                    );
-                }
-
-                // ADMIN flat list
-                return (
-                    <div className={`${gridClass} mt-1`}>
-                        {loading && (
-                            <Card className="border-gray-100 rounded-lg bg-white">
-                                <CardContent className="p-4 text-xs text-gray-400 font-medium">Loading exams...</CardContent>
-                            </Card>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52 rounded-lg">
+                        <DropdownMenuItem asChild className="cursor-pointer gap-2 py-2 text-[12px] font-semibold">
+                            <Link to={`/manage-exams/${exam.id}/view`}>
+                                <Eye size={13} aria-hidden="true" /> View details
+                            </Link>
+                        </DropdownMenuItem>
+                        {editable && (
+                            <DropdownMenuItem asChild className="cursor-pointer gap-2 py-2 text-[12px] font-semibold">
+                                <Link to={`/manage-exams/${exam.id}/edit`}>
+                                    <Edit size={13} aria-hidden="true" /> Edit exam
+                                </Link>
+                            </DropdownMenuItem>
                         )}
-                        {filteredAndSortedExams.map(renderExamCard)}
-                        <CreateCard />
-                    </div>
-                );
-            })()}
+                        {manageable && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="gap-2 py-2 text-[12px] font-semibold"
+                                    onClick={() => handleDuplicate(exam.id)}
+                                >
+                                    <Copy size={13} aria-hidden="true" /> Duplicate
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="gap-2 py-2 text-[12px] font-semibold"
+                                    onClick={() => handleExportToStudyMaterial(exam.id)}
+                                >
+                                    <BookOpen size={13} aria-hidden="true" /> Export as study material
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="gap-2 py-2 text-[12px] font-semibold text-red-600 focus:bg-red-50 focus:text-red-600"
+                                    onClick={() => setExamToDelete(exam)}
+                                >
+                                    <Trash2 size={13} aria-hidden="true" /> Delete
+                                </DropdownMenuItem>
+                            </>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+        [actionExamId, canEditExam, canManageExam],
+    );
 
-            {/* Delete Confirmation Dialog */}
-            <ConfirmDialog
-                open={isDeleteDialogOpen}
-                onOpenChange={(open) => {
-                    setIsDeleteDialogOpen(open);
-                    if (!open) setExamToDelete(null);
-                }}
-                title="Delete Exam?"
-                description="Are you sure you want to delete this exam? This action cannot be undone and all student results will be lost."
-                confirmLabel="Yes, Delete"
-                variant="destructive"
-                onConfirm={handleDelete}
-            />
-            <Dialog
-                open={statusDialogOpen}
-                onOpenChange={(open) => {
-                    if (!open) closeStatusDialog();
-                }}
-            >
-                <DialogContent className="rounded-xl max-w-md border-none shadow-xl">
-                    <DialogHeader className="space-y-3 text-center items-center">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                            <SlidersHorizontal size={24} />
+    const columns = useMemo<ResourceColumn<Exam>[]>(
+        () => [
+            {
+                id: 'title',
+                header: 'Title',
+                primary: true,
+                sortable: true,
+                sortValue: (exam) => exam.title,
+                className: 'min-w-[260px]',
+                cell: (exam) => (
+                    <div className="flex min-w-0 items-start gap-2">
+                        <Avatar className="mt-0.5 hidden h-5 w-5 shrink-0 lg:flex">
+                            <AvatarImage src={exam.authorAvatar} alt="" />
+                            <AvatarFallback className="text-[10px] font-semibold">
+                                {getDisplayAuthorName(exam).slice(0, 1).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                            <Link
+                                to={`/manage-exams/${exam.id}/view`}
+                                className="block truncate font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+                            >
+                                {exam.title}
+                            </Link>
+                            <p className="mt-0.5 truncate text-[12px] text-slate-400">
+                                {getDisplayAuthorName(exam)} ·{' '}
+                                {exam.tracks.length > 0
+                                    ? exam.tracks.map((track) => track.name).join(', ')
+                                    : exam.program || 'All programs'}
+                            </p>
                         </div>
-                        <div className="space-y-1">
-                            <DialogTitle className="text-base font-bold">Change Exam Status</DialogTitle>
-                            <DialogDescription className="font-medium">
-                                Select the status you want the exam to reflect.
-                            </DialogDescription>
-                        </div>
-                    </DialogHeader>
-                    <div className="space-y-3">
-                        <Label>Status</Label>
-                        <Select value={statusDialogValue} onValueChange={(value) => setStatusDialogValue(value as Exam['status'])}>
-                            <SelectTrigger>
+                    </div>
+                ),
+            },
+            {
+                id: 'status',
+                header: 'Status',
+                status: true,
+                sortable: true,
+                sortValue: (exam) => exam.status,
+                className: 'w-[130px]',
+                cell: renderStatusCell,
+            },
+            {
+                id: 'category',
+                header: 'Category',
+                sortable: true,
+                stacked: true,
+                sortValue: (exam) => exam.category,
+                className: 'w-[150px]',
+                cell: (exam) => <span className="block truncate">{exam.category}</span>,
+            },
+            {
+                id: 'items',
+                header: 'Items',
+                sortable: true,
+                stacked: true,
+                sortValue: (exam) => exam.questionCount,
+                className: 'w-[80px] tabular-nums',
+                cell: (exam) => exam.questionCount,
+                stackedCell: (exam) => `${exam.questionCount} items`,
+            },
+            {
+                id: 'duration',
+                header: 'Time',
+                sortable: true,
+                stacked: true,
+                sortValue: (exam) => exam.duration,
+                className: 'w-[80px] whitespace-nowrap',
+                cell: (exam) => formatDuration(exam.duration),
+            },
+            {
+                id: 'deadline',
+                header: 'Deadline',
+                sortable: true,
+                stacked: true,
+                sortValue: (exam) => new Date(exam.deadline || 0).getTime(),
+                className: 'w-[130px] whitespace-nowrap',
+                cell: (exam) => (
+                    <span className="inline-flex items-center gap-1">
+                        {formatDate(exam.deadline)}
+                        {exam.deadline && exam.closeOnDeadline && (
+                            <span
+                                title="Closes automatically on the deadline"
+                                className="rounded bg-blue-50 px-1 text-[10px] font-semibold text-blue-600"
+                            >
+                                auto
+                            </span>
+                        )}
+                    </span>
+                ),
+                stackedCell: (exam) => (exam.deadline ? `due ${formatDate(exam.deadline)}` : 'no deadline'),
+            },
+        ],
+        [getDisplayAuthorName, renderStatusCell],
+    );
+
+    const createAction = (
+        <Button asChild className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90">
+            <Link to="/manage-exams/create">
+                <Plus size={13} aria-hidden="true" /> Create exam
+            </Link>
+        </Button>
+    );
+
+    const tableState = loading ? 'loading' : loadError ? 'error' : 'ready';
+
+    return (
+        <div className="flex flex-col gap-3 pb-6 font-lexend">
+            <ManageToolbar
+                title="Exam library"
+                description="Manage and organise all LET preparation exams."
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search exams…"
+                searchLabel="Search exams"
+                segments={segments}
+                segmentValue={ownershipFilter}
+                onSegmentChange={(value) => setOwnershipFilter(value as typeof ownershipFilter)}
+                segmentLabel="Filter by owner"
+                inlineFilters={
+                    <>
+                        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                            <SelectTrigger className="h-8 w-[130px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by status">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
-                                {STATUS_CHANGE_OPTIONS.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                <SelectItem value="all">All statuses</SelectItem>
+                                <SelectItem value="live">Live</SelectItem>
+                                <SelectItem value="draft">Draft</SelectItem>
+                                <SelectItem value="closed">Closed</SelectItem>
+                                <SelectItem value="archived">Archived</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                            <SelectTrigger className="h-8 w-[160px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by category">
+                                <SelectValue placeholder="Category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All categories</SelectItem>
+                                {categoryOptions.map((category) => (
+                                    <SelectItem key={category} value={category}>
+                                        {category}
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
-                    <DialogFooter className="grid grid-cols-2 gap-2 mt-4">
-                        <Button variant="outline" onClick={closeStatusDialog} className="h-9 rounded-md font-semibold border-gray-200">
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleStatusDialogConfirm}
-                            className="h-9 rounded-md bg-primary hover:bg-primary/90 text-white font-semibold border-none"
-                            disabled={!statusDialogExamId}
-                        >
-                            Update Status
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </>
+                }
+                popoverFilters={
+                    <>
+                        <FilterField label="Visible to">
+                            <Select value={programFilter} onValueChange={setProgramFilter}>
+                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by program visibility">
+                                    <SelectValue placeholder="Visible to" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All programs</SelectItem>
+                                    <SelectItem value={ALL_PROGRAMS_FILTER}>All programs (public)</SelectItem>
+                                    {programOptions.tracked.map((track) => (
+                                        <SelectItem key={track.id} value={track.id}>
+                                            {track.name}
+                                        </SelectItem>
+                                    ))}
+                                    {programOptions.legacy.map((program) => (
+                                        <SelectItem
+                                            key={`${LEGACY_PROGRAM_PREFIX}${program}`}
+                                            value={`${LEGACY_PROGRAM_PREFIX}${program}`}
+                                        >
+                                            {resolveProgramLabel(program, trackOptions)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Author">
+                            <Select value={authorFilter} onValueChange={setAuthorFilter}>
+                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by author">
+                                    <SelectValue placeholder="Author" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All authors</SelectItem>
+                                    {authorOptions.map((author) => (
+                                        <SelectItem key={author} value={author}>
+                                            {author}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Deadline">
+                            <Select value={deadlineFilter} onValueChange={(value) => setDeadlineFilter(value as typeof deadlineFilter)}>
+                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by deadline">
+                                    <SelectValue placeholder="Deadline" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All deadlines</SelectItem>
+                                    <SelectItem value="with-deadline">With deadline</SelectItem>
+                                    <SelectItem value="without-deadline">Without deadline</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Date published">
+                            <Select value={publishedFilter} onValueChange={(value) => setPublishedFilter(value as typeof publishedFilter)}>
+                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by publish date">
+                                    <SelectValue placeholder="Date published" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All dates</SelectItem>
+                                    <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                                    <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Close on deadline">
+                            <Select value={autoCloseFilter} onValueChange={(value) => setAutoCloseFilter(value as typeof autoCloseFilter)}>
+                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by close on deadline">
+                                    <SelectValue placeholder="Close on deadline" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All close modes</SelectItem>
+                                    <SelectItem value="on">On</SelectItem>
+                                    <SelectItem value="off">Off</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FilterField>
+                    </>
+                }
+                activeFilterCount={chips.length}
+                chips={chips}
+                onClearAll={clearAllFilters}
+                view={view}
+                onViewChange={setView}
+                createAction={createAction}
+            />
+
+            {view === 'table' ? (
+                <ResourceTable
+                    rows={visibleExams}
+                    columns={columns}
+                    getRowId={(exam) => exam.id}
+                    caption="Mock exams you manage"
+                    state={tableState}
+                    error={loadError}
+                    onRetry={() => void fetchManagedExams()}
+                    filtersActive={chips.length > 0}
+                    onClearFilters={clearAllFilters}
+                    emptyTitle="No exams yet"
+                    emptyDescription="Create your first mock exam to get started."
+                    emptyAction={createAction}
+                    rowActions={renderRowActions}
+                    resetKey={`${search}|${statusFilter}|${categoryFilter}|${programFilter}|${authorFilter}|${deadlineFilter}|${publishedFilter}|${autoCloseFilter}|${ownershipFilter}`}
+                />
+            ) : (
+                <ExamGrid
+                    exams={visibleExams}
+                    loading={loading}
+                    error={loadError}
+                    onRetry={() => void fetchManagedExams()}
+                    renderRowActions={renderRowActions}
+                    renderStatusCell={renderStatusCell}
+                    getDisplayAuthorName={getDisplayAuthorName}
+                />
+            )}
+
+            <ConfirmDialog
+                open={examToDelete !== null}
+                onOpenChange={(open) => {
+                    if (!open) setExamToDelete(null);
+                }}
+                title="Delete exam?"
+                description={`Delete "${examToDelete?.title ?? ''}"? This cannot be undone and all student results will be lost.`}
+                confirmLabel="Yes, delete"
+                variant="destructive"
+                onConfirm={handleDelete}
+            />
+
+            <ConfirmDialog
+                open={statusChange !== null}
+                onOpenChange={(open) => {
+                    if (!open) setStatusChange(null);
+                }}
+                title={statusChange ? `Move to ${STATUS_LABEL[statusChange.next].toLowerCase()}?` : ''}
+                description={statusChange ? STATUS_CONSEQUENCE[statusChange.next] : ''}
+                confirmLabel={statusChange ? `Move to ${STATUS_LABEL[statusChange.next].toLowerCase()}` : 'Confirm'}
+                variant={
+                    statusChange && (statusChange.next === 'closed' || statusChange.next === 'archived')
+                        ? 'destructive'
+                        : 'default'
+                }
+                onConfirm={handleConfirmStatusChange}
+            />
+        </div>
+    );
+};
+
+interface ExamGridProps {
+    exams: Exam[];
+    loading: boolean;
+    error: string | null;
+    onRetry: () => void;
+    renderRowActions: (exam: Exam) => React.ReactNode;
+    renderStatusCell: (exam: Exam) => React.ReactNode;
+    getDisplayAuthorName: (exam: Exam) => string;
+}
+
+const ExamGrid: React.FC<ExamGridProps> = ({
+    exams,
+    loading,
+    error,
+    onRetry,
+    renderRowActions,
+    renderStatusCell,
+    getDisplayAuthorName,
+}) => {
+    if (loading) {
+        return (
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-[13px] text-slate-500">
+                Loading exams…
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="rounded-xl border border-red-200 bg-white px-6 py-10 text-center">
+                <p className="text-[13px] font-semibold text-slate-900">{error}</p>
+                <Button
+                    variant="outline"
+                    className="mt-4 h-8 rounded-lg border-slate-200 text-[12px] font-semibold"
+                    onClick={onRetry}
+                >
+                    Retry
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {exams.map((exam) => (
+                <Card key={exam.id} className="rounded-xl border-slate-200 bg-white shadow-none transition-colors hover:border-primary/30">
+                    <CardContent className="flex h-full flex-col gap-2 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                            {renderStatusCell(exam)}
+                            {renderRowActions(exam)}
+                        </div>
+                        <div className="min-w-0">
+                            <Link
+                                to={`/manage-exams/${exam.id}/view`}
+                                className="line-clamp-2 text-[13px] font-semibold text-slate-900 transition-colors hover:text-primary"
+                            >
+                                {exam.title}
+                            </Link>
+                            <p className="mt-0.5 truncate text-[12px] text-slate-400">
+                                {getDisplayAuthorName(exam)} ·{' '}
+                                {exam.tracks.length > 0
+                                    ? exam.tracks.map((track) => track.name).join(', ')
+                                    : exam.program || 'All programs'}
+                            </p>
+                        </div>
+                        <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
+                            <div className="flex justify-between gap-2">
+                                <dt className="text-slate-400">Items</dt>
+                                <dd className="font-semibold text-slate-700 tabular-nums">{exam.questionCount}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                                <dt className="text-slate-400">Time</dt>
+                                <dd className="font-semibold text-slate-700">{formatDuration(exam.duration)}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                                <dt className="text-slate-400">Category</dt>
+                                <dd className="truncate font-semibold text-slate-700">{exam.category}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                                <dt className="text-slate-400">Deadline</dt>
+                                <dd className="font-semibold text-slate-700">{formatDate(exam.deadline)}</dd>
+                            </div>
+                        </dl>
+                    </CardContent>
+                </Card>
+            ))}
         </div>
     );
 };
