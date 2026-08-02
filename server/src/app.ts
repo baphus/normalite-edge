@@ -48,17 +48,19 @@ const authLimiter = rateLimit({
     message: { success: false, message: 'Too many authentication attempts, please try again later' },
 });
 
-// Upload: 20 uploads per hour
-const uploadLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, message: 'Upload limit reached, please try again later' },
-});
+// Upload limits are per-identity and live on the uploads router itself — an
+// `app.use` prefix is matched against the un-normalised URL, so `//uploads/…`
+// would slip past one registered here.
 
 // ─── Middleware ─────────────────────────────────────────
 app.use(cors(corsOptions));
+
+// One body limit for everything, uploads included. A separate 5mb mount for
+// /api/v1/uploads used to sit here; it was dead (registered against the
+// singular /api/v1/upload, and behind this parser, which consumes the stream
+// first) and pointless either way — `uploadImageSchema` caps a payload at
+// 2,000,000 characters, which already fits inside 2mb. Reinstating it would
+// only have raised how much an unauthenticated caller can make us buffer.
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -69,11 +71,7 @@ app.use(cookieParser());
 // provisioning surface.
 app.use('/api/v1/auth/complete-profile', authLimiter);
 app.use('/api/v1/auth/session-start', authLimiter);
-app.use('/api/v1/upload', uploadLimiter);
 app.use('/api/v1', globalLimiter);
-
-// Higher body limit for upload routes only (base64 images)
-app.use('/api/v1/upload', express.json({ limit: '5mb' }));
 
 // ─── Health Check ──────────────────────────────────────
 app.get('/api/health', (_req, res) => {

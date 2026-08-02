@@ -205,6 +205,26 @@ describe('Input Validation', () => {
         assert.equal(res.body.success, false);
     });
 
+    // Relaxed from `authenticate` to `requireSupabaseSession` so a Google user
+    // with no profile row yet can still replace the suggested avatar. A valid
+    // session must still be mandatory.
+    it('should reject the pre-registration avatar upload without an access token', async () => {
+        const res = await request('POST', '/api/v1/uploads/public-profile-image', {
+            body: { fileDataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+        });
+        assert.equal(res.status, 401);
+        assert.equal(res.body.success, false);
+    });
+
+    it('should reject the pre-registration avatar upload with a forged token', async () => {
+        const res = await request('POST', '/api/v1/uploads/public-profile-image', {
+            body: { fileDataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+            headers: { Authorization: 'Bearer not.a.real.token' },
+        });
+        assert.equal(res.status, 401);
+        assert.equal(res.body.success, false);
+    });
+
     it('should reject a forged bearer token', async () => {
         const res = await request('GET', '/api/v1/auth/me', {
             headers: { Authorization: 'Bearer not.a.real.token' },
@@ -232,6 +252,16 @@ describe('Input Validation', () => {
         });
         // Should be rejected — either 400 (validation) or 401 (auth) or 413 (too large)
         assert.ok(res.status >= 400 && res.status < 500);
+    });
+
+    // body-parser's own error used to fall through to the generic handler and
+    // be reported as a 500 — an internal fault, for a client sending too much.
+    it('should report an oversized body as 413, not 500', async () => {
+        const res = await request('POST', '/api/v1/auth/complete-profile', {
+            body: { firstName: 'A'.repeat(3_000_000) },
+        });
+        assert.equal(res.status, 413);
+        assert.equal(res.body.success, false);
     });
 });
 

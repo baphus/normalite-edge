@@ -1,4 +1,21 @@
 import { z } from 'zod';
+import { isStorableAvatarUrl } from '../utils/importRemoteAvatar';
+
+/**
+ * A profile picture URL the client is allowed to persist.
+ *
+ * Restricted to our own upload bucket and the provider's avatar host. A stored
+ * avatar is rendered back to reviewers and admins, so accepting any URL here
+ * would let an account plant a tracking pixel or arbitrary remote content in
+ * someone else's page.
+ */
+const avatarUrlSchema = z
+    .string()
+    .url('Profile picture must be a valid URL')
+    .max(2048, 'Profile picture URL is too long')
+    .refine(isStorableAvatarUrl, {
+        message: 'Profile picture must be an uploaded image',
+    });
 
 /**
  * Academic details collected after a first Google sign-in.
@@ -19,7 +36,7 @@ export const completeProfileSchema = z.object({
         .transform((value) => (value ? value[0].toUpperCase() : value))
         .refine((value) => value.length <= 1, { message: 'Middle initial must be 1 character' }),
     suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
-    picture: z.string().url('Profile picture must be a valid URL').optional(),
+    picture: avatarUrlSchema.optional(),
     track_id: z.string().uuid('Invalid track id'),
     campus_id: z.string().uuid('Invalid campus id'),
     yearLevel: z.string().trim().min(1, 'Year is required'),
@@ -40,7 +57,7 @@ export const updateProfileSchema = z.object({
         .optional(),
     suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
     name: z.string().min(2).optional(),
-    picture: z.string().url('picture must be a valid URL').optional(),
+    picture: avatarUrlSchema.optional(),
     track_id: z.string().uuid('Invalid track id').optional(),
     campus_id: z.string().uuid('Invalid campus id').optional(),
     program: z.string().optional(),
@@ -54,7 +71,7 @@ export const updateProfileSchema = z.object({
 });
 
 export const completeOnboardingSchema = z.object({
-    picture: z.string().url('picture must be a valid URL').optional(),
+    picture: avatarUrlSchema.optional(),
 });
 
 export const completeTourSchema = z.object({

@@ -50,6 +50,20 @@ export const env = {
 /** Domain whose accounts authenticate exclusively through Google SSO. */
 export const INTERNAL_EMAIL_DOMAIN = 'cnu.edu.ph';
 
-/** True when the address belongs to the institution's Google Workspace. */
-export const isInternalEmail = (email: string): boolean =>
-    email.trim().toLowerCase().endsWith(`@${INTERNAL_EMAIL_DOMAIN}`);
+/**
+ * True when the address belongs to the institution's Google Workspace.
+ *
+ * This decides authorization, not just presentation, so it insists on a
+ * well-formed address rather than merely a matching suffix. A bare
+ * `endsWith('@cnu.edu.ph')` also accepted `attacker@evil.com @cnu.edu.ph`,
+ * which is only a suffix match away from being treated as internal.
+ */
+export const isInternalEmail = (email: string): boolean => {
+    const normalized = email.trim().toLowerCase();
+    const at = normalized.indexOf('@');
+
+    return at > 0
+        && normalized.indexOf('@', at + 1) === -1
+        && !/\s/.test(normalized)
+        && normalized.slice(at + 1) === INTERNAL_EMAIL_DOMAIN;
+};

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
 import { AlertCircle, ArrowRight, Camera, UserRound } from 'lucide-react';
 import api from '@/lib/axios';
-import { uploadImageToCloudinary } from '@/lib/upload';
+import { uploadProfilePictureBeforeRegistration } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +48,8 @@ const ProfileForm: React.FC<{
     role: ProfileRole;
     suggestedFirstName: string | null;
     suggestedLastName: string | null;
-}> = ({ role, suggestedFirstName, suggestedLastName }) => {
+    suggestedPicture: string | null;
+}> = ({ role, suggestedFirstName, suggestedLastName, suggestedPicture }) => {
     const navigate = useNavigate();
     const { refreshProfile } = useAuth();
 
@@ -58,7 +59,16 @@ const ProfileForm: React.FC<{
     const [submitting, setSubmitting] = useState(false);
     const [tracks, setTracks] = useState<Option[]>([]);
     const [campuses, setCampuses] = useState<Option[]>([]);
-    const [picture, setPicture] = useState<string>('');
+    /**
+     * Only ever set by the crop-and-upload flow — this is the picture the user
+     * actively chose, and the only one we send back.
+     *
+     * The suggested picture is deliberately not folded in here. It arrives from
+     * the provider and is allowlisted server-side; echoing it back would mean
+     * the API storing a client-supplied URL. Leaving it out lets the existing
+     * server-side fallback apply the default, already validated.
+     */
+    const [uploadedPicture, setUploadedPicture] = useState<string>('');
     const [isUploadingPicture, setIsUploadingPicture] = useState(false);
     const [imgError, setImgError] = useState(false);
     const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -129,8 +139,8 @@ const ProfileForm: React.FC<{
         try {
             setIsUploadingPicture(true);
             const file = new File([croppedBlob], 'profile-pic.jpg', { type: 'image/jpeg' });
-            const secureUrl = await uploadImageToCloudinary(file, 'profile-pics');
-            setPicture(secureUrl);
+            const secureUrl = await uploadProfilePictureBeforeRegistration(file);
+            setUploadedPicture(secureUrl);
             setImgError(false);
         } catch {
             setError('Failed to upload profile picture. Please try again.');
@@ -150,7 +160,7 @@ const ProfileForm: React.FC<{
                 lastName: data.lastName.trim(),
                 middleInitial: data.middleInitial?.trim() || undefined,
                 suffix: data.suffix?.trim() || undefined,
-                picture: picture || undefined,
+                picture: uploadedPicture || undefined,
                 track_id: data.trackId || undefined,
                 campus_id: data.campusId || undefined,
                 yearLevel: data.yearLevel?.trim() || undefined,
@@ -183,6 +193,10 @@ const ProfileForm: React.FC<{
 
     const suffixValue = watch('suffix');
 
+    // The upload wins over the suggestion; `imgError` covers a suggested URL
+    // that no longer resolves, falling back to the placeholder icon.
+    const displayPicture = uploadedPicture || suggestedPicture || '';
+
     return (
         <>
             {error && (
@@ -195,9 +209,9 @@ const ProfileForm: React.FC<{
                 {/* Profile Photo Upload */}
                 <div className="flex flex-col items-center gap-3">
                     <div className="relative group">
-                        {picture && !imgError ? (
+                        {displayPicture && !imgError ? (
                             <img
-                                src={picture}
+                                src={displayPicture}
                                 alt="Profile"
                                 className="h-24 w-24 rounded-full object-cover border-2 border-primary"
                                 onError={() => setImgError(true)}
@@ -221,7 +235,11 @@ const ProfileForm: React.FC<{
                         disabled={isUploadingPicture}
                         className="text-xs font-semibold text-primary disabled:opacity-50"
                     >
-                        {isUploadingPicture ? 'Uploading...' : 'Add profile photo'}
+                        {isUploadingPicture
+                            ? 'Uploading...'
+                            : displayPicture && !imgError
+                                ? 'Change profile photo'
+                                : 'Add profile photo'}
                     </button>
                     <input
                         ref={profileImageInputRef}
@@ -551,6 +569,7 @@ const CompleteProfilePage: React.FC = () => {
                 role={role}
                 suggestedFirstName={pending.firstName}
                 suggestedLastName={pending.lastName}
+                suggestedPicture={pending.picture}
             />
         </AuthLayout>
     );

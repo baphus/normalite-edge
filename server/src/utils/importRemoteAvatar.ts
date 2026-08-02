@@ -1,5 +1,5 @@
 /**
- * Hostnames we will accept an avatar from.
+ * Hostnames we will import a provider avatar from.
  *
  * This allowlist is a security control, not a convenience. The source URL
  * originates from the Supabase token's `user_metadata`, which the user can
@@ -9,10 +9,57 @@
  */
 const ALLOWED_AVATAR_HOSTS = ['googleusercontent.com'];
 
-const isAllowedHost = (hostname: string): boolean =>
-    ALLOWED_AVATAR_HOSTS.some(
-        (allowed) => hostname === allowed || hostname.endsWith(`.${allowed}`)
-    );
+import { env } from '../config/env';
+
+/** Our own upload bucket — where a picture the user uploaded lands. */
+const UPLOAD_BUCKET_HOST = 'res.cloudinary.com';
+
+/**
+ * Avatars are served from subdomains (`lh3.`, `lh4.`, …), never the apex. Both
+ * predicates match the `imgSrc` CSP directive in `app.ts` exactly — `*.google‑
+ * usercontent.com` and the literal bucket host — so a URL we would refuse to
+ * render is a URL we refuse to store.
+ */
+const isProviderAvatarHost = (hostname: string): boolean =>
+    ALLOWED_AVATAR_HOSTS.some((host) => hostname.endsWith(`.${host}`));
+
+/**
+ * The bucket host is shared by every Cloudinary customer — the account is
+ * identified by the first path segment. Matching on the host alone would accept
+ * `res.cloudinary.com/<somebody-elses-cloud>/…`, which is exactly the remote
+ * content this function exists to keep out.
+ *
+ * With no cloud name configured no upload can succeed anyway, so fall back to
+ * the host check rather than rejecting everything.
+ */
+const isOwnUploadUrl = (url: URL): boolean => {
+    if (url.hostname !== UPLOAD_BUCKET_HOST) return false;
+
+    const cloudName = env.CLOUDINARY_CLOUD_NAME;
+    return !cloudName || url.pathname.startsWith(`/${cloudName}/`);
+};
+
+/**
+ * `URL.hostname` drops any `user:pass@` prefix, so a host check alone would
+ * accept `https://evil.test@lh3.googleusercontent.com/…` and then persist the
+ * credentials when the URL is serialized back out.
+ */
+const hasEmbeddedCredentials = (url: URL): boolean => Boolean(url.username || url.password);
+
+/**
+ * A CSP host-source with no port matches only the scheme's default, so an
+ * explicit port would be stored and then refused at render time. `URL.port` is
+ * empty when the port is absent or is the default for the scheme.
+ */
+const hasExplicitPort = (url: URL): boolean => url.port !== '';
+
+/**
+ * Google serves an avatar at any size from the same URL, selected by a trailing
+ * `=s<N>-c` directive on the *path*. The token typically carries `=s96-c`,
+ * which is soft when rendered at 96 CSS pixels on a 2x display.
+ */
+const GOOGLE_SIZE_DIRECTIVE = /=s\d+-c$/;
+const PREFERRED_AVATAR_SIZE = 's256-c';
 
 /**
  * Validate and return a provider-hosted avatar URL for direct use.
@@ -28,12 +75,43 @@ export function importRemoteAvatar(sourceUrl: string): string | null {
     try {
         const url = new URL(sourceUrl);
 
-        if (url.protocol !== 'https:' || !isAllowedHost(url.hostname)) {
+        if (
+            url.protocol !== 'https:'
+            || hasEmbeddedCredentials(url)
+            || hasExplicitPort(url)
+            || !isProviderAvatarHost(url.hostname)
+        ) {
             return null;
         }
+
+        // Scoped to the path: rewriting the serialized URL would miss the
+        // directive whenever a query or fragment follows it, and could mangle
+        // a query value that happens to look like one.
+        url.pathname = url.pathname.replace(GOOGLE_SIZE_DIRECTIVE, `=${PREFERRED_AVATAR_SIZE}`);
 
         return url.toString();
     } catch {
         return null;
+    }
+}
+
+/**
+ * Whether a client-supplied avatar URL may be persisted.
+ *
+ * A stored avatar is rendered back to other people — reviewers and admins see
+ * it in user management — so an unconstrained URL here is a stored-content and
+ * tracking-pixel vector, not merely a cosmetic concern. Only our own upload
+ * bucket and the provider's own host qualify.
+ */
+export function isStorableAvatarUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
+
+        return url.protocol === 'https:'
+            && !hasEmbeddedCredentials(url)
+            && !hasExplicitPort(url)
+            && (isOwnUploadUrl(url) || isProviderAvatarHost(url.hostname));
+    } catch {
+        return false;
     }
 }

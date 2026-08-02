@@ -51,6 +51,16 @@ interface PendingRegistration {
     ineligibleReason: 'domain' | 'provider' | null;
     firstName: string | null;
     lastName: string | null;
+    /**
+     * The avatar to offer as the default on the profile form, so a Google user
+     * sees the picture they already have instead of a blank placeholder.
+     *
+     * A provider-supplied avatar is allowlisted server-side before it gets
+     * here. An invited user's already-stored picture is passed through as-is,
+     * which for a row predating that validation may be any URL — the same
+     * exposure as every other page that renders `user.picture`.
+     */
+    picture: string | null;
     /** Role assigned by the admin during invite. */
     role?: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 }
@@ -152,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ineligibleReason: state.ineligibleReason ?? null,
                     firstName: state.suggested?.firstName ?? null,
                     lastName: state.suggested?.lastName ?? null,
+                    picture: state.suggested?.picture ?? null,
                     role: state.role ?? undefined,
                 });
             }

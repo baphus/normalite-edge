@@ -465,12 +465,20 @@ const ProfilePage: React.FC = () => {
 
         try {
             setIsSavingProfile(true);
+
+            // Only send the picture when this save actually replaced it.
+            // Re-sending the stored URL would put an avatar the user never
+            // touched back through validation — and a legacy one hosted
+            // outside the upload bucket would then block edits to unrelated
+            // fields like section or contact number.
+            const pictureChanged = picture !== (user?.picture || '');
+
             const payload: Record<string, string | undefined> = {
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
                 middleInitial: middleInitial.trim() || undefined,
                 suffix: suffix.trim() || undefined,
-                picture: picture || undefined,
+                picture: pictureChanged ? picture || undefined : undefined,
             };
 
             if (isReviewee) {
