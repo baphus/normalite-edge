@@ -531,8 +531,7 @@ const CreateExamPage: React.FC = () => {
     const [activeSection, setActiveSection] = useState(DEFAULT_SECTION_TITLE);
     const [isAddingSection, setIsAddingSection] = useState(false);
     const [newSectionName, setNewSectionName] = useState('');
-    const [editingSection, setEditingSection] = useState<string | null>(null);
-    const [editingSectionName, setEditingSectionName] = useState('');
+
     const [programs, setPrograms] = useState<string[]>(['All Programs']);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingExam, setIsLoadingExam] = useState(false);
@@ -733,11 +732,6 @@ const CreateExamPage: React.FC = () => {
         if (activeSection === section) {
             setActiveSection(remainingSections[0] || DEFAULT_SECTION_TITLE);
         }
-    };
-
-    const cancelRenameSection = () => {
-        setEditingSection(null);
-        setEditingSectionName('');
     };
 
     const createQuestion = (targetSection?: string) => {
