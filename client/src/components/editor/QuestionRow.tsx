@@ -41,6 +41,12 @@ export interface QuestionRowProps {
     onMove: (questionId: string, direction: 'up' | 'down') => void;
     onMoveToSection?: (question: EditableQuestion) => void;
     onImageUpload: (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    /**
+     * False when rendered outside a DndContext (the import preview dialog), so the
+     * drag handle is not offered where dragging cannot work. Move up/down in the
+     * kebab still functions there.
+     */
+    sortable?: boolean;
 }
 
 export const QuestionRow: React.FC<QuestionRowProps> = ({
@@ -55,6 +61,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
     onMove,
     onMoveToSection,
     onImageUpload,
+    sortable = true,
 }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: question.id,
@@ -81,15 +88,17 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
         >
             {/* Collapsed summary — always visible, doubles as the expand control */}
             <div className="flex items-center gap-2 px-2 py-1.5">
-                <button
-                    type="button"
-                    className="cursor-grab touch-none rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:cursor-grabbing"
-                    aria-label={`Reorder question ${index + 1}`}
-                    {...attributes}
-                    {...listeners}
-                >
-                    <GripVertical size={14} aria-hidden="true" />
-                </button>
+                {sortable && (
+                    <button
+                        type="button"
+                        className="cursor-grab touch-none rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:cursor-grabbing"
+                        aria-label={`Reorder question ${index + 1}`}
+                        {...attributes}
+                        {...listeners}
+                    >
+                        <GripVertical size={14} aria-hidden="true" />
+                    </button>
+                )}
 
                 <button
                     type="button"

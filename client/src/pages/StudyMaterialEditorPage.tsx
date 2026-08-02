@@ -34,7 +34,7 @@ import {
 } from '@/lib/importQuestions';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
-import { uploadImageToCloudinary } from '@/lib/upload';
+import { uploadQuestionImageFromEvent } from '@/lib/questionImage';
 import { toast } from 'sonner';
 
 interface TrackOption {
@@ -229,54 +229,23 @@ const DeckEditorPage: React.FC = () => {
         });
     }, []);
 
-    const validateImageFile = (file: File) => {
-        if (!file.type.startsWith('image/')) {
-            toast.error('Please select a valid image file.');
-            return false;
-        }
-        if (file.size > 3 * 1024 * 1024) {
-            toast.error('Image must be 3MB or smaller.');
-            return false;
-        }
-        return true;
-    };
-
-    const handleImageUpload = useCallback(
+    const handleQuestionImageUpload = useCallback(
         async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-            const file = event.target.files?.[0];
-            event.target.value = '';
-            if (!file || !validateImageFile(file)) return;
-
-            try {
-                const secureUrl = await uploadImageToCloudinary(file, 'question-images');
-                updateQuestion(questionId, { imageUrl: secureUrl });
-                toast.success('Image attached successfully.');
-            } catch (error) {
-                console.error('Failed to attach card image', error);
-                toast.error('Failed to attach image. Please try again.');
-            }
+            const secureUrl = await uploadQuestionImageFromEvent(event);
+            if (secureUrl) updateQuestion(questionId, { imageUrl: secureUrl });
         },
         [updateQuestion],
     );
 
     const handleImportPreviewImageUpload = useCallback(
         async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-            const file = event.target.files?.[0];
-            event.target.value = '';
-            if (!file || !validateImageFile(file)) return;
-
-            try {
-                const secureUrl = await uploadImageToCloudinary(file, 'question-images');
-                setImportPreview((prev) =>
-                    prev.map((question) =>
-                        question.id === questionId ? { ...question, imageUrl: secureUrl } : question,
-                    ),
-                );
-                toast.success('Image attached to imported question.');
-            } catch (error) {
-                console.error('Failed to attach imported card image', error);
-                toast.error('Failed to attach image. Please try again.');
-            }
+            const secureUrl = await uploadQuestionImageFromEvent(event);
+            if (!secureUrl) return;
+            setImportPreview((prev) =>
+                prev.map((question) =>
+                    question.id === questionId ? { ...question, imageUrl: secureUrl } : question,
+                ),
+            );
         },
         [],
     );
@@ -556,7 +525,7 @@ const DeckEditorPage: React.FC = () => {
                     onDelete={deleteQuestion}
                     onDuplicate={duplicateQuestion}
                     onMove={moveQuestion}
-                    onImageUpload={handleImageUpload}
+                    onImageUpload={handleQuestionImageUpload}
                     onAdd={addQuestion}
                     onReorder={reorderQuestions}
                     emptyTitle="No questions yet"
@@ -639,6 +608,7 @@ const DeckEditorPage: React.FC = () => {
                                     })
                                 }
                                 onImageUpload={handleImportPreviewImageUpload}
+                                sortable={false}
                             />
                         ))}
                     </ul>

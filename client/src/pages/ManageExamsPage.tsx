@@ -36,8 +36,10 @@ import {
 } from '@/components/manage/ManageToolbar';
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 import { StatusPill, type StatusTone } from '@/components/manage/StatusPill';
+import { CollectionEmpty, CollectionError } from '@/components/manage/CollectionState';
 import api from '@/lib/axios';
 import { fetchAllPages, extractListPayload } from '@/lib/fetchAllPages';
+import { formatShortDate, formatDurationMinutes } from '@/lib/formatters';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -138,17 +140,6 @@ const STATUS_CONSEQUENCE: Record<Exam['status'], string> = {
 const ALL_PROGRAMS_FILTER = '__all_programs__';
 const LEGACY_PROGRAM_PREFIX = '__legacy__:';
 
-const formatDate = (value?: string) => {
-    if (!value) return '—';
-    return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-const formatDuration = (minutes: number) => {
-    if (!minutes) return '—';
-    if (minutes < 60) return `${minutes}m`;
-    const hours = minutes / 60;
-    return Number.isInteger(hours) ? `${hours}h` : `${minutes}m`;
-};
 
 const getAuthorAvatar = (name: string, creator?: ManagedExamApi['creator']) => {
     if (creator?.avatarUrl) return creator.avatarUrl;
@@ -230,7 +221,11 @@ const ManageExamsPage: React.FC = () => {
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [programFilter, setProgramFilter] = useState('all');
     const [authorFilter, setAuthorFilter] = useState('all');
-    const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'mine' | 'others'>('all');
+    // Lazy initialiser covers a remount where the session is already known; the
+    // render-time guard below covers the first load, where `user` is still null.
+    const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'mine' | 'others'>(
+        () => (isReviewer ? 'mine' : 'all'),
+    );
     const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'with-deadline' | 'without-deadline'>('all');
     const [publishedFilter, setPublishedFilter] = useState<'all' | 'last_7_days' | 'last_30_days'>('all');
     const [autoCloseFilter, setAutoCloseFilter] = useState<'all' | 'on' | 'off'>('all');
@@ -742,7 +737,7 @@ const ManageExamsPage: React.FC = () => {
                     <div className="flex min-w-0 items-start gap-2">
                         <Avatar className="mt-0.5 hidden h-5 w-5 shrink-0 lg:flex">
                             <AvatarImage src={exam.authorAvatar} alt="" />
-                            <AvatarFallback className="text-[10px] font-semibold">
+                            <AvatarFallback className="text-[11px] font-semibold">
                                 {getDisplayAuthorName(exam).slice(0, 1).toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
@@ -798,7 +793,7 @@ const ManageExamsPage: React.FC = () => {
                 stacked: true,
                 sortValue: (exam) => exam.duration,
                 className: 'w-[80px] whitespace-nowrap',
-                cell: (exam) => formatDuration(exam.duration),
+                cell: (exam) => formatDurationMinutes(exam.duration),
             },
             {
                 id: 'deadline',
@@ -809,18 +804,18 @@ const ManageExamsPage: React.FC = () => {
                 className: 'w-[130px] whitespace-nowrap',
                 cell: (exam) => (
                     <span className="inline-flex items-center gap-1">
-                        {formatDate(exam.deadline)}
+                        {formatShortDate(exam.deadline)}
                         {exam.deadline && exam.closeOnDeadline && (
                             <span
                                 title="Closes automatically on the deadline"
-                                className="rounded bg-blue-50 px-1 text-[10px] font-semibold text-blue-600"
+                                className="rounded bg-blue-50 px-1 text-[11px] font-semibold text-blue-600"
                             >
                                 auto
                             </span>
                         )}
                     </span>
                 ),
-                stackedCell: (exam) => (exam.deadline ? `due ${formatDate(exam.deadline)}` : 'no deadline'),
+                stackedCell: (exam) => (exam.deadline ? `due ${formatShortDate(exam.deadline)}` : 'no deadline'),
             },
         ],
         [getDisplayAuthorName, renderStatusCell],
@@ -974,7 +969,7 @@ const ManageExamsPage: React.FC = () => {
                     state={tableState}
                     error={loadError}
                     onRetry={() => void fetchManagedExams()}
-                    filtersActive={chips.length > 0}
+                    filtersActive={chips.length > 0 || ownershipFilter !== 'all'}
                     onClearFilters={clearAllFilters}
                     emptyTitle="No exams yet"
                     emptyDescription="Create your first mock exam to get started."
@@ -988,6 +983,9 @@ const ManageExamsPage: React.FC = () => {
                     loading={loading}
                     error={loadError}
                     onRetry={() => void fetchManagedExams()}
+                    filtersActive={chips.length > 0 || ownershipFilter !== 'all'}
+                    onClearFilters={clearAllFilters}
+                    emptyAction={createAction}
                     renderRowActions={renderRowActions}
                     renderStatusCell={renderStatusCell}
                     getDisplayAuthorName={getDisplayAuthorName}
@@ -1030,6 +1028,9 @@ interface ExamGridProps {
     loading: boolean;
     error: string | null;
     onRetry: () => void;
+    filtersActive: boolean;
+    onClearFilters: () => void;
+    emptyAction: React.ReactNode;
     renderRowActions: (exam: Exam) => React.ReactNode;
     renderStatusCell: (exam: Exam) => React.ReactNode;
     getDisplayAuthorName: (exam: Exam) => string;
@@ -1040,30 +1041,34 @@ const ExamGrid: React.FC<ExamGridProps> = ({
     loading,
     error,
     onRetry,
+    filtersActive,
+    onClearFilters,
+    emptyAction,
     renderRowActions,
     renderStatusCell,
     getDisplayAuthorName,
 }) => {
     if (loading) {
         return (
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-[13px] text-slate-500">
-                Loading exams…
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-[13px] text-slate-500" role="status">
+                Loading…
             </div>
         );
     }
 
     if (error) {
+        return <CollectionError message={error} onRetry={onRetry} />;
+    }
+
+    if (exams.length === 0) {
         return (
-            <div className="rounded-xl border border-red-200 bg-white px-6 py-10 text-center">
-                <p className="text-[13px] font-semibold text-slate-900">{error}</p>
-                <Button
-                    variant="outline"
-                    className="mt-4 h-8 rounded-lg border-slate-200 text-[12px] font-semibold"
-                    onClick={onRetry}
-                >
-                    Retry
-                </Button>
-            </div>
+            <CollectionEmpty
+                filtersActive={filtersActive}
+                onClearFilters={onClearFilters}
+                emptyTitle={"No exams yet"}
+                emptyDescription={"Create your first mock exam to get started."}
+                emptyAction={emptyAction}
+            />
         );
     }
 
@@ -1097,7 +1102,7 @@ const ExamGrid: React.FC<ExamGridProps> = ({
                             </div>
                             <div className="flex justify-between gap-2">
                                 <dt className="text-slate-400">Time</dt>
-                                <dd className="font-semibold text-slate-700">{formatDuration(exam.duration)}</dd>
+                                <dd className="font-semibold text-slate-700">{formatDurationMinutes(exam.duration)}</dd>
                             </div>
                             <div className="flex justify-between gap-2">
                                 <dt className="text-slate-400">Category</dt>
@@ -1105,7 +1110,7 @@ const ExamGrid: React.FC<ExamGridProps> = ({
                             </div>
                             <div className="flex justify-between gap-2">
                                 <dt className="text-slate-400">Deadline</dt>
-                                <dd className="font-semibold text-slate-700">{formatDate(exam.deadline)}</dd>
+                                <dd className="font-semibold text-slate-700">{formatShortDate(exam.deadline)}</dd>
                             </div>
                         </dl>
                     </CardContent>

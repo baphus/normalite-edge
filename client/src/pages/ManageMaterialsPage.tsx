@@ -19,8 +19,10 @@ import {
 import { ManageToolbar, type ActiveFilterChip, type ManageView } from '@/components/manage/ManageToolbar';
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 import { StatusPill } from '@/components/manage/StatusPill';
+import { CollectionEmpty, CollectionError } from '@/components/manage/CollectionState';
 import api from '@/lib/axios';
 import { fetchAllPages } from '@/lib/fetchAllPages';
+import { formatShortDate } from '@/lib/formatters';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -84,8 +86,6 @@ const formatVisibilityTracks = (tracks: Track[]) => {
     return tracks.map((track) => track.name).join(', ');
 };
 
-const formatDate = (value: string) =>
-    new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 const ManageMaterialsPage: React.FC = () => {
     const { user } = useAuth();
@@ -337,7 +337,7 @@ const ManageMaterialsPage: React.FC = () => {
                 stacked: true,
                 sortValue: (deck) => new Date(deck.createdAt).getTime(),
                 className: 'w-[120px] whitespace-nowrap',
-                cell: (deck) => formatDate(deck.createdAt),
+                cell: (deck) => formatShortDate(deck.createdAt),
             },
         ],
         [getDisplayCreatorName],
@@ -420,6 +420,9 @@ const ManageMaterialsPage: React.FC = () => {
                     isLoading={isLoading}
                     error={error}
                     onRetry={() => void fetchManagedDecks()}
+                    filtersActive={chips.length > 0}
+                    onClearFilters={clearAllFilters}
+                    emptyAction={createAction}
                     renderRowActions={renderRowActions}
                     getDisplayCreatorName={getDisplayCreatorName}
                 />
@@ -445,6 +448,9 @@ interface DeckGridProps {
     isLoading: boolean;
     error: string | null;
     onRetry: () => void;
+    filtersActive: boolean;
+    onClearFilters: () => void;
+    emptyAction: React.ReactNode;
     renderRowActions: (deck: Deck) => React.ReactNode;
     getDisplayCreatorName: (deck: Deck) => string;
 }
@@ -454,29 +460,33 @@ const DeckGrid: React.FC<DeckGridProps> = ({
     isLoading,
     error,
     onRetry,
+    filtersActive,
+    onClearFilters,
+    emptyAction,
     renderRowActions,
     getDisplayCreatorName,
 }) => {
     if (isLoading) {
         return (
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-[13px] text-slate-500">
-                Loading materials…
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-[13px] text-slate-500" role="status">
+                Loading…
             </div>
         );
     }
 
     if (error) {
+        return <CollectionError message={error} onRetry={onRetry} />;
+    }
+
+    if (decks.length === 0) {
         return (
-            <div className="rounded-xl border border-red-200 bg-white px-6 py-10 text-center">
-                <p className="text-[13px] font-semibold text-slate-900">{error}</p>
-                <Button
-                    variant="outline"
-                    className="mt-4 h-8 rounded-lg border-slate-200 text-[12px] font-semibold"
-                    onClick={onRetry}
-                >
-                    Retry
-                </Button>
-            </div>
+            <CollectionEmpty
+                filtersActive={filtersActive}
+                onClearFilters={onClearFilters}
+                emptyTitle={"No materials yet"}
+                emptyDescription={"Create your first study material for your reviewees."}
+                emptyAction={emptyAction}
+            />
         );
     }
 
@@ -518,7 +528,7 @@ const DeckGrid: React.FC<DeckGridProps> = ({
                             </div>
                             <div className="flex justify-between gap-2">
                                 <dt className="text-slate-400">Created</dt>
-                                <dd className="font-semibold text-slate-700">{formatDate(deck.createdAt)}</dd>
+                                <dd className="font-semibold text-slate-700">{formatShortDate(deck.createdAt)}</dd>
                             </div>
                         </dl>
                     </CardContent>
