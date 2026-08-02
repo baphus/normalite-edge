@@ -37,6 +37,28 @@ export const errorHandler = (
                 message: 'Record not found',
             });
         }
+
+        // P2021 (missing table) and P2022 (missing column) mean the database
+        // is behind the generated Prisma Client — a migration that shipped
+        // with the build has not been applied. Every request touching the
+        // affected model fails until it is, so this is called out explicitly
+        // rather than being logged as one more anonymous 500.
+        if (prismaError.code === 'P2021' || prismaError.code === 'P2022') {
+            const missing = prismaError.meta?.column || prismaError.meta?.table || 'unknown';
+            logger.error(
+                `DATABASE SCHEMA OUT OF DATE (${prismaError.code}): ${missing} is missing. ` +
+                'The deployed Prisma Client expects it. Run `npx prisma migrate deploy` ' +
+                'against this environment.',
+                err
+            );
+
+            // Deliberately generic to the caller: schema details are not the
+            // client's business, and this is not something they can fix.
+            return res.status(503).json({
+                success: false,
+                message: 'The service is temporarily unavailable. Please try again shortly.',
+            });
+        }
     }
 
     // Handle JWT errors
