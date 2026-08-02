@@ -13,6 +13,7 @@ import {
     CalendarDays,
     GraduationCap,
     Building2,
+    Tags,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -73,6 +74,7 @@ const navGroups: NavGroup[] = [
         items: [
             { name: 'Programs', href: '/admin/programs', icon: GraduationCap, roles: ['ADMIN'] },
             { name: 'Campuses', href: '/admin/campuses', icon: Building2, roles: ['ADMIN'] },
+            { name: 'Categories', href: '/admin/categories', icon: Tags, roles: ['ADMIN'] },
             { name: 'User Management', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
             { name: 'Audit Logs', href: '/admin/logs', icon: ShieldCheck, roles: ['ADMIN'] },
         ],
