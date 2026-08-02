@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
+import { isAxiosError } from 'axios';
 import type { Session } from '@supabase/supabase-js';
 import api from '../lib/axios';
 import { supabase, OAUTH_REDIRECT_URL } from '../lib/supabase';
@@ -60,6 +61,13 @@ interface AuthContextType {
     /** Retained so existing pages that read `loading` keep working. */
     loading: boolean;
     pending: PendingRegistration | null;
+    /**
+     * Set when GET /auth/me itself failed, as opposed to answering "no profile
+     * yet". Both leave `user` and `pending` null, but only one of them is a
+     * state the user can act on by filling in a form — so pages that ask for
+     * profile details must be able to tell them apart.
+     */
+    profileError: string | null;
     signInWithGoogle: (redirectPath?: string) => Promise<void>;
     signInWithPassword: (email: string, password: string) => Promise<void>;
     refreshProfile: () => Promise<void>;
@@ -79,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [sessionResolved, setSessionResolved] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [pending, setPending] = useState<PendingRegistration | null>(null);
+    const [profileError, setProfileError] = useState<string | null>(null);
     const [profileResolved, setProfileResolved] = useState(false);
 
     // Sign-ins are recorded once per session so a re-render or a token refresh
@@ -113,6 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!currentSession) {
             setUser(null);
             setPending(null);
+            setProfileError(null);
             setProfileResolved(true);
             reportedSessionRef.current = null;
             return;
@@ -121,6 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const response = await api.get('/auth/me');
             const state = response.data.data;
+            setProfileError(null);
 
             if (state.profileComplete) {
                 setUser(normalizeUser(state.user as User));
@@ -144,11 +155,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     role: state.role ?? undefined,
                 });
             }
-        } catch {
+        } catch (err) {
             // A disabled account or an unreachable API. Treat as no profile
             // rather than crashing the tree; the guards send them onward.
+            // `profileError` is what stops the destination page from mistaking
+            // this for a brand-new user and asking them to fill in a form it
+            // has no field list for.
             setUser(null);
             setPending(null);
+            setProfileError(
+                (isAxiosError<{ message?: string }>(err) && err.response?.data?.message) ||
+                'We could not reach the server to load your account. Please try again.'
+            );
         } finally {
             setProfileResolved(true);
         }
@@ -199,6 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await supabase.auth.signOut();
             setUser(null);
             setPending(null);
+            setProfileError(null);
             reportedSessionRef.current = null;
             window.location.href = '/login';
         }
@@ -224,6 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 status,
                 loading: status === 'loading',
                 pending,
+                profileError,
                 signInWithGoogle,
                 signInWithPassword,
                 refreshProfile,
