@@ -46,7 +46,8 @@ interface ManageToolbarProps {
     view: ManageView;
     onViewChange: (view: ManageView) => void;
 
-    createAction: React.ReactNode;
+    /** Omitted on reviewee-facing surfaces, which browse rather than author. */
+    createAction?: React.ReactNode;
 }
 
 /** Consistent label + control pairing for filters inside the popover. */
