@@ -1,12 +1,27 @@
+# Blueprint for the API service.
+#
+# NOTE: this file lives in server/, not at the repo root. Render looks at the
+# root by default, so it is only read if the Blueprint Path is set to
+# `server/render.yaml`. If the service was created by hand in the dashboard
+# instead, nothing here applies to it — which is why migrations are also run
+# from `npm start` (see server/package.json). That belt-and-braces is
+# deliberate: a schema change reaching production ahead of its migration takes
+# down every request that touches the affected model.
 services:
   - type: web
     name: normalite-edge-api
     env: node
+    # Relative to the repo root. Without this, buildCommand would run at the
+    # root, where there is no package.json.
+    rootDir: server
     plan: standard
     region: ohio
     buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
-    preDeployCommand: npx prisma migrate deploy
+    # Runs after the build and before the new version takes traffic; a failure
+    # fails the deploy and leaves the previous version serving. `npm start`
+    # runs the same script, so migrations still apply if this never fires.
+    preDeployCommand: npm run db:deploy
     envVars:
       - key: NODE_ENV
         scope: all
