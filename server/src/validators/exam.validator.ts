@@ -22,9 +22,13 @@ const examQuestionSchema = z.object({
     imageUrl: imageUrlSchema.optional(),
 });
 
+/** Null clears an existing description; omitting the key leaves it untouched. */
+const descriptionSchema = z.string().trim().nullable().optional();
+
 export const createExamSchema = z.object({
     title: requiredTrimmedString('Title'),
     subject: requiredTrimmedString('Subject'),
+    description: descriptionSchema,
     categoryId: categoryIdSchema,
     program: z.string().trim().optional(),
     program_track: z.string().trim().optional(),
@@ -43,6 +47,7 @@ export const createExamSchema = z.object({
 export const updateExamSchema = z.object({
     title: requiredTrimmedString('Title').optional(),
     subject: requiredTrimmedString('Subject').optional(),
+    description: descriptionSchema,
     categoryId: categoryIdSchema,
     program: z.string().trim().optional(),
     program_track: z.string().trim().optional(),

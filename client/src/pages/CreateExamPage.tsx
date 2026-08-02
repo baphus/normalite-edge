@@ -1,38 +1,19 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import {
-    ChevronRight,
-    ChevronUp,
-    ChevronDown,
-    GripVertical,
-    Save,
-    Plus,
-    X,
-    Trash2,
-    Copy,
-    Clock,
-    FileUp,
-    FileJson,
-    ImagePlus,
-    CalendarClock,
-    MoreHorizontal,
-    Eye,
-    FileText,
-    Settings2,
-    LayoutList,
-    ListChecks,
-} from 'lucide-react';
-import { DateTimePicker } from '@/components/ui/date-time-picker';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { FileJson, FileUp, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { CategorySelect } from '@/components/CategorySelect';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     Dialog,
     DialogContent,
@@ -48,26 +29,29 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { arrayMove } from '@dnd-kit/sortable';
+import { EditorShell, FieldLabel, SettingsCard, SettingsSection } from '@/components/editor/EditorShell';
+import { QuestionListEditor } from '@/components/editor/QuestionListEditor';
+import { QuestionRow } from '@/components/editor/QuestionRow';
+import { PublishReadiness } from '@/components/editor/PublishReadiness';
+import {
+    createEmptyQuestion,
+    getIncompleteQuestions,
+    isQuestionBlank,
+    OPTION_LETTERS,
+    type EditableQuestion,
+} from '@/components/editor/types';
+import {
+    downloadQuestionTemplate,
+    parseQuestionFile,
+    QuestionImportError,
+} from '@/lib/importQuestions';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/axios';
-import { parseCsvRecords } from '@/lib/parseCsvRecords';
-import { readUploadedText } from '@/lib/readUploadedText';
-import { uploadImageToCloudinary } from '@/lib/upload';
+import { uploadQuestionImageFromEvent } from '@/lib/questionImage';
 import { toast } from 'sonner';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-
-interface Question {
-    id: string;
-    text: string;
-    imageUrl?: string;
-    options: string[];
-    correctOption: number;
-    rationale: string;
-    section: string;
-}
+import { cn } from '@/lib/utils';
 
 interface TrackOption {
     id: string;
@@ -79,10 +63,7 @@ interface ExamQuestionApi {
     id: string;
     orderNo?: number;
     sectionId?: string;
-    section?: {
-        id?: string;
-        title?: string;
-    };
+    section?: { id?: string; title?: string };
     questionText?: string;
     imageUrl?: string;
     choiceA?: string;
@@ -114,7 +95,7 @@ interface ExamApi {
 
 type EditableExamStatus = 'LIVE' | 'DRAFT' | 'CLOSED' | 'ARCHIVED';
 
-const editableStatusOptions: Array<{ value: EditableExamStatus; label: string }> = [
+const EDITABLE_STATUS_OPTIONS: Array<{ value: EditableExamStatus; label: string }> = [
     { value: 'LIVE', label: 'Live' },
     { value: 'DRAFT', label: 'Draft' },
     { value: 'CLOSED', label: 'Closed' },
@@ -123,7 +104,9 @@ const editableStatusOptions: Array<{ value: EditableExamStatus; label: string }>
 
 const DEFAULT_SECTION_TITLE = 'Main section';
 const NEW_SECTION_OPTION = '__NEW_SECTION_OPTION__';
-const OPTION_DISPLAY_ORDER = [0, 2, 1, 3];
+const PRESET_DURATIONS = [30, 60, 90, 120, 180, 240];
+
+const normalizeSectionValue = (value?: string | null) => value?.trim() || DEFAULT_SECTION_TITLE;
 
 const ExcelTemplateIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
@@ -134,379 +117,13 @@ const ExcelTemplateIcon = () => (
     </svg>
 );
 
-const normalizeSectionValue = (value?: string | null) => value?.trim() || DEFAULT_SECTION_TITLE;
-
-type AutoGrowTextareaProps = React.ComponentProps<typeof Textarea>;
-
-const AutoGrowTextarea: React.FC<AutoGrowTextareaProps> = ({ className, onInput, value, ...props }) => {
-    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-    const syncHeight = () => {
-        const node = textareaRef.current;
-        if (!node) return;
-
-        node.style.height = '0px';
-        node.style.height = `${node.scrollHeight}px`;
-    };
-
-    useEffect(() => {
-        syncHeight();
-    }, [value]);
-
-    return (
-        <Textarea
-            {...props}
-            ref={textareaRef}
-            value={value}
-            onInput={(event) => {
-                syncHeight();
-                onInput?.(event);
-            }}
-            className={`${className || ''} overflow-hidden`}
-        />
-    );
-};
-
-interface SortableQuestionCardProps {
-    question: Question;
-    index: number;
-    totalVisibleQuestions: number;
-    onDuplicateQuestion: (question: Question) => void;
-    onOpenMoveQuestion: (question: Question) => void;
-    onDeleteQuestion: (questionId: string) => void;
-    onUpdateQuestion: (questionId: string, updates: Partial<Question>) => void;
-    onQuestionImageUpload: (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
-    onMoveQuestion: (questionId: string, direction: 'up' | 'down') => void;
-}
-
-const SortableQuestionCard: React.FC<SortableQuestionCardProps> = ({
-    question,
-    index,
-    totalVisibleQuestions,
-    onDuplicateQuestion,
-    onOpenMoveQuestion,
-    onDeleteQuestion,
-    onUpdateQuestion,
-    onQuestionImageUpload,
-    onMoveQuestion,
-}) => {
-    const [showRationale, setShowRationale] = useState(false);
-    const [isImageDragging, setIsImageDragging] = useState(false);
-    const imageInputRef = useRef<HTMLInputElement | null>(null);
-
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: question.id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
-    const handleImageDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsImageDragging(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file && file.type.startsWith('image/')) {
-            const fakeEvent = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
-            void onQuestionImageUpload(question.id, fakeEvent);
-        }
-    }, [question.id, onQuestionImageUpload]);
-
-    return (
-        <Card
-            ref={setNodeRef}
-            style={style}
-            className={`group/card rounded-2xl border-slate-100 shadow-sm overflow-hidden bg-white transition-all ${isDragging ? 'opacity-60 shadow-xl ring-2 ring-primary/20 scale-[1.01]' : 'hover:shadow-md hover:border-slate-200'}`}
-        >
-            {/* Card Header */}
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white px-4 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                    <button
-                        type="button"
-                        className="cursor-grab rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white hover:text-primary active:cursor-grabbing"
-                        {...attributes}
-                        {...listeners}
-                        title="Drag to reorder"
-                    >
-                        <GripVertical size={15} />
-                    </button>
-                    <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center justify-center h-6 min-w-[1.5rem] rounded-lg bg-primary/10 px-2 text-[10px] font-black text-primary">
-                            Q{index + 1}
-                        </span>
-                        {normalizeSectionValue(question.section) && (
-                            <span className="hidden sm:inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                                <LayoutList size={9} />
-                                {normalizeSectionValue(question.section)}
-                            </span>
-                        )}
-                    </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                    {/* Quick reorder buttons - only on larger screens */}
-                    {totalVisibleQuestions > 1 && (
-                        <div className="hidden sm:flex items-center gap-0.5 mr-1">
-                            <button
-                                type="button"
-                                className="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
-                                disabled={index === 0}
-                                onClick={() => onMoveQuestion(question.id, 'up')}
-                                title="Move up"
-                            >
-                                <ChevronUp size={14} />
-                            </button>
-                            <button
-                                type="button"
-                                className="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
-                                disabled={index === totalVisibleQuestions - 1}
-                                onClick={() => onMoveQuestion(question.id, 'down')}
-                                title="Move down"
-                            >
-                                <ChevronDown size={14} />
-                            </button>
-                        </div>
-                    )}
-                    {/* Dropdown action menu */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                type="button"
-                                className="flex items-center justify-center h-8 w-8 rounded-lg text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                                title="Question actions"
-                            >
-                                <MoreHorizontal size={16} />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            {totalVisibleQuestions > 1 && (
-                                <>
-                                    <DropdownMenuItem
-                                        disabled={index === 0}
-                                        onClick={() => onMoveQuestion(question.id, 'up')}
-                                        className="gap-2 text-xs font-semibold"
-                                    >
-                                        <ChevronUp size={13} /> Move Up
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        disabled={index === totalVisibleQuestions - 1}
-                                        onClick={() => onMoveQuestion(question.id, 'down')}
-                                        className="gap-2 text-xs font-semibold"
-                                    >
-                                        <ChevronDown size={13} /> Move Down
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                </>
-                            )}
-                            <DropdownMenuItem onClick={() => onDuplicateQuestion(question)} className="gap-2 text-xs font-semibold">
-                                <Copy size={13} /> Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onOpenMoveQuestion(question)} className="gap-2 text-xs font-semibold">
-                                <ChevronRight size={13} /> Move to Section
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onClick={() => onDeleteQuestion(question.id)}
-                                className="gap-2 text-xs font-semibold text-red-600 focus:text-red-600 focus:bg-red-50"
-                            >
-                                <Trash2 size={13} /> Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </div>
-
-            {/* Card Body */}
-            <CardContent className="space-y-5 p-5 sm:p-6">
-                {/* Question Text */}
-                <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        Question
-                    </Label>
-                    <AutoGrowTextarea
-                        value={question.text}
-                        onChange={(e) => onUpdateQuestion(question.id, { text: e.target.value })}
-                        placeholder="Enter your question here..."
-                        className="min-h-[4.5rem] rounded-xl border-slate-200/80 bg-slate-50/30 px-4 py-3 text-sm font-semibold leading-relaxed shadow-none focus:ring-primary/20 focus:border-primary/30 resize-none transition-all"
-                    />
-                </div>
-
-                {/* Image Upload */}
-                <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        Image <span className="lowercase font-medium text-slate-300">(optional)</span>
-                    </Label>
-                    {question.imageUrl ? (
-                        <div className="relative group/img rounded-xl border border-slate-200 bg-slate-50/40 p-3">
-                            <img
-                                src={question.imageUrl}
-                                alt="Question attachment"
-                                className="max-h-52 w-auto max-w-full rounded-lg border border-slate-100 object-contain bg-white mx-auto"
-                            />
-                            <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity">
-                                <label className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white border border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-primary hover:border-primary/30 cursor-pointer shadow-sm transition-all">
-                                    <ImagePlus size={11} />
-                                    Replace
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(event) => { void onQuestionImageUpload(question.id, event); }}
-                                        className="hidden"
-                                    />
-                                </label>
-                                <button
-                                    type="button"
-                                    className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-white border border-slate-200 text-[10px] font-bold uppercase tracking-wider text-red-400 hover:text-red-600 hover:border-red-200 cursor-pointer shadow-sm transition-all"
-                                    onClick={() => onUpdateQuestion(question.id, { imageUrl: '' })}
-                                >
-                                    <Trash2 size={11} />
-                                    Remove
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div
-                            onDragOver={(e) => { e.preventDefault(); setIsImageDragging(true); }}
-                            onDragLeave={() => setIsImageDragging(false)}
-                            onDrop={handleImageDrop}
-                            onClick={() => imageInputRef.current?.click()}
-                            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 cursor-pointer transition-all ${
-                                isImageDragging
-                                    ? 'border-primary/40 bg-primary/5'
-                                    : 'border-slate-200/80 bg-slate-50/20 hover:border-primary/25 hover:bg-primary/[0.02]'
-                            }`}
-                        >
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
-                                <ImagePlus size={18} className="text-slate-400" />
-                            </div>
-                            <div className="text-center">
-                                <p className="text-xs font-bold text-slate-500">Click to upload or drag and drop</p>
-                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">PNG, JPG up to 3MB</p>
-                            </div>
-                            <input
-                                ref={imageInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={(event) => { void onQuestionImageUpload(question.id, event); }}
-                                className="hidden"
-                            />
-                        </div>
-                    )}
-                </div>
-
-                {/* Answer Choices */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            Answer Choices
-                        </Label>
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-500">
-                            Tap circle to mark correct
-                        </span>
-                    </div>
-                    <RadioGroup
-                        value={question.correctOption.toString()}
-                        onValueChange={(val) => onUpdateQuestion(question.id, { correctOption: parseInt(val) })}
-                        className="space-y-2"
-                    >
-                        {OPTION_DISPLAY_ORDER.map((optIdx) => (
-                            <div
-                                key={optIdx}
-                                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-all ${
-                                    question.correctOption === optIdx
-                                        ? 'bg-emerald-50/50 border-emerald-200/80 ring-1 ring-emerald-100/60'
-                                        : 'bg-white border-slate-150 hover:border-slate-200 hover:bg-slate-50/30'
-                                }`}
-                            >
-                                <span className={`inline-flex items-center justify-center h-6 min-w-[1.5rem] rounded-md text-[10px] font-black ${
-                                    question.correctOption === optIdx
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-slate-100 text-slate-400'
-                                }`}>
-                                    {String.fromCharCode(65 + optIdx)}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                    <AutoGrowTextarea
-                                        value={question.options[optIdx] || ''}
-                                        rows={1}
-                                        onChange={(e) => {
-                                            const newOpts = [...question.options];
-                                            newOpts[optIdx] = e.target.value;
-                                            onUpdateQuestion(question.id, { options: newOpts });
-                                        }}
-                                        placeholder={`Enter option ${String.fromCharCode(65 + optIdx)}...`}
-                                        className={`min-h-0 w-full resize-none border-none bg-transparent p-0 text-sm font-semibold leading-5 focus:ring-0 ${
-                                            question.correctOption === optIdx ? 'text-slate-900' : 'text-slate-500'
-                                        }`}
-                                    />
-                                </div>
-                                <RadioGroupItem
-                                    value={optIdx.toString()}
-                                    id={`q-${question.id}-opt-${optIdx}`}
-                                    className={`shrink-0 transition-colors ${
-                                        question.correctOption === optIdx
-                                            ? 'border-emerald-400 text-emerald-500 focus:ring-emerald-500'
-                                            : 'border-slate-300 text-slate-300 focus:ring-slate-300'
-                                    }`}
-                                />
-                            </div>
-                        ))}
-                    </RadioGroup>
-                </div>
-
-                {/* Rationale - Collapsible */}
-                <div className="border-t border-slate-100 pt-4">
-                    <button
-                        type="button"
-                        onClick={() => setShowRationale(!showRationale)}
-                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors"
-                    >
-                        <span className={`flex items-center justify-center h-5 w-5 rounded-md transition-transform ${showRationale ? 'rotate-90' : ''}`}>
-                            <ChevronRight size={12} />
-                        </span>
-                        Rationale / Explanation
-                        {question.rationale && !showRationale && (
-                            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-                        )}
-                        <span className="lowercase font-medium text-slate-300">(optional)</span>
-                    </button>
-                    {showRationale && (
-                        <div className="mt-3">
-                            <AutoGrowTextarea
-                                value={question.rationale}
-                                onChange={(e) => onUpdateQuestion(question.id, { rationale: e.target.value })}
-                                placeholder="Explain why this is the correct answer..."
-                                className="min-h-[3.5rem] resize-none rounded-xl border-slate-200/80 bg-slate-50/30 px-4 py-3 text-xs font-medium leading-relaxed shadow-none focus:ring-primary/20 focus:border-primary/30 transition-all"
-                            />
-                        </div>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
-    );
-};
-
 const CreateExamPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const isEditing = !!id;
+    const isEditing = Boolean(id);
     const { user } = useAuth();
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 6,
-            },
-        })
-    );
 
-    const PRESET_DURATIONS = [30, 60, 90, 120, 180, 240];
-
-    // Form State
+    // Form state
     const [title, setTitle] = useState('');
     const [duration, setDuration] = useState('');
     const [maxAttempts, setMaxAttempts] = useState('3');
@@ -519,52 +136,94 @@ const CreateExamPage: React.FC = () => {
     const [category, setCategory] = useState<string | null>(null);
     const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
+    const [programs, setPrograms] = useState<string[]>(['All Programs']);
+    const [allowMultipleAttemptsConfig, setAllowMultipleAttemptsConfig] = useState(false);
+
+    // Sections
     const [sections, setSections] = useState<string[]>([DEFAULT_SECTION_TITLE]);
     const [activeSection, setActiveSection] = useState(DEFAULT_SECTION_TITLE);
     const [isAddingSection, setIsAddingSection] = useState(false);
     const [newSectionName, setNewSectionName] = useState('');
+    const [renamingSection, setRenamingSection] = useState<string | null>(null);
+    const [renamingSectionName, setRenamingSectionName] = useState('');
 
-    const [programs, setPrograms] = useState<string[]>(['All Programs']);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isLoadingExam, setIsLoadingExam] = useState(false);
-    const [allowMultipleAttemptsConfig, setAllowMultipleAttemptsConfig] = useState(false);
-    const importFileRef = useRef<HTMLInputElement | null>(null);
-    const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
-    const [importPreviewQuestions, setImportPreviewQuestions] = useState<Question[]>([]);
-    const [questions, setQuestions] = useState<Question[]>([]);
+    // Questions
+    const [questions, setQuestions] = useState<EditableQuestion[]>([]);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false);
     const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
-    const [moveQuestionTarget, setMoveQuestionTarget] = useState<Question | null>(null);
+    const [moveQuestionTarget, setMoveQuestionTarget] = useState<EditableQuestion | null>(null);
     const [moveTargetSection, setMoveTargetSection] = useState<string>(DEFAULT_SECTION_TITLE);
     const [moveTargetNewSection, setMoveTargetNewSection] = useState('');
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoadingExam, setIsLoadingExam] = useState(Boolean(id));
     const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
+    const importFileRef = useRef<HTMLInputElement | null>(null);
+    const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
+    const [importPreview, setImportPreview] = useState<EditableQuestion[]>([]);
+    const [importExpandedId, setImportExpandedId] = useState<string | null>(null);
+
+    // ── Dirty tracking ───────────────────────────────────────────────────────
+    const snapshot = useMemo(
+        () =>
+            JSON.stringify({
+                title,
+                duration,
+                maxAttempts,
+                deadline,
+                closeOnDeadline,
+                examStatus,
+                description,
+                category,
+                selectedPrograms,
+                sections,
+                questions,
+            }),
+        [
+            title,
+            duration,
+            maxAttempts,
+            deadline,
+            closeOnDeadline,
+            examStatus,
+            description,
+            category,
+            selectedPrograms,
+            sections,
+            questions,
+        ],
+    );
+    const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+    const isDirty = savedSnapshot !== null && snapshot !== savedSnapshot;
+
+    // Capture the clean baseline the moment loading settles — during render, so the
+    // form is never briefly reported as dirty before the effect would have run.
+    if (!isLoadingExam && savedSnapshot === null) {
+        setSavedSnapshot(snapshot);
+    }
+
+    // ── Data loading ─────────────────────────────────────────────────────────
     useEffect(() => {
-        const fetchTracks = async () => {
-            try {
-                const response = await api.get('/tracks');
+        api.get('/tracks')
+            .then((response) => {
                 const items = (response.data?.data || []) as TrackOption[];
                 setTracks(items);
                 setPrograms(['All Programs', ...items.map((track) => track.name)]);
-            } catch (error) {
-                console.error('Failed to load tracks', error);
-            }
-        };
-
-        fetchTracks();
+            })
+            .catch((error) => console.error('Failed to load tracks', error));
     }, []);
 
     useEffect(() => {
-        const fetchSystemSettings = async () => {
-            try {
-                const response = await api.get('/settings/system');
-                setAllowMultipleAttemptsConfig(Boolean(response.data?.data?.allowMultipleAttempts));
-            } catch (error) {
+        api.get('/settings/system')
+            .then((response) =>
+                setAllowMultipleAttemptsConfig(Boolean(response.data?.data?.allowMultipleAttempts)),
+            )
+            .catch((error) => {
                 console.error('Failed to load system settings', error);
                 setAllowMultipleAttemptsConfig(false);
-            }
-        };
-
-        void fetchSystemSettings();
+            });
     }, []);
 
     useEffect(() => {
@@ -576,25 +235,28 @@ const CreateExamPage: React.FC = () => {
                 const response = await api.get(`/exams/${id}?questions=true`);
                 const exam = response.data?.data as ExamApi;
 
-                setTitle(exam.title || '');
-                setDescription(exam.description || '');
-                setCategory(exam.categoryCode || null);
-                const loadedDuration = String(exam.timeLimit || exam.timeLimitMinutes || 120);
-                setDuration(loadedDuration);
-                setMaxAttempts(String(exam.maxAttempts ?? 3));
-                if (!PRESET_DURATIONS.includes(Number(loadedDuration))) {
-                    setIsCustomDuration(true);
-                }
-                setCloseOnDeadline(Boolean(exam.closeOnDeadline));
                 const loadedStatus = exam.status === 'PUBLISHED' ? 'LIVE' : exam.status;
                 if (loadedStatus === 'LIVE') {
                     toast.error('Published exams cannot be edited.');
                     navigate(`/manage-exams/${id}/view`);
                     return;
                 }
+
+                setTitle(exam.title || '');
+                setDescription(exam.description || '');
+                setCategory(exam.categoryCode || null);
+
+                const loadedDuration = String(exam.timeLimit || exam.timeLimitMinutes || 120);
+                setDuration(loadedDuration);
+                if (!PRESET_DURATIONS.includes(Number(loadedDuration))) setIsCustomDuration(true);
+
+                setMaxAttempts(String(exam.maxAttempts ?? 3));
+                setCloseOnDeadline(Boolean(exam.closeOnDeadline));
+
                 if (loadedStatus && ['LIVE', 'DRAFT', 'CLOSED', 'ARCHIVED'].includes(loadedStatus)) {
                     setExamStatus(loadedStatus as EditableExamStatus);
                 }
+
                 if (exam.deadline) {
                     const deadlineDate = new Date(exam.deadline);
                     const offset = deadlineDate.getTimezoneOffset();
@@ -605,6 +267,7 @@ const CreateExamPage: React.FC = () => {
                     setDeadline('');
                     setShowDeadline(false);
                 }
+
                 if (exam.tracks && exam.tracks.length > 0) {
                     setSelectedPrograms(exam.tracks.map((track) => track.name));
                 } else {
@@ -613,39 +276,57 @@ const CreateExamPage: React.FC = () => {
 
                 const apiQuestions = exam.questions || [];
                 const sectionMap = new Map((exam.sections || []).map((section) => [section.id, section.title]));
+
                 if (apiQuestions.length > 0) {
-                    const mapped = apiQuestions
-                        .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
-                        .map((q, index) => {
-                            const letters = ['A', 'B', 'C', 'D'];
-                            const correctIndex = letters.indexOf((q.correctChoice || 'A').toUpperCase());
-                            const resolvedSectionId = q.sectionId || q.section?.id || '';
-                            const resolvedSectionTitle = q.section?.title || sectionMap.get(resolvedSectionId) || '';
-                            return {
-                                id: q.id || `${Date.now()}-${index}`,
-                                text: q.questionText || '',
-                                imageUrl: q.imageUrl || '',
-                                options: [q.choiceA || '', q.choiceB || '', q.choiceC || '', q.choiceD || ''],
-                                correctOption: correctIndex >= 0 ? correctIndex : 0,
-                                rationale: q.rationalization || '',
-                                section: normalizeSectionValue(resolvedSectionTitle),
-                            };
-                        });
-                    setQuestions(mapped);
+                    setQuestions(
+                        apiQuestions
+                            .slice()
+                            .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
+                            .map((question, index) => {
+                                const correctIndex = OPTION_LETTERS.indexOf(
+                                    (question.correctChoice || 'A').toUpperCase(),
+                                );
+                                const resolvedSectionId = question.sectionId || question.section?.id || '';
+                                const resolvedSectionTitle =
+                                    question.section?.title || sectionMap.get(resolvedSectionId) || '';
+
+                                return {
+                                    id: question.id || `${Date.now()}-${index}`,
+                                    text: question.questionText || '',
+                                    imageUrl: question.imageUrl || '',
+                                    options: [
+                                        question.choiceA || '',
+                                        question.choiceB || '',
+                                        question.choiceC || '',
+                                        question.choiceD || '',
+                                    ],
+                                    correctOption: correctIndex >= 0 ? correctIndex : 0,
+                                    rationale: question.rationalization || '',
+                                    section: normalizeSectionValue(resolvedSectionTitle),
+                                } satisfies EditableQuestion;
+                            }),
+                    );
                 }
 
                 const fetchedSections = (exam.sections || [])
                     .slice()
                     .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
                     .map((section) => normalizeSectionValue(section.title))
-                    .filter((section): section is string => Boolean(section));
-                const nextSections = fetchedSections.length > 0
-                    ? fetchedSections
-                    : Array.from(new Set(
-                        apiQuestions
-                            .map((q) => normalizeSectionValue(q.section?.title || sectionMap.get(q.sectionId || q.section?.id || '') || ''))
-                            .filter(Boolean)
-                    ));
+                    .filter(Boolean);
+
+                const derivedSections = Array.from(
+                    new Set(
+                        apiQuestions.map((question) =>
+                            normalizeSectionValue(
+                                question.section?.title
+                                || sectionMap.get(question.sectionId || question.section?.id || '')
+                                || '',
+                            ),
+                        ),
+                    ),
+                ).filter(Boolean);
+
+                const nextSections = fetchedSections.length > 0 ? fetchedSections : derivedSections;
                 const safeSections = nextSections.length > 0 ? nextSections : [DEFAULT_SECTION_TITLE];
                 setSections(safeSections);
                 setActiveSection(safeSections[0] || DEFAULT_SECTION_TITLE);
@@ -658,49 +339,17 @@ const CreateExamPage: React.FC = () => {
             }
         };
 
-        fetchExam();
+        void fetchExam();
     }, [isEditing, id, navigate]);
 
-    const handleProgramToggle = (program: string) => {
-        if (program === 'All Programs') {
-            setSelectedPrograms(['All Programs']);
-        } else {
-            const next = selectedPrograms.includes(program)
-                ? selectedPrograms.filter(p => p !== program)
-                : [...selectedPrograms.filter(p => p !== 'All Programs'), program];
-            setSelectedPrograms(next.length === 0 ? ['All Programs'] : next);
-        }
-    };
-
+    // ── Sections ─────────────────────────────────────────────────────────────
     const confirmAddSection = () => {
         const value = newSectionName.trim();
         if (!value) return;
-        if (sections.includes(value)) {
-            setNewSectionName('');
-            setIsAddingSection(false);
-            return;
-        }
-
-        setSections([...sections, value]);
+        if (!sections.includes(value)) setSections((prev) => [...prev, value]);
         setActiveSection(value);
         setNewSectionName('');
         setIsAddingSection(false);
-    };
-
-    const cancelAddSection = () => {
-        setNewSectionName('');
-        setIsAddingSection(false);
-    };
-
-    const handleAddSectionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            confirmAddSection();
-        }
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            cancelAddSection();
-        }
     };
 
     const removeSection = (section: string) => {
@@ -708,539 +357,284 @@ const CreateExamPage: React.FC = () => {
             toast.error('The exam must keep at least one section.');
             return;
         }
-
-        const remainingSections = sections.filter((s) => s !== section);
-        setSections(remainingSections);
-        setQuestions((prev) => prev.map((question) => {
-            if (normalizeSectionValue(question.section) !== section) {
-                return question;
-            }
-
-            return {
-                ...question,
-                section: remainingSections[0] || DEFAULT_SECTION_TITLE,
-            };
-        }));
-        if (activeSection === section) {
-            setActiveSection(remainingSections[0] || DEFAULT_SECTION_TITLE);
-        }
+        const remaining = sections.filter((candidate) => candidate !== section);
+        setSections(remaining);
+        setQuestions((prev) =>
+            prev.map((question) =>
+                normalizeSectionValue(question.section) === section
+                    ? { ...question, section: remaining[0] || DEFAULT_SECTION_TITLE }
+                    : question,
+            ),
+        );
+        if (activeSection === section) setActiveSection(remaining[0] || DEFAULT_SECTION_TITLE);
     };
 
-    const createQuestion = (targetSection?: string) => {
-        const newQuestion: Question = {
-            id: Date.now().toString(),
-            text: '',
-            imageUrl: '',
-            options: ['', '', '', ''],
-            correctOption: 0,
-            rationale: '',
-            section: normalizeSectionValue(targetSection ?? activeSection ?? sections[0])
-        };
-        setQuestions((prev) => [...prev, newQuestion]);
-    };
-
-    const addQuestion = () => {
-        createQuestion();
-    };
-
-    const updateQuestion = (id: string, updates: Partial<Question>) => {
-        setQuestions(questions.map(q => q.id === id ? { ...q, ...updates } : q));
-    };
-
-    const deleteQuestion = (id: string) => {
-        setDeleteQuestionId(id);
-    };
-
-    const confirmDeleteQuestion = () => {
-        if (deleteQuestionId) {
-            setQuestions(questions.filter(q => q.id !== deleteQuestionId));
-            setDeleteQuestionId(null);
-        }
-    };
-
-    const duplicateQuestion = (q: Question) => {
-        const duplicate = { ...q, id: Date.now().toString() };
-        setQuestions([...questions, duplicate]);
-    };
-
-    const openMoveQuestionDialog = (question: Question) => {
-        setMoveQuestionTarget(question);
-        setMoveTargetSection(normalizeSectionValue(question.section));
-        setMoveTargetNewSection('');
-    };
-
-    const closeMoveQuestionDialog = () => {
-        setMoveQuestionTarget(null);
-        setMoveTargetSection(normalizeSectionValue(activeSection || sections[0]));
-        setMoveTargetNewSection('');
-    };
-
-    const confirmMoveQuestion = () => {
-        if (!moveQuestionTarget) {
+    const confirmRenameSection = () => {
+        if (!renamingSection) return;
+        const nextName = renamingSectionName.trim();
+        if (!nextName) {
+            toast.error('Section name is required.');
             return;
         }
+        if (nextName !== renamingSection && sections.includes(nextName)) {
+            toast.error('That section name already exists.');
+            return;
+        }
+        setSections((prev) => prev.map((section) => (section === renamingSection ? nextName : section)));
+        setQuestions((prev) =>
+            prev.map((question) =>
+                normalizeSectionValue(question.section) === renamingSection
+                    ? { ...question, section: nextName }
+                    : question,
+            ),
+        );
+        if (activeSection === renamingSection) setActiveSection(nextName);
+        if (moveTargetSection === renamingSection) setMoveTargetSection(nextName);
+        setRenamingSection(null);
+        setRenamingSectionName('');
+    };
+
+    // ── Question operations ──────────────────────────────────────────────────
+    const updateQuestion = useCallback((questionId: string, updates: Partial<EditableQuestion>) => {
+        setQuestions((prev) =>
+            prev.map((question) => (question.id === questionId ? { ...question, ...updates } : question)),
+        );
+    }, []);
+
+    const addQuestion = useCallback(() => {
+        const newQuestion = createEmptyQuestion(
+            `${Date.now()}`,
+            normalizeSectionValue(activeSection || sections[0]),
+        );
+        setQuestions((prev) => [...prev, newQuestion]);
+        setExpandedId(newQuestion.id);
+        setShowOnlyIncomplete(false);
+    }, [activeSection, sections]);
+
+    const duplicateQuestion = useCallback((question: EditableQuestion) => {
+        const copy = { ...question, id: `${Date.now()}` };
+        setQuestions((prev) => {
+            const index = prev.findIndex((candidate) => candidate.id === question.id);
+            const next = [...prev];
+            next.splice(index + 1, 0, copy);
+            return next;
+        });
+        setExpandedId(copy.id);
+    }, []);
+
+    const confirmDeleteQuestion = () => {
+        if (!deleteQuestionId) return;
+        setQuestions((prev) => prev.filter((question) => question.id !== deleteQuestionId));
+        setExpandedId((current) => (current === deleteQuestionId ? null : current));
+        setDeleteQuestionId(null);
+    };
+
+    /**
+     * Reorders only the rows currently on screen, leaving questions in other
+     * sections (or hidden by the incomplete filter) untouched.
+     */
+    const reorderWithinVisible = useCallback(
+        (all: EditableQuestion[], visibleIds: string[], fromIndex: number, toIndex: number) => {
+            const visibleSet = new Set(visibleIds);
+            const visible = all.filter((question) => visibleSet.has(question.id));
+            const reordered = arrayMove(visible, fromIndex, toIndex);
+            let cursor = 0;
+            return all.map((question) =>
+                visibleSet.has(question.id) ? reordered[cursor++] : question,
+            );
+        },
+        [],
+    );
+
+    const visibleQuestions = useMemo(() => {
+        if (showOnlyIncomplete) return getIncompleteQuestions(questions);
+        return questions.filter(
+            (question) =>
+                normalizeSectionValue(question.section)
+                === normalizeSectionValue(activeSection || sections[0]),
+        );
+    }, [questions, showOnlyIncomplete, activeSection, sections]);
+
+    const visibleIds = useMemo(() => visibleQuestions.map((q) => q.id), [visibleQuestions]);
+
+    const moveQuestion = useCallback(
+        (questionId: string, direction: 'up' | 'down') => {
+            setQuestions((prev) => {
+                const currentIndex = visibleIds.indexOf(questionId);
+                if (currentIndex < 0) return prev;
+                const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+                if (targetIndex < 0 || targetIndex >= visibleIds.length) return prev;
+                return reorderWithinVisible(prev, visibleIds, currentIndex, targetIndex);
+            });
+        },
+        [visibleIds, reorderWithinVisible],
+    );
+
+    const reorderQuestions = useCallback(
+        (activeId: string, overId: string) => {
+            setQuestions((prev) => {
+                const fromIndex = visibleIds.indexOf(activeId);
+                const toIndex = visibleIds.indexOf(overId);
+                if (fromIndex < 0 || toIndex < 0) return prev;
+                return reorderWithinVisible(prev, visibleIds, fromIndex, toIndex);
+            });
+        },
+        [visibleIds, reorderWithinVisible],
+    );
+
+    const confirmMoveQuestion = () => {
+        if (!moveQuestionTarget) return;
 
         const trimmedNewSection = moveTargetNewSection.trim();
-        const nextSection = normalizeSectionValue(
-            trimmedNewSection || (moveTargetSection === NEW_SECTION_OPTION ? '' : moveTargetSection)
-        );
-
         if (!trimmedNewSection && moveTargetSection === NEW_SECTION_OPTION) {
             toast.error('Type a new section name to create it.');
             return;
         }
 
-        if (trimmedNewSection) {
-            if (!sections.includes(trimmedNewSection)) {
-                setSections((prev) => [...prev, trimmedNewSection]);
-            }
-            setActiveSection(trimmedNewSection);
-        }
-
-        setQuestions((prev) => prev.map((question) => (
-            question.id === moveQuestionTarget.id
-                ? { ...question, section: nextSection }
-                : question
-        )));
-
-        if (!trimmedNewSection && nextSection) {
-            setActiveSection(nextSection);
-        }
-
-        closeMoveQuestionDialog();
-    };
-
-    const isQuestionVisibleInCurrentView = (question: Question) => {
-        const normalizedSection = normalizeSectionValue(question.section);
-        return normalizedSection === normalizeSectionValue(activeSection || sections[0]);
-    };
-
-    const reorderVisibleQuestions = (items: Question[], fromIndex: number, toIndex: number) => {
-        const visibleQuestions = items.filter(isQuestionVisibleInCurrentView);
-        const reorderedVisibleQuestions = arrayMove(visibleQuestions, fromIndex, toIndex);
-        let visibleQuestionIndex = 0;
-
-        return items.map((question) => {
-            if (!isQuestionVisibleInCurrentView(question)) {
-                return question;
-            }
-
-            const nextQuestion = reorderedVisibleQuestions[visibleQuestionIndex];
-            visibleQuestionIndex += 1;
-            return nextQuestion;
-        });
-    };
-
-    const moveQuestion = (questionId: string, direction: 'up' | 'down') => {
-        setQuestions((prev) => {
-            const visibleIds = prev.filter(isQuestionVisibleInCurrentView).map((question) => question.id);
-
-            const currentVisibleIndex = visibleIds.indexOf(questionId);
-            if (currentVisibleIndex < 0) {
-                return prev;
-            }
-
-            const swapWithIndex = direction === 'up'
-                ? currentVisibleIndex - 1
-                : currentVisibleIndex + 1;
-
-            if (swapWithIndex < 0 || swapWithIndex >= visibleIds.length) {
-                return prev;
-            }
-
-            return reorderVisibleQuestions(prev, currentVisibleIndex, swapWithIndex);
-        });
-    };
-
-    const handleQuestionDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-
-        if (!over || active.id === over.id) {
-            return;
-        }
-
-        setQuestions((prev) => {
-            const visibleIds = prev.filter(isQuestionVisibleInCurrentView).map((question) => question.id);
-            const currentVisibleIndex = visibleIds.indexOf(String(active.id));
-            const targetVisibleIndex = visibleIds.indexOf(String(over.id));
-
-            if (currentVisibleIndex < 0 || targetVisibleIndex < 0) {
-                return prev;
-            }
-
-            return reorderVisibleQuestions(prev, currentVisibleIndex, targetVisibleIndex);
-        });
-    };
-
-    const validateImageFile = (file: File) => {
-        if (!file.type.startsWith('image/')) {
-            toast.error('Please select a valid image file.');
-            return false;
-        }
-
-        const maxFileSizeInBytes = 3 * 1024 * 1024;
-        if (file.size > maxFileSizeInBytes) {
-            toast.error('Image must be 3MB or smaller.');
-            return false;
-        }
-
-        return true;
-    };
-
-    const handleQuestionImageUpload = async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        event.target.value = '';
-        if (!file) return;
-
-        if (!validateImageFile(file)) {
-            return;
-        }
-
-        try {
-            const secureUrl = await uploadImageToCloudinary(file, 'question-images');
-            updateQuestion(questionId, { imageUrl: secureUrl });
-            toast.success('Image attached successfully.');
-        } catch (error) {
-            console.error('Failed to attach question image', error);
-            toast.error('Failed to attach image. Please try again.');
-        }
-    };
-
-    const updateImportPreviewQuestion = (questionId: string, updates: Partial<Question>) => {
-        setImportPreviewQuestions((prev) => prev.map((question) => (
-            question.id === questionId ? { ...question, ...updates } : question
-        )));
-    };
-
-    const handleImportPreviewImageUpload = async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        event.target.value = '';
-        if (!file) return;
-
-        if (!validateImageFile(file)) {
-            return;
-        }
-
-        try {
-            const secureUrl = await uploadImageToCloudinary(file, 'question-images');
-            updateImportPreviewQuestion(questionId, { imageUrl: secureUrl });
-            toast.success('Image attached to imported question.');
-        } catch (error) {
-            console.error('Failed to attach imported question image', error);
-            toast.error('Failed to attach image. Please try again.');
-        }
-    };
-
-    const normalizeCorrectOption = (correctAnswer: unknown, choices: string[] = []) => {
-        const letters = ['A', 'B', 'C', 'D'];
-        const normalized = String(correctAnswer ?? '').trim();
-        const normalizedUpper = normalized.toUpperCase();
-        const letterIndex = letters.indexOf(normalizedUpper);
-        if (letterIndex >= 0) return letterIndex;
-
-        const numeric = Number(normalized);
-        if (!Number.isNaN(numeric) && numeric >= 1 && numeric <= 4) {
-            return numeric - 1;
-        }
-
-        if (!Number.isNaN(numeric) && numeric >= 0 && numeric <= 3) {
-            return numeric;
-        }
-
-        if (normalized) {
-            const matchedChoiceIndex = choices.findIndex(
-                (choice) => choice.trim().toLowerCase() === normalized.toLowerCase()
-            );
-            if (matchedChoiceIndex >= 0) {
-                return matchedChoiceIndex;
-            }
-        }
-
-        return 0;
-    };
-
-    const triggerImport = () => {
-        importFileRef.current?.click();
-    };
-
-    const getImportTargetSection = () => {
-        return normalizeSectionValue(activeSection || sections[0]);
-    };
-
-    const downloadTemplate = (format: 'csv' | 'json') => {
-        const csvTemplate = [
-            'questionText,choiceA,choiceB,choiceC,choiceD,correctAnswer,rationalization',
-            'What is 2 + 2?,2,3,4,5,C,4 is the correct sum',
-        ].join('\n');
-
-        const jsonTemplate = JSON.stringify([
-            {
-                questionText: 'What is 2 + 2?',
-                choiceA: '2',
-                choiceB: '3',
-                choiceC: '4',
-                choiceD: '5',
-                correctAnswer: 'C',
-                rationalization: '4 is the correct sum',
-            },
-        ], null, 2);
-
-        const content = format === 'csv' ? csvTemplate : jsonTemplate;
-        const type = format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;';
-        const fileName = format === 'csv' ? 'exam-import-template.csv' : 'exam-import-template.json';
-
-        const blob = new Blob([content], { type });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    const normalizeImportKey = (key: string) =>
-        key.replace(/^\uFEFF/, '').replace(/[\s_-]+/g, '').toLowerCase();
-
-    const toNormalizedRecord = (record: Record<string, any>) => {
-        return Object.entries(record).reduce<Record<string, any>>((acc, [key, value]) => {
-            acc[normalizeImportKey(key)] = value;
-            return acc;
-        }, {});
-    };
-
-    const pickImportValue = (record: Record<string, any>, aliases: string[]) => {
-        const normalizedRecord = toNormalizedRecord(record);
-
-        for (const alias of aliases) {
-            const value = normalizedRecord[normalizeImportKey(alias)];
-            if (value !== undefined && value !== null && String(value).trim().length > 0) {
-                return value;
-            }
-        }
-
-        return undefined;
-    };
-
-    const orderQuestionsBySections = (items: Question[], sectionOrder: string[]) => {
-        const sectionIndexMap = new Map(
-            sectionOrder.map((section, index) => [section.trim().toLowerCase(), index])
+        const nextSection = normalizeSectionValue(
+            trimmedNewSection || (moveTargetSection === NEW_SECTION_OPTION ? '' : moveTargetSection),
         );
 
-        return items
-            .map((question, index) => ({ question, index }))
-            .sort((left, right) => {
-                const leftSectionIndex = sectionIndexMap.get((left.question.section || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
-                const rightSectionIndex = sectionIndexMap.get((right.question.section || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
-
-                if (leftSectionIndex !== rightSectionIndex) {
-                    return leftSectionIndex - rightSectionIndex;
-                }
-
-                return left.index - right.index;
-            })
-            .map((entry) => entry.question);
-    };
-
-    const processImportedRecords = (records: Array<Record<string, any>>) => {
-        if (records.length === 0) {
-            toast.error('No valid question rows found in the import file.');
-            return;
+        if (trimmedNewSection && !sections.includes(trimmedNewSection)) {
+            setSections((prev) => [...prev, trimmedNewSection]);
         }
 
-        const targetSection = getImportTargetSection();
-
-        const mappedQuestions: Question[] = records
-            .map((record, index) => {
-                const text = String(
-                    pickImportValue(record, ['questionText', 'question', 'text', 'prompt']) ?? ''
-                ).trim();
-                if (!text) return null;
-
-                const options = [
-                    pickImportValue(record, ['choiceA', 'optionA', 'option1', 'a']) ?? '',
-                    pickImportValue(record, ['choiceB', 'optionB', 'option2', 'b']) ?? '',
-                    pickImportValue(record, ['choiceC', 'optionC', 'option3', 'c']) ?? '',
-                    pickImportValue(record, ['choiceD', 'optionD', 'option4', 'd']) ?? '',
-                ].map((option) => String(option).trim());
-
-                const correctAnswerValue =
-                    pickImportValue(record, [
-                        'correctAnswer',
-                        'correct_answer',
-                        'correctOption',
-                        'correct_choice',
-                        'correct_answer_index',
-                        'answer',
-                    ])
-                    ?? 'A';
-
-                const correctOption = normalizeCorrectOption(correctAnswerValue, options);
-
-                return {
-                    id: `${Date.now()}-${index}`,
-                    text,
-                    imageUrl: '',
-                    options,
-                    correctOption,
-                    rationale: String(
-                        pickImportValue(record, ['rationalization', 'explanation', 'rationale']) ?? ''
-                    ).trim(),
-                    section: normalizeSectionValue(targetSection),
-                } as Question;
-            })
-            .filter((item): item is Question => !!item);
-
-        if (mappedQuestions.length === 0) {
-            toast.error('No valid questions were parsed from the import file.');
-            return;
-        }
-
-        const orderedMappedQuestions = orderQuestionsBySections(mappedQuestions, sections);
-
-        setImportPreviewQuestions(orderedMappedQuestions);
-        setIsImportPreviewOpen(true);
+        setQuestions((prev) =>
+            prev.map((question) =>
+                question.id === moveQuestionTarget.id ? { ...question, section: nextSection } : question,
+            ),
+        );
+        setActiveSection(nextSection);
+        setMoveQuestionTarget(null);
+        setMoveTargetNewSection('');
     };
 
-    const applyImportedQuestions = () => {
-        if (importPreviewQuestions.length === 0) {
-            setIsImportPreviewOpen(false);
-            return;
-        }
+    // ── Images ───────────────────────────────────────────────────────────────
+    const handleQuestionImageUpload = useCallback(
+        async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+            const secureUrl = await uploadQuestionImageFromEvent(event);
+            if (secureUrl) updateQuestion(questionId, { imageUrl: secureUrl });
+        },
+        [updateQuestion],
+    );
 
-        setQuestions((prev) => orderQuestionsBySections([...prev, ...importPreviewQuestions], sections));
-        setIsImportPreviewOpen(false);
-        setImportPreviewQuestions([]);
-        toast.success('Imported questions added successfully.');
-    };
+    const handleImportPreviewImageUpload = useCallback(
+        async (questionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+            const secureUrl = await uploadQuestionImageFromEvent(event);
+            if (!secureUrl) return;
+            setImportPreview((prev) =>
+                prev.map((question) =>
+                    question.id === questionId ? { ...question, imageUrl: secureUrl } : question,
+                ),
+            );
+        },
+        [],
+    );
 
+    // ── Import ───────────────────────────────────────────────────────────────
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = '';
         if (!file) return;
 
-        const lowerName = file.name.toLowerCase();
-        if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.json')) {
-            toast.error('Unsupported file type. Please upload a CSV or JSON file.');
-            return;
-        }
-
         try {
-            const content = await readUploadedText(file);
-
-            if (lowerName.endsWith('.json')) {
-                const parsed = JSON.parse(content);
-                const rows = Array.isArray(parsed)
-                    ? parsed
-                    : Array.isArray(parsed?.questions)
-                        ? parsed.questions
-                        : Array.isArray(parsed?.items)
-                            ? parsed.items
-                            : [parsed];
-                processImportedRecords(rows as Array<Record<string, any>>);
-                return;
-            }
-
-            const rows = parseCsvRecords(content);
-
-            if (rows.length === 0) {
-                toast.error('CSV file has no data rows.');
-                return;
-            }
-
-            processImportedRecords(rows);
+            const parsed = await parseQuestionFile(file, {
+                section: normalizeSectionValue(activeSection || sections[0]),
+            });
+            setImportPreview(parsed);
+            setImportExpandedId(null);
+            setIsImportPreviewOpen(true);
         } catch (error) {
+            if (error instanceof QuestionImportError) {
+                toast.error(error.message);
+                return;
+            }
             console.error('Failed to import questions', error);
             toast.error('Failed to import file. Please check the template and try again.');
         }
     };
 
-    const handleSubmitIntent = (publish: boolean) => {
+    /** Keeps questions grouped by section in the order the section tabs appear. */
+    const orderBySections = useCallback(
+        (items: EditableQuestion[], sectionOrder: string[]) => {
+            const sectionIndex = new Map(
+                sectionOrder.map((section, index) => [section.trim().toLowerCase(), index]),
+            );
+            return items
+                .map((question, index) => ({ question, index }))
+                .sort((left, right) => {
+                    const leftRank =
+                        sectionIndex.get(normalizeSectionValue(left.question.section).trim().toLowerCase())
+                        ?? Number.MAX_SAFE_INTEGER;
+                    const rightRank =
+                        sectionIndex.get(normalizeSectionValue(right.question.section).trim().toLowerCase())
+                        ?? Number.MAX_SAFE_INTEGER;
+                    if (leftRank !== rightRank) return leftRank - rightRank;
+                    return left.index - right.index;
+                })
+                .map((entry) => entry.question);
+        },
+        [],
+    );
+
+    const applyImportedQuestions = () => {
+        if (importPreview.length === 0) {
+            setIsImportPreviewOpen(false);
+            return;
+        }
+        setQuestions((prev) => orderBySections([...prev, ...importPreview], sections));
+        setIsImportPreviewOpen(false);
+        toast.success('Imported questions added successfully.');
+        setImportPreview([]);
+    };
+
+    // ── Validation ───────────────────────────────────────────────────────────
+    const incompleteQuestions = useMemo(() => getIncompleteQuestions(questions), [questions]);
+    const questionsWithContent = useMemo(
+        () => questions.filter((question) => !isQuestionBlank(question)),
+        [questions],
+    );
+
+    const blockers = useMemo(() => {
+        const list: string[] = [];
+        if (!title.trim()) list.push('Exam title is required');
+        if (!duration.trim()) list.push('Duration is required');
+        if (allowMultipleAttemptsConfig) {
+            const parsed = Number(maxAttempts);
+            if (!maxAttempts.trim() || !Number.isInteger(parsed) || parsed < 1) {
+                list.push('Max attempts must be a whole number of at least 1');
+            }
+        }
+        if (questionsWithContent.length === 0) list.push('Add at least one question');
+        if (incompleteQuestions.length > 0) {
+            list.push(
+                `${incompleteQuestions.length} question${incompleteQuestions.length === 1 ? '' : 's'} incomplete`,
+            );
+        }
+        if (closeOnDeadline && !deadline) list.push('Close on deadline needs a deadline');
+        return list;
+    }, [
+        title,
+        duration,
+        allowMultipleAttemptsConfig,
+        maxAttempts,
+        questionsWithContent.length,
+        incompleteQuestions.length,
+        closeOnDeadline,
+        deadline,
+    ]);
+
+    // ── Submit ───────────────────────────────────────────────────────────────
+    const doSubmit = async (publish: boolean) => {
         if (isEditing && examStatus === 'LIVE') {
             toast.error('Published exams cannot be edited.');
             navigate(id ? `/manage-exams/${id}/view` : '/manage-exams');
             return;
         }
 
-        if (publish) {
-            setPublishConfirmOpen(true);
-            return;
-        }
-
-        void doSubmit(false);
-    };
-
-    const doSubmit = async (publish: boolean) => {
-        if (!title.trim()) {
-            toast.error('Please enter an exam title.');
-            return;
-        }
-
-        if (!duration.trim()) {
-            toast.error('Please enter the exam duration in minutes.');
-            return;
-        }
-
-        const parsedMaxAttempts = allowMultipleAttemptsConfig
-            ? Number(maxAttempts)
-            : 1;
-
-        if (allowMultipleAttemptsConfig) {
-            if (!maxAttempts.trim()) {
-                toast.error('Please set the maximum number of attempts.');
-                return;
-            }
-
-            if (!Number.isInteger(parsedMaxAttempts) || parsedMaxAttempts < 1) {
-                toast.error('Maximum attempts must be a whole number of at least 1.');
-                return;
-            }
-        }
-
-        const normalizedQuestions = questions.map((question) => {
-            const text = question.text.trim();
-            const imageUrl = question.imageUrl?.trim() || undefined;
-            const choices = question.options.map((option) => option.trim());
-            const explanation = question.rationale.trim() || undefined;
-
-            return {
-                text,
-                imageUrl,
-                choices,
-                correctAnswer: ['A', 'B', 'C', 'D'][question.correctOption],
-                explanation,
-                section: normalizeSectionValue(question.section),
-                hasAnyContent:
-                    text.length > 0
-                    || Boolean(imageUrl)
-                    || choices.some((choice) => choice.length > 0)
-                    || Boolean(explanation),
-            };
-        });
-
-        const preparedQuestions = normalizedQuestions
-            .filter((question) => question.hasAnyContent)
-            .map(({ hasAnyContent, ...question }) => question);
-
-        if (preparedQuestions.length === 0) {
-            toast.error('Please add at least one question.');
-            return;
-        }
-
-        if (normalizedQuestions.some((question) => question.hasAnyContent && question.text.length === 0)) {
-            toast.error('Please complete or remove questions without question text.');
-            return;
-        }
-
-        const hasInvalidQuestion = preparedQuestions.some((q) => q.choices.some((choice) => choice.length === 0));
-        if (hasInvalidQuestion) {
-            toast.error('Please complete all four options for each question.');
-            return;
-        }
-
-        if (closeOnDeadline && !deadline) {
-            toast.error('Please set a deadline when enabling close on deadline.');
+        if (blockers.length > 0) {
+            toast.error(blockers[0]);
+            if (incompleteQuestions.length > 0) setShowOnlyIncomplete(true);
             return;
         }
 
@@ -1249,19 +643,33 @@ const CreateExamPage: React.FC = () => {
             .filter((track) => selectedProgramNames.includes(track.name))
             .map((track) => track.id);
 
-        const normalizedSectionList = Array.from(new Set([
-            ...sections.map((section) => section.trim()),
-            ...preparedQuestions.map((question) => normalizeSectionValue(question.section).trim()),
-        ].filter(Boolean)));
-        const displaySubject = normalizedSectionList[0] || title.trim();
+        const preparedQuestions = questionsWithContent.map((question) => ({
+            text: question.text.trim(),
+            imageUrl: question.imageUrl?.trim() || undefined,
+            choices: question.options.map((option) => option.trim()),
+            correctAnswer: OPTION_LETTERS[question.correctOption],
+            explanation: question.rationale.trim() || undefined,
+            section: normalizeSectionValue(question.section),
+        }));
+
+        const normalizedSectionList = Array.from(
+            new Set(
+                [
+                    ...sections.map((section) => section.trim()),
+                    ...preparedQuestions.map((question) => question.section.trim()),
+                ].filter(Boolean),
+            ),
+        );
 
         const payload = {
             title: title.trim(),
-            subject: displaySubject,
+            subject: normalizedSectionList[0] || title.trim(),
+            // null rather than undefined so clearing the field actually clears it.
+            description: description.trim() || null,
             categoryId: category,
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
-            maxAttempts: parsedMaxAttempts,
+            maxAttempts: allowMultipleAttemptsConfig ? Number(maxAttempts) : 1,
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
             closeOnDeadline: closeOnDeadline && Boolean(deadline),
             isPublished: publish,
@@ -1274,588 +682,367 @@ const CreateExamPage: React.FC = () => {
         try {
             if (isEditing && id) {
                 await api.put(`/exams/${id}`, payload);
-                toast.success(publish ? 'Exam updated and published successfully!' : 'Exam draft updated successfully!');
+                toast.success(publish ? 'Exam updated and published.' : 'Exam draft updated.');
             } else {
                 await api.post('/exams', payload);
-                toast.success(publish ? 'Exam published successfully!' : 'Exam saved as draft!');
+                toast.success(publish ? 'Exam published successfully.' : 'Exam saved as draft.');
             }
+            setSavedSnapshot(snapshot);
             navigate('/manage-exams');
         } catch (error: any) {
             console.error('Failed to submit exam', error);
-            const message = error.response?.data?.message || 'Failed to save exam.';
-            toast.error(message);
+            toast.error(error.response?.data?.message || 'Failed to save exam.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const sectionTabs = sections;
-
-    const filteredQuestions = questions.filter((question) => {
-        const normalizedSection = normalizeSectionValue(question.section);
-        return normalizedSection === normalizeSectionValue(activeSection || sections[0]);
-    });
-
-    const [showAllPrograms, setShowAllPrograms] = useState(false);
-    const [showVisibilityCard, setShowVisibilityCard] = useState(false);
-    const [showScheduleCard, setShowScheduleCard] = useState(false);
-    const [showDescriptionCard, setShowDescriptionCard] = useState(false);
-    const [editingTabSection, setEditingTabSection] = useState<string | null>(null);
-    const [editingTabSectionName, setEditingTabSectionName] = useState('');
-
-    const VISIBLE_PROGRAMS_LIMIT = 5;
-    const visiblePrograms = showAllPrograms ? programs : programs.slice(0, VISIBLE_PROGRAMS_LIMIT);
-    const hasMorePrograms = programs.length > VISIBLE_PROGRAMS_LIMIT;
-
-    const startRenameTabSection = (section: string) => {
-        setEditingTabSection(section);
-        setEditingTabSectionName(section);
-    };
-
-    const cancelRenameTabSection = () => {
-        setEditingTabSection(null);
-        setEditingTabSectionName('');
-    };
-
-    const confirmRenameTabSection = () => {
-        if (!editingTabSection) return;
-        const nextName = editingTabSectionName.trim();
-        if (!nextName) {
-            toast.error('Section name is required.');
+    const handleProgramToggle = (program: string) => {
+        if (program === 'All Programs') {
+            setSelectedPrograms(['All Programs']);
             return;
         }
-        if (nextName !== editingTabSection && sections.includes(nextName)) {
-            toast.error('That section name already exists.');
-            return;
-        }
-        setSections((prev) => prev.map((section) => section === editingTabSection ? nextName : section));
-        setQuestions((prev) => prev.map((question) => (
-            normalizeSectionValue(question.section) === editingTabSection
-                ? { ...question, section: nextName }
-                : question
-        )));
-        if (activeSection === editingTabSection) {
-            setActiveSection(nextName);
-        }
-        if (moveTargetSection === editingTabSection) {
-            setMoveTargetSection(nextName);
-        }
-        cancelRenameTabSection();
+        const next = selectedPrograms.includes(program)
+            ? selectedPrograms.filter((candidate) => candidate !== program)
+            : [...selectedPrograms.filter((candidate) => candidate !== 'All Programs'), program];
+        setSelectedPrograms(next.length === 0 ? ['All Programs'] : next);
     };
 
     if (isLoadingExam) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh] font-lexend">
+            <div className="flex min-h-60 items-center justify-center font-lexend">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading exam details...</p>
+                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <p className="text-[12px] text-slate-500">Loading exam details…</p>
                 </div>
             </div>
         );
     }
 
-    return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            {/* Header */}
-            <header className="bg-white rounded-2xl px-5 py-4 md:px-6 border border-slate-200 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
-                            <Link to="/manage-exams" className="hover:text-primary transition-colors">Exams</Link>
-                            <ChevronRight size={11} />
-                            <span className="text-primary">{isEditing ? 'Edit Exam' : 'New Exam'}</span>
-                        </div>
-                        <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                            {isEditing ? 'Edit Mock Exam' : 'Create Mock Exam'}
-                        </h1>
-                        <p className="text-xs text-slate-400 font-medium mt-0.5">
-                            Design and publish comprehensive mock exams for students.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                            variant="ghost"
-                            className="h-9 rounded-xl px-4 font-black text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-                            onClick={() => navigate('/manage-exams')}
-                        >
-                            Discard
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="h-9 rounded-xl px-4 font-black text-xs border-slate-200 hover:bg-slate-50"
-                            onClick={() => handleSubmitIntent(false)}
-                            disabled={isSubmitting}
-                        >
-                            <Save size={14} className="mr-1.5" /> Save Draft
-                        </Button>
-                        <Button
-                            className="h-9 rounded-xl px-5 bg-primary hover:bg-primary/90 text-white font-black text-xs"
-                            onClick={() => handleSubmitIntent(true)}
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? 'Saving...' : isEditing ? 'Publish Exam' : 'Publish'}
-                        </Button>
-                    </div>
-                </div>
-                <p className="mt-2 text-[11px] font-semibold text-amber-700">
-                    Warning: Once published, this exam can no longer be edited.
-                </p>
-            </header>
+    const sectionTabs = (
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 pb-px">
+            {sections.map((section) => {
+                const count = questions.filter(
+                    (question) => normalizeSectionValue(question.section) === section,
+                ).length;
+                const isActive = !showOnlyIncomplete && activeSection === section;
 
-            {/* Main Two-Panel Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-                {/* ═══════════════════════════════════════════════════════ */}
-                {/* LEFT COLUMN (2/3): Questions                          */}
-                {/* ═══════════════════════════════════════════════════════ */}
-                <div className="lg:col-span-2 space-y-4 lg:order-1">
-                    {/* Toolbar row: heading + import actions */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                            <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-600">Questions</h3>
-                            <Badge className="bg-slate-100 text-slate-500 border-none font-black text-[9px] px-2 py-1 rounded-md">
-                                {questions.length} {questions.length === 1 ? 'item' : 'items'}
-                            </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <input
-                                ref={importFileRef}
-                                type="file"
-                                accept=".csv,.json,application/json,text/csv"
-                                onChange={handleFileImport}
-                                className="hidden"
-                            />
-                            <Button variant="outline" className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider" onClick={triggerImport}>
-                                <FileUp size={12} /> Import
-                            </Button>
-                            <Button
-                                variant="outline"
-                                className="h-8 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1.5 px-3 uppercase tracking-wider"
-                                onClick={() => downloadTemplate('csv')}
-                                title="Download template"
-                            >
-                                <ExcelTemplateIcon /> Template
-                            </Button>
-                            {user?.role === 'ADMIN' && (
-                                <Button
-                                    variant="outline"
-                                    className="h-8 w-9 rounded-lg border-slate-200 bg-white font-bold text-[10px] gap-1 px-2"
-                                    onClick={() => downloadTemplate('json')}
-                                    title="Download JSON template"
-                                >
-                                    <FileJson size={13} />
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Section Tabs — single source of truth for section management */}
-                    <div className={`flex items-center gap-2 ${sectionTabs.length > 0 ? 'border-b border-slate-100 pb-px' : ''}`}>
-                        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide flex-1 min-w-0">
-                            {sectionTabs.map((section) => {
-                                const count = questions.filter((q) => normalizeSectionValue(q.section) === section).length;
-                                const isActive = activeSection === section;
-                                const isRenaming = editingTabSection === section;
-
-                                if (isRenaming) {
-                                    return (
-                                        <div key={section} className="flex items-center gap-1 shrink-0">
-                                            <Input
-                                                autoFocus
-                                                value={editingTabSectionName}
-                                                onChange={(e) => setEditingTabSectionName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') { e.preventDefault(); confirmRenameTabSection(); }
-                                                    if (e.key === 'Escape') { e.preventDefault(); cancelRenameTabSection(); }
-                                                }}
-                                                onBlur={confirmRenameTabSection}
-                                                className="h-8 w-36 rounded-lg border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest"
-                                            />
-                                        </div>
-                                    );
+                if (renamingSection === section) {
+                    return (
+                        <Input
+                            key={section}
+                            autoFocus
+                            aria-label="Section name"
+                            value={renamingSectionName}
+                            onChange={(event) => setRenamingSectionName(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    confirmRenameSection();
                                 }
+                                if (event.key === 'Escape') {
+                                    event.preventDefault();
+                                    setRenamingSection(null);
+                                }
+                            }}
+                            onBlur={confirmRenameSection}
+                            className="h-7 w-36 rounded-lg border-slate-200 text-[12px]"
+                        />
+                    );
+                }
 
-                                return (
-                                    <DropdownMenu key={section}>
-                                        <DropdownMenuTrigger asChild>
-                                            <button
-                                                className={`relative px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${isActive
-                                                    ? 'border-primary text-primary'
-                                                    : 'border-transparent text-slate-400 hover:text-slate-600'
-                                                    }`}
-                                            >
-                                                {section}
-                                                <Badge className={`border-none text-[9px] px-1.5 py-0 ${isActive ? 'bg-primary/10 text-primary' : 'bg-slate-50 text-slate-400'}`}>
-                                                    {count}
-                                                </Badge>
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-44">
-                                            <DropdownMenuItem onClick={() => setActiveSection(section)} className="gap-2 text-xs font-semibold">
-                                                <Eye size={13} /> View Questions
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => startRenameTabSection(section)} className="gap-2 text-xs font-semibold">
-                                                <Settings2 size={13} /> Rename Section
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                                disabled={sections.length <= 1}
-                                                onClick={() => removeSection(section)}
-                                                className="gap-2 text-xs font-semibold text-red-600 focus:text-red-600 focus:bg-red-50"
-                                            >
-                                                <Trash2 size={13} /> Delete Section
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                );
-                            })}
-                        </div>
-                        <div className="shrink-0">
-                            {!isAddingSection ? (
-                                <button
-                                    type="button"
-                                    className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-all"
-                                    onClick={() => setIsAddingSection(true)}
-                                >
-                                    <Plus size={10} /> Section
-                                </button>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        autoFocus
-                                        value={newSectionName}
-                                        onChange={(e) => setNewSectionName(e.target.value)}
-                                        onKeyDown={handleAddSectionKeyDown}
-                                        placeholder="Section name"
-                                        className="h-7 w-32 rounded-lg border-slate-200 bg-white text-xs font-semibold"
-                                    />
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        className="h-7 rounded-lg px-2.5 text-[10px] font-black uppercase tracking-wider"
-                                        onClick={confirmAddSection}
-                                    >
-                                        Add
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wider"
-                                        onClick={cancelAddSection}
-                                    >
-                                        <X size={12} />
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Questions List */}
-                    <div className="space-y-4">
-                        {filteredQuestions.length === 0 ? (
-                            <div className="py-20 flex flex-col items-center justify-center text-center">
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 flex items-center justify-center mb-4 shadow-sm">
-                                    <ListChecks size={26} className="text-slate-300" />
-                                </div>
-                                <p className="font-black text-[11px] tracking-widest uppercase text-slate-500">
-                                    No questions in this section
-                                </p>
-                                <p className="text-[11px] font-medium text-slate-400 mt-1.5 max-w-[260px] leading-relaxed">
-                                    Start building your exam by adding questions manually or importing from a file.
-                                </p>
-                                <div className="flex items-center gap-2 mt-4">
-                                    <Button
-                                        className="h-9 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary/90 text-white px-5"
-                                        onClick={addQuestion}
-                                    >
-                                        <Plus size={13} className="mr-1.5" /> Add Question
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 rounded-xl text-[10px] font-black uppercase tracking-widest border-slate-200 text-slate-500 hover:bg-slate-50 px-5"
-                                        onClick={triggerImport}
-                                    >
-                                        <FileUp size={13} className="mr-1.5" /> Import File
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleQuestionDragEnd}>
-                                <SortableContext items={filteredQuestions.map((question) => question.id)} strategy={verticalListSortingStrategy}>
-                                    <div className="space-y-4">
-                                        {filteredQuestions.map((q, index) => (
-                                            <SortableQuestionCard
-                                                key={q.id}
-                                                question={q}
-                                                index={index}
-                                                totalVisibleQuestions={filteredQuestions.length}
-                                                onDuplicateQuestion={duplicateQuestion}
-                                                onOpenMoveQuestion={openMoveQuestionDialog}
-                                                onDeleteQuestion={deleteQuestion}
-                                                onUpdateQuestion={updateQuestion}
-                                                onQuestionImageUpload={handleQuestionImageUpload}
-                                                onMoveQuestion={moveQuestion}
-                                            />
-                                        ))}
-                                    </div>
-                                </SortableContext>
-                            </DndContext>
-                        )}
-
-                        {/* Add Question button */}
-                        {filteredQuestions.length > 0 && (
+                return (
+                    <DropdownMenu key={section}>
+                        <DropdownMenuTrigger asChild>
                             <button
-                                onClick={addQuestion}
-                                className="group flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 py-4 text-slate-400 transition-all hover:border-primary/30 hover:bg-primary/[0.03] hover:text-primary"
-                            >
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-all group-hover:border-primary/30 group-hover:shadow-md group-hover:scale-105">
-                                    <Plus size={16} className="text-primary" />
-                                </div>
-                                <span className="font-black text-[10px] uppercase tracking-widest">Add Question</span>
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* ═══════════════════════════════════════════════════════ */}
-                {/* RIGHT COLUMN (1/3): Exam Settings                    */}
-                {/* ═══════════════════════════════════════════════════════ */}
-                <div className="lg:col-span-1 space-y-4 lg:order-2 lg:self-start lg:sticky lg:top-5">
-
-                    {/* ── Card: General ── */}
-                    <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-                        <CardHeader className="px-5 pt-5 pb-3 border-b border-slate-50">
-                            <div className="flex items-center gap-2">
-                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                                    <Settings2 size={14} className="text-primary" />
-                                </div>
-                                <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-600">General</CardTitle>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-5 space-y-4">
-                            {/* Title */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Exam Title</Label>
-                                <Input
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="e.g., LET 2024 Comprehensive Mock"
-                                    className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm"
-                                />
-                            </div>
-
-                            {/* Category */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Category</Label>
-                                <CategorySelect value={category} onChange={setCategory} />
-                            </div>
-
-                            {/* Duration */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Duration</Label>
-                                <div className="grid grid-cols-3 gap-1.5">
-                                    {PRESET_DURATIONS.map((preset) => (
-                                        <button
-                                            key={preset}
-                                            type="button"
-                                            onClick={() => { setDuration(String(preset)); setIsCustomDuration(false); }}
-                                            className={`h-9 rounded-lg text-[10px] font-black border transition-all ${
-                                                !isCustomDuration && duration === String(preset)
-                                                    ? 'bg-primary text-white border-primary shadow-sm'
-                                                    : 'bg-white text-slate-500 border-slate-200 hover:border-primary/30 hover:text-primary'
-                                            }`}
-                                        >
-                                            {preset < 60 ? `${preset}m` : `${preset / 60}h`}
-                                        </button>
-                                    ))}
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => { setIsCustomDuration(true); setDuration(''); }}
-                                    className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                                        isCustomDuration ? 'text-primary' : 'text-slate-400 hover:text-primary'
-                                    }`}
-                                >
-                                    <Clock size={11} />
-                                    Custom
-                                </button>
-                                {isCustomDuration && (
-                                    <div className="relative mt-1">
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            autoFocus
-                                            value={duration}
-                                            onChange={(e) => setDuration(e.target.value)}
-                                            placeholder="e.g. 150"
-                                            className="h-9 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm pr-14"
-                                        />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-wider">min</span>
-                                    </div>
+                                type="button"
+                                className={cn(
+                                    'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                                    isActive
+                                        ? 'border-primary text-primary'
+                                        : 'border-transparent text-slate-500 hover:text-slate-800',
                                 )}
-                            </div>
+                            >
+                                {section}
+                                <span
+                                    className={cn(
+                                        'rounded px-1 text-[11px] tabular-nums',
+                                        isActive ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400',
+                                    )}
+                                >
+                                    {count}
+                                </span>
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-44 rounded-lg">
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    setShowOnlyIncomplete(false);
+                                    setActiveSection(section);
+                                }}
+                                className="gap-2 text-[12px] font-semibold"
+                            >
+                                View questions
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    setRenamingSection(section);
+                                    setRenamingSectionName(section);
+                                }}
+                                className="gap-2 text-[12px] font-semibold"
+                            >
+                                <Settings2 size={13} aria-hidden="true" /> Rename section
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                disabled={sections.length <= 1}
+                                onClick={() => removeSection(section)}
+                                className="gap-2 text-[12px] font-semibold text-red-600 focus:bg-red-50 focus:text-red-600"
+                            >
+                                <Trash2 size={13} aria-hidden="true" /> Delete section
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                );
+            })}
 
-                            {/* Max Attempts */}
-                            {allowMultipleAttemptsConfig && (
+            <div className="ml-auto shrink-0 pl-2">
+                {isAddingSection ? (
+                    <div className="flex items-center gap-1">
+                        <Input
+                            autoFocus
+                            aria-label="New section name"
+                            value={newSectionName}
+                            onChange={(event) => setNewSectionName(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    confirmAddSection();
+                                }
+                                if (event.key === 'Escape') {
+                                    event.preventDefault();
+                                    setIsAddingSection(false);
+                                    setNewSectionName('');
+                                }
+                            }}
+                            placeholder="Section name"
+                            className="h-7 w-32 rounded-lg border-slate-200 text-[12px]"
+                        />
+                        <Button
+                            size="sm"
+                            className="h-7 rounded-lg px-2 text-[12px] font-semibold"
+                            onClick={confirmAddSection}
+                        >
+                            Add
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 rounded-lg p-0"
+                            aria-label="Cancel adding section"
+                            onClick={() => {
+                                setIsAddingSection(false);
+                                setNewSectionName('');
+                            }}
+                        >
+                            <X size={12} aria-hidden="true" />
+                        </Button>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setIsAddingSection(true)}
+                        className="flex items-center gap-1 rounded px-2 py-1 text-[12px] font-semibold text-slate-400 transition-colors hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    >
+                        <Plus size={11} aria-hidden="true" /> Section
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <>
+            <EditorShell
+                breadcrumbLabel="Exams"
+                breadcrumbTo="/manage-exams"
+                currentLabel={isEditing ? 'Edit exam' : 'New exam'}
+                title={isEditing ? 'Edit mock exam' : 'Create mock exam'}
+                description="Build and publish a mock exam for your reviewees."
+                isDirty={isDirty}
+                isSubmitting={isSubmitting}
+                onDiscard={() => navigate('/manage-exams')}
+                onSaveDraft={() => void doSubmit(false)}
+                onPublish={() => setPublishConfirmOpen(true)}
+                publishLabel="Publish"
+                publishBlockedReason={blockers.length > 0 ? blockers.join('. ') : null}
+                notice={
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                        Once published, this exam can no longer be edited.
+                    </p>
+                }
+                settings={
+                    <div className="space-y-3">
+                        <SettingsCard title="Exam settings">
+                            <SettingsSection>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Max Attempts</Label>
-                                    <div className="relative">
+                                    <FieldLabel htmlFor="exam-title">Exam title</FieldLabel>
+                                    <Input
+                                        id="exam-title"
+                                        value={title}
+                                        onChange={(event) => setTitle(event.target.value)}
+                                        placeholder="e.g. LET 2024 comprehensive mock"
+                                        className="h-9 rounded-lg border-slate-200 text-[13px] shadow-none focus:ring-primary/20"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <FieldLabel>Category</FieldLabel>
+                                    <CategorySelect value={category} onChange={setCategory} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <FieldLabel>Duration</FieldLabel>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        {PRESET_DURATIONS.map((preset) => {
+                                            const isActive = !isCustomDuration && duration === String(preset);
+                                            return (
+                                                <button
+                                                    key={preset}
+                                                    type="button"
+                                                    aria-pressed={isActive}
+                                                    onClick={() => {
+                                                        setDuration(String(preset));
+                                                        setIsCustomDuration(false);
+                                                    }}
+                                                    className={cn(
+                                                        'h-8 rounded-lg border text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                                                        isActive
+                                                            ? 'border-primary bg-primary text-white'
+                                                            : 'border-slate-200 bg-white text-slate-600 hover:border-primary/40 hover:text-primary',
+                                                    )}
+                                                >
+                                                    {preset < 60 ? `${preset}m` : `${preset / 60}h`}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {isCustomDuration ? (
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                aria-label="Custom duration in minutes"
+                                                value={duration}
+                                                onChange={(event) => setDuration(event.target.value)}
+                                                placeholder="e.g. 150"
+                                                className="h-8 rounded-lg border-slate-200 pr-12 text-[13px] shadow-none focus:ring-primary/20"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">
+                                                min
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsCustomDuration(true);
+                                                setDuration('');
+                                            }}
+                                            className="rounded text-[12px] font-semibold text-slate-400 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                        >
+                                            Use a custom duration
+                                        </button>
+                                    )}
+                                </div>
+                                {allowMultipleAttemptsConfig && (
+                                    <div className="space-y-1.5">
+                                        <FieldLabel htmlFor="exam-attempts">Max attempts</FieldLabel>
                                         <Input
+                                            id="exam-attempts"
                                             type="number"
                                             min={1}
                                             step={1}
                                             value={maxAttempts}
-                                            onChange={(e) => setMaxAttempts(e.target.value)}
+                                            onChange={(event) => setMaxAttempts(event.target.value)}
                                             placeholder="e.g. 3"
-                                            className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            className="h-9 rounded-lg border-slate-200 text-[13px] shadow-none focus:ring-primary/20"
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-wider">tries</span>
                                     </div>
-                                    <p className="text-[10px] font-medium text-slate-400">Used when multiple attempts are enabled in System Settings.</p>
-                                </div>
-                            )}
-
-                            {/* Status (edit only) */}
-                            {isEditing && (
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</Label>
-                                    <Select value={examStatus} onValueChange={(value) => setExamStatus(value as EditableExamStatus)}>
-                                        <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm">
-                                            <SelectValue placeholder="Select status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {editableStatusOptions.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* ── Card: Visibility ── */}
-                    <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-                        <button
-                            type="button"
-                            onClick={() => setShowVisibilityCard(!showVisibilityCard)}
-                            className="w-full"
-                        >
-                            <CardHeader className="px-5 py-4 border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                                            <Eye size={14} className="text-primary" />
-                                        </div>
-                                        <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-600">Visible To</CardTitle>
-                                        {selectedPrograms.length > 0 && !selectedPrograms.includes('All Programs') && (
-                                            <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold px-1.5 py-0">
-                                                {selectedPrograms.length}
-                                            </Badge>
-                                        )}
+                                )}
+                                {isEditing && (
+                                    <div className="space-y-1.5">
+                                        <FieldLabel>Status</FieldLabel>
+                                        <Select
+                                            value={examStatus}
+                                            onValueChange={(value) => setExamStatus(value as EditableExamStatus)}
+                                        >
+                                            <SelectTrigger
+                                                className="h-9 rounded-lg border-slate-200 text-[13px]"
+                                                aria-label="Exam status"
+                                            >
+                                                <SelectValue placeholder="Select status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {EDITABLE_STATUS_OPTIONS.map((option) => (
+                                                    <SelectItem key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                    <ChevronRight size={14} className={`text-slate-300 transition-transform ${showVisibilityCard ? 'rotate-90' : ''}`} />
-                                </div>
-                            </CardHeader>
-                        </button>
-                        {showVisibilityCard && (
-                            <CardContent className="p-5 space-y-3">
-                                <div className="grid grid-cols-1 gap-1.5 max-h-[200px] overflow-y-auto pr-1 scrollbar-hide">
-                                    {visiblePrograms.map((program) => (
-                                        <div
+                                )}
+                            </SettingsSection>
+
+                            <SettingsSection label="Visible to">
+                                <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+                                    {programs.map((program) => (
+                                        <label
                                             key={program}
-                                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all cursor-pointer ${selectedPrograms.includes(program)
-                                                ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/10'
-                                                : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'
-                                                }`}
-                                            onClick={() => handleProgramToggle(program)}
+                                            className={cn(
+                                                'flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors',
+                                                selectedPrograms.includes(program)
+                                                    ? 'border-primary/30 bg-primary/5'
+                                                    : 'border-slate-200 bg-white hover:bg-slate-50',
+                                            )}
                                         >
                                             <Checkbox
-                                                id={`vis-${program}`}
                                                 checked={selectedPrograms.includes(program)}
-                                                className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-3.5 w-3.5"
+                                                onCheckedChange={() => handleProgramToggle(program)}
+                                                className="h-3.5 w-3.5 rounded border-slate-300 data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                                             />
-                                            <Label htmlFor={`vis-${program}`} className="text-xs font-bold leading-none cursor-pointer">
-                                                {program}
-                                            </Label>
-                                        </div>
+                                            <span className="text-[12px] font-medium text-slate-700">{program}</span>
+                                        </label>
                                     ))}
                                 </div>
-                                {hasMorePrograms && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAllPrograms(!showAllPrograms)}
-                                        className="text-[10px] font-black uppercase tracking-wider text-primary hover:text-primary/80 transition-colors w-full text-center py-1"
-                                    >
-                                        {showAllPrograms ? 'Show less' : `Show all ${programs.length} programs`}
-                                    </button>
-                                )}
-                            </CardContent>
-                        )}
-                    </Card>
+                            </SettingsSection>
 
-                    {/* ── Card: Schedule ── */}
-                    <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-                        <button
-                            type="button"
-                            onClick={() => setShowScheduleCard(!showScheduleCard)}
-                            className="w-full"
-                        >
-                            <CardHeader className="px-5 py-4 border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                                            <CalendarClock size={14} className="text-primary" />
-                                        </div>
-                                        <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-600">Schedule</CardTitle>
-                                        {showDeadline && deadline && (
-                                            <Badge className="bg-emerald-50 text-emerald-600 border-none text-[9px] font-bold px-1.5 py-0">
-                                                Set
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <ChevronRight size={14} className={`text-slate-300 transition-transform ${showScheduleCard ? 'rotate-90' : ''}`} />
-                                </div>
-                            </CardHeader>
-                        </button>
-                        {showScheduleCard && (
-                            <CardContent className="p-5 space-y-3">
+                            <SettingsSection label="Schedule">
                                 {!showDeadline ? (
                                     <button
                                         type="button"
-                                        onClick={() => { setShowDeadline(true); }}
-                                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors group"
+                                        onClick={() => setShowDeadline(true)}
+                                        className="flex items-center gap-1.5 rounded text-[12px] font-semibold text-slate-400 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                     >
-                                        <span className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-slate-300 group-hover:border-primary/40 group-hover:bg-primary/5 transition-all">
-                                            <Plus size={10} />
-                                        </span>
-                                        Add Deadline
+                                        <Plus size={12} aria-hidden="true" /> Add deadline
                                     </button>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         <DateTimePicker
                                             value={deadline}
                                             onChange={setDeadline}
                                             placeholder="Select deadline date & time"
                                             onClear={() => setDeadline('')}
                                         />
-                                        <div
-                                            className={`flex items-center gap-2.5 p-2.5 rounded-lg border transition-all cursor-pointer ${closeOnDeadline ? 'bg-primary/5 border-primary/20' : 'bg-white border-slate-200 hover:border-slate-300'}`}
-                                            onClick={() => setCloseOnDeadline(!closeOnDeadline)}
-                                        >
+                                        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 transition-colors hover:bg-slate-50">
                                             <Checkbox
-                                                id="close-on-deadline"
                                                 checked={closeOnDeadline}
                                                 onCheckedChange={(checked) => setCloseOnDeadline(Boolean(checked))}
-                                                className="rounded-md border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-3.5 w-3.5"
+                                                className="h-3.5 w-3.5 rounded border-slate-300 data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                                             />
-                                            <Label htmlFor="close-on-deadline" className="text-[10px] font-bold leading-none cursor-pointer text-slate-600">
-                                                Auto-close on deadline
-                                            </Label>
-                                        </div>
+                                            <span className="text-[12px] font-medium text-slate-700">
+                                                Close exam automatically on the deadline
+                                            </span>
+                                        </label>
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -1863,263 +1050,240 @@ const CreateExamPage: React.FC = () => {
                                                 setDeadline('');
                                                 setCloseOnDeadline(false);
                                             }}
-                                            className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                                            className="flex items-center gap-1 rounded text-[12px] font-semibold text-slate-400 transition-colors hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                         >
-                                            <X size={10} /> Remove deadline
+                                            <X size={11} aria-hidden="true" /> Remove deadline
                                         </button>
                                     </div>
                                 )}
-                            </CardContent>
-                        )}
-                    </Card>
+                            </SettingsSection>
 
-                    {/* ── Card: Description ── */}
-                    <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
-                        <button
-                            type="button"
-                            onClick={() => setShowDescriptionCard(!showDescriptionCard)}
-                            className="w-full"
-                        >
-                            <CardHeader className="px-5 py-4 border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                                            <FileText size={14} className="text-primary" />
-                                        </div>
-                                        <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-600">Description</CardTitle>
-                                        {description && !showDescriptionCard && (
-                                            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-                                        )}
-                                    </div>
-                                    <ChevronRight size={14} className={`text-slate-300 transition-transform ${showDescriptionCard ? 'rotate-90' : ''}`} />
-                                </div>
-                            </CardHeader>
-                        </button>
-                        {showDescriptionCard && (
-                            <CardContent className="p-5">
+                            <SettingsSection label="Description">
                                 <Textarea
+                                    aria-label="Exam description"
                                     value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Provide instructions or context for students..."
-                                    className="min-h-24 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-medium text-sm leading-relaxed resize-none"
+                                    onChange={(event) => setDescription(event.target.value)}
+                                    placeholder="What does this exam cover?"
+                                    className="min-h-16 resize-none rounded-lg border-slate-200 text-[13px] leading-relaxed shadow-none focus:ring-primary/20"
                                 />
-                            </CardContent>
-                        )}
-                    </Card>
+                            </SettingsSection>
+                        </SettingsCard>
 
-                </div>
-            </div>
+                        <PublishReadiness
+                            readyCount={questionsWithContent.length - incompleteQuestions.length}
+                            totalCount={questionsWithContent.length}
+                            blockers={blockers}
+                            onShowIncomplete={
+                                incompleteQuestions.length > 0 ? () => setShowOnlyIncomplete(true) : undefined
+                            }
+                        />
+                    </div>
+                }
+            >
+                <QuestionListEditor
+                    questions={visibleQuestions}
+                    totalCount={questions.length}
+                    incompleteCount={incompleteQuestions.length}
+                    showOnlyIncomplete={showOnlyIncomplete}
+                    onToggleShowOnlyIncomplete={setShowOnlyIncomplete}
+                    expandedId={expandedId}
+                    onExpandedChange={setExpandedId}
+                    onUpdate={updateQuestion}
+                    onDelete={setDeleteQuestionId}
+                    onDuplicate={duplicateQuestion}
+                    onMove={moveQuestion}
+                    onMoveToSection={(question) => {
+                        setMoveQuestionTarget(question);
+                        setMoveTargetSection(normalizeSectionValue(question.section));
+                        setMoveTargetNewSection('');
+                    }}
+                    onImageUpload={handleQuestionImageUpload}
+                    onAdd={addQuestion}
+                    onReorder={reorderQuestions}
+                    sectionTabs={sectionTabs}
+                    emptyTitle="No questions in this section"
+                    emptyDescription="Add questions manually or import them from a file."
+                    toolbarActions={
+                        <>
+                            <input
+                                ref={importFileRef}
+                                type="file"
+                                accept=".csv,.json,application/json,text/csv"
+                                onChange={handleFileImport}
+                                className="hidden"
+                            />
+                            <Button
+                                variant="outline"
+                                className="h-7 gap-1.5 rounded-lg border-slate-200 bg-white px-2.5 text-[12px] font-medium"
+                                onClick={() => importFileRef.current?.click()}
+                            >
+                                <FileUp size={12} aria-hidden="true" /> Import
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-7 gap-1.5 rounded-lg border-slate-200 bg-white px-2.5 text-[12px] font-medium"
+                                onClick={() => downloadQuestionTemplate('csv', 'exam-import-template')}
+                            >
+                                <ExcelTemplateIcon /> Template
+                            </Button>
+                            {user?.role === 'ADMIN' && (
+                                <Button
+                                    variant="outline"
+                                    className="h-7 w-8 rounded-lg border-slate-200 bg-white px-0"
+                                    aria-label="Download JSON template"
+                                    onClick={() => downloadQuestionTemplate('json', 'exam-import-template')}
+                                >
+                                    <FileJson size={13} aria-hidden="true" />
+                                </Button>
+                            )}
+                        </>
+                    }
+                />
+            </EditorShell>
 
-            {/* ── Import Preview Dialog ── */}
+            {/* Import preview */}
             <Dialog open={isImportPreviewOpen} onOpenChange={setIsImportPreviewOpen}>
-                <DialogContent className="max-w-4xl rounded-2xl">
+                <DialogContent className="max-w-3xl rounded-xl">
                     <DialogHeader>
-                        <DialogTitle>Review Imported Questions</DialogTitle>
-                        <DialogDescription>
-                            {importPreviewQuestions.length} parsed questions found. Review, edit, and upload images here before adding them to {getImportTargetSection() ? `${getImportTargetSection()}.` : 'the full exam.'}
+                        <DialogTitle className="text-[15px]">Review imported questions</DialogTitle>
+                        <DialogDescription className="text-[12px]">
+                            {importPreview.length} question{importPreview.length === 1 ? '' : 's'} parsed into{' '}
+                            {normalizeSectionValue(activeSection || sections[0])}. Review and edit before adding.
                         </DialogDescription>
                     </DialogHeader>
-
-                    <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
-                        {importPreviewQuestions.map((question, index) => (
-                            <div key={question.id} className="border border-gray-100 rounded-xl p-4 space-y-4 bg-white">
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-xs font-black text-gray-600 uppercase tracking-widest">Question {index + 1}</p>
-                                    {normalizeSectionValue(question.section) && (
-                                        <Badge variant="outline" className="text-[10px]">{normalizeSectionValue(question.section)}</Badge>
-                                    )}
-                                </div>
-
-                                <div className="space-y-1">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Question</Label>
-                                    <AutoGrowTextarea
-                                        value={question.text}
-                                        onChange={(event) => updateImportPreviewQuestion(question.id, { text: event.target.value })}
-                                        placeholder="Enter your question here..."
-                                        className="min-h-14 resize-none rounded-xl border-slate-100 px-3 py-2 text-sm font-semibold leading-relaxed shadow-none focus:ring-primary/20"
-                                    />
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                        Image <span className="lowercase font-medium text-slate-300">(optional)</span>
-                                    </Label>
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                        <label className={`flex items-center gap-2 h-9 px-3 rounded-xl border cursor-pointer transition-all text-[10px] font-black uppercase tracking-wider ${question.imageUrl ? 'border-slate-200 bg-white text-slate-500 hover:border-slate-300' : 'border-dashed border-slate-200 bg-slate-50/50 text-slate-400 hover:bg-slate-50 hover:border-slate-300'}`}>
-                                            <ImagePlus size={13} />
-                                            {question.imageUrl ? 'Replace' : 'Upload Image'}
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={(event) => { void handleImportPreviewImageUpload(question.id, event); }}
-                                                className="hidden"
-                                            />
-                                        </label>
-                                        {question.imageUrl && (
-                                            <button
-                                                type="button"
-                                                className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors"
-                                                onClick={() => updateImportPreviewQuestion(question.id, { imageUrl: '' })}
-                                            >
-                                                Remove
-                                            </button>
-                                        )}
-                                    </div>
-                                    {question.imageUrl && (
-                                        <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-2">
-                                            <img
-                                                src={question.imageUrl}
-                                                alt="Imported question attachment"
-                                                className="max-h-48 w-auto max-w-full rounded-lg border border-slate-100 object-contain bg-white"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Options</Label>
-                                    </div>
-                                    <RadioGroup
-                                        value={question.correctOption.toString()}
-                                        onValueChange={(value) => updateImportPreviewQuestion(question.id, { correctOption: parseInt(value) })}
-                                        className="grid grid-cols-1 md:grid-cols-2 gap-2"
-                                    >
-                                        {OPTION_DISPLAY_ORDER.map((optionIndex) => (
-                                            <div
-                                                key={`${question.id}-${optionIndex}`}
-                                                className={`flex items-start gap-2.5 rounded-xl border p-2.5 transition-all ${question.correctOption === optionIndex
-                                                    ? 'bg-emerald-50/60 border-emerald-200 ring-1 ring-emerald-100'
-                                                    : 'bg-white border-slate-100 hover:border-primary/20'
-                                                    }`}
-                                            >
-                                                <RadioGroupItem
-                                                    value={optionIndex.toString()}
-                                                    id={`import-q-${question.id}-opt-${optionIndex}`}
-                                                    className="mt-1 shrink-0 border-slate-300 text-emerald-500 focus:ring-emerald-500"
-                                                />
-                                                <div className="flex-1 min-w-0">
-                                                    <label
-                                                        htmlFor={`import-q-${question.id}-opt-${optionIndex}`}
-                                                        className={`text-[9px] font-black uppercase tracking-widest block mb-0.5 ${question.correctOption === optionIndex ? 'text-emerald-600' : 'text-slate-300'}`}
-                                                    >
-                                                        {String.fromCharCode(65 + optionIndex)}{question.correctOption === optionIndex && ' · Correct'}
-                                                    </label>
-                                                    <AutoGrowTextarea
-                                                        value={question.options[optionIndex] || ''}
-                                                        rows={1}
-                                                        onChange={(event) => {
-                                                            const nextOptions = [...question.options];
-                                                            nextOptions[optionIndex] = event.target.value;
-                                                            updateImportPreviewQuestion(question.id, { options: nextOptions });
-                                                        }}
-                                                        placeholder={`Option ${String.fromCharCode(65 + optionIndex)}`}
-                                                        className={`min-h-0 w-full resize-none border-none bg-transparent p-0 text-sm font-semibold leading-5 focus:ring-0 ${question.correctOption === optionIndex ? 'text-slate-900' : 'text-slate-500'}`}
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </RadioGroup>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Rationale <span className="lowercase font-medium text-slate-300">(optional)</span></Label>
-                                    <AutoGrowTextarea
-                                        value={question.rationale}
-                                        onChange={(event) => updateImportPreviewQuestion(question.id, { rationale: event.target.value })}
-                                        placeholder="Explain why this is the correct answer..."
-                                        className="min-h-12 resize-none rounded-xl border-slate-100 bg-slate-50/40 px-3 py-2 text-xs font-medium leading-relaxed shadow-none focus:ring-primary/20"
-                                    />
-                                </div>
-                            </div>
+                    <ul className="max-h-[55vh] space-y-1.5 overflow-y-auto pr-1">
+                        {importPreview.map((question, index) => (
+                            <QuestionRow
+                                key={question.id}
+                                question={question}
+                                index={index}
+                                total={importPreview.length}
+                                expanded={importExpandedId === question.id}
+                                onToggleExpand={() =>
+                                    setImportExpandedId(importExpandedId === question.id ? null : question.id)
+                                }
+                                onUpdate={(questionId, updates) =>
+                                    setImportPreview((prev) =>
+                                        prev.map((candidate) =>
+                                            candidate.id === questionId ? { ...candidate, ...updates } : candidate,
+                                        ),
+                                    )
+                                }
+                                onDelete={(questionId) =>
+                                    setImportPreview((prev) => prev.filter((c) => c.id !== questionId))
+                                }
+                                onMove={(questionId, direction) =>
+                                    setImportPreview((prev) => {
+                                        const currentIndex = prev.findIndex((c) => c.id === questionId);
+                                        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+                                        if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+                                        return arrayMove(prev, currentIndex, targetIndex);
+                                    })
+                                }
+                                onImageUpload={handleImportPreviewImageUpload}
+                                sortable={false}
+                            />
                         ))}
-                    </div>
-
-                    <DialogFooter>
+                    </ul>
+                    <DialogFooter className="gap-2">
                         <Button
-                            type="button"
                             variant="outline"
-                            onClick={() => {
-                                setIsImportPreviewOpen(false);
-                                setImportPreviewQuestions([]);
-                            }}
+                            className="h-8 rounded-lg border-slate-200 text-[12px] font-semibold"
+                            onClick={() => setIsImportPreviewOpen(false)}
                         >
                             Cancel
                         </Button>
-                        <Button type="button" onClick={applyImportedQuestions}>
-                            Add to Current Section
+                        <Button
+                            className="h-8 gap-1.5 rounded-lg bg-primary text-[12px] font-semibold text-white hover:bg-primary/90"
+                            onClick={applyImportedQuestions}
+                            disabled={importPreview.length === 0}
+                        >
+                            <Plus size={13} aria-hidden="true" /> Add {importPreview.length} question
+                            {importPreview.length === 1 ? '' : 's'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* ── Move Question Dialog ── */}
-            <Dialog open={Boolean(moveQuestionTarget)} onOpenChange={(open) => { if (!open) closeMoveQuestionDialog(); }}>
-                <DialogContent className="max-w-md rounded-2xl">
+            {/* Move to section */}
+            <Dialog
+                open={moveQuestionTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setMoveQuestionTarget(null);
+                        setMoveTargetNewSection('');
+                    }
+                }}
+            >
+                <DialogContent className="max-w-sm rounded-xl">
                     <DialogHeader>
-                        <DialogTitle>Move Question</DialogTitle>
-                        <DialogDescription>
-                            Choose where to place this question, or create a new section for it.
+                        <DialogTitle className="text-[15px]">Move question to section</DialogTitle>
+                        <DialogDescription className="text-[12px]">
+                            Choose an existing section or create a new one.
                         </DialogDescription>
                     </DialogHeader>
-
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Existing Section</Label>
+                            <FieldLabel>Existing section</FieldLabel>
                             <Select value={moveTargetSection} onValueChange={setMoveTargetSection}>
-                                <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 text-sm font-semibold">
-                                    <SelectValue placeholder="Choose section" />
+                                <SelectTrigger className="h-9 text-[13px]" aria-label="Target section">
+                                    <SelectValue placeholder="Select section" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sections.map((section) => (
-                                        <SelectItem key={section} value={section}>{section}</SelectItem>
+                                        <SelectItem key={section} value={section}>
+                                            {section}
+                                        </SelectItem>
                                     ))}
-                                    <SelectItem value={NEW_SECTION_OPTION}>Create a new section below</SelectItem>
+                                    <SelectItem value={NEW_SECTION_OPTION}>Create a new section…</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
-
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Or Add New Section</Label>
+                            <FieldLabel htmlFor="move-new-section">Or add a new section</FieldLabel>
                             <Input
+                                id="move-new-section"
                                 value={moveTargetNewSection}
-                                onChange={(e) => setMoveTargetNewSection(e.target.value)}
-                                placeholder="Type a new section name"
-                                className="h-10 rounded-xl border-slate-200 shadow-none focus:ring-primary/20 font-semibold text-sm"
+                                onChange={(event) => setMoveTargetNewSection(event.target.value)}
+                                placeholder="New section name"
+                                className="h-9 rounded-lg border-slate-200 text-[13px]"
                             />
-                            <p className="text-[10px] font-medium text-slate-400">
-                                Rename the default Main section anytime, or type a new section name here to create one and move this question there.
-                            </p>
                         </div>
                     </div>
-
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={closeMoveQuestionDialog}>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            className="h-8 rounded-lg border-slate-200 text-[12px] font-semibold"
+                            onClick={() => setMoveQuestionTarget(null)}
+                        >
                             Cancel
                         </Button>
-                        <Button type="button" onClick={confirmMoveQuestion}>
-                            Move Question
+                        <Button
+                            className="h-8 rounded-lg text-[12px] font-semibold"
+                            onClick={confirmMoveQuestion}
+                        >
+                            Move question
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* ── Delete Confirmation ── */}
             <ConfirmDialog
                 open={deleteQuestionId !== null}
-                onOpenChange={(open) => { if (!open) setDeleteQuestionId(null); }}
-                title="Delete Question"
+                onOpenChange={(open) => {
+                    if (!open) setDeleteQuestionId(null);
+                }}
+                title="Delete question"
                 description="Are you sure you want to delete this question? This action cannot be undone."
                 confirmLabel="Delete"
                 variant="destructive"
                 onConfirm={confirmDeleteQuestion}
             />
 
-            {/* ── Publish Confirmation ── */}
             <ConfirmDialog
                 open={publishConfirmOpen}
                 onOpenChange={setPublishConfirmOpen}
-                title="Publish Exam"
+                title="Publish exam"
                 description="Once published, this exam can no longer be edited. Do you want to continue?"
                 confirmLabel="Publish"
                 cancelLabel="Cancel"
@@ -2130,7 +1294,7 @@ const CreateExamPage: React.FC = () => {
                     void doSubmit(true);
                 }}
             />
-        </div>
+        </>
     );
 };
 
