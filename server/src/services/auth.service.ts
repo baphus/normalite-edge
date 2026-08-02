@@ -75,6 +75,17 @@ export class AuthService {
         return campus;
     }
 
+    /**
+     * The avatar the provider already has for this identity, if we trust it.
+     *
+     * Surfaced to the client so the profile form can show it as the default
+     * rather than a blank placeholder — someone signing up with Google should
+     * see the picture they already have, and choose whether to keep it.
+     */
+    private providerAvatar(identity: SupabaseIdentity): string | null {
+        return identity.pictureUrl ? importRemoteAvatar(identity.pictureUrl) : null;
+    }
+
     private splitName(name: string) {
         const parts = name.trim().split(/\s+/).filter(Boolean);
         const firstName = parts[0] || 'User';
@@ -118,6 +129,7 @@ export class AuthService {
                 suggested: {
                     firstName: suggestedName?.firstName ?? null,
                     lastName: suggestedName?.lastName ?? null,
+                    picture: this.providerAvatar(identity),
                 },
                 // New Google SSO users are always REVIEWEE; surface the role
                 // so the CompleteProfilePage renders the full form (campus,
@@ -141,7 +153,17 @@ export class AuthService {
             email: user.email,
             eligible: true,
             ineligibleReason: null,
-            suggested: null,
+            // Only meaningful while the profile is still being filled in. Names
+            // stay null on purpose: an invited user's placeholders are exactly
+            // what the form is asking them to replace, so suggesting them back
+            // would be worse than suggesting nothing.
+            suggested: profileComplete
+                ? null
+                : {
+                    firstName: null,
+                    lastName: null,
+                    picture: user.profilePicture ?? this.providerAvatar(identity),
+                },
             role: user.role,
             user: profileComplete ? this.sanitizeUser(user) : null,
         };
@@ -195,7 +217,9 @@ export class AuthService {
                     lastName: data.lastName?.trim() || existingById.lastName,
                     middleInitial,
                     suffix: data.suffix?.trim() || existingById.suffix,
-                    profilePicture: data.picture || existingById.profilePicture,
+                    profilePicture: data.picture
+                        || existingById.profilePicture
+                        || this.providerAvatar(identity),
                     trackId: resolvedTrack?.id ?? existingById.trackId,
                     campusId: resolvedCampus?.id ?? existingById.campusId,
                     programTrack: resolvedTrack?.name ?? existingById.programTrack,
@@ -257,8 +281,7 @@ export class AuthService {
             ? data.middleInitial.trim()[0].toUpperCase()
             : undefined;
 
-        const profilePicture = data.picture
-            || (identity.pictureUrl ? importRemoteAvatar(identity.pictureUrl) : null);
+        const profilePicture = data.picture || this.providerAvatar(identity);
 
         const user = await prisma.user.create({
             data: {

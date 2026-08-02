@@ -51,6 +51,12 @@ interface PendingRegistration {
     ineligibleReason: 'domain' | 'provider' | null;
     firstName: string | null;
     lastName: string | null;
+    /**
+     * The avatar the provider already has for this identity, allowlisted
+     * server-side. Shown as the default on the profile form so a Google user
+     * sees the picture they already have instead of a blank placeholder.
+     */
+    picture: string | null;
     /** Role assigned by the admin during invite. */
     role?: 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 }
@@ -152,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ineligibleReason: state.ineligibleReason ?? null,
                     firstName: state.suggested?.firstName ?? null,
                     lastName: state.suggested?.lastName ?? null,
+                    picture: state.suggested?.picture ?? null,
                     role: state.role ?? undefined,
                 });
             }
