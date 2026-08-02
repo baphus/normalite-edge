@@ -76,6 +76,8 @@ Both packages use `@/*` → `./src/*`:
 
 ## Frontend conventions
 
+**Read `docs/design-system-v1.0.0.md` before changing any authenticated app surface.** It defines the type scale (12px floor), colour, radius, the shared `components/manage/` and `components/editor/` inventory, the required list/editor patterns, and the accessibility bar. Four visual dialects exist in `pages/` — that doc says which one is the target and which are migration debt.
+
 - UI components: Shadcn UI primitives in `client/src/components/ui/` — use these, don't rebuild from scratch
 - Forms: `react-hook-form` + `zod` resolvers
 - Styling: Tailwind CSS 4 utility classes only
