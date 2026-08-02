@@ -205,6 +205,26 @@ describe('Input Validation', () => {
         assert.equal(res.body.success, false);
     });
 
+    // Relaxed from `authenticate` to `requireSupabaseSession` so a Google user
+    // with no profile row yet can still replace the suggested avatar. A valid
+    // session must still be mandatory.
+    it('should reject the pre-registration avatar upload without an access token', async () => {
+        const res = await request('POST', '/api/v1/uploads/public-profile-image', {
+            body: { fileDataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+        });
+        assert.equal(res.status, 401);
+        assert.equal(res.body.success, false);
+    });
+
+    it('should reject the pre-registration avatar upload with a forged token', async () => {
+        const res = await request('POST', '/api/v1/uploads/public-profile-image', {
+            body: { fileDataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+            headers: { Authorization: 'Bearer not.a.real.token' },
+        });
+        assert.equal(res.status, 401);
+        assert.equal(res.body.success, false);
+    });
+
     it('should reject a forged bearer token', async () => {
         const res = await request('GET', '/api/v1/auth/me', {
             headers: { Authorization: 'Bearer not.a.real.token' },

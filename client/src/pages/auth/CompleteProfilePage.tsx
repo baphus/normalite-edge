@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
 import { AlertCircle, ArrowRight, Camera, UserRound } from 'lucide-react';
 import api from '@/lib/axios';
-import { uploadImageToCloudinary } from '@/lib/upload';
+import { uploadProfilePictureBeforeRegistration } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -139,7 +139,7 @@ const ProfileForm: React.FC<{
         try {
             setIsUploadingPicture(true);
             const file = new File([croppedBlob], 'profile-pic.jpg', { type: 'image/jpeg' });
-            const secureUrl = await uploadImageToCloudinary(file, 'profile-pics');
+            const secureUrl = await uploadProfilePictureBeforeRegistration(file);
             setUploadedPicture(secureUrl);
             setImgError(false);
         } catch {

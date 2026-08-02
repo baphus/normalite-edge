@@ -9,23 +9,31 @@
  */
 const ALLOWED_AVATAR_HOSTS = ['googleusercontent.com'];
 
-/**
- * Hostnames an avatar may be *stored* from.
- *
- * Wider than the import allowlist by exactly one entry: our own Cloudinary
- * bucket, which is where a user's uploaded picture lands. Deliberately mirrors
- * the `imgSrc` CSP directive in `app.ts` — a URL we would refuse to render is a
- * URL we should refuse to store.
- */
-const ALLOWED_STORED_AVATAR_HOSTS = [...ALLOWED_AVATAR_HOSTS, 'res.cloudinary.com'];
+/** Our own upload bucket — where a picture the user uploaded lands. */
+const UPLOAD_BUCKET_HOST = 'res.cloudinary.com';
 
-const matchesHost = (hostname: string, allowed: string[]): boolean =>
-    allowed.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+/**
+ * Avatars are served from subdomains (`lh3.`, `lh4.`, …), never the apex. Both
+ * predicates match the `imgSrc` CSP directive in `app.ts` exactly — `*.google‑
+ * usercontent.com` and the literal bucket host — so a URL we would refuse to
+ * render is a URL we refuse to store.
+ */
+const isProviderAvatarHost = (hostname: string): boolean =>
+    ALLOWED_AVATAR_HOSTS.some((host) => hostname.endsWith(`.${host}`));
+
+const isUploadBucketHost = (hostname: string): boolean => hostname === UPLOAD_BUCKET_HOST;
+
+/**
+ * `URL.hostname` drops any `user:pass@` prefix, so a host check alone would
+ * accept `https://evil.test@lh3.googleusercontent.com/…` and then persist the
+ * credentials when the URL is serialized back out.
+ */
+const hasEmbeddedCredentials = (url: URL): boolean => Boolean(url.username || url.password);
 
 /**
  * Google serves an avatar at any size from the same URL, selected by a trailing
- * `=s<N>-c` directive. The token typically carries `=s96-c`, which is soft when
- * rendered at 96 CSS pixels on a 2x display.
+ * `=s<N>-c` directive on the *path*. The token typically carries `=s96-c`,
+ * which is soft when rendered at 96 CSS pixels on a 2x display.
  */
 const GOOGLE_SIZE_DIRECTIVE = /=s\d+-c$/;
 const PREFERRED_AVATAR_SIZE = 's256-c';
@@ -44,12 +52,20 @@ export function importRemoteAvatar(sourceUrl: string): string | null {
     try {
         const url = new URL(sourceUrl);
 
-        if (url.protocol !== 'https:' || !matchesHost(url.hostname, ALLOWED_AVATAR_HOSTS)) {
+        if (
+            url.protocol !== 'https:'
+            || hasEmbeddedCredentials(url)
+            || !isProviderAvatarHost(url.hostname)
+        ) {
             return null;
         }
 
-        // Only ever applied to a URL already proven to be Google-hosted.
-        return url.toString().replace(GOOGLE_SIZE_DIRECTIVE, `=${PREFERRED_AVATAR_SIZE}`);
+        // Scoped to the path: rewriting the serialized URL would miss the
+        // directive whenever a query or fragment follows it, and could mangle
+        // a query value that happens to look like one.
+        url.pathname = url.pathname.replace(GOOGLE_SIZE_DIRECTIVE, `=${PREFERRED_AVATAR_SIZE}`);
+
+        return url.toString();
     } catch {
         return null;
     }
@@ -66,7 +82,10 @@ export function importRemoteAvatar(sourceUrl: string): string | null {
 export function isStorableAvatarUrl(value: string): boolean {
     try {
         const url = new URL(value);
-        return url.protocol === 'https:' && matchesHost(url.hostname, ALLOWED_STORED_AVATAR_HOSTS);
+
+        return url.protocol === 'https:'
+            && !hasEmbeddedCredentials(url)
+            && (isUploadBucketHost(url.hostname) || isProviderAvatarHost(url.hostname));
     } catch {
         return false;
     }

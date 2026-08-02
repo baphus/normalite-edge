@@ -59,6 +59,15 @@ const uploadLimiter = rateLimit({
 
 // ─── Middleware ─────────────────────────────────────────
 app.use(cors(corsOptions));
+
+// Higher body limit for upload routes only (base64 images). Registered before
+// the global parser deliberately: whichever runs first consumes the stream, so
+// behind the 2mb one this could never take effect. The real ceiling on an
+// upload is still `uploadImageSchema`, which caps the payload well under 5mb —
+// this only decides whether an oversized body gets a clear 400 or a raw parser
+// error.
+app.use('/api/v1/uploads', express.json({ limit: '5mb' }));
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -69,11 +78,11 @@ app.use(cookieParser());
 // provisioning surface.
 app.use('/api/v1/auth/complete-profile', authLimiter);
 app.use('/api/v1/auth/session-start', authLimiter);
-app.use('/api/v1/upload', uploadLimiter);
+// Note the plural: the router mounts at /api/v1/uploads, and an `app.use`
+// prefix only matches on segment boundaries — registered against the singular
+// form, this limiter applied to nothing.
+app.use('/api/v1/uploads', uploadLimiter);
 app.use('/api/v1', globalLimiter);
-
-// Higher body limit for upload routes only (base64 images)
-app.use('/api/v1/upload', express.json({ limit: '5mb' }));
 
 // ─── Health Check ──────────────────────────────────────
 app.get('/api/health', (_req, res) => {

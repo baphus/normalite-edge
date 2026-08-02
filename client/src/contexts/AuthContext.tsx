@@ -52,9 +52,13 @@ interface PendingRegistration {
     firstName: string | null;
     lastName: string | null;
     /**
-     * The avatar the provider already has for this identity, allowlisted
-     * server-side. Shown as the default on the profile form so a Google user
+     * The avatar to offer as the default on the profile form, so a Google user
      * sees the picture they already have instead of a blank placeholder.
+     *
+     * A provider-supplied avatar is allowlisted server-side before it gets
+     * here. An invited user's already-stored picture is passed through as-is,
+     * which for a row predating that validation may be any URL — the same
+     * exposure as every other page that renders `user.picture`.
      */
     picture: string | null;
     /** Role assigned by the admin during invite. */

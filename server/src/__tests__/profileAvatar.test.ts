@@ -26,8 +26,33 @@ describe('importRemoteAvatar', () => {
         assert.equal(importRemoteAvatar(url), url);
     });
 
+    it('rewrites the directive on the path even when a query follows it', () => {
+        assert.equal(
+            importRemoteAvatar('https://lh3.googleusercontent.com/a/x=s96-c?sz=50'),
+            'https://lh3.googleusercontent.com/a/x=s256-c?sz=50'
+        );
+    });
+
+    it('leaves a query value that merely looks like a directive alone', () => {
+        assert.equal(
+            importRemoteAvatar('https://lh3.googleusercontent.com/a/x?q=s96-c'),
+            'https://lh3.googleusercontent.com/a/x?q=s96-c'
+        );
+    });
+
     it('rejects a host outside the provider allowlist', () => {
         assert.equal(importRemoteAvatar('https://ui-avatars.com/api/?name=A'), null);
+    });
+
+    it('rejects the bare apex, which never serves avatars', () => {
+        assert.equal(importRemoteAvatar('https://googleusercontent.com/a/x=s96-c'), null);
+    });
+
+    it('rejects credentials smuggled in front of an allowed host', () => {
+        assert.equal(
+            importRemoteAvatar('https://evil.test@lh3.googleusercontent.com/a/x=s96-c'),
+            null
+        );
     });
 
     it('rejects a lookalike host that merely ends in the allowed name', () => {
@@ -58,6 +83,14 @@ describe('isStorableAvatarUrl', () => {
 
     it('rejects a lookalike of the upload bucket', () => {
         assert.equal(isStorableAvatarUrl('https://res.cloudinary.com.evil.test/x.jpg'), false);
+    });
+
+    it('rejects a subdomain of the upload bucket', () => {
+        assert.equal(isStorableAvatarUrl('https://x.res.cloudinary.com/demo/x.jpg'), false);
+    });
+
+    it('rejects credentials smuggled in front of an allowed host', () => {
+        assert.equal(isStorableAvatarUrl('https://user:pass@res.cloudinary.com/demo/x.jpg'), false);
     });
 
     it('rejects plaintext http', () => {
