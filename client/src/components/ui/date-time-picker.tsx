@@ -107,7 +107,6 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
                             mode="single"
                             selected={selectedDate}
                             onSelect={handleDateSelect}
-                            initialFocus
                         />
                     </div>
 

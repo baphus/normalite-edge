@@ -792,7 +792,6 @@ const VideoConferencePage: React.FC = () => {
                                         selected={wizard.date}
                                         onSelect={(date) => setWizard((prev) => ({ ...prev, date }))}
                                         disabled={{ before: new Date() }}
-                                        initialFocus
                                     />
                                 </div>
                                 {wizard.date && (
