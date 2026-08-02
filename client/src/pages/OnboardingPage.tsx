@@ -1,27 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, CheckCircle2, Rocket } from 'lucide-react';
+import { CheckCircle2, Rocket } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
-import { uploadImageToCloudinary } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import ImageCropDialog from '@/components/ui/image-crop-dialog';
 
 const OnboardingPage: React.FC = () => {
     const { user, updateUser } = useAuth();
     const navigate = useNavigate();
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-    const [showCropDialog, setShowCropDialog] = useState(false);
-
-    const roleMessage = useMemo(
-        () => 'Set up your learner profile so your study sessions and exams are personalized from day one.',
-        []
-    );
 
     useEffect(() => {
         if (user && user.role !== 'REVIEWEE') {
@@ -29,19 +17,12 @@ const OnboardingPage: React.FC = () => {
         }
     }, [navigate, user]);
 
-    const completeOnboarding = async (skipPhoto = false) => {
+    const completeOnboarding = async () => {
         setSubmitting(true);
         setError(null);
 
         try {
-            let uploadedPicture: string | undefined;
-            if (!skipPhoto && avatarFile) {
-                uploadedPicture = await uploadImageToCloudinary(avatarFile, 'profile-pics');
-            }
-
-            const response = await api.post('/auth/onboarding', {
-                picture: uploadedPicture,
-            });
+            const response = await api.post('/auth/onboarding', {});
 
             if (response.data?.data) {
                 updateUser(response.data.data);
@@ -56,12 +37,6 @@ const OnboardingPage: React.FC = () => {
         }
     };
 
-    const handleCropComplete = async (croppedBlob: Blob) => {
-        const file = new File([croppedBlob], 'profile-pic.jpg', { type: 'image/jpeg' });
-        setAvatarFile(file);
-        setAvatarPreview(URL.createObjectURL(croppedBlob));
-    };
-
     return (
         <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,#f0fdf4,transparent_38%),radial-gradient(circle_at_top_left,#eff6ff,transparent_40%),#f8fafc] px-6 py-10">
             <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-xl backdrop-blur">
@@ -71,55 +46,9 @@ const OnboardingPage: React.FC = () => {
                 </p>
 
                 <h1 className="mt-4 text-3xl font-black text-slate-900">Welcome to Normalite EDGE</h1>
-                <p className="mt-2 text-sm text-slate-600">{roleMessage}</p>
-
-                <div className="mt-8 grid gap-5 rounded-2xl border border-slate-200 bg-slate-50 p-5 md:grid-cols-[auto,1fr] md:items-center">
-                    <div>
-                        {avatarPreview ? (
-                            <img src={avatarPreview} alt="Profile preview" className="h-20 w-20 rounded-full object-cover ring-2 ring-emerald-200" />
-                        ) : (
-                            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200">
-                                <Camera size={24} />
-                            </div>
-                        )}
-                    </div>
-
-                    <div>
-                        <p className="text-sm font-semibold text-slate-900">Upload profile photo (optional)</p>
-                        <p className="mt-1 text-xs text-slate-600">
-                            A profile image helps teammates and students identify you quickly.
-                        </p>
-                        <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(event) => {
-                                const file = event.target.files?.[0] || null;
-                                if (!file) return;
-
-                                if (!file.type.startsWith('image/')) {
-                                    setError('Please select an image file.');
-                                    return;
-                                }
-
-                                const maxFileSizeInBytes = 3 * 1024 * 1024;
-                                if (file.size > maxFileSizeInBytes) {
-                                    setError('Image must be 3MB or smaller.');
-                                    return;
-                                }
-
-                                setAvatarFile(file);
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                    setCropImageSrc(reader.result as string);
-                                    setShowCropDialog(true);
-                                };
-                                reader.readAsDataURL(file);
-                                event.target.value = '';
-                            }}
-                            className="mt-3 text-xs"
-                        />
-                    </div>
-                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                    Set up your learner profile so your study sessions and exams are personalized from day one.
+                </p>
 
                 <div className="mt-6 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
                     <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
@@ -130,34 +59,17 @@ const OnboardingPage: React.FC = () => {
 
                 {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
-                <div className="mt-6 flex items-center gap-3">
+                <div className="mt-6">
                     <Button
                         type="button"
-                        onClick={() => completeOnboarding(false)}
+                        onClick={completeOnboarding}
                         disabled={submitting}
                         className="bg-slate-900 text-white hover:bg-slate-800"
                     >
                         {submitting ? 'Finishing setup...' : 'Continue to dashboard'}
                     </Button>
-                    <Button type="button" variant="outline" disabled={submitting} onClick={() => completeOnboarding(true)}>
-                        Skip photo
-                    </Button>
                 </div>
             </div>
-
-            {cropImageSrc && (
-                <ImageCropDialog
-                    open={showCropDialog}
-                    onClose={() => {
-                        setShowCropDialog(false);
-                        setCropImageSrc(null);
-                    }}
-                    imageSrc={cropImageSrc}
-                    onCropComplete={handleCropComplete}
-                    aspect={1}
-                    title="Crop profile photo"
-                />
-            )}
         </div>
     );
 };
