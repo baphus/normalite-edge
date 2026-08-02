@@ -4,14 +4,12 @@ import {
     ChevronRight,
     ChevronUp,
     ChevronDown,
-    Check,
     GripVertical,
     Save,
     Plus,
     X,
     Trash2,
     Copy,
-    Library,
     Clock,
     FileUp,
     FileJson,
@@ -181,7 +179,6 @@ interface SortableQuestionCardProps {
     question: Question;
     index: number;
     totalVisibleQuestions: number;
-    totalQuestions: number;
     onDuplicateQuestion: (question: Question) => void;
     onOpenMoveQuestion: (question: Question) => void;
     onDeleteQuestion: (questionId: string) => void;
@@ -194,7 +191,6 @@ const SortableQuestionCard: React.FC<SortableQuestionCardProps> = ({
     question,
     index,
     totalVisibleQuestions,
-    totalQuestions,
     onDuplicateQuestion,
     onOpenMoveQuestion,
     onDeleteQuestion,
@@ -739,46 +735,9 @@ const CreateExamPage: React.FC = () => {
         }
     };
 
-    const startRenameSection = (section: string) => {
-        setEditingSection(section);
-        setEditingSectionName(section);
-    };
-
     const cancelRenameSection = () => {
         setEditingSection(null);
         setEditingSectionName('');
-    };
-
-    const confirmRenameSection = () => {
-        if (!editingSection) return;
-
-        const nextName = editingSectionName.trim();
-        if (!nextName) {
-            toast.error('Section name is required.');
-            return;
-        }
-
-        if (nextName !== editingSection && sections.includes(nextName)) {
-            toast.error('That section name already exists.');
-            return;
-        }
-
-        setSections((prev) => prev.map((section) => section === editingSection ? nextName : section));
-        setQuestions((prev) => prev.map((question) => (
-            normalizeSectionValue(question.section) === editingSection
-                ? { ...question, section: nextName }
-                : question
-        )));
-
-        if (activeSection === editingSection) {
-            setActiveSection(nextName);
-        }
-
-        if (moveTargetSection === editingSection) {
-            setMoveTargetSection(nextName);
-        }
-
-        cancelRenameSection();
     };
 
     const createQuestion = (targetSection?: string) => {
@@ -1645,7 +1604,6 @@ const CreateExamPage: React.FC = () => {
                                                 question={q}
                                                 index={index}
                                                 totalVisibleQuestions={filteredQuestions.length}
-                                                totalQuestions={questions.length}
                                                 onDuplicateQuestion={duplicateQuestion}
                                                 onOpenMoveQuestion={openMoveQuestionDialog}
                                                 onDeleteQuestion={deleteQuestion}
