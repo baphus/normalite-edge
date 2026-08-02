@@ -325,8 +325,9 @@ const DeckEditorPage: React.FC = () => {
 
         const payload = {
             title: title.trim(),
-            subject: subject.trim() || undefined,
-            description: description.trim() || undefined,
+            // null rather than undefined so clearing these fields actually clears them.
+            subject: subject.trim() || null,
+            description: description.trim() || null,
             categoryId: category,
             visibility: nextVisibility,
             trackIds: selectedTrackIds,

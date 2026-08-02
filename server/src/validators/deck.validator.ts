@@ -3,6 +3,13 @@ import { z } from 'zod';
 const categoryIdSchema = z.string().uuid().nullable().optional();
 const requiredTrimmedString = (field: string) => z.string().trim().min(1, `${field} is required`);
 
+/**
+ * Null clears an existing value; omitting the key leaves it untouched.
+ * Plain `.optional()` could not express "clear this" — an emptied field arrived as
+ * undefined and Prisma ignored it, so the value was stuck forever once set.
+ */
+const clearableTrimmedString = z.string().trim().nullable().optional();
+
 const deckQuestionSchema = z.object({
     orderNo: z.number().int().min(1).optional(),
     questionText: requiredTrimmedString('questionText'),
@@ -19,8 +26,8 @@ const deckQuestionSchema = z.object({
 
 export const createDeckSchema = z.object({
     title: requiredTrimmedString('title'),
-    description: z.string().trim().optional(),
-    subject: z.string().trim().optional(),
+    description: clearableTrimmedString,
+    subject: clearableTrimmedString,
     categoryId: categoryIdSchema,
     program: z.string().trim().optional(),
     program_track: z.string().trim().optional(),
@@ -32,8 +39,8 @@ export const createDeckSchema = z.object({
 
 export const updateDeckSchema = z.object({
     title: requiredTrimmedString('title').optional(),
-    description: z.string().trim().optional(),
-    subject: z.string().trim().optional(),
+    description: clearableTrimmedString,
+    subject: clearableTrimmedString,
     categoryId: categoryIdSchema,
     program: z.string().trim().optional(),
     program_track: z.string().trim().optional(),

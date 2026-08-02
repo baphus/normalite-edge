@@ -1,4 +1,4 @@
-import { DeckSessionMode, DeckSessionStatus, Role, Visibility } from '@prisma/client';
+import { DeckSessionMode, DeckSessionStatus, Prisma, Role, Visibility } from '@prisma/client';
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { notificationService } from './notification.service';
@@ -139,8 +139,8 @@ export class DeckService {
 
     async createDeck(data: {
         title: string;
-        description?: string;
-        subject?: string;
+        description?: string | null;
+        subject?: string | null;
         categoryId?: string | null;
         visibility?: Visibility;
         trackIds?: string[];
@@ -171,8 +171,8 @@ export class DeckService {
             const createdDeck = await tx.studyDeck.create({
                 data: {
                     title: data.title,
-                    description: data.description,
-                    subject: data.subject,
+                    description: data.description ?? null,
+                    subject: data.subject ?? null,
                     categoryId: data.categoryId,
                     visibility: data.visibility || 'DRAFT',
                     createdBy: data.createdBy,
@@ -244,8 +244,8 @@ export class DeckService {
         userRole: Role,
         data: {
             title?: string;
-            description?: string;
-            subject?: string;
+            description?: string | null;
+            subject?: string | null;
             categoryId?: string | null;
             visibility?: Visibility;
             trackIds?: string[];
@@ -281,15 +281,19 @@ export class DeckService {
                 }
             }
 
+            const deckUpdateData: Prisma.StudyDeckUncheckedUpdateInput = {
+                title: data.title,
+                categoryId: data.categoryId,
+                visibility: data.visibility,
+            };
+
+            // Distinguish "not sent" (leave alone) from an explicit null (clear it).
+            if (data.description !== undefined) deckUpdateData.description = data.description;
+            if (data.subject !== undefined) deckUpdateData.subject = data.subject;
+
             await tx.studyDeck.update({
                 where: { id: deckId },
-                data: {
-                    title: data.title,
-                    description: data.description,
-                    subject: data.subject,
-                    categoryId: data.categoryId,
-                    visibility: data.visibility,
-                },
+                data: deckUpdateData,
             });
 
             if (uniqueTrackIds) {
