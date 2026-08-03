@@ -76,7 +76,7 @@ Both packages use `@/*` → `./src/*`:
 
 ## Frontend conventions
 
-**Read `docs/design-system-v1.1.0.md` before changing any authenticated app surface** (it supersedes `v1.0.0`; always read the highest version present). It defines the type scale (12px floor), colour, radius, the shared `components/manage/` and `components/editor/` inventory, the required list/editor patterns, the form default per surface type (grid for browse, table for audit), and the accessibility bar. Four visual dialects exist in `pages/` — that doc says which one is the target and which are migration debt.
+**Read `docs/design-system-v1.2.0.md` before changing any authenticated app surface** (it supersedes `v1.1.0` and `v1.0.0`; always read the highest version present). It defines the type scale (12px floor), colour, radius, the shared `components/manage/` and `components/editor/` inventory, the required list/editor patterns, the detail-page shell contract (no padding on the page root — the layout supplies it), the form default per surface type (grid for browse, table for audit), and the accessibility bar. Four visual dialects exist in `pages/` — that doc says which one is the target and which are migration debt.
 
 - UI components: Shadcn UI primitives in `client/src/components/ui/` — use these, don't rebuild from scratch
 - Forms: `react-hook-form` + `zod` resolvers

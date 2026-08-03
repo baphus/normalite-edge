@@ -1,14 +1,34 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-export type StatusTone = 'live' | 'draft' | 'closed' | 'archived' | 'neutral';
+/**
+ * `live`/`draft`/`closed`/`archived` describe a resource's publication state.
+ * `success`/`pending` describe a unit of work — an attempt that is submitted or
+ * still running. They share the publication tones' colours, but exist under
+ * their own names so a caller styling an attempt does not have to write
+ * `tone="live"` and leave the next reader wondering whether it is a bug.
+ */
+export type StatusTone =
+    | 'live'
+    | 'draft'
+    | 'closed'
+    | 'archived'
+    | 'neutral'
+    | 'success'
+    | 'pending';
+
+const EMERALD = { pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-600' };
+const AMBER = { pill: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' };
+const SLATE = { pill: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' };
 
 const TONE_CLASSES: Record<StatusTone, { pill: string; dot: string }> = {
-    live: { pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-600' },
-    draft: { pill: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+    live: EMERALD,
+    draft: AMBER,
     closed: { pill: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-600' },
-    archived: { pill: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
-    neutral: { pill: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
+    archived: SLATE,
+    neutral: SLATE,
+    success: EMERALD,
+    pending: AMBER,
 };
 
 interface StatusPillProps {
