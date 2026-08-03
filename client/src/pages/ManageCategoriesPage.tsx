@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Pencil, Trash2, Plus, FolderOpen } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Plus } from 'lucide-react';
 import api from '@/lib/axios';
+import { formatShortDate } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
     Dialog,
     DialogContent,
@@ -12,16 +11,17 @@ import {
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ManageToolbar } from '@/components/manage/ManageToolbar';
+import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 
 interface Category {
     id: string;
@@ -34,10 +34,11 @@ interface Category {
 export default function ManageCategoriesPage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [name, setName] = useState('');
     const [saving, setSaving] = useState(false);
 
@@ -54,8 +55,14 @@ export default function ManageCategoriesPage() {
     }, []);
 
     useEffect(() => {
-        fetchCategories();
+        void fetchCategories();
     }, [fetchCategories]);
+
+    const filteredCategories = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        if (!term) return categories;
+        return categories.filter((cat) => cat.name.toLowerCase().includes(term));
+    }, [categories, search]);
 
     const handleCreate = () => {
         setEditingCategory(null);
@@ -75,7 +82,6 @@ export default function ManageCategoriesPage() {
             toast.error('Category name is required');
             return;
         }
-
         setSaving(true);
         try {
             if (editingCategory) {
@@ -86,7 +92,7 @@ export default function ManageCategoriesPage() {
                 toast.success('Category created');
             }
             setDialogOpen(false);
-            fetchCategories();
+            void fetchCategories();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to save category');
         } finally {
@@ -96,94 +102,126 @@ export default function ManageCategoriesPage() {
 
     const handleDelete = async () => {
         if (!deletingCategory) return;
-
         try {
             await api.delete(`/categories/${deletingCategory.id}`);
             toast.success('Category deleted');
             setDeleteDialogOpen(false);
             setDeletingCategory(null);
-            fetchCategories();
+            void fetchCategories();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to delete category');
         }
     };
 
+    const columns = useMemo<ResourceColumn<Category>[]>(
+        () => [
+            {
+                id: 'name',
+                header: 'Name',
+                primary: true,
+                sortable: true,
+                sortValue: (cat) => cat.name,
+                className: 'min-w-[240px]',
+                cell: (cat) => (
+                    <div className="min-w-0">
+                        <p className="font-semibold text-slate-900">{cat.name}</p>
+                        <p className="mt-0.5 truncate text-[12px] text-slate-400">
+                            Created {formatShortDate(cat.createdAt)}
+                        </p>
+                    </div>
+                ),
+            },
+            {
+                id: 'exams',
+                header: 'Exams',
+                sortable: true,
+                sortValue: (cat) => cat._count.exams,
+                className: 'w-[100px] tabular-nums',
+                cell: (cat) => cat._count.exams,
+            },
+            {
+                id: 'decks',
+                header: 'Decks',
+                sortable: true,
+                sortValue: (cat) => cat._count.decks,
+                className: 'w-[100px] tabular-nums',
+                cell: (cat) => cat._count.decks,
+            },
+        ],
+        [],
+    );
+
+    const renderRowActions = useCallback(
+        (category: Category) => (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg text-slate-400 hover:text-slate-700"
+                        aria-label={`Actions for ${category.name}`}
+                    >
+                        <MoreHorizontal size={15} aria-hidden="true" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44 rounded-lg">
+                    <DropdownMenuItem
+                        className="cursor-pointer gap-2 py-2 text-[12px] font-semibold"
+                        onClick={() => handleEdit(category)}
+                    >
+                        <Pencil size={13} aria-hidden="true" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        className="cursor-pointer gap-2 py-2 text-[12px] font-semibold text-red-600 focus:bg-red-50 focus:text-red-600"
+                        onClick={() => { setDeletingCategory(category); setDeleteDialogOpen(true); }}
+                    >
+                        <Trash2 size={13} aria-hidden="true" /> Delete
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        ),
+        [],
+    );
+
+    const createAction = (
+        <Button
+            asChild
+            className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+        >
+            <button type="button" onClick={handleCreate}>
+                <Plus size={13} aria-hidden="true" /> Add Category
+            </button>
+        </Button>
+    );
+
+    const tableState = loading ? 'loading' : 'ready';
+
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Manage Categories</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Create, rename, and delete exam categories.
-                    </p>
-                </div>
-                <Button onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Category
-                </Button>
-            </div>
+        <div className="flex flex-col gap-3 pb-6 font-lexend">
+            <ManageToolbar
+                title="Categories"
+                description="Create, rename, and delete exam categories used across materials and exams."
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search categories…"
+                searchLabel="Search categories"
+                createAction={createAction}
+            />
 
-            {loading ? (
-                <div className="text-center py-12 text-muted-foreground">Loading categories...</div>
-            ) : categories.length === 0 ? (
-                <div className="text-center py-12">
-                    <FolderOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                    <p className="mt-2 text-muted-foreground">No categories yet. Create one to get started.</p>
-                </div>
-            ) : (
-                <div className="border rounded-lg">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b bg-muted/50">
-                                <th className="text-left px-4 py-3 text-sm font-medium">Name</th>
-                                <th className="text-left px-4 py-3 text-sm font-medium">Exams</th>
-                                <th className="text-left px-4 py-3 text-sm font-medium">Decks</th>
-                                <th className="text-right px-4 py-3 text-sm font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {categories.map((category) => (
-                                <tr key={category.id} className="border-b last:border-b-0">
-                                    <td className="px-4 py-3">
-                                        <span className="font-medium">{category.name}</span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Badge variant="secondary">
-                                            {category._count.exams}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Badge variant="secondary">
-                                            {category._count.decks}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleEdit(category)}
-                                        >
-                                            <Pencil className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                                setDeletingCategory(category);
-                                                setDeleteDialogOpen(true);
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            <ResourceTable
+                rows={filteredCategories}
+                columns={columns}
+                getRowId={(cat) => cat.id}
+                caption="Exam and material categories"
+                state={tableState}
+                emptyTitle="No categories yet"
+                emptyDescription="Create your first category to get started."
+                emptyAction={createAction}
+                rowActions={renderRowActions}
+                resetKey={search}
+            />
 
-            {/* Create/Edit Dialog */}
+            {/* Create / Edit Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -191,17 +229,21 @@ export default function ManageCategoriesPage() {
                             {editingCategory ? 'Edit Category' : 'Create Category'}
                         </DialogTitle>
                     </DialogHeader>
-                    <Input
-                        placeholder="Category name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSave();
-                        }}
-                        autoFocus
-                    />
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="category-name">Category Name</Label>
+                            <Input
+                                id="category-name"
+                                placeholder="Category name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+                                autoFocus
+                            />
+                        </div>
+                    </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                        <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
                             Cancel
                         </Button>
                         <Button onClick={handleSave} disabled={saving}>
@@ -211,31 +253,20 @@ export default function ManageCategoriesPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Confirmation Dialog */}
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete "{deletingCategory?.name}"?
-                            {deletingCategory && (deletingCategory._count.exams > 0 || deletingCategory._count.decks > 0) && (
-                                <span className="block mt-2 text-amber-600">
-                                    This category is used by {deletingCategory._count.exams} exam(s) and {deletingCategory._count.decks} deck(s). Those items will have their category cleared.
-                                </span>
-                            )}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            {/* Delete Confirmation */}
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={(open) => { if (!open) setDeleteDialogOpen(false); }}
+                title="Delete Category"
+                description={
+                    deletingCategory
+                        ? `Delete "${deletingCategory.name}"?${(deletingCategory._count.exams > 0 || deletingCategory._count.decks > 0) ? ` This category is used by ${deletingCategory._count.exams} exam(s) and ${deletingCategory._count.decks} deck(s). Those items will have their category cleared.` : ''}`
+                        : 'Delete this category?'
+                }
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={handleDelete}
+            />
         </div>
     );
 }

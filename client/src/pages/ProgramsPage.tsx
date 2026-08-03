@@ -1,28 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-    GraduationCap,
-    Loader2,
-    Pencil,
-    Plus,
-    RefreshCcw,
-    Search,
-    Trash2,
-    Users,
-} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { MoreHorizontal, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
+import { formatShortDate } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
 import {
     Dialog,
     DialogContent,
@@ -31,7 +14,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -39,7 +21,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ManageToolbar } from '@/components/manage/ManageToolbar';
+import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 
 interface ProgramItem {
     id: string;
@@ -88,20 +78,8 @@ const defaultFormState: ProgramFormState = {
 
 const toValidDate = (value?: string | null) => {
     if (!value) return null;
-
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const formatDate = (value?: string | null) => {
-    const parsed = toValidDate(value);
-    if (!parsed) return 'N/A';
-
-    return parsed.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    });
 };
 
 const normalizeProgram = (program: ProgramApiItem): ProgramItem => ({
@@ -114,9 +92,12 @@ const normalizeProgram = (program: ProgramApiItem): ProgramItem => ({
 
 const ProgramsPage: React.FC = () => {
     const [programs, setPrograms] = useState<ProgramItem[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const [codeFilter, setCodeFilter] = useState<'ALL' | 'WITH_CODE' | 'NO_CODE'>('ALL');
+    const [activityFilter, setActivityFilter] = useState<'ALL' | 'UPDATED_30_DAYS' | 'OLDER'>('ALL');
+
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
     const [formState, setFormState] = useState<ProgramFormState>(defaultFormState);
@@ -124,14 +105,13 @@ const ProgramsPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [selectedProgram, setSelectedProgram] = useState<ProgramItem | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<ProgramItem | null>(null);
-    const [codeFilter, setCodeFilter] = useState<'ALL' | 'WITH_CODE' | 'NO_CODE'>('ALL');
-    const [activityFilter, setActivityFilter] = useState<'ALL' | 'UPDATED_30_DAYS' | 'OLDER'>('ALL');
+
     const [studentsOpen, setStudentsOpen] = useState(false);
     const [studentsLoading, setStudentsLoading] = useState(false);
     const [studentSearch, setStudentSearch] = useState('');
     const [programStudents, setProgramStudents] = useState<StudentItem[]>([]);
 
-    const fetchPrograms = async () => {
+    const fetchPrograms = useCallback(async () => {
         setLoading(true);
         setErrorMessage(null);
         try {
@@ -144,11 +124,11 @@ const ProgramsPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        fetchPrograms();
-    }, []);
+        void fetchPrograms();
+    }, [fetchPrograms]);
 
     const filteredPrograms = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
@@ -177,7 +157,6 @@ const ProgramsPage: React.FC = () => {
     const filteredStudents = useMemo(() => {
         const normalizedSearch = studentSearch.trim().toLowerCase();
         if (!normalizedSearch) return programStudents;
-
         return programStudents.filter((student) =>
             student.name.toLowerCase().includes(normalizedSearch)
             || student.email.toLowerCase().includes(normalizedSearch)
@@ -186,20 +165,6 @@ const ProgramsPage: React.FC = () => {
             || (student.section || '').toLowerCase().includes(normalizedSearch)
         );
     }, [programStudents, studentSearch]);
-
-    const codedPrograms = useMemo(() => programs.filter((program) => Boolean(program.code)).length, [programs]);
-    const recentlyUpdatedPrograms = useMemo(() => {
-        const threshold = Date.now() - (1000 * 60 * 60 * 24 * 30);
-        return programs.filter((program) => {
-            const updatedAt = toValidDate(program.updatedAt);
-            return updatedAt ? updatedAt.getTime() >= threshold : false;
-        }).length;
-    }, [programs]);
-
-    const resetFilters = () => {
-        setCodeFilter('ALL');
-        setActivityFilter('ALL');
-    };
 
     const openCreateDialog = () => {
         setFormMode('create');
@@ -212,10 +177,7 @@ const ProgramsPage: React.FC = () => {
     const openEditDialog = (program: ProgramItem) => {
         setFormMode('edit');
         setSelectedProgram(program);
-        setFormState({
-            name: program.name,
-            code: program.code || '',
-        });
+        setFormState({ name: program.name, code: program.code || '' });
         setFormError(null);
         setIsFormOpen(true);
     };
@@ -223,21 +185,14 @@ const ProgramsPage: React.FC = () => {
     const handleSaveProgram = async () => {
         const name = formState.name.trim();
         const code = formState.code.trim();
-
         if (!name) {
             setFormError('Program name is required.');
             return;
         }
-
         try {
             setSaving(true);
             setFormError(null);
-
-            const payload = {
-                name,
-                code: code || undefined,
-            };
-
+            const payload = { name, code: code || undefined };
             if (formMode === 'create') {
                 await api.post('/tracks', payload);
                 toast.success('Program created successfully.');
@@ -245,7 +200,6 @@ const ProgramsPage: React.FC = () => {
                 await api.patch(`/tracks/${selectedProgram.id}`, payload);
                 toast.success('Program updated successfully.');
             }
-
             setIsFormOpen(false);
             setSelectedProgram(null);
             setFormState(defaultFormState);
@@ -259,10 +213,8 @@ const ProgramsPage: React.FC = () => {
 
     const handleDeleteProgram = async () => {
         if (!deleteTarget) return;
-
         const target = deleteTarget;
         setDeleteTarget(null);
-
         try {
             await api.delete(`/tracks/${target.id}`);
             if (selectedProgram?.id === target.id) {
@@ -282,27 +234,18 @@ const ProgramsPage: React.FC = () => {
         setStudentsOpen(true);
         setStudentSearch('');
         setStudentsLoading(true);
-
         try {
             const allStudents: StudentItem[] = [];
             let page = 1;
             let totalPages = 1;
-
             do {
                 const response = await api.get<UserListResponse>('/users', {
-                    params: {
-                        page,
-                        limit: 200,
-                        role: 'REVIEWEE',
-                        trackId: program.id,
-                    },
+                    params: { page, limit: 200, role: 'REVIEWEE', trackId: program.id },
                 });
-
                 allStudents.push(...(response.data?.data || []));
                 totalPages = response.data?.meta?.totalPages || 1;
                 page += 1;
             } while (page <= totalPages);
-
             setProgramStudents(allStudents);
         } catch (error: any) {
             setProgramStudents([]);
@@ -312,199 +255,153 @@ const ProgramsPage: React.FC = () => {
         }
     };
 
+    const columns = useMemo<ResourceColumn<ProgramItem>[]>(
+        () => [
+            {
+                id: 'name',
+                header: 'Program',
+                primary: true,
+                sortable: true,
+                sortValue: (program) => program.name,
+                className: 'min-w-[240px]',
+                cell: (program) => (
+                    <div className="min-w-0">
+                        <p className="font-semibold text-slate-900">{program.name}</p>
+                        <p className="mt-0.5 truncate text-[12px] text-slate-400">
+                            Created {formatShortDate(program.createdAt)}
+                        </p>
+                    </div>
+                ),
+            },
+            {
+                id: 'code',
+                header: 'Code',
+                sortable: true,
+                sortValue: (program) => program.code || '',
+                className: 'w-[120px]',
+                cell: (program) => program.code ? (
+                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-700">
+                        {program.code}
+                    </span>
+                ) : (
+                    <span className="text-[12px] text-slate-400">No code</span>
+                ),
+            },
+            {
+                id: 'updated',
+                header: 'Last Updated',
+                sortable: true,
+                sortValue: (program) => new Date(program.updatedAt || 0).getTime(),
+                className: 'w-[120px] whitespace-nowrap',
+                cell: (program) => formatShortDate(program.updatedAt),
+            },
+        ],
+        [],
+    );
+
+    const renderRowActions = useCallback(
+        (program: ProgramItem) => (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg text-slate-400 hover:text-slate-700"
+                        aria-label={`Actions for ${program.name}`}
+                    >
+                        <MoreHorizontal size={15} aria-hidden="true" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44 rounded-lg">
+                    <DropdownMenuItem
+                        className="cursor-pointer gap-2 py-2 text-[12px] font-semibold"
+                        onClick={() => fetchStudentsForProgram(program)}
+                    >
+                        <Users size={13} aria-hidden="true" /> View Students
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        className="cursor-pointer gap-2 py-2 text-[12px] font-semibold"
+                        onClick={() => openEditDialog(program)}
+                    >
+                        <Pencil size={13} aria-hidden="true" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        className="cursor-pointer gap-2 py-2 text-[12px] font-semibold text-red-600 focus:bg-red-50 focus:text-red-600"
+                        onClick={() => setDeleteTarget(program)}
+                    >
+                        <Trash2 size={13} aria-hidden="true" /> Delete
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        ),
+        [],
+    );
+
+    const createAction = (
+        <Button
+            asChild
+            className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+        >
+            <button type="button" onClick={openCreateDialog}>
+                <Plus size={13} aria-hidden="true" /> Add Program
+            </button>
+        </Button>
+    );
+
+    const tableState = loading ? 'loading' : errorMessage ? 'error' : 'ready';
+
     return (
-        <div className="flex-1 flex flex-col bg-slate-50/50 overflow-hidden font-lexend -mx-5 -mt-4">
-            <header className="h-20 bg-white border-b border-[#800000]/10 px-8 flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Programs</h1>
-                    <p className="text-sm text-slate-500">Manage the catalog used across registration and assignment.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative w-72">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                        <Input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search by program name or code"
-                            className="h-10 pl-9 bg-slate-100 border-slate-100 rounded-lg"
-                        />
-                    </div>
-                    <Button type="button" variant="outline" onClick={fetchPrograms} disabled={loading} className="h-10 rounded-lg border-slate-200">
-                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-                        Refresh
-                    </Button>
-                    <Button type="button" onClick={openCreateDialog} className="h-10 px-4 rounded-lg bg-[#800000] hover:bg-[#6d0000] text-white shadow-lg shadow-[#800000]/20">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Program
-                    </Button>
-                </div>
-            </header>
+        <div className="flex flex-col gap-3 pb-6 font-lexend">
+            <ManageToolbar
+                title="Programs"
+                description="Manage the catalog used across registration and assignment."
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search programs…"
+                searchLabel="Search programs"
+                inlineFilters={
+                    <>
+                        <Select value={codeFilter} onValueChange={(value) => setCodeFilter(value as typeof codeFilter)}>
+                            <SelectTrigger className="h-8 w-[140px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by code status">
+                                <SelectValue placeholder="Code" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All codes</SelectItem>
+                                <SelectItem value="WITH_CODE">With code</SelectItem>
+                                <SelectItem value="NO_CODE">No code</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as typeof activityFilter)}>
+                            <SelectTrigger className="h-8 w-[150px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by activity">
+                                <SelectValue placeholder="Updated" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">Any time</SelectItem>
+                                <SelectItem value="UPDATED_30_DAYS">Last 30 days</SelectItem>
+                                <SelectItem value="OLDER">Older</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </>
+                }
+                createAction={createAction}
+            />
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">Total Programs</p>
-                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{programs.length.toLocaleString()}</h3>
-                            <p className="text-xs text-[#800000]/70 font-medium mt-2">Configured across registration and assignment</p>
-                        </div>
-                        <div className="bg-[#800000]/10 text-[#800000] p-3 rounded-lg">
-                            <GraduationCap className="w-5 h-5" />
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">Programs With Codes</p>
-                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{codedPrograms.toLocaleString()}</h3>
-                            <p className="text-xs text-green-600 font-medium mt-2">Standardized shorthand naming is available</p>
-                        </div>
-                        <div className="bg-green-100 text-green-600 p-3 rounded-lg">
-                            <Badge className="border-0 bg-transparent text-current p-0 h-auto text-xs">Code</Badge>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-[#800000]/5 shadow-sm">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">Updated This Month</p>
-                            <h3 className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{recentlyUpdatedPrograms.toLocaleString()}</h3>
-                            <p className="text-xs text-[#D4AF37] font-medium mt-2">Recent changes in the last 30 days</p>
-                        </div>
-                        <div className="bg-[#D4AF37]/10 text-[#D4AF37] p-3 rounded-lg">
-                            <RefreshCcw className="w-5 h-5" />
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <ResourceTable
+                rows={filteredPrograms}
+                columns={columns}
+                getRowId={(program) => program.id}
+                caption="Programs used across registration and assignment"
+                state={tableState}
+                error={errorMessage}
+                onRetry={() => void fetchPrograms()}
+                emptyTitle="No programs yet"
+                emptyDescription="Create your first program to start assigning students."
+                emptyAction={createAction}
+                rowActions={renderRowActions}
+                resetKey={`${search}|${codeFilter}|${activityFilter}`}
+            />
 
-            <div className="flex flex-wrap gap-3 items-center">
-                <Select value={codeFilter} onValueChange={(value) => setCodeFilter(value as 'ALL' | 'WITH_CODE' | 'NO_CODE')}>
-                    <SelectTrigger className="w-auto min-w-44 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
-                        <span className="text-slate-400 mr-1">Code:</span>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="font-lexend">
-                        <SelectItem value="ALL">All</SelectItem>
-                        <SelectItem value="WITH_CODE">With Code</SelectItem>
-                        <SelectItem value="NO_CODE">No Code</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                <Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as 'ALL' | 'UPDATED_30_DAYS' | 'OLDER')}>
-                    <SelectTrigger className="w-auto min-w-56 h-10 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 transition-colors">
-                        <span className="text-slate-400 mr-1">Updated:</span>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="font-lexend">
-                        <SelectItem value="ALL">Any Time</SelectItem>
-                        <SelectItem value="UPDATED_30_DAYS">Last 30 Days</SelectItem>
-                        <SelectItem value="OLDER">Older</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                <Button variant="outline" className="h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-[#800000]/30 gap-2" onClick={resetFilters}>
-                    <RefreshCcw className="w-4 h-4" />
-                    Reset Filters
-                </Button>
-            </div>
-
-            <Card className="border border-[#800000]/10 shadow-sm rounded-xl bg-white overflow-hidden">
-                <CardContent className="p-0">
-                    <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <h2 className="text-lg font-bold text-slate-900">Program Directory</h2>
-                            <p className="text-sm text-gray-500">Create, update, or remove programs and inspect the students assigned to each one.</p>
-                        </div>
-                        <p className="text-xs font-medium text-slate-500">{filteredPrograms.length} programs shown</p>
-                    </div>
-
-                    {errorMessage ? (
-                        <div className="px-6 py-12 text-center">
-                            <p className="text-sm font-medium text-rose-600">{errorMessage}</p>
-                        </div>
-                    ) : loading ? (
-                        <div className="flex items-center justify-center gap-3 px-6 py-16 text-sm text-gray-500">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Loading programs...
-                        </div>
-                    ) : filteredPrograms.length === 0 ? (
-                        <div className="px-6 py-16 text-center">
-                            <p className="text-base font-semibold text-gray-900">No programs found.</p>
-                            <p className="mt-2 text-sm text-gray-500">
-                                {programs.length === 0 ? 'Create your first program to start assigning students.' : 'Try a different search term.'}
-                            </p>
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader className="bg-slate-50 border-b border-slate-100">
-                                <TableRow className="border-slate-100">
-                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Program</TableHead>
-                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Code</TableHead>
-                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Updated</TableHead>
-                                    <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredPrograms.map((program) => (
-                                    <TableRow key={program.id} className="hover:bg-slate-50 transition-colors align-top">
-                                        <TableCell className="px-4 py-4">
-                                            <div>
-                                                <p className="text-sm font-semibold text-slate-900">{program.name}</p>
-                                                <p className="text-xs text-slate-500">Created {formatDate(program.createdAt)}</p>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="px-4 py-4">
-                                            {program.code ? (
-                                                <Badge variant="secondary" className="bg-slate-100 text-slate-700">{program.code}</Badge>
-                                            ) : (
-                                                <span className="text-sm text-slate-400">No code</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="px-4 py-4 text-sm text-slate-600">{formatDate(program.updatedAt)}</TableCell>
-                                        <TableCell className="px-4 py-4">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    className="h-8 rounded-md border-slate-200 bg-white text-xs font-semibold hover:bg-slate-50"
-                                                    onClick={() => fetchStudentsForProgram(program)}
-                                                >
-                                                    <Users className="mr-2 h-4 w-4" />
-                                                    View Students
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 rounded-lg text-slate-700 hover:bg-slate-100"
-                                                    onClick={() => openEditDialog(program)}
-                                                    aria-label={`Edit ${program.name}`}
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 rounded-lg text-rose-700 hover:bg-rose-50"
-                                                    onClick={() => setDeleteTarget(program)}
-                                                    aria-label={`Delete ${program.name}`}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </CardContent>
-            </Card>
-
+            {/* Create / Edit Dialog */}
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -515,7 +412,6 @@ const ProgramsPage: React.FC = () => {
                                 : 'Update the program details. Existing student assignments will stay linked to this program.'}
                         </DialogDescription>
                     </DialogHeader>
-
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
                             <Label htmlFor="program-name">Program Name</Label>
@@ -538,28 +434,24 @@ const ProgramsPage: React.FC = () => {
                         </div>
                         {formError && <p className="text-sm text-rose-600">{formError}</p>}
                     </div>
-
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} disabled={saving}>
                             Cancel
                         </Button>
                         <Button type="button" onClick={handleSaveProgram} disabled={saving}>
-                            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {formMode === 'create' ? 'Create Program' : 'Save Changes'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
+            {/* Students Dialog */}
             <Dialog open={studentsOpen} onOpenChange={setStudentsOpen}>
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>{selectedProgram ? `${selectedProgram.name} Students` : 'Program Students'}</DialogTitle>
-                        <DialogDescription>
-                            View every student currently assigned to this program.
-                        </DialogDescription>
+                        <DialogDescription>View every student currently assigned to this program.</DialogDescription>
                     </DialogHeader>
-
                     <div className="space-y-4 py-2">
                         <div className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
                             <div>
@@ -567,20 +459,17 @@ const ProgramsPage: React.FC = () => {
                                 <p className="text-xs text-slate-500">{studentsLoading ? 'Loading students...' : `${programStudents.length} student${programStudents.length === 1 ? '' : 's'} found`}</p>
                             </div>
                             <div className="relative w-full lg:w-72">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                 <Input
                                     value={studentSearch}
                                     onChange={(event) => setStudentSearch(event.target.value)}
-                                    placeholder="Search students"
-                                    className="bg-white pl-9"
+                                    placeholder="Search students…"
+                                    className="h-8 rounded-lg border-slate-200 bg-white text-[12px]"
                                 />
                             </div>
                         </div>
-
                         {studentsLoading ? (
                             <div className="flex items-center justify-center gap-3 py-16 text-sm text-gray-500">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Loading students...
+                                Loading students…
                             </div>
                         ) : filteredStudents.length === 0 ? (
                             <div className="py-16 text-center">
@@ -591,35 +480,33 @@ const ProgramsPage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="max-h-105 overflow-y-auto rounded-xl border border-slate-100">
-                                <Table>
-                                    <TableHeader className="bg-slate-50 border-b border-slate-100">
-                                        <TableRow className="border-slate-100">
-                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</TableHead>
-                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</TableHead>
-                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Year</TableHead>
-                                            <TableHead className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-100 bg-slate-50">
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Year</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                                         {filteredStudents.map((student) => (
-                                            <TableRow key={student.id} className="hover:bg-slate-50 transition-colors align-top">
-                                                <TableCell className="px-4 py-4">
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-slate-900">{student.name}</p>
-                                                        <p className="text-xs text-slate-500">{student.email}</p>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="px-4 py-4">
-                                                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                                            <tr key={student.id} className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors">
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm font-semibold text-slate-900">{student.name}</p>
+                                                    <p className="text-xs text-slate-500">{student.email}</p>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
                                                         {student.status || 'UNKNOWN'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="px-4 py-4 text-sm text-slate-600">{student.yearLevel || 'N/A'}</TableCell>
-                                                <TableCell className="px-4 py-4 text-sm text-slate-600">{student.section || 'N/A'}</TableCell>
-                                            </TableRow>
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-600">{student.yearLevel || 'N/A'}</td>
+                                                <td className="px-4 py-3 text-sm text-slate-600">{student.section || 'N/A'}</td>
+                                            </tr>
                                         ))}
-                                    </TableBody>
-                                </Table>
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>
@@ -628,9 +515,7 @@ const ProgramsPage: React.FC = () => {
 
             <ConfirmDialog
                 open={Boolean(deleteTarget)}
-                onOpenChange={(open) => {
-                    if (!open) setDeleteTarget(null);
-                }}
+                onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
                 title="Delete Program"
                 description={deleteTarget
                     ? `Delete ${deleteTarget.name}? Assigned students will become unassigned and legacy program labels tied to this program will be cleared.`
@@ -638,7 +523,6 @@ const ProgramsPage: React.FC = () => {
                 confirmLabel="Delete Program"
                 onConfirm={handleDeleteProgram}
             />
-            </div>
         </div>
     );
 };
