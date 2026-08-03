@@ -169,6 +169,39 @@ describe('profile validators reject an unstorable avatar', () => {
     });
 });
 
+describe('completeProfileSchema accepts role-specific field subsets', () => {
+    it('accepts a REVIEWER profile (campus only, no track/year/section/studentId)', () => {
+        const result = completeProfileSchema.safeParse({
+            firstName: 'Jane',
+            lastName: 'Smith',
+            campus_id: '22222222-2222-4222-8222-222222222222',
+        });
+        assert.equal(result.success, true);
+    });
+
+    it('accepts an ADMIN profile (no academic fields)', () => {
+        const result = completeProfileSchema.safeParse({
+            firstName: 'Admin',
+            lastName: 'User',
+        });
+        assert.equal(result.success, true);
+    });
+
+    it('accepts a REVIEWEE profile (all fields)', () => {
+        const result = completeProfileSchema.safeParse({
+            firstName: 'Student',
+            lastName: 'Name',
+            track_id: '11111111-1111-4111-8111-111111111111',
+            campus_id: '22222222-2222-4222-8222-222222222222',
+            yearLevel: '1st Year',
+            section: 'A',
+            studentId: '2025-12345',
+            contactNumber: '09171234567',
+        });
+        assert.equal(result.success, true);
+    });
+});
+
 describe('getAuthState surfaces the provider avatar', () => {
     // `config/db` reuses `globalThis.__prisma__` when present, so seeding it
     // before the service is first imported swaps in a stub without a database.

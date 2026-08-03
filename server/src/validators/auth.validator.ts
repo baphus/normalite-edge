@@ -18,13 +18,19 @@ const avatarUrlSchema = z
     });
 
 /**
- * Academic details collected after a first Google sign-in.
+ * Academic details collected after a first Google sign-in or invite-link setup.
  *
  * Email is absent by design: it comes from the verified Supabase token, never
  * from the request body. Accepting a client-supplied address here would let a
  * caller register a profile against someone else's identity.
  *
  * Password is absent: institutional accounts authenticate through Google only.
+ *
+ * Role-dependent fields (track, campus, yearLevel, section, studentId,
+ * contactNumber) are all optional here. The client enforces per-role
+ * requirements via `buildProfileSchema` — which field set is required depends
+ * on the user's role, which the server learns only after validation. The
+ * service layer falls back to existing values for omitted fields.
  */
 export const completeProfileSchema = z.object({
     firstName: z.string().trim().min(1, 'First name is required'),
@@ -32,17 +38,17 @@ export const completeProfileSchema = z.object({
     middleInitial: z
         .string()
         .trim()
-        .min(1, 'Middle initial is required')
+        .max(1, 'Middle initial must be 1 character')
         .transform((value) => (value ? value[0].toUpperCase() : value))
-        .refine((value) => value.length <= 1, { message: 'Middle initial must be 1 character' }),
+        .optional(),
     suffix: z.string().trim().max(20, 'Suffix is too long').optional(),
     picture: avatarUrlSchema.optional(),
-    track_id: z.string().uuid('Invalid track id'),
-    campus_id: z.string().uuid('Invalid campus id'),
-    yearLevel: z.string().trim().min(1, 'Year is required'),
-    section: z.string().trim().min(1, 'Section is required'),
-    studentId: z.string().trim().min(1, 'Student ID is required'),
-    contactNumber: z.string().trim().regex(/^09\d{9}$/, 'Contact number must be in Philippine format (09XXXXXXXXX)'),
+    track_id: z.string().uuid('Invalid track id').optional(),
+    campus_id: z.string().uuid('Invalid campus id').optional(),
+    yearLevel: z.string().trim().min(1, 'Year is required').optional(),
+    section: z.string().trim().min(1, 'Section is required').optional(),
+    studentId: z.string().trim().min(1, 'Student ID is required').optional(),
+    contactNumber: z.string().trim().regex(/^09\d{9}$/, 'Contact number must be in Philippine format (09XXXXXXXXX)').optional(),
 });
 
 export const updateProfileSchema = z.object({
