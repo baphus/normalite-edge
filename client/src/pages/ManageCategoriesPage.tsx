@@ -205,6 +205,9 @@ export default function ManageCategoriesPage() {
                 onSearchChange={setSearch}
                 searchPlaceholder="Search categories…"
                 searchLabel="Search categories"
+                activeFilterCount={0}
+                chips={[]}
+                onClearAll={() => {}}
                 createAction={createAction}
             />
 

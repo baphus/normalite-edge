@@ -272,7 +272,7 @@ const CampusesPage: React.FC = () => {
                     <div className="min-w-0">
                         <p className="font-semibold text-slate-900">{campus.name}</p>
                         <p className="mt-0.5 truncate text-[12px] text-slate-400">
-                            Created {formatShortDate(campus.createdAt)}
+                            Created {formatShortDate(campus.createdAt ?? undefined)}
                         </p>
                     </div>
                 ),
@@ -297,7 +297,7 @@ const CampusesPage: React.FC = () => {
                 sortable: true,
                 sortValue: (campus) => new Date(campus.updatedAt || 0).getTime(),
                 className: 'w-[120px] whitespace-nowrap',
-                cell: (campus) => formatShortDate(campus.updatedAt),
+                cell: (campus) => formatShortDate(campus.updatedAt ?? undefined),
             },
         ],
         [],
@@ -387,6 +387,9 @@ const CampusesPage: React.FC = () => {
                         </Select>
                     </>
                 }
+                activeFilterCount={0}
+                chips={[]}
+                onClearAll={() => {}}
                 createAction={createAction}
             />
 

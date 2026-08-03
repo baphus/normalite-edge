@@ -491,8 +491,9 @@ const CompleteProfilePage: React.FC = () => {
                         ) : (
                             <>
                                 You signed in as <strong>{pending.email}</strong>, which is not a
-                                <strong> @cnu.edu.ph</strong> account. Sign in again with your university
-                                Google account.
+                                <strong> @cnu.edu.ph</strong> account. If you were invited by an
+                                administrator, go back to the login page and use the{' '}
+                                <strong>password sign-in</strong> option instead.
                             </>
                         )}
                     </ErrorNotice>

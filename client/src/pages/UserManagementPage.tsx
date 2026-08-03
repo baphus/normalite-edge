@@ -488,6 +488,9 @@ const UserManagementPage: React.FC = () => {
                         </Select>
                     </>
                 }
+                activeFilterCount={0}
+                chips={[]}
+                onClearAll={resetFilters}
                 createAction={createAction}
             />
 

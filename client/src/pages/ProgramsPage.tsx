@@ -268,7 +268,7 @@ const ProgramsPage: React.FC = () => {
                     <div className="min-w-0">
                         <p className="font-semibold text-slate-900">{program.name}</p>
                         <p className="mt-0.5 truncate text-[12px] text-slate-400">
-                            Created {formatShortDate(program.createdAt)}
+                            Created {formatShortDate(program.createdAt ?? undefined)}
                         </p>
                     </div>
                 ),
@@ -293,7 +293,7 @@ const ProgramsPage: React.FC = () => {
                 sortable: true,
                 sortValue: (program) => new Date(program.updatedAt || 0).getTime(),
                 className: 'w-[120px] whitespace-nowrap',
-                cell: (program) => formatShortDate(program.updatedAt),
+                cell: (program) => formatShortDate(program.updatedAt ?? undefined),
             },
         ],
         [],
@@ -383,6 +383,9 @@ const ProgramsPage: React.FC = () => {
                         </Select>
                     </>
                 }
+                activeFilterCount={0}
+                chips={[]}
+                onClearAll={() => {}}
                 createAction={createAction}
             />
 
