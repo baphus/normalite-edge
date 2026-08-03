@@ -1,0 +1,512 @@
+# Normalite EDGE — App UI design system (v1.2.0)
+
+Rules for **authenticated app surfaces** (dashboards, managers, editors, detail
+pages). Marketing and auth pages are out of scope — they have their own look and
+`DESIGN.md` governs the brand layer above this.
+
+`DESIGN.md` defines the brand (palette, typefaces, radius scale). This document
+defines how those are *applied* in dense product UI, and where the shared
+components live. Where the two appear to conflict, the tokens in
+`client/src/index.css` are the authority — see "Radius" below for a worked example.
+
+> Supersedes `design-system-v1.1.0.md`. See the changelog for what moved.
+
+---
+
+## 1. Why this exists
+
+Four visual dialects accumulated in `client/src/pages` before this was written:
+
+| Dialect | Signature | Example |
+| --- | --- | --- |
+| A — current system | slate, 12px floor, weight ≤600 | `ManageExamsPage` |
+| B — old editor | slate + `font-black uppercase tracking-widest` + `rounded-2xl` | `MaterialViewPage` |
+| C — gray card grid | `-gray-*`, `text-[9px]`–`[11px]`, card grids | dashboards |
+| D — admin table | slate + `text-2xl` H1 + `h-10` controls + hardcoded `#800000` | `ProgramsPage` |
+
+Dialect A is the target. The rest are migration debt, tracked in §9.
+
+---
+
+## 2. Type scale
+
+**12px floor for anything you read; 11px only for the two structural roles
+below** — column/section headers and badges, which are scanned rather than read
+and are already set in uppercase or short labels. Nothing goes below 11px, ever.
+Density comes from row height and padding, never from smaller glyphs. Shrinking
+type to 9px while keeping ten metadata rows per card buys neither density nor
+clarity — that was the state before this system.
+
+> v1.0.0 stated a flat "nothing below 12px" while its own table sanctioned 11px
+> for headers and badges. The rule was unapplyable as written; this is the
+> version that was actually being followed.
+
+| Role | Size | Weight | Notes |
+| --- | --- | --- | --- |
+| Page title | 18px | 600 | `text-[18px] font-semibold tracking-tight` |
+| Section / column header | 11px | 600 | uppercase, `tracking-[0.06em]`, muted |
+| Metric value (display) | 24px | 600 | `text-[24px] font-semibold tabular-nums`, paired with an 11px uppercase label. Use `components/manage/MetricTile` |
+| Table body / field value | 13px | 400–500 | |
+| Secondary / meta | 12px | 400 | muted |
+| Badge, pill | 11px | 600 | |
+
+**Weight caps at 600.** No `font-black` (weight 900) anywhere.
+
+The metric row added at v1.2.0 is a **size** role, not an exception to the weight
+cap. The cap exists because heavy weights hurt legibility at small sizes; at 24px,
+600 is already emphatic and 900 only adds noise. `text-3xl font-black` on the exam
+KPI tiles was the last remaining argument for an exception, and it did not survive
+being written down. `tabular-nums` is required, not decorative — four proportional
+figure values in a row shift horizontally against each other as the numbers change.
+
+A metric with no data renders an em-dash, never a formatted zero. An exam nobody
+has submitted has no average score; rendering `0.00%` states that the cohort
+failed, which is a different and false claim.
+
+**Uppercase is reserved for structural signposts** — column headers and section
+labels only. Field labels, button text, and values are sentence case. All-caps
+measurably slows reading at small sizes; it earns its place marking structure,
+not shouting content.
+
+Body font is Lexend (`--font-lexend`). Fraunces (`--font-serif`) is a brand
+display face and is not used in dense app UI.
+
+---
+
+## 3. Colour
+
+- **Neutral: slate.** Never `-gray-*`. Slate reads cooler next to the maroon
+  primary; mixing the two ramps is visible.
+- **Never hardcode brand hex.** Use the `primary` token.
+  `index.css` sets `--primary: 358 61% 30%` = `#7B1E21`, matching `DESIGN.md`'s
+  `#7A1E1E`. `#800000` — still hardcoded across the four admin pages — is a
+  **different, brighter red** and is a bug, not a variant.
+  - This applies to **generated artefacts too**, not only screens. The exam PDF
+    and Excel reports were stamped `#800000`; they carry the university's name
+    out of the building, so they use the real brand colour. Where a generator
+    needs a numeric triple, `#7B1E21` is `rgb(123, 30, 33)` / `FF7B1E21`.
+- **Status is never colour alone** (WCAG 1.4.1). Always dot + text. Use
+  `components/manage/StatusPill`.
+  - The same rule binds anything else that colour might be carrying. A correct
+    answer highlighted only by a green fill, or a score tinted by whether its
+    attempt is finished, both fail it. Mark the answer with an icon and the word
+    "Correct"; leave the score untinted and let the status column say the status.
+- **Category colour, where used, is confined to the badge.** `lib/categoryTone.ts`
+  owns it. Tinting a whole card by category was tried on `/study` and removed:
+  `Category` is a database model with an admin CRUD page, so a map keyed on
+  literal category names silently collapsed every admin-created category to one
+  fallback colour. Tones are now derived from the category id, so an
+  admin-created category gets a distinct tone that survives a rename. The three
+  seeded categories are still matched by name, for continuity with the colours
+  reviewees already know — renaming one of those moves it to its id-derived tone
+  once, which is a change of value, not a collapse to a shared default. The badge
+  always carries the name, so category is never conveyed by colour alone.
+
+---
+
+## 4. Radius
+
+`index.css` sets `--radius: 0.5rem` and maps `--radius-lg: var(--radius)`. So in
+this project:
+
+| Class | Actual | Use for |
+| --- | --- | --- |
+| `rounded-lg` | **8px** | buttons, inputs, selects, chips |
+| `rounded-xl` | **12px** | cards, panels, table containers |
+
+Do not use `rounded-2xl`/`3xl` in app UI.
+
+> Worth knowing: `DESIGN.md`'s abstract scale lists md=8px / lg=12px, which does
+> *not* match the token mapping. A code review flagged `rounded-lg` on buttons as
+> a violation on that basis and was wrong. **The tokens win.**
+
+---
+
+## 5. Shared components — use these, don't rebuild
+
+### `client/src/components/manage/` — list surfaces
+
+| Component | Responsibility |
+| --- | --- |
+| `ResourceTable` | Sortable columns (`aria-sort`), client pagination with true totals, four states, two-line stacked rows below `lg` |
+| `ResourceGrid` | The card-grid counterpart: responsive columns, the same four states, card supplied as a render prop. Does **not** paginate |
+| `ManageToolbar` | Title, search, segmented control, inline filters, popover filters, removable filter chips, view toggle |
+| `CollectionState` | `CollectionEmpty` / `CollectionError` — shared so table and grid views cannot diverge |
+| `StatusPill` | Status as dot + text |
+| `MetricTile` | One headline number: 11px label, 24px/600 `tabular-nums` value, em-dash for no data |
+
+`ResourceTable` takes a `ResourceColumn<T>[]`. Mark one column `primary` (line 1
+of the stacked row), at most one `status`, and any number `stacked` (the line-2
+meta strip). Pass `resetKey` — a serialisation of active filters — so filtering
+never strands the user on a page that no longer exists.
+
+Feed `ResourceTable` the **raw** records, not pre-formatted display rows. Its
+`sortValue` should return the underlying number or timestamp; sorting formatted
+strings puts `9m 30s` after `10m` and `Sep` before `Mar`. Where an export needs
+formatted rows, derive those separately from the same source.
+
+`ResourceGrid` exists because both manager pages had grown a private copy of the
+same container — same wrapper, same three-state preamble, same card shell — so a
+fix to one never reached the other. `CollectionState` stopped the *states*
+diverging; this stops the container diverging. Only the frame is shared: the card
+is a render prop, because a manager card (status + kebab + meta) and a reviewee
+card (category + one decisive action) genuinely differ.
+
+`ManageToolbar`'s `segments` are not ownership-specific despite the original
+comment. Any mutually-exclusive scope with honest counts belongs there — ownership
+on the manager pages, exam status on `/exams`, attempt status on the exam detail
+page. Compute segment counts from a set with every filter applied **except** the
+segment dimension, or the counts lie. `createAction` is optional; reviewee
+surfaces browse rather than author.
+
+`ManageToolbar`'s heading (`title`/`description`) and view toggle
+(`view`/`onViewChange`) are **both optional**, so the same toolbar serves a
+collection panel embedded in a detail page. Omit the heading there: the page
+already owns the only `<h1>`, and the panel supplies its own visually-hidden
+`<h2>` instead. Omit the view toggle where §6 says the collection is table-only.
+
+`ui/tabs` (Radix) is the tab primitive for detail pages carrying several distinct
+jobs. Put the active tab in a `?tab=` search param so a view can be linked and
+survives a reload, and fall back to the first tab on an unrecognised value. Tabs
+are for genuinely separate jobs — they are not a way to hide a page that is
+merely long.
+
+### `client/src/components/editor/` — question editors
+
+| Component | Responsibility |
+| --- | --- |
+| `EditorShell` | Breadcrumb, sticky bottom action bar, dirty pill, guarded discard, one-card settings panel |
+| `QuestionListEditor` / `QuestionRow` | Collapsed ~44px summary rows, one expanded at a time, DnD with keyboard support, per-row completeness |
+| `PublishReadiness` | "N of M complete" + blockers + jump to incomplete |
+| `useDirtyGuard` | `beforeunload` warning while dirty |
+| `types.ts` | `EditableQuestion` — the shared question shape |
+
+`EditableQuestion` is `{ id, text, options[], correctOption, rationale, imageUrl?, section? }`.
+A study-deck card and an exam question are the same object; `section` is
+exam-only. Do not reintroduce per-page shapes.
+
+### Shared libs
+
+`lib/fetchAllPages.ts` (walks server pages — list endpoints are paginated and a
+single `limit=100` silently truncates), `lib/importQuestions.ts`,
+`lib/questionImage.ts`, `lib/formatters.ts`, `lib/categoryTone.ts`,
+`lib/examAnalytics.ts`, `lib/examReportExport.ts`.
+
+`fetchAllPages` is **mandatory, not preferred** — see §6.
+
+Heavy export dependencies (`jspdf`, `jspdf-autotable`, `exceljs`) are imported
+dynamically inside `lib/examReportExport.ts`. A manager who never exports should
+not download 600 kB of PDF and spreadsheet machinery to look at a results page.
+A static import puts them in the main bundle for everyone; Vite only splits on
+`import()`.
+
+---
+
+## 6. Required patterns
+
+**List surfaces.** Four states are mandatory and must be distinguishable:
+loading (skeletons), empty ("nothing yet"), no-match (offers *Clear filters*,
+**not** *Create*), and error (message + Retry). A fetch failure must never render
+as an empty list.
+
+**Detail-page shell contract.** New at v1.2.0. Every routed page renders inside
+`DashboardLayout`'s `w-full max-w-screen-2xl mx-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-5`
+wrapper. Therefore a page:
+
+- adds **no padding of its own** — open with `flex flex-col gap-3 pb-6 font-lexend`;
+- sets **no page-level background** and no `min-h-screen`. A background painted
+  inside an already-padded, already-centred container stops short of the window
+  edge and reads as a floating panel;
+- adds **no second sticky header** — the layout already has one at `z-30`;
+- renders **exactly one `<h1>`**, which is the thing being viewed. Not a
+  description of the page's function: "Exam Results Analytics: Mock 3" names the
+  page, "Mock 3" names the record, and the tabs already say what the page does.
+
+`ManageExamViewPage` broke all four and the result was a visible left-edge shift
+when navigating from `/manage-exams`, which read to users as "the page is
+misaligned". It was.
+
+**Form default depends on the job.**
+
+| Surface | Default | Secondary |
+| --- | --- | --- |
+| Manager / audit (`/manage-*`, admin) | table | grid |
+| Reviewee browse (`/exams`, `/study`) | **grid** | table |
+
+This is a deliberate, scoped exception, not licence to pick per page. Auditing
+means comparing many records across many attributes, which is what a table is
+for. Browsing-and-picking means evaluating one record at a time and taking a
+decisive action on it — a card carries that action at a legible size where a
+table row cannot. Both forms must render the **same** records and the same
+information; a toggle that changes what you can see is the divergence
+`CollectionState` and `ResourceGrid` exist to prevent.
+
+This table governs **page-level collection surfaces**. A collection *panel*
+embedded in a detail page ships table-only when its records carry no decisive
+per-record action — the grid's whole justification is carrying that action at a
+legible size, and without one the card is a table row drawn in a box. The
+submissions panel on the exam detail page is the worked example: a student
+attempt is read and compared, never acted on. Omit `view`/`onViewChange` rather
+than shipping a toggle between a table and a worse table.
+
+**Sorting lives on column headers, never in a filter menu.** A consequence of the
+row above: the grid has no headers, so the grid has no user sorting. It renders
+one deliberate fixed order and sorting is a reason to switch to the table. Do not
+reintroduce a `Sort by` select to work around this — that is the pattern this
+rule names.
+
+**One control per dimension.** `/exams` previously had status as *both* a
+collapsible section per state *and* a select in the filter popover, wired
+together by a scroll-into-view effect; `/study` had category as *both* a pill row
+*and* a popover select; the exam detail page had a bespoke collapsible filter
+panel whose three count tiles restated what its own filters already said. Pick
+one surface per filterable dimension. Where a dimension is worth promoting, use
+the toolbar's segments (with counts) or the inline filter slot — not a second
+bespoke control.
+
+The same applies to actions. Two buttons labelled "Export" that produce different
+documents — one honouring the active scope and column selection, one silently
+ignoring both — is the action-level form of the same defect. One entry point,
+one set of semantics.
+
+**Editors.** Track dirty state. Discard confirms when dirty; `beforeunload`
+warns. Actions in a sticky bottom bar. Validation is live and locatable — never
+a toast that says "some question is incomplete" without saying which.
+
+> Scope limit: the app mounts plain `<Routes>`, not a data router, so React
+> Router's `useBlocker` is unavailable and in-app sidebar navigation cannot be
+> intercepted. Only browser navigation and explicit Discard are guarded.
+
+**Blank rows are dropped, not rejected.** A wholly empty question (no text,
+options, rationale, or image) is discarded at submit — it must not become a
+validation blocker. See `isQuestionBlank`.
+
+**Nullable text fields use the three-way contract.** A string writes, explicit
+`null` clears, an omitted key leaves the stored value untouched. Validators use
+`z.string().trim().nullable().optional()` and services set the field only when
+the key was sent. Plain `.optional()` cannot express "clear this" — the value
+gets stuck forever once set.
+
+**Never let the client be the authorization boundary.** A reviewee-facing list
+must be scoped on the server, from the user row — not from token claims and not
+by filtering in the browser. Both failure modes were live before v1.1.0:
+`/decks` gated its track restriction on a field `req.user` does not carry, so the
+restriction never applied at all; `/exams` was correctly scoped server-side but
+carried a *second*, stricter, string-based filter in `ExamsPage` that could hide
+exams the server had legitimately returned. `services/revieweeVisibility.ts` now
+owns the predicate for both. A missing track must **narrow** the result set, never
+widen it.
+
+**Paginated list endpoints are walked with `fetchAllPages`, and never with a
+`limit` above the server's cap.** `parsePagination` clamps `limit` to
+**`MAX_PAGE_SIZE = 100`** (`server/src/utils/pagination.ts`). A client that asks
+for 200 receives 100 — so any walker that infers "this is the last page" from a
+short page stops after the first request and silently discards everything beyond
+the hundredth record.
+
+`fetchAllPages` now decides completion from `meta.totalPages`, which
+`ApiResponse.paginated` always emits, and only falls back to the short-page test
+when no total is available — measured against `meta.limit` rather than the limit
+that was requested. Do not pass a `limit` override unless you have checked the
+server's cap for that route.
+
+> **Correction, added after review.** v1.2.0 originally asserted here that the exam
+> detail page's hand-rolled loop "resolved to the current page, exited after one
+> request, and truncated at 500 attempts". That was **wrong**. The old loop read
+> `meta.totalPages`, which is never absent, and it walked the full list correctly.
+> The replacement written for this release passed `{ limit: 200 }`, hit the
+> server's clamp, and capped every exam at 100 attempts — corrupting the KPI
+> tiles, the distribution, the table and both exports, while the PDF still called
+> itself a complete report. The defect this section describes was introduced by
+> the change that documented it, and was caught in review, not in writing.
+>
+> The transferable lesson is not about pagination. **Do not describe existing code
+> as broken without reading the code it talks to.** The claim was inferred from a
+> `|| page` fallback in the client and never checked against `ApiResponse` or
+> `parsePagination`, either of which would have refuted it in under a minute.
+
+Silent truncation of a record set that is then exported is a data-integrity
+defect, not a UI nicety — that part stands.
+
+**Never send user data to a third party for presentation.** Avatars are rendered
+from local initials or from a URL the platform itself stores. `ui-avatars.com`
+was being called once per table row with each student's full name in the query
+string — an unauthenticated cross-origin request, in bulk, with no processor
+agreement behind it. Cosmetic convenience is not a reason to export personal
+data.
+
+**This rule is stated, not yet satisfied repo-wide.** As of v1.2.0 the call is
+removed from `ManageExamViewPage` only; other surfaces still make it. Do not read
+§9's "Done" or §10 as saying the exposure is closed.
+
+> This repository is public (see `docs/agents/issue-tracker.md`), which forbids
+> publishing unremediated detail about personal-data handling. The specific
+> remaining call sites are therefore **not enumerated here** — they are tracked
+> privately. Search for the avatar service by name before adding any new avatar
+> code, and assume at least one caller is still outstanding until this note is
+> removed.
+
+---
+
+## 7. Accessibility bar — WCAG 2.1 AA on touched surfaces
+
+Required whenever a surface is modified:
+
+- `aria-label` on every icon-only control
+- Table semantics: `scope`, `aria-sort` on sortable headers, a caption
+- Grid semantics: the card grid is a list (`<ul>`/`<li>`) with an accessible name
+- **Graphical data displays convey their values as text.** A bar chart's counts
+  belong beside the bars, permanently. The exam score distribution put them in an
+  `opacity-0 group-hover:opacity-100` tooltip, so the data existed only for a
+  mouse — a 2.1.1 failure. The fix is not a keyboard-accessible tooltip; it is to
+  stop hiding the number. Render the value, mark the bar `aria-hidden`, and wrap
+  the bands in a list with an accessible name.
+- Keyboard parity for drag-and-drop (dnd-kit `KeyboardSensor` +
+  `sortableKeyboardCoordinates`) — pointer-only reorder fails 2.1.1
+- Visible focus rings on every interactive element
+- No `<Link>` wrapping `<DropdownMenuItem>` — use `asChild`
+- Heading order is unbroken: one `<h1>` per page, and a panel that needs a name
+  takes a visually-hidden `<h2>` rather than a second `<h1>`
+- Checkbox labels are associated by `id`/`htmlFor`. A Radix `Checkbox` renders a
+  `<button>`, and wrapping a button in a `<label>` does not associate them
+- 12px type floor (also serves 1.4.4)
+- Status by dot + text, not colour; category by badge text, not colour; a correct
+  answer by icon and word, not fill
+
+Treat any surface you touch as needing an audit, not a spot check.
+
+---
+
+## 8. Verification
+
+The client has **no test tooling** (no vitest/jest/testing-library) and this is
+deliberate. The gate is:
+
+```
+cd client && npx tsc --noEmit && npm run lint    # then a browser walkthrough
+```
+
+`npm run build` (`tsc -b && vite build`) is stricter than `--noEmit` and has
+caught errors the latter missed — run it before claiming done.
+
+**Baseline your lint.** The repo carries pre-existing `no-explicit-any`,
+`react-hooks/purity` and `react-hooks/set-state-in-effect` findings. Capture a
+baseline *before* you start (lint the unmodified tree, record the total) and
+compare against that number rather than zero. At v1.2.0 the client-wide total is
+**117 problems (106 errors, 11 warnings)**, down one from v1.1.0's 118.
+
+Server-side logic **is** testable — `server/src/__tests__`, `tsx --test`, no
+Jest. Pure validators and pure query builders need no database; extract a pure
+seam rather than reaching for a live connection. Prove a new test is meaningful
+by running it against the pre-change code and confirming it fails.
+
+Do not invent a test to look thorough. A change that touches no server code owes
+no new server test, and the client deliberately has nowhere to put one — say so
+rather than adding a runner nobody asked for.
+
+**Review is not self-review.** Work is reviewed by an agent with no memory of
+having written it.
+
+---
+
+## 9. Migration status
+
+| Surface | Dialect | State |
+| --- | --- | --- |
+| `ManageExamsPage`, `ManageMaterialsPage`, `CreateExamPage`, `StudyMaterialEditorPage` | A | Done (PR #33) |
+| `ExamsPage`, `StudyHubPage` | A | Done (v1.1.0) — grid default, table secondary, `ResourceGrid` extracted |
+| `ManageExamViewPage` | A | **Done (v1.2.0)** — shell contract, three tabs, `ResourceTable`, `MetricTile`, export extracted |
+| `ProgramsPage`, `CampusesPage`, `StudentManagementPage`, `UserManagementPage` | D | **Next** — already table-shaped; also fixes `#800000` |
+| `MaterialViewPage`, `RevieweeExamViewPage`, `RevieweeMaterialViewPage` | B | Pending (339 / 470 / 197 lines) — follow the §6 shell contract that `ManageExamViewPage` now demonstrates |
+| `ExamPerformancePage`, `CalendarPage`, `TakeExamPage`, `VideoConferencePage`, `ProfilePage`, `SettingsPage`, dashboards | C | Long tail — large, bespoke, low shared-component leverage |
+
+"Done" in this table means the surface matches the visual dialect and the list
+patterns. It does **not** mean every rule in this document holds there — surfaces
+marked done at earlier releases still breach §6's third-party rule. Dialect
+migration and rule-conformance are tracked by the same table today, and that has
+already misled one reader; treat §10 as the authority on what is outstanding.
+
+`ExamPerformancePage` (710 lines) is **unrouted and unimported** — it appears in
+no route table and nothing references it. It reads as a superseded draft of
+`ManageExamViewPage`. Budget no migration effort for it; decide whether to delete
+it instead.
+
+Repo-wide drift, re-measured at v1.2.0: **239** `font-black` (was 252),
+**1,594** `-gray-*` (unchanged) against **578** `-slate-*` (was 632). The
+`font-black` movement is this release's page. The `-slate-*` count fell because
+the rewritten page expresses the same UI in far less markup — a falling slate
+count is not a regression when the gray count has not moved.
+
+---
+
+## 10. Standards-readiness note
+
+Per project policy this document was checked against ISO 9001, ISO 27001, DPTM,
+and SOC 2 readiness. It is **not** a certification artefact — it is an internal
+engineering standard.
+
+- **Third-party disclosure of personal data (§6, new at v1.2.0) — OPEN, partially
+  remediated.** Student and staff names are sent to `ui-avatars.com` in a URL
+  query string, once per rendered row, over an unauthenticated cross-origin
+  request, purely to generate an avatar image. Relevant to ISO 27001 A.5.14
+  (information transfer) and A.5.19 (supplier relationships), and to SOC 2
+  Confidentiality.
+  - **Remediated:** `ManageExamViewPage` — initials are now derived locally.
+  - **Still open on other surfaces.** Not enumerated here: this repository is
+    public, and `docs/agents/issue-tracker.md` forbids publishing unremediated
+    detail about personal-data handling to it. The outstanding call sites are
+    tracked privately and should be closed there.
+  - An earlier draft of this section stated the exposure had been "removed in this
+    release" without qualification. It had not; only one call site was fixed. The
+    overclaim was caught in review. Corrected because §10 is proposed below as the
+    basis of a security record, and a record that overstates remediation is worse
+    than no record.
+  - As with the `/decks` defect at v1.1.0, this predates any access-review
+    evidence and would have to be reconstructed from git history if a formal
+    record were required. Three incidents now; that is a reasonable prompt to
+    start a security incident log if one does not exist.
+- **Access control (§6).** Recorded at v1.1.0 and unchanged: `GET /decks` never
+  applied track scoping to any reviewee, so every reviewee could retrieve every
+  published deck across every track. ISO 27001 A.5.15 / A.8, SOC 2
+  Confidentiality.
+- **Processing integrity (§6, new at v1.2.0).** A record set that is silently
+  capped and then exported under the heading "complete report" is a
+  processing-integrity defect. The control is now in `fetchAllPages`, which
+  decides completion from the server's `meta.totalPages` rather than from page
+  length, and reports `truncated` when its runaway guard trips.
+  - **This release both introduced and fixed such a defect.** The rewrite passed
+    a `limit` above the server's `MAX_PAGE_SIZE`, capping every exam at 100
+    attempts, and this document initially recorded that as a *fix*. Review caught
+    it before merge. Recorded rather than quietly amended: an internal standard
+    that only records the defects it did not cause is not a useful control
+    document, and SOC 2 CC8.1 expectations around change management are better
+    served by the trail than by a clean-looking page. Relevant to SOC 2
+    Processing Integrity.
+- **Accessibility (§7)** remains the item most likely to require rework if
+  deferred. DPTM and public-sector procurement commonly expect a stated
+  conformance target; §7 sets one and v1.2.0 extends it to graphical data
+  displays and heading order, but no formal conformance record exists yet.
+- **Change control (§6, dirty guard).** Unsaved-work protection supports data
+  integrity expectations under ISO 27001 A.8 / SOC 2 Processing Integrity. The
+  guard is partial by design (browser navigation only); if an auditor treats
+  in-app navigation loss as a data-integrity gap, moving to a React Router data
+  router is the remedy and would be a structural change.
+- **Segregation of duties (§8).** The no-self-review rule is enforced by
+  convention, not tooling. Honoured for this release.
+- **No document-control metadata.** This file has a version and changelog but no
+  owner, review cycle, or approval record. ISO 9001 clause 7.5 expects
+  controlled documents to carry those. Add them if this doc is ever pulled into
+  a certification scope. Unchanged since v1.1.0.
+
+Nothing here blocks certification; these are flagged so they are built in rather
+than retrofitted.
+
+---
+
+## Changelog
+
+| Version | Date | Change |
+| --- | --- | --- |
+| v1.2.0 | 2026-08-03 | `ManageExamViewPage` migrated. §2 adds the `Metric value (display)` role and the no-data em-dash rule, while keeping the weight cap absolute. §3 extends the brand-hex rule to generated PDF/Excel artefacts and the colour-alone rule to correct answers and scores. §5 adds `MetricTile`, makes `ManageToolbar`'s heading and view toggle optional, records `ui/tabs` and the raw-records-not-formatted-rows rule for `ResourceTable`, and states the dynamic-import rule for export dependencies. §6 adds the detail-page shell contract, scopes the form-default table to page-level surfaces, extends "one control per dimension" to actions, makes `fetchAllPages` mandatory, and forbids sending user data to third parties for presentation. §7 adds graphical-data-as-text, heading order, and checkbox label association. §8 updates the lint baseline to 117 and adds the do-not-invent-tests rule. §9 retires `ManageExamViewPage` and records that `ExamPerformancePage` is unrouted. §10 records the `ui-avatars.com` disclosure and the truncation defect. **Amended before merge after independent review:** the §6 pagination rule originally mis-described the pre-existing code as broken and documented a "fix" that was itself the defect (a `limit` above the server's `MAX_PAGE_SIZE`, capping every exam at 100 attempts); the §6/§10 third-party-avatar entries claimed a repo-wide removal when the fix was scoped to this page alone. Both are corrected in place, with the original claims retained as marked corrections rather than deleted. |
+| v1.1.0 | 2026-08-03 | Reviewee browse surfaces migrated. §3 category colour confined to the badge and derived from the category id. §5 adds `ResourceGrid` and generalises `ManageToolbar` segments; `createAction` optional. §6 adds the form-default table (grid for browse, table for audit), the consequence for sorting, "one control per dimension", and the client-is-never-the-authorization-boundary rule. §7 adds grid list semantics and category-not-by-colour. §8 adds the lint baseline figure and the no-self-review rule. §9 retires the `ExamsPage`/`StudyHubPage` row. §10 records the `/decks` fail-open access-control defect found and fixed during this work. |
+| v1.0.0 | 2026-08-03 | Initial. Extracted from the materials/exams manager redesign (PR #33) — type scale, colour, radius, shared component inventory, required patterns, a11y bar, verification, migration status. |

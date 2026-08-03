@@ -20,8 +20,13 @@ export interface ActiveFilterChip {
 }
 
 interface ManageToolbarProps {
-    title: string;
-    description: string;
+    /**
+     * Omitted when the toolbar sits inside a detail-page tab panel, which already
+     * has the page's single <h1>. A second one there would break heading order,
+     * so the panel supplies its own visually-hidden <h2> instead.
+     */
+    title?: string;
+    description?: string;
 
     search: string;
     onSearchChange: (value: string) => void;
@@ -43,8 +48,12 @@ interface ManageToolbarProps {
     chips: ActiveFilterChip[];
     onClearAll: () => void;
 
-    view: ManageView;
-    onViewChange: (view: ManageView) => void;
+    /**
+     * Omitted where the collection has no meaningful card form — a panel whose
+     * records carry no decisive per-record action ships table-only. See §6.
+     */
+    view?: ManageView;
+    onViewChange?: (view: ManageView) => void;
 
     /** Omitted on reviewee-facing surfaces, which browse rather than author. */
     createAction?: React.ReactNode;
@@ -84,13 +93,17 @@ export const ManageToolbar: React.FC<ManageToolbarProps> = ({
     createAction,
 }) => (
     <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-                <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">{title}</h1>
-                <p className="mt-0.5 text-[12px] text-slate-500">{description}</p>
+        {(title || createAction) && (
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                {title && (
+                    <div>
+                        <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">{title}</h1>
+                        {description && <p className="mt-0.5 text-[12px] text-slate-500">{description}</p>}
+                    </div>
+                )}
+                {createAction}
             </div>
-            {createAction}
-        </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
             {segments && segments.length > 0 && onSegmentChange && (
@@ -167,6 +180,7 @@ export const ManageToolbar: React.FC<ManageToolbarProps> = ({
                 </Popover>
             )}
 
+            {view && onViewChange && (
             <div
                 role="group"
                 aria-label="View mode"
@@ -201,6 +215,7 @@ export const ManageToolbar: React.FC<ManageToolbarProps> = ({
                     <LayoutGrid size={13} aria-hidden="true" /> Grid
                 </button>
             </div>
+            )}
         </div>
 
         {chips.length > 0 && (
