@@ -16,7 +16,7 @@
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@prisma/client": "6.19.2",
+    "@prisma/client": "7.9.1",
     "@supabase/supabase-js": "^2.111.0",
     "@types/pdfkit": "0.17.6",
     "cookie-parser": "1.4.7",
