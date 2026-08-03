@@ -297,21 +297,54 @@ exams the server had legitimately returned. `services/revieweeVisibility.ts` now
 owns the predicate for both. A missing track must **narrow** the result set, never
 widen it.
 
-**Paginated list endpoints are walked with `fetchAllPages`, always.** Hand-rolled
-pagination loops keep reintroducing the same silent cap. The exam detail page's
-copy derived its page count from `meta.totalPages || page`, so a response without
-that field resolved to the current page, exited after one request, and truncated
-at 500 attempts with no indication — while the export it fed was labelled a
-"complete report". `fetchAllPages` returns `truncated` precisely so the caller can
-say so. Silent truncation of a record set that is then exported is a
-data-integrity defect, not a UI nicety.
+**Paginated list endpoints are walked with `fetchAllPages`, and never with a
+`limit` above the server's cap.** `parsePagination` clamps `limit` to
+**`MAX_PAGE_SIZE = 100`** (`server/src/utils/pagination.ts`). A client that asks
+for 200 receives 100 — so any walker that infers "this is the last page" from a
+short page stops after the first request and silently discards everything beyond
+the hundredth record.
+
+`fetchAllPages` now decides completion from `meta.totalPages`, which
+`ApiResponse.paginated` always emits, and only falls back to the short-page test
+when no total is available — measured against `meta.limit` rather than the limit
+that was requested. Do not pass a `limit` override unless you have checked the
+server's cap for that route.
+
+> **Correction, added after review.** v1.2.0 originally asserted here that the exam
+> detail page's hand-rolled loop "resolved to the current page, exited after one
+> request, and truncated at 500 attempts". That was **wrong**. The old loop read
+> `meta.totalPages`, which is never absent, and it walked the full list correctly.
+> The replacement written for this release passed `{ limit: 200 }`, hit the
+> server's clamp, and capped every exam at 100 attempts — corrupting the KPI
+> tiles, the distribution, the table and both exports, while the PDF still called
+> itself a complete report. The defect this section describes was introduced by
+> the change that documented it, and was caught in review, not in writing.
+>
+> The transferable lesson is not about pagination. **Do not describe existing code
+> as broken without reading the code it talks to.** The claim was inferred from a
+> `|| page` fallback in the client and never checked against `ApiResponse` or
+> `parsePagination`, either of which would have refuted it in under a minute.
+
+Silent truncation of a record set that is then exported is a data-integrity
+defect, not a UI nicety — that part stands.
 
 **Never send user data to a third party for presentation.** Avatars are rendered
 from local initials or from a URL the platform itself stores. `ui-avatars.com`
 was being called once per table row with each student's full name in the query
 string — an unauthenticated cross-origin request, in bulk, with no processor
 agreement behind it. Cosmetic convenience is not a reason to export personal
-data. See §10.
+data.
+
+**This rule is stated, not yet satisfied repo-wide.** As of v1.2.0 the call is
+removed from `ManageExamViewPage` only; other surfaces still make it. Do not read
+§9's "Done" or §10 as saying the exposure is closed.
+
+> This repository is public (see `docs/agents/issue-tracker.md`), which forbids
+> publishing unremediated detail about personal-data handling. The specific
+> remaining call sites are therefore **not enumerated here** — they are tracked
+> privately. Search for the avatar service by name before adding any new avatar
+> code, and assume at least one caller is still outstanding until this note is
+> removed.
 
 ---
 
@@ -387,6 +420,12 @@ having written it.
 | `MaterialViewPage`, `RevieweeExamViewPage`, `RevieweeMaterialViewPage` | B | Pending (339 / 470 / 197 lines) — follow the §6 shell contract that `ManageExamViewPage` now demonstrates |
 | `ExamPerformancePage`, `CalendarPage`, `TakeExamPage`, `VideoConferencePage`, `ProfilePage`, `SettingsPage`, dashboards | C | Long tail — large, bespoke, low shared-component leverage |
 
+"Done" in this table means the surface matches the visual dialect and the list
+patterns. It does **not** mean every rule in this document holds there — surfaces
+marked done at earlier releases still breach §6's third-party rule. Dialect
+migration and rule-conformance are tracked by the same table today, and that has
+already misled one reader; treat §10 as the authority on what is outstanding.
+
 `ExamPerformancePage` (710 lines) is **unrouted and unimported** — it appears in
 no route table and nothing references it. It reads as a superseded draft of
 `ManageExamViewPage`. Budget no migration effort for it; decide whether to delete
@@ -406,25 +445,43 @@ Per project policy this document was checked against ISO 9001, ISO 27001, DPTM,
 and SOC 2 readiness. It is **not** a certification artefact — it is an internal
 engineering standard.
 
-- **Third-party disclosure of personal data (§6, new at v1.2.0).** The exam
-  detail page sent every student's full name to `ui-avatars.com`, once per
-  rendered table row, over an unauthenticated cross-origin request, purely to
-  generate an avatar image. Removed in this release; initials are now derived
-  locally. Relevant to ISO 27001 A.5.14 (information transfer) and A.5.19
-  (supplier relationships) and to SOC 2 Confidentiality. As with the `/decks`
-  defect recorded at v1.1.0, this predates any access-review evidence and would
-  have to be reconstructed from git history if a formal record were required.
-  Both incidents together are a reasonable prompt to start a security incident
-  log, if one does not exist.
+- **Third-party disclosure of personal data (§6, new at v1.2.0) — OPEN, partially
+  remediated.** Student and staff names are sent to `ui-avatars.com` in a URL
+  query string, once per rendered row, over an unauthenticated cross-origin
+  request, purely to generate an avatar image. Relevant to ISO 27001 A.5.14
+  (information transfer) and A.5.19 (supplier relationships), and to SOC 2
+  Confidentiality.
+  - **Remediated:** `ManageExamViewPage` — initials are now derived locally.
+  - **Still open on other surfaces.** Not enumerated here: this repository is
+    public, and `docs/agents/issue-tracker.md` forbids publishing unremediated
+    detail about personal-data handling to it. The outstanding call sites are
+    tracked privately and should be closed there.
+  - An earlier draft of this section stated the exposure had been "removed in this
+    release" without qualification. It had not; only one call site was fixed. The
+    overclaim was caught in review. Corrected because §10 is proposed below as the
+    basis of a security record, and a record that overstates remediation is worse
+    than no record.
+  - As with the `/decks` defect at v1.1.0, this predates any access-review
+    evidence and would have to be reconstructed from git history if a formal
+    record were required. Three incidents now; that is a reasonable prompt to
+    start a security incident log if one does not exist.
 - **Access control (§6).** Recorded at v1.1.0 and unchanged: `GET /decks` never
   applied track scoping to any reviewee, so every reviewee could retrieve every
   published deck across every track. ISO 27001 A.5.15 / A.8, SOC 2
   Confidentiality.
-- **Processing integrity (§6, new at v1.2.0).** The hand-rolled attempt-fetch
-  loop could silently cap a result set at 500 rows and then feed it to an export
-  headed "complete report". Fixed by making `fetchAllPages` mandatory and
-  surfacing its `truncated` flag. Relevant to SOC 2 Processing Integrity; the
-  rule is stated so the control is designed in rather than rediscovered.
+- **Processing integrity (§6, new at v1.2.0).** A record set that is silently
+  capped and then exported under the heading "complete report" is a
+  processing-integrity defect. The control is now in `fetchAllPages`, which
+  decides completion from the server's `meta.totalPages` rather than from page
+  length, and reports `truncated` when its runaway guard trips.
+  - **This release both introduced and fixed such a defect.** The rewrite passed
+    a `limit` above the server's `MAX_PAGE_SIZE`, capping every exam at 100
+    attempts, and this document initially recorded that as a *fix*. Review caught
+    it before merge. Recorded rather than quietly amended: an internal standard
+    that only records the defects it did not cause is not a useful control
+    document, and SOC 2 CC8.1 expectations around change management are better
+    served by the trail than by a clean-looking page. Relevant to SOC 2
+    Processing Integrity.
 - **Accessibility (§7)** remains the item most likely to require rework if
   deferred. DPTM and public-sector procurement commonly expect a stated
   conformance target; §7 sets one and v1.2.0 extends it to graphical data
@@ -450,6 +507,6 @@ than retrofitted.
 
 | Version | Date | Change |
 | --- | --- | --- |
-| v1.2.0 | 2026-08-03 | `ManageExamViewPage` migrated. §2 adds the `Metric value (display)` role and the no-data em-dash rule, while keeping the weight cap absolute. §3 extends the brand-hex rule to generated PDF/Excel artefacts and the colour-alone rule to correct answers and scores. §5 adds `MetricTile`, makes `ManageToolbar`'s heading and view toggle optional, records `ui/tabs` and the raw-records-not-formatted-rows rule for `ResourceTable`, and states the dynamic-import rule for export dependencies. §6 adds the detail-page shell contract, scopes the form-default table to page-level surfaces, extends "one control per dimension" to actions, makes `fetchAllPages` mandatory, and forbids sending user data to third parties for presentation. §7 adds graphical-data-as-text, heading order, and checkbox label association. §8 updates the lint baseline to 117 and adds the do-not-invent-tests rule. §9 retires `ManageExamViewPage` and records that `ExamPerformancePage` is unrouted. §10 records the `ui-avatars.com` disclosure and the truncation defect. |
+| v1.2.0 | 2026-08-03 | `ManageExamViewPage` migrated. §2 adds the `Metric value (display)` role and the no-data em-dash rule, while keeping the weight cap absolute. §3 extends the brand-hex rule to generated PDF/Excel artefacts and the colour-alone rule to correct answers and scores. §5 adds `MetricTile`, makes `ManageToolbar`'s heading and view toggle optional, records `ui/tabs` and the raw-records-not-formatted-rows rule for `ResourceTable`, and states the dynamic-import rule for export dependencies. §6 adds the detail-page shell contract, scopes the form-default table to page-level surfaces, extends "one control per dimension" to actions, makes `fetchAllPages` mandatory, and forbids sending user data to third parties for presentation. §7 adds graphical-data-as-text, heading order, and checkbox label association. §8 updates the lint baseline to 117 and adds the do-not-invent-tests rule. §9 retires `ManageExamViewPage` and records that `ExamPerformancePage` is unrouted. §10 records the `ui-avatars.com` disclosure and the truncation defect. **Amended before merge after independent review:** the §6 pagination rule originally mis-described the pre-existing code as broken and documented a "fix" that was itself the defect (a `limit` above the server's `MAX_PAGE_SIZE`, capping every exam at 100 attempts); the §6/§10 third-party-avatar entries claimed a repo-wide removal when the fix was scoped to this page alone. Both are corrected in place, with the original claims retained as marked corrections rather than deleted. |
 | v1.1.0 | 2026-08-03 | Reviewee browse surfaces migrated. §3 category colour confined to the badge and derived from the category id. §5 adds `ResourceGrid` and generalises `ManageToolbar` segments; `createAction` optional. §6 adds the form-default table (grid for browse, table for audit), the consequence for sorting, "one control per dimension", and the client-is-never-the-authorization-boundary rule. §7 adds grid list semantics and category-not-by-colour. §8 adds the lint baseline figure and the no-self-review rule. §9 retires the `ExamsPage`/`StudyHubPage` row. §10 records the `/decks` fail-open access-control defect found and fixed during this work. |
 | v1.0.0 | 2026-08-03 | Initial. Extracted from the materials/exams manager redesign (PR #33) — type scale, colour, radius, shared component inventory, required patterns, a11y bar, verification, migration status. |

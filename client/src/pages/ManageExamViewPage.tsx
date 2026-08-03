@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CollectionError } from '@/components/manage/CollectionState';
@@ -41,6 +42,16 @@ type TabValue = typeof TAB_VALUES[number];
 const isTabValue = (value: string | null): value is TabValue =>
     TAB_VALUES.includes((value || '') as TabValue);
 
+/** Shown on the loading and error branches, which do not render the header. */
+const BackToLibrary: React.FC = () => (
+    <Link
+        to="/manage-exams"
+        className="inline-flex w-fit items-center gap-1 rounded text-[12px] text-slate-500 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+    >
+        <ArrowLeft size={12} aria-hidden="true" /> Exam library
+    </Link>
+);
+
 const ManageExamViewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { user } = useAuth();
@@ -62,31 +73,48 @@ const ManageExamViewPage: React.FC = () => {
     const [exportOpen, setExportOpen] = useState(false);
     const [exporting, setExporting] = useState(false);
 
+    // Bumped whenever the route's exam id changes. Each loader captures the value
+    // current when it started and discards its own result if it has since moved on,
+    // so a slow response for the previous exam cannot overwrite the new one — or
+    // clear the new one's loading flag.
+    const generationRef = useRef(0);
+
     const loadExam = useCallback(async () => {
         if (!id) return;
+        const generation = generationRef.current;
+        const stale = () => generation !== generationRef.current;
+
         setExamLoading(true);
         setExamError(null);
         try {
             const response = await api.get(`/exams/${id}?questions=true`);
+            if (stale()) return;
             setExam((response.data?.data || null) as ExamDetails | null);
         } catch (error) {
+            if (stale()) return;
             console.error('Failed to load exam detail', error);
             setExam(null);
             setExamError('Could not load this exam');
         } finally {
-            setExamLoading(false);
+            if (!stale()) setExamLoading(false);
         }
     }, [id]);
 
     const loadAttempts = useCallback(async () => {
         if (!id) return;
+        const generation = generationRef.current;
+        const stale = () => generation !== generationRef.current;
+
         setAttemptsLoading(true);
         setAttemptsError(null);
         try {
-            const result = await fetchAllPages<AttemptItem>(
-                (page, limit) => api.get('/attempts', { params: { examId: id, page, limit } }),
-                { limit: 200 },
+            // No `limit` override: the server clamps page size to 100, and asking
+            // for more than it will serve is how a short page gets mistaken for
+            // the end of the list.
+            const result = await fetchAllPages<AttemptItem>((page, limit) =>
+                api.get('/attempts', { params: { examId: id, page, limit } }),
             );
+            if (stale()) return;
             setAttempts(result.items);
             if (result.truncated) {
                 toast.warning(
@@ -94,11 +122,12 @@ const ManageExamViewPage: React.FC = () => {
                 );
             }
         } catch (error) {
+            if (stale()) return;
             console.error('Failed to load exam attempts', error);
             setAttempts([]);
             setAttemptsError('Could not load submissions');
         } finally {
-            setAttemptsLoading(false);
+            if (!stale()) setAttemptsLoading(false);
         }
     }, [id]);
 
@@ -108,16 +137,22 @@ const ManageExamViewPage: React.FC = () => {
     // endpoint also closes exams whose deadline has passed.
     const loadAnalytics = useCallback(async () => {
         if (!id) return;
+        const generation = generationRef.current;
         try {
             const response = await api.get(`/exams/${id}/submission-analytics`);
+            if (generation !== generationRef.current) return;
             setAnalytics((response.data?.data || null) as SubmissionAnalytics | null);
         } catch (error) {
+            if (generation !== generationRef.current) return;
             console.error('Failed to load submission analytics', error);
             setAnalytics(null);
         }
     }, [id]);
 
     useEffect(() => {
+        // Invalidate anything still in flight for the previous exam before starting.
+        generationRef.current += 1;
+
         if (!id) {
             setExamError('Missing exam ID');
             setExamLoading(false);
@@ -170,9 +205,13 @@ const ManageExamViewPage: React.FC = () => {
         return ordered.map((question, index) => ({
             question,
             globalQuestionNo: index + 1,
+            // Trimmed at construction. The section list below is built from trimmed
+            // titles, so an untrimmed title here would render a filter button that
+            // matches nothing — a section stored as "Part A " would offer "Part A"
+            // and then report no questions in it.
             sectionTitle:
-                question.section?.title
-                || exam?.sections?.find((section) => section.id === question.sectionId)?.title
+                question.section?.title?.trim()
+                || exam?.sections?.find((section) => section.id === question.sectionId)?.title?.trim()
                 || 'Full exam',
         }));
     }, [exam?.questions, exam?.sections]);
@@ -184,7 +223,7 @@ const ManageExamViewPage: React.FC = () => {
             .filter((title): title is string => Boolean(title));
 
         const fromQuestions = questionsWithSection
-            .map((entry) => entry.sectionTitle.trim())
+            .map((entry) => entry.sectionTitle)
             .filter(Boolean);
 
         return ['ALL', ...Array.from(new Set([...fromExam, ...fromQuestions]))];
@@ -246,8 +285,8 @@ const ManageExamViewPage: React.FC = () => {
     if (examLoading) {
         return (
             <div className="flex flex-col gap-3 pb-6 font-lexend">
+                <BackToLibrary />
                 <div className="flex flex-col gap-2">
-                    <Skeleton className="h-3 w-40" />
                     <Skeleton className="h-5 w-72" />
                     <Skeleton className="h-3 w-64" />
                 </div>
@@ -265,6 +304,9 @@ const ManageExamViewPage: React.FC = () => {
     if (examError || !exam) {
         return (
             <div className="flex flex-col gap-3 pb-6 font-lexend">
+                {/* The header is not rendered on this branch, so the only route back
+                    would otherwise be the sidebar. */}
+                <BackToLibrary />
                 <CollectionError
                     message={examError || 'Exam not found'}
                     onRetry={examError ? () => void loadExam() : undefined}
@@ -274,6 +316,9 @@ const ManageExamViewPage: React.FC = () => {
     }
 
     const attemptsState = attemptsLoading ? 'loading' : attemptsError ? 'error' : 'ready';
+    // Gated on the attempts error too: exporting from a failed fetch would emit a
+    // "complete report" of zero rows, indistinguishable from an exam nobody has sat.
+    const exportDisabled = exporting || attemptsLoading || Boolean(attemptsError);
     const tabTriggerClass =
         'rounded-md px-3 text-[12px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-white';
 
@@ -287,7 +332,7 @@ const ManageExamViewPage: React.FC = () => {
                 canEdit={canEditExam}
                 onExportFullReport={() => void handleExport('pdf', 'ALL', [...DEFAULT_EXPORT_COLUMNS])}
                 onCustomiseExport={() => setExportOpen(true)}
-                exportDisabled={exporting || attemptsLoading}
+                exportDisabled={exportDisabled}
             />
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col gap-3">
@@ -329,12 +374,10 @@ const ManageExamViewPage: React.FC = () => {
                 </TabsContent>
 
                 <TabsContent value="questions" className="mt-0">
-                    <ExamQuestionsTab
-                        questions={questionsWithSection}
-                        sections={sections}
-                        state="ready"
-                        onRetry={() => void loadExam()}
-                    />
+                    {/* Questions arrive with the exam itself, and this branch only
+                        renders once that has resolved — so the panel has no loading
+                        or error state of its own to represent. */}
+                    <ExamQuestionsTab questions={questionsWithSection} sections={sections} />
                 </TabsContent>
             </Tabs>
 

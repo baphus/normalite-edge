@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CollectionEmpty, CollectionError } from '@/components/manage/CollectionState';
-import { Skeleton } from '@/components/ui/skeleton';
+import { CollectionEmpty } from '@/components/manage/CollectionState';
 import { cn } from '@/lib/utils';
 import type { ExamQuestion } from './types';
 
@@ -12,13 +11,15 @@ export interface QuestionWithSection {
     sectionTitle: string;
 }
 
+/**
+ * No loading or error state: questions arrive with the exam itself, and the page
+ * only renders this panel once that request has resolved. A state prop that the
+ * caller can only ever set to 'ready' is dead code, not defensiveness.
+ */
 interface ExamQuestionsTabProps {
     questions: QuestionWithSection[];
     /** `'ALL'` first, then each section title in exam order. */
     sections: string[];
-    state: 'loading' | 'error' | 'ready';
-    error?: string | null;
-    onRetry?: () => void;
 }
 
 const CHOICE_KEYS = ['A', 'B', 'C', 'D'] as const;
@@ -29,13 +30,7 @@ const choicesOf = (question: ExamQuestion) =>
         value: question[`choice${key}` as 'choiceA' | 'choiceB' | 'choiceC' | 'choiceD'],
     })).filter((choice) => Boolean(choice.value));
 
-export const ExamQuestionsTab: React.FC<ExamQuestionsTabProps> = ({
-    questions,
-    sections,
-    state,
-    error,
-    onRetry,
-}) => {
+export const ExamQuestionsTab: React.FC<ExamQuestionsTabProps> = ({ questions, sections }) => {
     const [selectedSection, setSelectedSection] = useState('ALL');
 
     // Derived rather than synchronised in an effect: if the exam's sections change
@@ -45,25 +40,6 @@ export const ExamQuestionsTab: React.FC<ExamQuestionsTabProps> = ({
         activeSection === 'ALL'
             ? questions
             : questions.filter((entry) => entry.sectionTitle === activeSection);
-
-    if (state === 'error') {
-        return <CollectionError message={error || 'Could not load questions'} onRetry={onRetry} />;
-    }
-
-    if (state === 'loading') {
-        return (
-            <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
-                        <Skeleton className="h-3 w-32" />
-                        <Skeleton className="h-3.5 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                    </div>
-                ))}
-                <span className="sr-only" role="status">Loading questions…</span>
-            </div>
-        );
-    }
 
     return (
         <section className="flex flex-col gap-3">
@@ -111,10 +87,15 @@ export const ExamQuestionsTab: React.FC<ExamQuestionsTabProps> = ({
                                 key={question.id}
                                 className="rounded-xl border border-slate-200 bg-white p-4"
                             >
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-                                    Question {globalQuestionNo}
+                                {/* "Question N" is a structural label and takes the
+                                    uppercase treatment; the section title is
+                                    author-supplied content and stays sentence case. */}
+                                <p className="text-[11px] text-slate-500">
+                                    <span className="font-semibold uppercase tracking-[0.06em]">
+                                        Question {globalQuestionNo}
+                                    </span>
                                     <span className="mx-1.5 text-slate-300" aria-hidden="true">·</span>
-                                    {sectionTitle}
+                                    <span className="text-[12px]">{sectionTitle}</span>
                                 </p>
                                 <p className="mt-1.5 text-[13px] font-medium leading-relaxed text-slate-900">
                                     {question.questionText || 'No question text available.'}

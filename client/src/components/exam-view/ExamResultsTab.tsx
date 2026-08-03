@@ -55,6 +55,10 @@ export const ExamResultsTab: React.FC<ExamResultsTabProps> = ({
 
     return (
         <div className="flex flex-col gap-3">
+            {/* Names the panel and keeps heading order unbroken: the page's <h1> is
+                followed by this <h2>, then the <h3> on each chart panel below. */}
+            <h2 className="sr-only">Results overview</h2>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <MetricTile
                     label="Submitted"

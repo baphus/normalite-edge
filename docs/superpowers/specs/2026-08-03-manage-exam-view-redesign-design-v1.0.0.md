@@ -65,9 +65,12 @@ Established by direct reading during design, not assumed:
   which overstates the remaining work. Left in place by decision (§4.7); noted for §9.
 - **Third-party PII flow.** `getAvatarUrl` (`:295`) sends each student's full name to
   `ui-avatars.com` in a query string, once per row. See §6.
-- **Silent truncation.** `fetchAllAttempts` (`:323`) hand-rolls pagination; when
+- ~~**Silent truncation.** `fetchAllAttempts` (`:323`) hand-rolls pagination; when
   `meta.totalPages` is absent it resolves to the current page, exiting after one request
-  and capping at 500 attempts with no signal. See §6.
+  and capping at 500 attempts with no signal.~~ **Retracted — this was wrong.**
+  `ApiResponse.paginated` always emits `meta.totalPages`, so the `|| page` fallback is
+  unreachable and the old loop walked the full list correctly. The claim was inferred
+  from the client alone without reading the server. See the correction in §12.
 - **Misleading zero state.** `attemptSummary` (`:459-485`) returns `0` for average,
   highest and lowest when no attempt has been submitted, so an exam with no submissions
   renders "Average 0.00% / Highest 0.00% / Lowest 0.00%".
@@ -273,10 +276,10 @@ unauthenticated third party once per row, in bulk, on every render — a data fl
 processor agreement. ISO 27001 A.5.14 / A.5.19, SOC 2 Confidentiality. Recorded in §10 of
 the standard.
 
-**Swap `fetchAllAttempts` for `lib/fetchAllPages.ts`,** matching `ManageExamsPage`, and
-warn via toast when it reports `truncated`. Closes the silent 500-attempt cap. An export
-labelled "complete report" that quietly omits rows is a processing-integrity defect, not a
-UI one — SOC 2 Processing Integrity.
+**Swap `fetchAllAttempts` for `lib/fetchAllPages.ts`,** matching `ManageExamsPage`.
+*(Original justification — "closes the silent 500-attempt cap" — was based on the
+retracted claim in §1.2. The swap still stands on consistency grounds, but it was not
+fixing a live defect, and as implemented it briefly created one. See §12.)*
 
 **Export subsystem** — extracted and repaired:
 
@@ -421,8 +424,74 @@ Per §8 of the standard. The client has no test tooling and none is added.
 
 ---
 
+## 12. Post-implementation corrections
+
+Added after the independent review of the implementation. Kept in this document
+rather than only in the commit history, because two of the findings invalidate
+claims made *in this spec*, and a design record that quietly drops its wrong
+premises is not a record.
+
+**The pagination premise was false, and acting on it introduced a real defect.**
+§1.2 asserted that the page's hand-rolled attempt loop could silently cap at 500
+attempts because `meta.totalPages` might be absent. It is never absent —
+`ApiResponse.paginated` computes it on every paginated response. The old loop was
+correct. The replacement passed `{ limit: 200 }` to `fetchAllPages`, which the
+server clamps to `MAX_PAGE_SIZE = 100`; `fetchAllPages` then read the short page
+as the end of the list and capped every exam at 100 attempts — silently corrupting
+the KPI tiles, distribution, program ranking, submissions table, segment counts
+and both exports.
+
+Fixed by making `fetchAllPages` decide completion from `meta.totalPages`, falling
+back to a short-page test measured against `meta.limit`, and by dropping the
+`limit` override. The fix benefits all five callers.
+
+The process failure worth carrying forward: the claim was derived by reading a
+`|| page` fallback in the client and reasoning about what it would do, without
+opening `ApiResponse` or `parsePagination`. Both were two greps away. **A claim
+that existing code is broken is a claim about the whole call path, and needs the
+whole call path read.**
+
+**The third-party disclosure was overstated.** §6 and the standard's §10 described
+the avatar-service removal without scoping it. Only `ManageExamViewPage` was
+fixed; other surfaces still make the call. Corrected in the standard, which is
+proposed as the basis of a security record and therefore must not overstate
+remediation. The specific outstanding call sites are deliberately not written down
+here or in the standard: this repository is public and
+`docs/agents/issue-tracker.md` forbids publishing unremediated personal-data
+handling detail to it. They need a private tracking home.
+
+**Findings accepted and fixed:** missing `<h2>` on the Results tab (heading order
+went h1 → h3 on the landing tab); export left enabled after an attempts fetch
+failure, which would emit a zero-row "complete report"; loading and error branches
+rendering no route back; dead `state`/`error`/`onRetry` props on the Questions tab;
+uppercase applied to author-supplied section titles; untrimmed section titles
+producing a filter button that matches nothing; no request invalidation across an
+`id` change.
+
+**Findings declined, with reasons:**
+
+- *Table sort and pagination reset when switching tabs.* Radix unmounts inactive
+  `TabsContent`. `forceMount` would fix it by rendering all three panels always,
+  including up to 120 question cards, on every visit. The alternative — hoisting
+  sort state out of `ResourceTable` — needs a controlled-sort prop the component
+  does not have and would touch its four existing callers. Not worth either cost
+  for state that is cheap to re-establish.
+- *`aria-pressed` toggle buttons for mutually-exclusive choices* (export scope,
+  section chips). Correctly identified as a mismapping — `radiogroup` with roving
+  tabindex is the right pattern. Declined here because it is the existing house
+  pattern: `ManageToolbar`'s segments and view toggle do the same, so fixing it in
+  two new places would create inconsistency rather than remove it. It is
+  keyboard-operable and focus-visible, so not a 2.1.1 failure. Worth a separate
+  repo-wide change.
+- *Search now matches across field boundaries* (the fields are joined before
+  testing, so `"cruz bsed"` matches where it previously did not). Behaviour change
+  is real but strictly widening, and matches what users expect of a single search
+  box. Kept deliberately.
+
+---
+
 ## Changelog
 
 | Version | Date | Change |
 | --- | --- | --- |
-| v1.0.0 | 2026-08-03 | Initial. Written after design review against `docs/design-system-v1.1.0.md`, from a direct read of `ManageExamViewPage.tsx`, `ManageExamsPage.tsx`, all five `components/manage/` files, `DashboardLayout.tsx`, `lib/formatters.ts`, `lib/fetchAllPages.ts` and `server/src/services/exam.service.ts`. |
+| v1.0.0 | 2026-08-03 | §12 added post-review: retracts the pagination premise in §1.2 and the unscoped disclosure claim in §6, and records which review findings were accepted and which declined. Amended in place rather than reissued — v1.0.0 was authored and corrected inside the same unmerged branch and never existed in a released state, so retaining a superseded copy would only preserve a document with known-false claims. Initial content: Written after design review against `docs/design-system-v1.1.0.md`, from a direct read of `ManageExamViewPage.tsx`, `ManageExamsPage.tsx`, all five `components/manage/` files, `DashboardLayout.tsx`, `lib/formatters.ts`, `lib/fetchAllPages.ts` and `server/src/services/exam.service.ts`. |
