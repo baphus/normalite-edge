@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Request } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -30,12 +30,39 @@ app.use(helmet({
 }));
 
 // ─── Rate Limiting ─────────────────────────────────────
-// Global: 100 requests per 15 minutes per IP
+/**
+ * Extract a stable key from the request for rate limiting.
+ *
+ * Authenticated requests are keyed by the Supabase user ID (decoded from the
+ * JWT payload without signature verification — we only need a stable key, not
+ * an access grant).  Unauthenticated or malformed-token requests fall back to
+ * IP, so anonymous traffic is still bounded.
+ *
+ * This prevents users behind a shared NAT (campus, school, corporate network)
+ * from exhausting a single IP bucket during normal browsing.
+ */
+function rateLimitKey(req: Request): string {
+    const auth = req.headers.authorization;
+    if (auth?.startsWith('Bearer ')) {
+        try {
+            const payload = JSON.parse(
+                Buffer.from(auth.slice(7).split('.')[1], 'base64url').toString(),
+            );
+            if (typeof payload.sub === 'string') return `user:${payload.sub}`;
+        } catch {
+            // Malformed token — fall through to IP keying.
+        }
+    }
+    return req.ip ?? 'unknown';
+}
+
+// Global: 100 requests per 15 minutes per user (or IP for anonymous traffic)
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: rateLimitKey,
     message: { success: false, message: 'Too many requests, please try again later' },
 });
 
