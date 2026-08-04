@@ -296,7 +296,7 @@ function drawWatermark(doc: jsPDF, pageWidth: number, pageHeight: number) {
     doc.setTextColor(...WATERMARK_RGB);
     if (watermarkGState) {
         doc.saveGraphicsState();
-        doc.setGState(new watermarkGState({ opacity: 0.08 }));
+        doc.setGState(new watermarkGState({ opacity: 0.8 }));
         doc.text('CEBU NORMAL UNIVERSITY', pageWidth / 2, pageHeight / 2, {
             align: 'center',
             angle: 32,
