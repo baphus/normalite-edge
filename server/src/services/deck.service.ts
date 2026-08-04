@@ -1,6 +1,7 @@
 import { DeckSessionMode, DeckSessionStatus, Prisma, Role, Visibility } from '@prisma/client';
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
+import { cloudinaryService } from './cloudinary.service';
 import { notificationService } from './notification.service';
 import { buildDeckListWhere } from './revieweeVisibility';
 
@@ -254,6 +255,16 @@ export class DeckService {
 
         const wasPublished = existingDeck.visibility === 'PUBLISHED';
 
+        const oldQuestions = data.questions
+            ? await prisma.studyDeckQuestion.findMany({
+                  where: { deckId },
+                  select: { imageUrl: true },
+              })
+            : [];
+        const oldImageUrls = oldQuestions
+            .map((q) => q.imageUrl)
+            .filter((url): url is string => Boolean(url));
+
         const updatedDeck = await prisma.$transaction(async (tx) => {
             const uniqueTrackIds = data.trackIds ? Array.from(new Set(data.trackIds)) : undefined;
             if (uniqueTrackIds && uniqueTrackIds.length > 0) {
@@ -322,6 +333,17 @@ export class DeckService {
             });
         });
 
+        if (oldImageUrls.length > 0) {
+            const newImageUrls = new Set(
+                data.questions?.map((q) => q.imageUrl).filter(Boolean) ?? []
+            );
+            for (const url of oldImageUrls) {
+                if (!newImageUrls.has(url)) {
+                    cloudinaryService.destroyByUrl(url);
+                }
+            }
+        }
+
         if (updatedDeck?.visibility === 'PUBLISHED' && !wasPublished) {
             const recipientUserIds = await notificationService.getActiveRevieweeIdsByTrackLabels(
                 (updatedDeck.trackLinks || []).flatMap((link: any) => [link.track.name, link.track.code].filter(Boolean) as string[])
@@ -348,7 +370,18 @@ export class DeckService {
             throw ApiError.forbidden('You can only delete study decks you created');
         }
 
+        const questions = await prisma.studyDeckQuestion.findMany({
+            where: { deckId },
+            select: { imageUrl: true },
+        });
+        const imageUrls = questions
+            .map((q) => q.imageUrl)
+            .filter((url): url is string => Boolean(url));
+
         await prisma.studyDeck.delete({ where: { id: deckId } });
+        for (const url of imageUrls) {
+            cloudinaryService.destroyByUrl(url);
+        }
         return { id: deckId };
     }
 

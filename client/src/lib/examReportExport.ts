@@ -1,4 +1,5 @@
 import type jsPDF from 'jspdf';
+import autoTable, { type UserOptions } from 'jspdf-autotable';
 import { formatDateTime, formatDurationSeconds, formatPercent } from '@/lib/formatters';
 import type { AttemptSummary, ProgramPerformance, ScoreBand } from '@/lib/examAnalytics';
 import {
@@ -16,7 +17,8 @@ import {
  *
  * Deliberately free of React: it takes finished data and produces a file. Both
  * entry points import their heavy dependency dynamically, so a manager who never
- * exports never downloads jsPDF or exceljs.
+ * exports never downloads jsPDF or exceljs. jsPDF's autoTable plugin is bundled
+ * statically here instead — it is a thin helper and never pulls jsPDF in itself.
  */
 
 /**
@@ -78,10 +80,25 @@ const CENTRED_COLUMNS: ReadonlyArray<ExportColumnKey> = [
     'rowNo',
     'attemptNo',
     'status',
+];
+
+/** Numeric-looking columns read best right-aligned; the head row stays centred. */
+const RIGHT_ALIGNED_COLUMNS: ReadonlyArray<ExportColumnKey> = [
     'rawScore',
     'percentage',
     'timeSpent',
 ];
+
+// GState comes from the dynamically imported jspdf module, which must stay
+// lazy — only a type import lives at the top of this file. exportReportToPdf
+// resolves it at runtime and stashes the constructor here for the sync render.
+type GStateConstructor = new (parameters: { opacity?: number }) => unknown;
+let watermarkGState: GStateConstructor | null = null;
+
+/** Internal: lets headless verification / callers inject GState without changing the public export path. */
+export function setWatermarkGState(gstate: GStateConstructor | null): void {
+    watermarkGState = gstate;
+}
 
 /**
  * Flattens attempts into display-formatted export rows. The on-screen table
@@ -260,7 +277,7 @@ export async function exportScoresToXlsx(input: ExamReportInput): Promise<void> 
 
 function addSectionTitle(doc: jsPDF, title: string, y: number) {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setTextColor(...BRAND_RGB);
     doc.text(title, 12, y);
     doc.setDrawColor(...SLATE_200_RGB);
@@ -268,20 +285,57 @@ function addSectionTitle(doc: jsPDF, title: string, y: number) {
     doc.line(12, y + 2.5, doc.internal.pageSize.getWidth() - 12, y + 2.5);
 }
 
-function addWatermarkAndFooter(doc: jsPDF, generatedAt: string) {
+/**
+ * Translucent brand watermark, centred on the page. Uses a real ExtGState so it
+ * is genuinely faint (8% opacity) rather than a solid tint. Falls back to the
+ * legacy solid colour if GState could not be resolved from the jspdf module.
+ */
+function drawWatermark(doc: jsPDF, pageWidth: number, pageHeight: number) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(24);
+    doc.setTextColor(...WATERMARK_RGB);
+    if (watermarkGState) {
+        doc.saveGraphicsState();
+        doc.setGState(new watermarkGState({ opacity: 0.08 }));
+        doc.text('CEBU NORMAL UNIVERSITY', pageWidth / 2, pageHeight / 2, {
+            align: 'center',
+            angle: 32,
+        });
+        doc.restoreGraphicsState();
+    } else {
+        doc.text('CEBU NORMAL UNIVERSITY', pageWidth / 2, pageHeight / 2, {
+            align: 'center',
+            angle: 32,
+        });
+    }
+}
+
+/** Running header for continuation pages: exam title left, product line right. */
+function drawRunningHeader(doc: jsPDF, pageWidth: number, examTitle: string) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...BRAND_RGB);
+    doc.text(examTitle, 12, 6, { maxWidth: pageWidth / 2 - 16 });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...MUTED_RGB);
+    doc.text('Normalite Edge · Exam Performance Report', pageWidth - 12, 6, {
+        align: 'right',
+    });
+    doc.setDrawColor(...SLATE_200_RGB);
+    doc.setLineWidth(0.2);
+    doc.line(12, 8.5, pageWidth - 12, 8.5);
+}
+
+function addFooter(doc: jsPDF, generatedAt: string) {
     const pageCount = doc.getNumberOfPages();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
         doc.setPage(pageNumber);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(30);
-        doc.setTextColor(...WATERMARK_RGB);
-        doc.text('CEBU NORMAL UNIVERSITY', pageWidth / 2, pageHeight / 2, {
-            align: 'center',
-            angle: 32,
-        });
+        doc.setDrawColor(...SLATE_200_RGB);
+        doc.setLineWidth(0.3);
+        doc.line(12, pageHeight - 10.5, pageWidth - 12, pageHeight - 10.5);
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
@@ -296,9 +350,9 @@ function addWatermarkAndFooter(doc: jsPDF, generatedAt: string) {
 function nextY(doc: jsPDF, fallbackY: number, requiredHeight = 18): number {
     const lastTable = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable;
     const pageHeight = doc.internal.pageSize.getHeight();
-    let y = Math.max(lastTable?.finalY ? lastTable.finalY + 12 : fallbackY, fallbackY);
+    let y = Math.max(lastTable?.finalY ? lastTable.finalY + 9 : fallbackY, fallbackY);
 
-    if (y + requiredHeight > pageHeight - 18) {
+    if (y + requiredHeight > pageHeight - 16) {
         doc.addPage();
         y = 18;
     }
@@ -306,75 +360,125 @@ function nextY(doc: jsPDF, fallbackY: number, requiredHeight = 18): number {
     return y;
 }
 
-export async function exportReportToPdf(input: ExamReportInput): Promise<void> {
-    const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
-        import('jspdf'),
-        import('jspdf-autotable'),
-    ]);
-
+/**
+ * Renders the complete report onto an existing jsPDF instance. jsPDF and its
+ * autoTable plugin must already be loaded — exportReportToPdf takes care of
+ * that. Keeping the render synchronous lets a headless script build a doc and
+ * read it back via `doc.output('blob')` for visual verification.
+ */
+export function renderExamReportToPdf(doc: jsPDF, input: ExamReportInput): void {
     const { exam, summary, distribution, topPrograms, questionRows, rows, scope } = input;
     const columns = activeColumns(input.columnKeys);
+    const examTitle = exam?.title || 'Untitled Exam';
     const generatedAt = formatDateTime(new Date().toISOString());
-    const doc = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const durationMinutes = Number(exam?.timeLimit || exam?.duration || 0);
 
-    const columnStyles = columns.reduce<Record<number, { cellWidth: number; halign?: 'left' | 'center' }>>(
-        (styles, column, index) => {
-            styles[index] = {
-                cellWidth: PDF_COLUMN_WIDTHS[column.key],
-                halign: CENTRED_COLUMNS.includes(column.key) ? 'center' : 'left',
-            };
-            return styles;
-        },
-        {},
+    // The 14 source widths sum to 303mm, but the score table only has 297 - 16
+    // (8mm side margins each side) of usable width. Scale the selected columns
+    // so the table always fits; rounding to a tenth of a millimetre can
+    // overshoot by a fraction, so trim the surplus cyclically afterwards.
+    const usableWidth = pageWidth - 16;
+    const sumWidths = columns.reduce((sum, column) => sum + PDF_COLUMN_WIDTHS[column.key], 0);
+    const scale = sumWidths > usableWidth ? usableWidth / sumWidths : 1;
+    const selectedWidths = columns.map((column) =>
+        Math.min(55, Math.round(PDF_COLUMN_WIDTHS[column.key] * scale * 10) / 10),
     );
+    let widthSurplus = selectedWidths.reduce((sum, width) => sum + width, 0) - usableWidth;
+    for (let i = 0; widthSurplus > 0; i = (i + 1) % selectedWidths.length) {
+        selectedWidths[i] = Math.round((selectedWidths[i] - 0.1) * 10) / 10;
+        widthSurplus -= 0.1;
+    }
+
+    const columnStyles = columns.reduce<
+        Record<number, { cellWidth: number; halign?: 'left' | 'center' | 'right' }>
+    >((styles, column, index) => {
+        styles[index] = {
+            cellWidth: selectedWidths[index],
+            halign: RIGHT_ALIGNED_COLUMNS.includes(column.key)
+                ? 'right'
+                : CENTRED_COLUMNS.includes(column.key)
+                    ? 'center'
+                    : 'left',
+        };
+        return styles;
+    }, {});
+
+    // Shared autoTable wrapper: a consistent margin plus a page hook that paints
+    // the translucent watermark once per page and, from page 2 on, the running
+    // header in the top margin zone. autoTable's willDrawPage hook fires before
+    // any content is painted on each page, so the watermark stays behind it.
+    //
+    // Note: `data.pageNumber` is the plugin's per-table counter (it resets to 1
+    // for every table), not the document page. Always read the real page from
+    // the doc; jumping pages here is what made tables yank back to page 1.
+    const watermarkPages = new Set<number>();
+    function tableOptions(doc: jsPDF, extraOptions: UserOptions): UserOptions {
+        return {
+            ...extraOptions,
+            margin: { top: 14, left: 8, right: 8 },
+            willDrawPage: () => {
+                const pageNum = doc.getCurrentPageInfo().pageNumber;
+                if (!watermarkPages.has(pageNum)) {
+                    watermarkPages.add(pageNum);
+                    drawWatermark(doc, pageWidth, pageHeight);
+                }
+                if (pageNum > 1) {
+                    drawRunningHeader(doc, pageWidth, examTitle);
+                }
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(...INK_RGB);
+            },
+        };
+    }
 
     doc.setFillColor(...BRAND_RGB);
-    doc.rect(0, 0, pageWidth, 28, 'F');
+    doc.rect(0, 0, pageWidth, 22, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    doc.text('Cebu Normal University', 12, 11);
-    doc.setFontSize(9);
+    doc.setFontSize(13.5);
+    doc.text('Cebu Normal University', 12, 9);
     doc.setFont('helvetica', 'normal');
-    doc.text('Normalite Edge Exam Performance Report', 12, 19);
+    doc.setFontSize(8.5);
+    doc.text('Normalite Edge Exam Performance Report', 12, 16);
     doc.text(
         `Scope: ${scope === 'FILTERED' ? 'Filtered student score rows' : 'All student score rows'}`,
         pageWidth - 12,
-        11,
+        9,
         { align: 'right' },
     );
-    doc.text(`Generated: ${generatedAt}`, pageWidth - 12, 19, { align: 'right' });
+    doc.text(`Generated: ${generatedAt}`, pageWidth - 12, 16, { align: 'right' });
 
     doc.setTextColor(...INK_RGB);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text(exam?.title || 'Untitled Exam', 12, 39, { maxWidth: pageWidth - 24 });
+    doc.text(examTitle, 12, 36, { maxWidth: pageWidth - 24 });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...MUTED_RGB);
-    doc.text(exam?.description || 'No description provided.', 12, 46, { maxWidth: pageWidth - 24 });
+    doc.text(exam?.description || 'No description provided.', 12, 42, { maxWidth: pageWidth - 24 });
 
-    autoTable(doc, {
-        startY: 53,
+    autoTable(doc, tableOptions(doc, {
+        startY: 49,
         body: [
             ['Status', exam?.status || 'UNKNOWN', 'Category', exam?.category || 'N/A', 'Applicable Track(s)', describeTracks(exam)],
             ['Questions', String(input.questionCount), 'Duration', durationMinutes > 0 ? `${durationMinutes} minutes` : 'N/A', 'Maximum Attempts', String(exam?.maxAttempts ?? 'N/A')],
             ['Deadline / Schedule End', formatDateTime(input.deadline), 'Close on Deadline', exam?.closeOnDeadline ? 'Yes' : 'No', 'Created By', describeCreator(exam)],
         ],
         theme: 'grid',
-        styles: { fontSize: 7, cellPadding: 2, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
+        styles: { fontSize: 6.8, cellPadding: 1.6, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
         columnStyles: {
             0: { fontStyle: 'bold', textColor: BRAND_RGB, cellWidth: 32 },
             2: { fontStyle: 'bold', textColor: BRAND_RGB, cellWidth: 34 },
             4: { fontStyle: 'bold', textColor: BRAND_RGB, cellWidth: 38 },
         },
-    });
+    }));
 
-    const summaryY = nextY(doc, 80, 26);
+    const summaryY = nextY(doc, 72, 24);
     addSectionTitle(doc, 'Performance Summary', summaryY);
-    autoTable(doc, {
+    autoTable(doc, tableOptions(doc, {
         startY: summaryY + 6,
         head: [['Total Attempts', 'Submitted', 'In Progress', 'Unique Students', 'Average Score', 'Highest Score', 'Lowest Score']],
         body: [[
@@ -387,79 +491,90 @@ export async function exportReportToPdf(input: ExamReportInput): Promise<void> {
             formatPercent(summary.lowestScore, 'No submissions'),
         ]],
         theme: 'grid',
-        headStyles: { fillColor: BRAND_RGB, textColor: [255, 255, 255], fontSize: 7.5, halign: 'center' },
-        bodyStyles: { fontSize: 9, fontStyle: 'bold', halign: 'center', textColor: INK_RGB },
-        styles: { cellPadding: 2.5, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
-    });
+        headStyles: { fillColor: BRAND_RGB, textColor: [255, 255, 255], fontSize: 7.2, halign: 'center' },
+        bodyStyles: { fontSize: 8.5, fontStyle: 'bold', halign: 'center', textColor: INK_RGB },
+        styles: { cellPadding: 1.9, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
+    }));
 
-    const distributionY = nextY(doc, 112, 34);
+    const distributionY = nextY(doc, 98, 30);
     addSectionTitle(doc, 'Score Distribution and Program Performance', distributionY);
-    autoTable(doc, {
+    autoTable(doc, tableOptions(doc, {
         startY: distributionY + 6,
         head: [['Score Band', ...distribution.map((band) => `${band.label}%`)]],
         body: [['Students', ...distribution.map((band) => band.count)]],
         theme: 'grid',
-        headStyles: { fillColor: SLATE_700_RGB, textColor: [255, 255, 255], fontSize: 7, halign: 'center' },
-        bodyStyles: { fontSize: 8, halign: 'center' },
-        styles: { cellPadding: 2, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
-    });
+        headStyles: { fillColor: SLATE_700_RGB, textColor: [255, 255, 255], fontSize: 6.8, halign: 'center' },
+        bodyStyles: { fontSize: 7.5, halign: 'center' },
+        styles: { cellPadding: 1.6, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
+    }));
 
-    autoTable(doc, {
-        startY: nextY(doc, distributionY + 28, 22),
+    autoTable(doc, tableOptions(doc, {
+        startY: nextY(doc, distributionY + 24, 20),
         head: [['Program', 'Submitted Attempts', 'Average Score']],
         body: topPrograms.length > 0
             ? topPrograms.map((program) => [program.program, program.count, formatPercent(program.averageScore)])
             : [['No program data available', '-', '-']],
         theme: 'striped',
-        headStyles: { fillColor: BRAND_RGB, textColor: [255, 255, 255], fontSize: 7 },
-        styles: { fontSize: 7, cellPadding: 2, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
-    });
+        headStyles: { fillColor: BRAND_RGB, textColor: [255, 255, 255], fontSize: 6.8 },
+        styles: { fontSize: 6.8, cellPadding: 1.6, lineColor: SLATE_200_RGB, lineWidth: 0.15 },
+    }));
 
-    const scoreRowsY = nextY(doc, 158, 44);
+    const scoreRowsY = nextY(doc, 140, 40);
     addSectionTitle(doc, `Student Score Rows (${rows.length})`, scoreRowsY);
-    autoTable(doc, {
+    autoTable(doc, tableOptions(doc, {
         startY: scoreRowsY + 6,
         head: [columns.map((column) => column.label)],
         body: rows.length > 0
             ? rows.map((row) => columns.map((column) => String(row[column.key] ?? '')))
             : [columns.map(() => '-')],
         theme: 'striped',
+        rowPageBreak: 'avoid',
         headStyles: { fillColor: BRAND_RGB, textColor: [255, 255, 255], fontSize: 6.4, halign: 'center' },
-        styles: { fontSize: 5.8, cellPadding: 1.35, overflow: 'linebreak', valign: 'middle', lineColor: SLATE_200_RGB, lineWidth: 0.1 },
+        styles: { fontSize: 5.5, cellPadding: 1.15, overflow: 'linebreak', valign: 'middle', lineColor: SLATE_200_RGB, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_RGB },
         columnStyles,
-        margin: { left: 8, right: 8 },
-    });
+    }));
 
-    const questionsY = nextY(doc, 176, 54);
-    addSectionTitle(doc, `Exam Question Appendix (${questionRows.length})`, questionsY);
-    autoTable(doc, {
-        startY: questionsY + 6,
-        head: [['No.', 'Section', 'Question', 'Choices', 'Correct Answer', 'Rationalization']],
-        body: questionRows.length > 0
-            ? questionRows.map((row) => [
+    if (questionRows.length > 0) {
+        const questionsY = nextY(doc, 160, 48);
+        addSectionTitle(doc, `Exam Question Appendix (${questionRows.length})`, questionsY);
+        autoTable(doc, tableOptions(doc, {
+            startY: questionsY + 6,
+            head: [['No.', 'Section', 'Question', 'Choices', 'Correct Answer', 'Rationalization']],
+            body: questionRows.map((row) => [
                 row.globalQuestionNo,
                 row.sectionTitle,
                 row.questionText,
                 row.choices,
                 row.correctChoice,
                 row.rationalization,
-            ])
-            : [['-', '-', 'No questions found for this exam.', '-', '-', '-']],
-        theme: 'grid',
-        headStyles: { fillColor: SLATE_700_RGB, textColor: [255, 255, 255], fontSize: 6.5 },
-        styles: { fontSize: 5.8, cellPadding: 1.4, overflow: 'linebreak', valign: 'top', lineColor: SLATE_200_RGB, lineWidth: 0.1 },
-        columnStyles: {
-            0: { halign: 'center', cellWidth: 10 },
-            1: { cellWidth: 30 },
-            2: { cellWidth: 78 },
-            3: { cellWidth: 70 },
-            4: { halign: 'center', cellWidth: 24 },
-            5: { cellWidth: 72 },
-        },
-        margin: { left: 8, right: 8 },
-    });
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: SLATE_700_RGB, textColor: [255, 255, 255], fontSize: 6.5 },
+            styles: { fontSize: 5.5, cellPadding: 1.2, overflow: 'linebreak', valign: 'top', lineColor: SLATE_200_RGB, lineWidth: 0.1 },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 9.9 },
+                1: { cellWidth: 29.7 },
+                2: { cellWidth: 77.2 },
+                3: { cellWidth: 69.3 },
+                4: { halign: 'center', cellWidth: 23.7 },
+                5: { cellWidth: 71.2 },
+            },
+        }));
+    }
 
-    addWatermarkAndFooter(doc, generatedAt);
-    doc.save(`${safeExamFilename(exam?.title)}-complete-report.pdf`);
+    addFooter(doc, generatedAt);
+}
+
+export async function exportReportToPdf(input: ExamReportInput): Promise<void> {
+    const jsPdfModule = await import('jspdf');
+    const JsPDF = jsPdfModule.default;
+    const GState = jsPdfModule.GState
+        ?? (jsPdfModule.default && (jsPdfModule.default as unknown as { GState?: GStateConstructor }).GState)
+        ?? null;
+    setWatermarkGState(GState ?? null);
+
+    const doc = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    renderExamReportToPdf(doc, input);
+    doc.save(`${safeExamFilename(input.exam?.title)}-complete-report.pdf`);
 }

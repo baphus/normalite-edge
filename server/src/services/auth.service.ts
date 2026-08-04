@@ -1,6 +1,8 @@
 import prisma from '../config/db';
+import { supabaseAdmin } from '../config/supabase';
 import { ApiError } from '../utils/ApiError';
 import { auditService } from './audit.service';
+import { cloudinaryService } from './cloudinary.service';
 import { fromDbUserStatus, resolveProgramTrack } from '../utils/requirementsCompat';
 import { importRemoteAvatar } from '../utils/importRemoteAvatar';
 import { isInternalEmail, INTERNAL_EMAIL_DOMAIN } from '../config/env';
@@ -228,10 +230,14 @@ export class AuthService {
                     studentId: data.studentId?.trim() || existingById.studentId,
                     contactNumber: data.contactNumber?.trim() || existingById.contactNumber,
                 },
-                include: USER_INCLUDE,
-            });
+            include: USER_INCLUDE,
+        });
 
-            await auditService.log({
+        if (data.picture && existingById.profilePicture && existingById.profilePicture !== data.picture) {
+            cloudinaryService.destroyByUrl(existingById.profilePicture);
+        }
+
+        await auditService.log({
                 actorId: user.id,
                 actorRole: user.role,
                 action: 'UPDATE',
@@ -424,6 +430,10 @@ export class AuthService {
         const resolvedCampus = hasCampusInput
             ? await this.resolveActiveCampus(data.campus_id)
             : undefined;
+        const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { profilePicture: true },
+        });
         const user = await prisma.user.update({
             where: { id: userId },
             data: {
@@ -442,6 +452,10 @@ export class AuthService {
             },
             include: USER_INCLUDE,
         });
+
+        if (data.picture && currentUser?.profilePicture && currentUser.profilePicture !== data.picture) {
+            cloudinaryService.destroyByUrl(currentUser.profilePicture);
+        }
 
         await auditService.log({
             actorId: user.id,
@@ -540,6 +554,58 @@ export class AuthService {
         });
 
         return this.sanitizeUser(user);
+    }
+
+    /**
+     * Revoke every Supabase session for this user except the one that made the
+     * request.
+     *
+     * The access token identifies the current session — Supabase keeps it alive
+     * and ends all others. Errors are mapped to a generic client message so
+     * internal Supabase details never leak out.
+     */
+    async revokeOtherSessions(accessToken: string) {
+        try {
+            const { error } = await supabaseAdmin.auth.admin.signOut(accessToken, 'others');
+            if (error) {
+                throw ApiError.internal('Could not sign out other devices. Please try again.');
+            }
+            return true;
+        } catch (err) {
+            if (err instanceof ApiError) {
+                throw err;
+            }
+            throw ApiError.internal('Could not sign out other devices. Please try again.');
+        }
+    }
+
+    /**
+     * Deactivate the caller's account.
+     *
+     * First ends every Supabase session (global sign-out) so the user is
+     * signed out on all devices, then marks the application account DISABLED
+     * so the `authenticate` middleware rejects the account on any future
+     * request.
+     */
+    async deactivateAccount(userId: string, accessToken: string) {
+        try {
+            const { error } = await supabaseAdmin.auth.admin.signOut(accessToken, 'global');
+            if (error) {
+                throw ApiError.internal('Could not deactivate the account. Please try again.');
+            }
+        } catch (err) {
+            if (err instanceof ApiError) {
+                throw err;
+            }
+            throw ApiError.internal('Could not deactivate the account. Please try again.');
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { status: 'DISABLED' },
+        });
+
+        return true;
     }
 
     /**

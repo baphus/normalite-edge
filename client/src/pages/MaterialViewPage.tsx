@@ -1,337 +1,163 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Brain, Calendar, FolderOpen, Sparkles, UserRound } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CollectionError } from '@/components/manage/CollectionState';
+import { Skeleton } from '@/components/ui/skeleton';
 import api from '@/lib/axios';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
+import {
+    MaterialDetailHeader,
+    type MaterialDetails,
+} from '@/components/material-view/MaterialDetailHeader';
+import { MaterialOverviewTab } from '@/components/material-view/MaterialOverviewTab';
+import { MaterialQuestionsTab } from '@/components/material-view/MaterialQuestionsTab';
 
-interface Track {
-    id: string;
-    name: string;
-    code?: string | null;
-}
+const TAB_VALUES = ['overview', 'questions'] as const;
+type TabValue = (typeof TAB_VALUES)[number];
 
-interface DeckQuestion {
-    id: string;
-    orderNo?: number;
-    questionText: string;
-    imageUrl?: string | null;
-    choiceA?: string | null;
-    choiceB?: string | null;
-    choiceC?: string | null;
-    choiceD?: string | null;
-    correctChoice?: 'A' | 'B' | 'C' | 'D' | null;
-    rationalization?: string | null;
-    explanation?: string | null;
-}
+const isTabValue = (value: string | null): value is TabValue =>
+    TAB_VALUES.includes((value || '') as TabValue);
 
-interface DeckDetails {
-    id: string;
-    title: string;
-    description?: string | null;
-    category: string | null;
-    visibility: 'DRAFT' | 'PUBLISHED';
-    totalItems: number;
-    tracks: Track[];
-    creator?: {
-        id: string;
-        firstName?: string;
-        lastName?: string;
-        name?: string;
-    };
-    createdAt: string;
-    questions?: DeckQuestion[];
-}
+/** Shown on the loading and error branches, which do not render the header. */
+const BackToLibrary: React.FC = () => (
+    <Link
+        to="/materials"
+        className="inline-flex w-fit items-center gap-1 rounded text-[12px] text-slate-500 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+    >
+        <ArrowLeft size={12} aria-hidden="true" /> Material library
+    </Link>
+);
 
 const MaterialViewPage: React.FC = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
     const { id } = useParams<{ id: string }>();
-    const { user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
 
+    const [material, setMaterial] = useState<MaterialDetails | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [deck, setDeck] = useState<DeckDetails | null>(null);
 
-    useEffect(() => {
-        const loadDeck = async () => {
-            if (!id) {
-                setError('Missing material ID.');
-                setLoading(false);
-                return;
-            }
+    const generationRef = useRef(0);
 
-            setLoading(true);
-            setError('');
+    const loadMaterial = useCallback(async () => {
+        if (!id) return;
+        const generation = generationRef.current;
+        const stale = () => generation !== generationRef.current;
 
-            try {
-                const response = await api.get(`/decks/${id}?questions=true`);
-                setDeck((response.data?.data || null) as DeckDetails | null);
-            } catch (loadErr) {
-                console.error('Failed to load deck details', loadErr);
-                setError('Unable to load material details right now.');
-                setDeck(null);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadDeck();
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await api.get(`/decks/${id}?questions=true`);
+            if (stale()) return;
+            setMaterial((response.data?.data || null) as MaterialDetails | null);
+        } catch (loadErr) {
+            if (stale()) return;
+            console.error('Failed to load deck details', loadErr);
+            setMaterial(null);
+            setError('Could not load this material');
+        } finally {
+            if (!stale()) setLoading(false);
+        }
     }, [id]);
 
-    const visibleTo = useMemo(() => {
-        if (!deck?.tracks || deck.tracks.length === 0) return 'All Program Tracks';
-        return deck.tracks.map((track) => track.name).join(', ');
-    }, [deck]);
+    useEffect(() => {
+        generationRef.current += 1;
 
-    const creatorName = useMemo(() => {
-        if (!deck?.creator) return 'Unknown author';
-        if (user?.role === 'REVIEWER' && deck.creator.id === user?.id) return 'You';
-        return deck.creator.name
-            || `${deck.creator.firstName || ''} ${deck.creator.lastName || ''}`.trim()
-            || 'Unknown author';
-    }, [deck, user?.id, user?.role]);
+        if (!id) {
+            setError('Missing material ID');
+            setLoading(false);
+            return;
+        }
+        void loadMaterial();
+    }, [id, loadMaterial]);
+
+    const tabParam = searchParams.get('tab');
+    const activeTab: TabValue = isTabValue(tabParam) ? tabParam : 'overview';
+
+    const handleTabChange = useCallback(
+        (value: string) => {
+            setSearchParams(
+                (current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('tab', value);
+                    return next;
+                },
+                { replace: true },
+            );
+        },
+        [setSearchParams],
+    );
 
     const questions = useMemo(() => {
-        return (deck?.questions || [])
+        return (material?.questions || [])
             .slice()
             .sort((first, second) => (first.orderNo || 0) - (second.orderNo || 0));
-    }, [deck]);
+    }, [material]);
 
-    const isStudyView = location.pathname.startsWith('/study/');
-    const backPath = isStudyView ? '/study' : '/materials';
-    const canManageDeck = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
+    const questionCount = questions.length;
+
+    // Drafts can always be edited; published ones cannot.
+    const canEdit = material?.visibility !== 'PUBLISHED';
 
     if (loading) {
         return (
-            <div className="flex flex-col gap-5 font-lexend pb-8">
-                <Card className="rounded-2xl border-gray-100 bg-white">
-                    <CardContent className="p-6 text-sm font-semibold text-gray-500">Loading material details...</CardContent>
-                </Card>
+            <div className="flex flex-col gap-3 pb-6 font-lexend">
+                <BackToLibrary />
+                <div className="flex flex-col gap-2">
+                    <Skeleton className="h-5 w-72" />
+                    <Skeleton className="h-3 w-64" />
+                </div>
+                <Skeleton className="h-9 w-80 rounded-lg" />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <Skeleton key={index} className="h-[92px] rounded-xl" />
+                    ))}
+                </div>
+                <span className="sr-only" role="status">Loading material...</span>
             </div>
         );
     }
 
+    if (error || !material) {
+        return (
+            <div className="flex flex-col gap-3 pb-6 font-lexend">
+                <BackToLibrary />
+                <CollectionError
+                    message={error || 'Material not found'}
+                    onRetry={error ? () => void loadMaterial() : undefined}
+                />
+            </div>
+        );
+    }
+
+    const tabTriggerClass =
+        'rounded-md px-3 text-[12px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-white';
+
     return (
-        <div className="flex flex-col gap-5 font-lexend pb-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full"
-                        onClick={() => navigate(backPath)}
-                    >
-                        <ArrowLeft size={18} />
-                    </Button>
-                    <div className="space-y-1">
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Material Details</h1>
-                        <p className="text-sm text-gray-500 font-medium tracking-tight">Full question and answer view for this study material.</p>
-                    </div>
-                </div>
-                {deck && canManageDeck ? (
-                    <div className="flex items-center gap-2">
-                        <Link to={`/materials/${deck.id}/edit`}>
-                            <Button className="h-10 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2">
-                                Manage Deck
-                            </Button>
-                        </Link>
-                    </div>
-                ) : null}
-            </header>
+        <div className="flex flex-col gap-3 pb-6 font-lexend">
+            <MaterialDetailHeader
+                material={material}
+                canEdit={canEdit}
+            />
 
-            {error ? (
-                <Card className="rounded-2xl border-red-100 bg-red-50/40">
-                    <CardContent className="p-6 flex items-center justify-between gap-4">
-                        <p className="text-sm font-semibold text-red-700">{error}</p>
-                        <Button variant="outline" onClick={() => navigate(backPath)} className="border-red-200 text-red-700 hover:bg-red-50">
-                            {isStudyView ? 'Back to Study Hub' : 'Back to Materials'}
-                        </Button>
-                    </CardContent>
-                </Card>
-            ) : !deck ? (
-                <Card className="rounded-2xl border-gray-100 bg-white">
-                    <CardContent className="p-6 text-sm font-semibold text-gray-500">Material not found.</CardContent>
-                </Card>
-            ) : (
-                <>
-                    <Card className="rounded-2xl border-gray-100 bg-white">
-                        <CardContent className="p-5 space-y-4">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] uppercase tracking-widest">
-                                    {deck.category}
-                                </Badge>
-                                <Badge
-                                    variant="outline"
-                                    className={`font-black text-[10px] uppercase tracking-widest ${
-                                        deck.visibility === 'PUBLISHED'
-                                            ? 'border-green-200 text-green-700 bg-green-50'
-                                            : 'border-amber-200 text-amber-700 bg-amber-50'
-                                    }`}
-                                >
-                                    {deck.visibility}
-                                </Badge>
-                            </div>
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col gap-3">
+                <TabsList className="h-9 w-full justify-start gap-1 rounded-lg border border-slate-200 bg-white p-1 sm:w-auto">
+                    <TabsTrigger value="overview" className={tabTriggerClass}>
+                        Overview
+                    </TabsTrigger>
+                    <TabsTrigger value="questions" className={tabTriggerClass}>
+                        Questions
+                        <span className="ml-1.5 tabular-nums opacity-70">{questionCount}</span>
+                    </TabsTrigger>
+                </TabsList>
 
-                            <div>
-                                <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">{deck.title}</h2>
-                                <p className="text-sm text-gray-600 font-medium mt-1">{deck.description || 'No description provided.'}</p>
-                            </div>
+                <TabsContent value="overview" className="mt-0">
+                    <MaterialOverviewTab material={material} />
+                </TabsContent>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <BookOpen size={12} /> Flashcards
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{deck.totalItems}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <FolderOpen size={12} /> Visibility
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1 line-clamp-2">{visibleTo}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <UserRound size={12} /> Author
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{creatorName}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Calendar size={12} /> Created
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">
-                                        {new Date(deck.createdAt).toLocaleDateString('en-US', {
-                                            month: 'short',
-                                            day: 'numeric',
-                                            year: 'numeric',
-                                        })}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="rounded-2xl border-gray-100 bg-white overflow-hidden">
-                        <div className="h-1.5 w-full bg-gradient-to-r from-sky-500 via-cyan-500 to-emerald-500" />
-                        <CardContent className="p-5 md:p-6 space-y-4">
-                            <div className="flex items-start justify-between gap-3 flex-wrap">
-                                <div>
-                                    <p className="text-[10px] font-black text-sky-600 uppercase tracking-[0.18em]">Study Actions</p>
-                                    <h3 className="text-lg md:text-xl font-black text-gray-900 tracking-tight mt-1">Launch this deck instantly</h3>
-                                    <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">
-                                        Pick a mode and start right away. Quiz mode gives instant correctness feedback with explanations.
-                                    </p>
-                                </div>
-                                <Badge className="bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-black uppercase tracking-widest">
-                                    {deck.totalItems} questions
-                                </Badge>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <Button
-                                    className="h-12 rounded-xl bg-primary hover:bg-primary/95 text-white font-black gap-2"
-                                    onClick={() => navigate(`/study/${deck.id}?mode=study`)}
-                                >
-                                    <Brain size={16} /> Begin Quiz
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-12 rounded-xl border-gray-200 text-gray-700 hover:border-primary/30 hover:text-primary font-black gap-2"
-                                    onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
-                                >
-                                    <BookOpen size={16} /> Study with Flashcards
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <section className="space-y-3">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">All Questions and Answers</h3>
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                <Sparkles size={12} /> Full View Mode
-                            </span>
-                        </div>
-
-                        {questions.length === 0 ? (
-                            <Card className="rounded-2xl border-gray-100 bg-white">
-                                <CardContent className="p-6 text-sm font-semibold text-gray-500">
-                                    This material has no flashcards yet.
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <div className="space-y-3">
-                                {questions.map((question, index) => {
-                                    const options = [
-                                        { key: 'A', value: question.choiceA },
-                                        { key: 'B', value: question.choiceB },
-                                        { key: 'C', value: question.choiceC },
-                                        { key: 'D', value: question.choiceD },
-                                    ].filter((option) => Boolean(option.value));
-
-                                    return (
-                                        <Card key={question.id} className="rounded-2xl border-gray-100 bg-white">
-                                            <CardContent className="p-5 space-y-4">
-                                                <div>
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                        Question {index + 1}
-                                                    </p>
-                                                    <p className="text-sm md:text-base font-bold text-gray-900 mt-1 leading-relaxed">
-                                                        {question.questionText || 'No question text available.'}
-                                                    </p>
-                                                    {question.imageUrl ? (
-                                                        <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50/40 p-2">
-                                                            <img
-                                                                src={question.imageUrl}
-                                                                alt={`Question ${index + 1}`}
-                                                                className="max-h-56 w-auto max-w-full rounded-md object-contain bg-white"
-                                                            />
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                                                    {options.map((option) => {
-                                                        const isCorrect = option.key === question.correctChoice;
-                                                        return (
-                                                            <div
-                                                                key={`${question.id}-${option.key}`}
-                                                                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
-                                                                    isCorrect
-                                                                        ? 'border-green-200 bg-green-50 text-green-800'
-                                                                        : 'border-gray-200 bg-white text-gray-700'
-                                                                }`}
-                                                            >
-                                                                <span className="font-black mr-1.5">{option.key}.</span>
-                                                                {option.value}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 font-medium leading-relaxed space-y-1.5">
-                                                    <p>
-                                                        <span className="font-black text-gray-800">Rationalization: </span>
-                                                        {question.rationalization || 'No rationalization provided.'}
-                                                    </p>
-                                                    <p>
-                                                        <span className="font-black text-gray-800">Explanation: </span>
-                                                        {question.explanation || question.rationalization || 'No explanation provided.'}
-                                                    </p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </section>
-                </>
-            )}
+                <TabsContent value="questions" className="mt-0">
+                    <MaterialQuestionsTab questions={questions} />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 };

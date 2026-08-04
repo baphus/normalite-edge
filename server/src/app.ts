@@ -17,7 +17,7 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"], // Tailwind requires inline styles
-            imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com', 'https://*.googleusercontent.com'],
+            imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com', 'https://*.googleusercontent.com', 'https://ui-avatars.com'],
             connectSrc: ["'self'", 'https://res.cloudinary.com'],
             fontSrc: ["'self'"],
             objectSrc: ["'none'"],

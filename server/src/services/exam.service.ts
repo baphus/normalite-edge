@@ -4,6 +4,7 @@ import { Role } from '@prisma/client';
 import { notificationService } from './notification.service';
 import { deckService } from './deck.service';
 import { buildTrackVisibilityFilter } from './revieweeVisibility';
+import { cloudinaryService } from './cloudinary.service';
 
 export class ExamService {
     private readonly defaultMultipleAttemptsLimit = 3;
@@ -665,6 +666,16 @@ export class ExamService {
 
         const wasLive = (exam.status as string) === 'LIVE';
 
+        const oldQuestions = data.questions
+            ? await prisma.examQuestion.findMany({
+                  where: { examId },
+                  select: { imageUrl: true },
+              })
+            : [];
+        const oldImageUrls = oldQuestions
+            .map((q) => q.imageUrl)
+            .filter((url): url is string => Boolean(url));
+
         const updatedExam = await prisma.$transaction(async (tx) => {
             if (data.categoryId) {
                 const category = await tx.category.findUnique({ where: { id: data.categoryId } });
@@ -776,6 +787,17 @@ export class ExamService {
             });
         });
 
+        if (oldImageUrls.length > 0) {
+            const newImageUrls = new Set(
+                normalizedQuestions?.map((q) => q.imageUrl).filter(Boolean) ?? []
+            );
+            for (const url of oldImageUrls) {
+                if (!newImageUrls.has(url)) {
+                    cloudinaryService.destroyByUrl(url);
+                }
+            }
+        }
+
         if (updatedExam?.status === 'LIVE' && !wasLive) {
             const trackLabels = (updatedExam.trackLinks || []).flatMap((link: any) => [link.track.name, link.track.code].filter(Boolean) as string[]);
             const recipientUserIds = trackLabels.length > 0
@@ -806,7 +828,18 @@ export class ExamService {
             throw ApiError.forbidden('You can only delete exams you created');
         }
 
+        const questions = await prisma.examQuestion.findMany({
+            where: { examId },
+            select: { imageUrl: true },
+        });
+        const imageUrls = questions
+            .map((q) => q.imageUrl)
+            .filter((url): url is string => Boolean(url));
+
         await prisma.exam.delete({ where: { id: examId } });
+        for (const url of imageUrls) {
+            cloudinaryService.destroyByUrl(url);
+        }
         return { id: examId, title: exam.title };
     }
 }

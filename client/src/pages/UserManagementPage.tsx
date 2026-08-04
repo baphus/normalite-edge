@@ -784,8 +784,26 @@ const UserManagementPage: React.FC = () => {
                     {selectedUser && (
                         <div className="grid gap-3 py-1">
                             <div className="rounded-md border border-gray-100 p-3">
-                                <p className="text-sm font-bold text-gray-900">{selectedUser.name}</p>
-                                <p className="text-xs text-gray-500">{selectedUser.email}</p>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary overflow-hidden relative flex items-center justify-center text-xs font-semibold shrink-0">
+                                        {!brokenImages[`view-${selectedUser.id}`] && normalizeProfileImageUrl(selectedUser.picture) ? (
+                                            <img
+                                                src={normalizeProfileImageUrl(selectedUser.picture)}
+                                                alt={selectedUser.name}
+                                                className="h-full w-full object-cover"
+                                                onError={() => setBrokenImages((prev) => ({ ...prev, [`view-${selectedUser.id}`]: true }))}
+                                            />
+                                        ) : (
+                                            <span className="absolute inset-0 flex items-center justify-center">
+                                                {selectedUser.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-900">{selectedUser.name}</p>
+                                        <p className="text-xs text-gray-500">{selectedUser.email}</p>
+                                    </div>
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="rounded-md border border-gray-100 p-2.5">

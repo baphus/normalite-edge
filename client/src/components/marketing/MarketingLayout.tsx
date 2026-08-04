@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 type NavItem = { label: string; href: string; router?: boolean };
 
@@ -57,7 +59,9 @@ const Wordmark: React.FC<{ size?: 'sm' | 'md' }> = ({ size = 'md' }) => (
 
 const MarketingLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const navigate = useNavigate();
+    const { user, status, logout } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
     const closeMenu = () => setIsMenuOpen(false);
 
     return (
@@ -73,18 +77,81 @@ const MarketingLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                             ))}
                         </nav>
                         <div className="hidden items-center gap-3 lg:flex">
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="font-lexend text-sm font-semibold text-primary transition-colors hover:text-[#5a1010] dark:text-secondary"
-                            >
-                                Log in
-                            </button>
-                            <button
-                                onClick={() => navigate('/register')}
-                                className="rounded-lg bg-primary px-5 py-2.5 font-lexend text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#5a1010]"
-                            >
-                                Register
-                            </button>
+                            {status === 'ready' && user ? (
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setProfileOpen(!profileOpen)}
+                                        className="flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                                        aria-label="Open profile menu"
+                                    >
+                                        {user.picture ? (
+                                            <Avatar className="h-9 w-9">
+                                                <AvatarImage src={user.picture} alt={user.name} className="object-cover" />
+                                                <AvatarFallback className="bg-primary text-xs text-white">
+                                                    {user.firstName?.[0]}{user.lastName?.[0]}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        ) : (
+                                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+                                                {user.firstName?.[0]}{user.lastName?.[0]}
+                                            </div>
+                                        )}
+                                        <svg
+                                            className={`h-4 w-4 text-gray-500 transition-transform ${profileOpen ? 'rotate-180' : ''}`}
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {profileOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                                            <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-white/10 dark:bg-background-dark">
+                                                <div className="px-4 py-3">
+                                                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{user.name}</p>
+                                                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                                                </div>
+                                                <hr className="border-gray-100 dark:border-white/10" />
+                                                <Link
+                                                    to="/dashboard"
+                                                    onClick={() => setProfileOpen(false)}
+                                                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">dashboard</span>
+                                                    Dashboard
+                                                </Link>
+                                                <button
+                                                    onClick={() => {
+                                                        setProfileOpen(false);
+                                                        logout();
+                                                    }}
+                                                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">logout</span>
+                                                    Sign out
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => navigate('/login')}
+                                        className="font-lexend text-sm font-semibold text-primary transition-colors hover:text-[#5a1010] dark:text-secondary"
+                                    >
+                                        Log in
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/register')}
+                                        className="rounded-lg bg-primary px-5 py-2.5 font-lexend text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#5a1010]"
+                                    >
+                                        Register
+                                    </button>
+                                </>
+                            )}
                         </div>
                         <button
                             className="text-[#1A0E0E] lg:hidden dark:text-white"
@@ -115,24 +182,67 @@ const MarketingLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                                 <NavLink key={item.label} item={item} onClick={closeMenu} className="text-lg" />
                             ))}
                             <hr className="border-[#e6ddd3] dark:border-white/10" />
-                            <button
-                                onClick={() => {
-                                    navigate('/login');
-                                    closeMenu();
-                                }}
-                                className="rounded-lg border border-primary/30 py-3 font-semibold text-primary dark:border-secondary/40 dark:text-secondary"
-                            >
-                                Log in
-                            </button>
-                            <button
-                                onClick={() => {
-                                    navigate('/register');
-                                    closeMenu();
-                                }}
-                                className="rounded-lg bg-primary py-3 font-semibold text-white"
-                            >
-                                Register
-                            </button>
+                            {status === 'ready' && user ? (
+                                <>
+                                    <div className="flex items-center gap-3 rounded-lg bg-primary/5 px-3 py-3 dark:bg-white/5">
+                                        {user.picture ? (
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={user.picture} alt={user.name} className="object-cover" />
+                                                <AvatarFallback className="bg-primary text-sm text-white">
+                                                    {user.firstName?.[0]}{user.lastName?.[0]}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        ) : (
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+                                                {user.firstName?.[0]}{user.lastName?.[0]}
+                                            </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-semibold text-[#3a2727] dark:text-white">{user.name}</p>
+                                            <p className="truncate text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigate('/dashboard');
+                                            closeMenu();
+                                        }}
+                                        className="rounded-lg bg-primary py-3 font-semibold text-white"
+                                    >
+                                        Go to Dashboard
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            closeMenu();
+                                            logout();
+                                        }}
+                                        className="rounded-lg border border-primary/30 py-3 font-semibold text-primary dark:border-secondary/40 dark:text-secondary"
+                                    >
+                                        Sign out
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            navigate('/login');
+                                            closeMenu();
+                                        }}
+                                        className="rounded-lg border border-primary/30 py-3 font-semibold text-primary dark:border-secondary/40 dark:text-secondary"
+                                    >
+                                        Log in
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            navigate('/register');
+                                            closeMenu();
+                                        }}
+                                        className="rounded-lg bg-primary py-3 font-semibold text-white"
+                                    >
+                                        Register
+                                    </button>
+                                </>
+                            )}
                         </nav>
                     </div>
                 </div>

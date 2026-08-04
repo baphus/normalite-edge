@@ -30,5 +30,7 @@ router.post('/logout', authenticate, authController.logout);
 router.patch('/me/profile', authenticate, validate(updateProfileSchema), authController.updateProfile);
 router.post('/onboarding', authenticate, validate(completeOnboardingSchema), authController.completeOnboarding);
 router.post('/me/tours', authenticate, validate(completeTourSchema), authController.completeTour);
+router.post('/sessions/revoke-others', authenticate, authController.revokeOtherSessions);
+router.patch('/me/deactivate', authenticate, authController.deactivateAccount);
 
 export default router;

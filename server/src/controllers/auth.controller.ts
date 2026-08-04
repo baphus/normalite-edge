@@ -66,4 +66,29 @@ export const authController = {
         const user = await authService.completeTour(req.user!.userId, req.body.tourId);
         ApiResponse.success(res, user, 'Tour marked as completed');
     }),
+
+    /**
+     * POST /api/v1/auth/sessions/revoke-others
+     *
+     * Revoke every Supabase session for this user except the current one. The
+     * current session is identified by the access token on the Authorization
+     * header — the `authenticate` middleware has already verified it exists.
+     */
+    revokeOtherSessions: catchAsync(async (req: Request, res: Response) => {
+        const accessToken = req.headers.authorization!.slice('Bearer '.length).trim();
+        await authService.revokeOtherSessions(accessToken);
+        ApiResponse.success(res, null, 'Signed out of all other devices');
+    }),
+
+    /**
+     * PATCH /api/v1/auth/me/deactivate
+     *
+     * End every Supabase session for this user and disable the application
+     * account.
+     */
+    deactivateAccount: catchAsync(async (req: Request, res: Response) => {
+        const accessToken = req.headers.authorization!.slice('Bearer '.length).trim();
+        await authService.deactivateAccount(req.user!.userId, accessToken);
+        ApiResponse.success(res, null, 'Account deactivated');
+    }),
 };

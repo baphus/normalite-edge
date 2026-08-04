@@ -1,5 +1,22 @@
 import api from '@/lib/axios';
 
+const ALLOWED_IMAGE_TYPES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'image/gif',
+    'image/bmp',
+]);
+
+function validateImageFile(file: File): void {
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+        throw new Error(
+            `Invalid file type: ${file.type || 'unknown'}. ` +
+            `Only PNG, JPEG, WebP, GIF, and BMP images are allowed.`
+        );
+    }
+}
+
 const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
@@ -19,6 +36,7 @@ const postUpload = async (endpoint: string, payload: Record<string, string>) => 
 };
 
 export const uploadImageToCloudinary = async (file: File, folder: 'profile-pics' | 'question-images') => {
+    validateImageFile(file);
     const fileDataUrl = await readFileAsDataUrl(file);
 
     return postUpload('/uploads/image', { fileDataUrl, folder });
@@ -33,6 +51,7 @@ export const uploadImageToCloudinary = async (file: File, folder: 'profile-pics'
  * always writes to the profile-pics folder.
  */
 export const uploadProfilePictureBeforeRegistration = async (file: File) => {
+    validateImageFile(file);
     const fileDataUrl = await readFileAsDataUrl(file);
 
     return postUpload('/uploads/public-profile-image', { fileDataUrl });
