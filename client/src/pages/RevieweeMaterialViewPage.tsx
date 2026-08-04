@@ -5,7 +5,6 @@ import {
     BookOpen,
     Calendar,
     Check,
-    CheckCircle2,
     Layers,
     Users,
     UserRound,

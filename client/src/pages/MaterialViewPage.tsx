@@ -90,7 +90,7 @@ const MaterialViewPage: React.FC = () => {
     const questions = useMemo(() => {
         return (material?.questions || [])
             .slice()
-            .sort((first, second) => (first.orderNo || 0) - (second.orderNo || 0));
+            .sort((first, second) => (first.orderNo ?? 0) - (second.orderNo ?? 0));
     }, [material]);
 
     const questionCount = questions.length;

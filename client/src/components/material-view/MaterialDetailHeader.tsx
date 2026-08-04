@@ -19,6 +19,20 @@ interface MaterialCreator {
     name?: string;
 }
 
+export interface MaterialQuestion {
+    id: string;
+    orderNo?: number;
+    questionText: string;
+    imageUrl?: string | null;
+    choiceA?: string | null;
+    choiceB?: string | null;
+    choiceC?: string | null;
+    choiceD?: string | null;
+    correctChoice?: 'A' | 'B' | 'C' | 'D' | null;
+    rationalization?: string | null;
+    explanation?: string | null;
+}
+
 export interface MaterialDetails {
     id: string;
     title: string;
@@ -28,6 +42,7 @@ export interface MaterialDetails {
     totalItems: number;
     tracks: Track[];
     creator?: MaterialCreator;
+    questions?: MaterialQuestion[];
     createdAt: string;
 }
 

@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import { Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { CollectionEmpty } from '@/components/manage/CollectionState';
 import { cn } from '@/lib/utils';
 
@@ -31,22 +30,6 @@ const choicesOf = (question: DeckQuestion) =>
     })).filter((choice) => Boolean(choice.value));
 
 export const MaterialQuestionsTab: React.FC<MaterialQuestionsTabProps> = ({ questions }) => {
-    const [selectedCategory, setSelectedCategory] = useState('ALL');
-
-    // Derive unique categories from the question set.
-    // Material questions don't have sections, so we group by question index ranges
-    // or fall back to showing all without filters.
-    const hasCategories = questions.some((q) => q.rationalization || q.explanation);
-
-    // For materials without explicit sections, we just show all questions.
-    // If a future API adds categories to deck questions, this can be extended.
-    const categories = useMemo(() => {
-        if (!hasCategories) return [];
-        return ['ALL'];
-    }, [hasCategories]);
-
-    const visible = questions;
-
     if (questions.length === 0) {
         return (
             <section className="flex flex-col gap-3">
@@ -65,7 +48,7 @@ export const MaterialQuestionsTab: React.FC<MaterialQuestionsTabProps> = ({ ques
             <h2 className="sr-only">Material questions</h2>
 
             <ol className="flex flex-col gap-3">
-                {visible.map((question, index) => {
+                {questions.map((question: DeckQuestion, index: number) => {
                     const correct = (question.correctChoice || '').toUpperCase();
 
                     return (
