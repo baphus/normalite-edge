@@ -2,7 +2,7 @@ import express, { type Request } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { corsOptions } from './config/cors';
 import { errorHandler } from './middleware/errorHandler';
 import v1Routes from './routes/v1';
@@ -53,7 +53,7 @@ function rateLimitKey(req: Request): string {
             // Malformed token — fall through to IP keying.
         }
     }
-    return req.ip ?? 'unknown';
+    return ipKeyGenerator(req.ip ?? 'unknown');
 }
 
 // Global: 100 requests per 15 minutes per user (or IP for anonymous traffic)

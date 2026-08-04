@@ -42,6 +42,14 @@ export const createExamSchema = z.object({
     isPublished: z.boolean().optional(),
     sections: z.array(requiredTrimmedString('Section')).optional(),
     questions: z.array(examQuestionSchema).min(1, 'At least 1 question is required'),
+}).superRefine((data, ctx) => {
+    if (data.scheduledDate && data.deadline && new Date(data.deadline) <= new Date(data.scheduledDate)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['deadline'],
+            message: 'Closing time must be after the opening time',
+        });
+    }
 });
 
 export const updateExamSchema = z.object({
@@ -62,6 +70,14 @@ export const updateExamSchema = z.object({
     status: z.enum(['LIVE', 'DRAFT', 'ARCHIVED', 'CLOSED', 'PUBLISHED']).optional(),
     sections: z.array(requiredTrimmedString('Section')).optional(),
     questions: z.array(examQuestionSchema).min(1, 'At least 1 question is required').optional(),
+}).superRefine((data, ctx) => {
+    if (data.scheduledDate && data.deadline && new Date(data.deadline) <= new Date(data.scheduledDate)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['deadline'],
+            message: 'Closing time must be after the opening time',
+        });
+    }
 });
 
 export const submitAttemptSchema = z.object({

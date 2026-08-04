@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
-
-const prisma = new PrismaClient();
 
 /**
  * Normalize category name: trim whitespace and title-case.

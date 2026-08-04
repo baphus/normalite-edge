@@ -41,6 +41,8 @@ interface Exam {
     latestSubmittedScore?: number | null;
     deadline?: string;
     scheduledDate?: string;
+    isScheduled?: boolean;
+    isAvailable?: boolean;
     lastScore?: number;
     sections?: Array<{ id?: string; title?: string; orderNo?: number }>;
     createdAt?: string;
@@ -62,14 +64,16 @@ function examState(exam: Exam) {
     );
     const hasInProgress = exam.userAttemptStatus === 'IN_PROGRESS';
     const isLive = exam.status === 'LIVE';
-    const canTake = isLive && !hasSubmitted;
+    const isScheduled = Boolean(exam.isScheduled || (exam.scheduledDate && new Date(exam.scheduledDate) > new Date()));
+    const canTake = isLive && !isScheduled && Boolean(exam.isAvailable ?? true) && !hasSubmitted;
     const segment: Exclude<StatusSegment, 'all'> = hasSubmitted ? 'submitted' : canTake ? 'open' : 'closed';
-    return { attemptsRemaining, hasSubmitted, hasInProgress, isLive, canTake, segment };
+    return { attemptsRemaining, hasSubmitted, hasInProgress, isLive, isScheduled, canTake, segment };
 }
 
 function statusPresentation(exam: Exam): { tone: StatusTone; label: string } {
-    const { hasSubmitted, hasInProgress, canTake, isLive } = examState(exam);
+    const { hasSubmitted, hasInProgress, canTake, isLive, isScheduled } = examState(exam);
     if (hasSubmitted) return { tone: 'live', label: 'Submitted' };
+    if (isScheduled) return { tone: 'draft', label: 'Scheduled' };
     if (hasInProgress) return { tone: 'draft', label: 'In progress' };
     if (canTake) return { tone: 'live', label: 'Available' };
     return { tone: isLive ? 'archived' : 'closed', label: isLive ? 'No attempts left' : 'Closed' };
@@ -289,6 +293,17 @@ const ExamsPage: React.FC = () => {
                         onClick={() => goToExam(exam)}
                     >
                         <Play size={13} aria-hidden="true" /> Take exam
+                    </Button>
+                );
+            }
+            if (examState(exam).isScheduled) {
+                return (
+                    <Button
+                        variant="outline"
+                        className={cn(base, 'border-slate-200 bg-white text-slate-700')}
+                        onClick={() => goToExam(exam)}
+                    >
+                        <Eye size={13} aria-hidden="true" /> Opens {formatShortDate(exam.scheduledDate, 'soon')}
                     </Button>
                 );
             }

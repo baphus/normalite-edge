@@ -54,7 +54,6 @@ export class AttemptService {
             where: {
                 id: examId,
                 status: 'LIVE',
-                closeOnDeadline: true,
                 scheduleEnd: {
                     lte: new Date(),
                 },
@@ -358,6 +357,12 @@ export class AttemptService {
 
         if (!exam) throw ApiError.notFound('Exam not found');
         if (exam.status !== 'LIVE') throw ApiError.forbidden('Exam is not currently live');
+        if (exam.scheduleStart && exam.scheduleStart.getTime() > Date.now()) {
+            throw ApiError.forbidden('This exam is scheduled and has not opened yet');
+        }
+        if (exam.scheduleEnd && exam.scheduleEnd.getTime() <= Date.now()) {
+            throw ApiError.forbidden('This exam has closed');
+        }
 
         const lockKey = `attempt:${userId}:${examId}`;
 
@@ -445,7 +450,10 @@ export class AttemptService {
                     examId,
                     attemptNo: nextAttemptNo,
                     status: 'IN_PROGRESS',
-                    endsAt: new Date(Date.now() + exam.timeLimitMinutes * 60 * 1000),
+                    endsAt: new Date(Math.min(
+                        Date.now() + exam.timeLimitMinutes * 60 * 1000,
+                        exam.scheduleEnd?.getTime() ?? Number.POSITIVE_INFINITY,
+                    )),
                     lastSavedAt: new Date(),
                     lastActivityAt: new Date(),
                     currentQuestionIndex: 0,

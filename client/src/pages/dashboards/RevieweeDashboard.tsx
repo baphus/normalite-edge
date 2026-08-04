@@ -80,10 +80,7 @@ type DailyAnswerResult = {
     rationalization?: string | null;
 };
 
-type MotivationalQuote = {
-    text: string;
-    author: string;
-};
+type MotivationalQuote = { text: string; author: string };
 
 type DailyAnswerCache = {
     date: string;
@@ -106,7 +103,6 @@ interface RevieweeDashboardProps {
 /*                                  Constants                                  */
 /* -------------------------------------------------------------------------- */
 
-const QUOTE_STORAGE_KEY = 'reviewee-dashboard-daily-quote';
 const DAILY_ANSWER_STORAGE_KEY = 'reviewee-dashboard-daily-answer';
 /** The LET headline passing mark is a 75% general average. */
 const PASS_MARK = 75;
@@ -319,8 +315,8 @@ const SubjectPerformance: React.FC<{ subjects: ReturnType<typeof useSubjectPerfo
 
 /** Study progress strip — quick stats between hero and daily challenge. */
 const StudyProgressStrip: React.FC<{ progress: ReturnType<typeof useStudyProgress> }> = ({ progress }) => (
-    <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-none">
             <div className="flex items-center gap-2">
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
                     <Target size={14} />
@@ -335,7 +331,7 @@ const StudyProgressStrip: React.FC<{ progress: ReturnType<typeof useStudyProgres
                 </div>
             </div>
         </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-none">
             <div className="flex items-center gap-2">
                 <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${progress.streak > 0 ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-400'}`}>
                     <Flame size={14} />
@@ -351,7 +347,7 @@ const StudyProgressStrip: React.FC<{ progress: ReturnType<typeof useStudyProgres
                 </div>
             </div>
         </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-none">
             <div className="flex items-center gap-2">
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                     <Clock size={14} />
@@ -381,16 +377,16 @@ const StatTile: React.FC<{
 }> = ({ to, icon, value, label, hint, accent = 'bg-primary/5 text-primary' }) => (
     <Link
         to={to}
-        className="group flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md sm:p-4 lg:flex-row lg:items-center"
+        className="group flex flex-row items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-primary/40 hover:bg-primary/[0.02]"
     >
         <div>
-            <span className="font-serif text-2xl font-semibold text-[#1A0E0E]">{value}</span>
-            <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-gray-500">{label}</p>
+            <span className="text-[24px] font-semibold tabular-nums text-slate-950">{value}</span>
+            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">{label}</p>
             {hint && (
                 <p className="mt-0.5 font-mono text-[10px] text-gray-400">{hint}</p>
             )}
         </div>
-        <span className={`mt-2 flex size-8 items-center justify-center rounded-lg transition-colors group-hover:scale-110 ${accent} lg:mt-0`}>
+        <span className={`flex size-9 items-center justify-center rounded-lg transition-colors ${accent}`}>
             {icon}
         </span>
     </Link>
@@ -414,12 +410,18 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const [dailyResult, setDailyResult] = useState<DailyAnswerResult | null>(null);
     const [dailyError, setDailyError] = useState('');
     const [isSubmittingDaily, setIsSubmittingDaily] = useState(false);
-    const [quote, setQuote] = useState<MotivationalQuote | null>(null);
-    const [isQuoteLoading, setIsQuoteLoading] = useState(true);
-    const [quoteError, setQuoteError] = useState('');
+    const [quote, setQuote] = useState<MotivationalQuote>({ text: 'Small, focused practice sessions add up.', author: 'Normalite EDGE' });
+    const isQuoteLoading = false;
+    const quoteError = '';
     const [isDailyModalOpen, setIsDailyModalOpen] = useState(false);
 
     const todayKey = new Date().toISOString().slice(0, 10);
+
+    const handleRequestAnotherQuote = () => {
+        setQuote((current) => current.text.startsWith('Small')
+            ? { text: 'Review what you missed, then try again with purpose.', author: 'Normalite EDGE' }
+            : { text: 'Small, focused practice sessions add up.', author: 'Normalite EDGE' });
+    };
 
     // Derived data
     const hasAttempts = recentAttempts.length > 0 || (stats?.overallAverage ?? 0) > 0;
@@ -450,57 +452,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const isTodaySession = (startAt: string) => {
         const start = new Date(startAt);
         return start.toDateString() === today.toDateString();
-    };
-
-    const fallbackQuotes: MotivationalQuote[] = [
-        { text: 'Success is the sum of small efforts, repeated day in and day out.', author: 'Robert Collier' },
-        { text: 'The future depends on what you do today.', author: 'Mahatma Gandhi' },
-        { text: 'Do something today that your future self will thank you for.', author: 'Unknown' },
-        { text: 'It always seems impossible until it is done.', author: 'Nelson Mandela' },
-    ];
-
-    const loadMotivationalQuote = async (ignoreCache = false) => {
-        try {
-            setIsQuoteLoading(true);
-            setQuoteError('');
-
-            const todayKey = new Date().toISOString().slice(0, 10);
-
-            if (!ignoreCache) {
-                const cached = localStorage.getItem(QUOTE_STORAGE_KEY);
-                if (cached) {
-                    const parsed = JSON.parse(cached) as { date: string; quote: MotivationalQuote };
-                    if (parsed?.date === todayKey && parsed?.quote?.text) {
-                        setQuote(parsed.quote);
-                        return;
-                    }
-                }
-            }
-
-            const response = await fetch('https://dummyjson.com/quotes/random');
-            if (!response.ok) throw new Error('Failed to fetch quote');
-            const data = await response.json();
-            const dailyQuote = {
-                text: data?.quote || fallbackQuotes[0].text,
-                author: data?.author || 'Unknown',
-            };
-            setQuote(dailyQuote);
-            localStorage.setItem(QUOTE_STORAGE_KEY, JSON.stringify({ date: todayKey, quote: dailyQuote }));
-        } catch {
-            const randomFallback = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
-            setQuote(randomFallback);
-            localStorage.setItem(
-                QUOTE_STORAGE_KEY,
-                JSON.stringify({ date: new Date().toISOString().slice(0, 10), quote: randomFallback })
-            );
-            setQuoteError('Showing offline daily quote.');
-        } finally {
-            setIsQuoteLoading(false);
-        }
-    };
-
-    const handleRequestAnotherQuote = () => {
-        loadMotivationalQuote(true);
     };
 
     useEffect(() => {
@@ -547,10 +498,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         loadDailyQuestion();
     }, [todayKey, user?.id]);
 
-    useEffect(() => {
-        loadMotivationalQuote();
-    }, []);
-
     const handleSubmitDailyAnswer = async () => {
         if (!dailyQuestion || !selectedChoice) {
             setDailyError('Please select an answer before submitting.');
@@ -586,37 +533,44 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     /*                              RENDER                                 */
     /* ------------------------------------------------------------------ */
 
+    const focusAction = inProgress?.exam?.id
+        ? { to: `/exams/${inProgress.exam.id}/take`, label: 'Resume your mock', description: inProgress.exam.title || 'Continue the mock exam you started.', icon: <PlayCircle className="size-5" /> }
+        : (stats?.totalExamsAvailable ?? 0) > 0
+            ? { to: '/exams', label: 'Take a practice exam', description: 'Build confidence with a timed LET mock exam.', icon: <ClipboardList className="size-5" /> }
+            : { to: '/study', label: 'Review study materials', description: 'Strengthen a topic before your next mock exam.', icon: <BookOpen className="size-5" /> };
+
     return (
-        <div className="flex flex-col gap-4 pb-8 font-lexend text-[#1A0E0E] sm:gap-5">
+        <div className="flex flex-col gap-6 pb-8 font-lexend text-slate-900 sm:gap-8">
 
             {/* ── Header ─────────────────────────────────────────────── */}
-            <header data-guide="dashboard-header" className="flex flex-col gap-1">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-gray-500">{dateLabel}</p>
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                    <h1
-                        className="font-serif text-2xl font-semibold tracking-tight text-[#1A0E0E] sm:text-3xl"
-                        style={{ textWrap: 'balance' }}
-                    >
-                        {greeting}, {firstName}.
-                    </h1>
-                    <span className="rounded-full bg-primary/10 px-3 py-1 font-mono text-[11px] font-medium tracking-wide text-primary">
+            <header data-guide="dashboard-header" className="flex flex-col gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">{dateLabel}</p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-[18px] font-semibold tracking-tight text-slate-950">{greeting}, {firstName}</h1>
+                        <p className="mt-1 text-sm text-slate-600">Here is the clearest next step for your LET preparation.</p>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
                         {programTrack}
                     </span>
                 </div>
             </header>
 
             {/* ── Resume banner ──────────────────────────────────────── */}
-            {inProgress?.exam?.id && (
+            {focusAction && (
                 <Link
-                    to={`/exams/${inProgress.exam?.id}/take`}
-                    className="group flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary px-4 py-3.5 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    to={focusAction.to}
+                    className="answer-grid-invert group flex flex-col gap-4 rounded-xl border border-primary/20 bg-primary p-5 text-white transition-colors hover:bg-primary/95 sm:flex-row sm:items-center sm:justify-between sm:p-6"
                 >
-                    <PlayCircle className="h-5 w-5 shrink-0 text-secondary" />
-                    <div className="min-w-0 flex-1">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-secondary">Pick up where you left off</p>
-                        <p className="truncate text-sm font-semibold">{inProgress.exam?.title || 'Your mock exam'}</p>
+                    <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-secondary">{focusAction.icon}</span>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-secondary">Today’s focus</p>
+                            <p className="mt-1 text-lg font-semibold">{focusAction.label}</p>
+                            <p className="mt-1 text-sm text-white/80">{focusAction.description}</p>
+                        </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                    <span className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-semibold text-secondary-foreground">Get started <ArrowRight className="size-4" /></span>
                 </Link>
             )}
 
@@ -700,7 +654,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </Card>
 
                 {/* Actionable stat tiles */}
-                <div className="grid grid-cols-3 gap-3 lg:grid-cols-1">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
                     <StatTile
                         to="/exams"
                         icon={<ClipboardList className="h-4 w-4" />}

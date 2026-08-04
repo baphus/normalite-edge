@@ -9,7 +9,6 @@ import {
     ListChecks,
     CheckCircle2,
     CircleDot,
-    Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -955,18 +954,10 @@ const TakeExamPage: React.FC = () => {
         return index >= 0 ? index : 0;
     }, [currentIndex, sectionGroups]);
 
-    const firstIncompleteSectionIndex = useMemo(() => {
-        return sectionGroups.findIndex((section) => !section.isComplete);
-    }, [sectionGroups]);
-
     const currentSection = sectionGroups[currentSectionIndex] || null;
     const hasMultipleSections = sectionGroups.length > 1;
     const currentSectionQuestionIndexes = currentSection?.questionIndexes || [];
     const currentSectionQuestionPosition = currentSectionQuestionIndexes.indexOf(currentIndex);
-    const currentSectionUnansweredIndexes = currentSectionQuestionIndexes.filter((questionIndex) => {
-        const question = exam?.questions?.[questionIndex];
-        return question && !answers[question.id];
-    });
 
     const questionNumberById = useMemo(() => {
         return new Map((exam?.questions || []).map((question, index) => [question.id, index + 1]));
@@ -1008,23 +999,6 @@ const TakeExamPage: React.FC = () => {
         }
     }, [attemptId, currentQuestionId, exam, flushActiveQuestionTime, isSubmitting, loading]);
 
-    useEffect(() => {
-        if (!attemptId || !exam || loading || isSubmitting) return;
-        if (firstIncompleteSectionIndex < 0) return;
-        if (!sectionGroups.length) return;
-
-        const activeSectionIndex = sectionGroups.findIndex((section) => section.questionIndexes.includes(currentIndex));
-        if (activeSectionIndex <= firstIncompleteSectionIndex) return;
-
-        const targetSection = sectionGroups[firstIncompleteSectionIndex];
-        const firstUnansweredInSection = targetSection.questionIndexes.find((questionIndex) => {
-            const question = exam.questions[questionIndex];
-            return question && !answers[question.id];
-        });
-
-        setCurrentIndex(firstUnansweredInSection ?? targetSection.firstIndex);
-    }, [answers, attemptId, currentIndex, exam, firstIncompleteSectionIndex, isSubmitting, loading, sectionGroups]);
-
     if (!hasReviewedInstructions) {
         return (
             <div className="p-6 md:p-8">
@@ -1042,7 +1016,7 @@ const TakeExamPage: React.FC = () => {
                             <p className="text-sm font-semibold text-gray-800">1. The timer starts only after you press <strong>Start Exam</strong>.</p>
                         </div>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">2. Answer the exam one section at a time. Finish every question in the current section before moving forward.</p>
+                            <p className="text-sm font-semibold text-gray-800">2. You may move between sections and review or change your answers at any time before submitting.</p>
                         </div>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                             <p className="text-sm font-semibold text-gray-800">3. Once started, the timer keeps running even if you leave this page.</p>
@@ -1126,10 +1100,8 @@ const TakeExamPage: React.FC = () => {
     const currentSectionAnsweredCount = currentSection?.answered || 0;
     const currentSectionTotal = currentSection?.total || 1;
     const allQuestionsAnswered = exam.questions.every((question) => Boolean(answers[question.id]));
-    const isCurrentSectionComplete = currentSectionUnansweredIndexes.length === 0;
-    const isFirstQuestionInCurrentSection = currentSectionQuestionPosition <= 0;
-    const isLastQuestionInCurrentSection = currentSectionQuestionPosition === currentSectionQuestionIndexes.length - 1;
-    const nextSection = sectionGroups[currentSectionIndex + 1] || null;
+    const isFirstQuestion = currentIndex <= 0;
+    const isLastQuestion = currentIndex === exam.questions.length - 1;
 
     const skippedQuestions = exam.questions
         .map((q, idx) => ({ q, idx }))
@@ -1137,20 +1109,6 @@ const TakeExamPage: React.FC = () => {
 
     const handleSubmitClick = () => {
         if (!allQuestionsAnswered) {
-            const currentSectionTargetIndex = currentSectionUnansweredIndexes[0];
-
-            if (typeof currentSectionTargetIndex === 'number') {
-                setCurrentIndex(currentSectionTargetIndex);
-                toast.warning(`Answer all questions in ${currentSectionName} before submitting.`);
-                return;
-            }
-
-            if (nextSection) {
-                setCurrentIndex(nextSection.firstIndex);
-                toast.warning(`Continue to ${nextSection.name} before submitting.`);
-                return;
-            }
-
             const nextSkippedIndex = skippedQuestions[0]?.idx ?? currentIndex;
             setCurrentIndex(nextSkippedIndex);
             toast.warning('Answer all questions before submitting.');
@@ -1161,35 +1119,12 @@ const TakeExamPage: React.FC = () => {
     };
 
     const handlePreviousQuestion = () => {
-        if (!currentSection || isFirstQuestionInCurrentSection) return;
-        const previousQuestionIndex = currentSection.questionIndexes[currentSectionQuestionPosition - 1];
-        setCurrentIndex(previousQuestionIndex);
+        setCurrentIndex((previousIndex) => Math.max(0, previousIndex - 1));
     };
 
     const handleNextQuestion = () => {
-        if (!currentSection) {
-            setCurrentIndex((prev) => Math.min(exam.questions.length - 1, prev + 1));
-            return;
-        }
-
-        if (!isLastQuestionInCurrentSection) {
-            const nextQuestionIndex = currentSection.questionIndexes[currentSectionQuestionPosition + 1];
-            setCurrentIndex(nextQuestionIndex);
-            return;
-        }
-
-        if (!isCurrentSectionComplete) {
-            const firstUnansweredIndex = currentSectionUnansweredIndexes[0];
-            if (typeof firstUnansweredIndex === 'number') {
-                setCurrentIndex(firstUnansweredIndex);
-            }
-            toast.warning(`Finish ${currentSectionName} before moving to the next section.`);
-            return;
-        }
-
-        if (nextSection) {
-            setCurrentIndex(nextSection.firstIndex);
-            toast.success(`${currentSectionName} complete. Moving to ${nextSection.name}.`);
+        if (!isLastQuestion) {
+            setCurrentIndex((previousIndex) => Math.min(exam.questions.length - 1, previousIndex + 1));
             return;
         }
 
@@ -1349,7 +1284,7 @@ const TakeExamPage: React.FC = () => {
                                 variant="outline"
                                 size="lg"
                                 onClick={handlePreviousQuestion}
-                                disabled={isFirstQuestionInCurrentSection}
+                                disabled={isFirstQuestion}
                                 className="h-10 sm:h-11 px-4 sm:px-5 text-xs sm:text-sm font-bold gap-1.5 sm:gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                             >
                                 <ArrowLeft size={16} /> Previous
@@ -1359,12 +1294,7 @@ const TakeExamPage: React.FC = () => {
                                 {!answers[currentQuestion.id] && (
                                     <span className="text-xs text-gray-400 font-bold uppercase tracking-wider hidden sm:block">Not answered</span>
                                 )}
-                                {!isCurrentSectionComplete && isLastQuestionInCurrentSection && (
-                                    <span className="text-xs text-amber-600 font-bold hidden sm:block">
-                                        {currentSectionUnansweredIndexes.length} left in section
-                                    </span>
-                                )}
-                                {!nextSection && isLastQuestionInCurrentSection ? (
+                                {isLastQuestion ? (
                                     <Button
                                         size="lg"
                                         onClick={handleSubmitClick}
@@ -1379,7 +1309,7 @@ const TakeExamPage: React.FC = () => {
                                         onClick={handleNextQuestion}
                                         className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5 sm:gap-2"
                                     >
-                                        {isLastQuestionInCurrentSection ? 'Next Section' : 'Next'} <ArrowRight size={16} />
+                                        Next <ArrowRight size={16} />
                                     </Button>
                                 )}
                             </div>
@@ -1408,24 +1338,22 @@ const TakeExamPage: React.FC = () => {
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Section Flow</span>
                                 {sectionGroups.map((sectionItem, sectionIndex) => {
                                     const isActive = sectionIndex === currentSectionIndex;
-                                    const isLocked = firstIncompleteSectionIndex >= 0 && sectionIndex > firstIncompleteSectionIndex;
                                     const icon = sectionItem.isComplete
                                         ? <CheckCircle2 size={13} />
-                                        : isLocked
-                                            ? <Lock size={13} />
-                                            : <CircleDot size={13} />;
+                                        : <CircleDot size={13} />;
 
                                     return (
-                                        <div
+                                        <button
+                                            type="button"
                                             key={sectionItem.name}
-                                            className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                                            onClick={() => setCurrentIndex(sectionItem.firstIndex)}
+                                            aria-label={`Go to ${sectionItem.name}`}
+                                            className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${
                                                 isActive
                                                     ? 'border-primary/20 bg-primary/5'
                                                     : sectionItem.isComplete
                                                         ? 'border-emerald-100 bg-emerald-50/70'
-                                                        : isLocked
-                                                            ? 'border-gray-100 bg-gray-50 opacity-70'
-                                                            : 'border-gray-100 bg-white'
+                                                        : 'border-gray-100 bg-white hover:bg-gray-50'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
@@ -1438,7 +1366,7 @@ const TakeExamPage: React.FC = () => {
                                                 </span>
                                             </div>
                                             <Progress value={(sectionItem.answered / sectionItem.total) * 100} className="mt-2 h-1" />
-                                        </div>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -1513,24 +1441,25 @@ const TakeExamPage: React.FC = () => {
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Section Flow</span>
                                 {sectionGroups.map((sectionItem, sectionIndex) => {
                                     const isActive = sectionIndex === currentSectionIndex;
-                                    const isLocked = firstIncompleteSectionIndex >= 0 && sectionIndex > firstIncompleteSectionIndex;
                                     const icon = sectionItem.isComplete
                                         ? <CheckCircle2 size={13} />
-                                        : isLocked
-                                            ? <Lock size={13} />
-                                            : <CircleDot size={13} />;
+                                        : <CircleDot size={13} />;
 
                                     return (
-                                        <div
+                                        <button
+                                            type="button"
                                             key={sectionItem.name}
-                                            className={`rounded-xl border px-3 py-2.5 ${
+                                            onClick={() => {
+                                                setCurrentIndex(sectionItem.firstIndex);
+                                                setIsMobileNavigatorOpen(false);
+                                            }}
+                                            aria-label={`Go to ${sectionItem.name}`}
+                                            className={`w-full rounded-xl border px-3 py-2.5 text-left ${
                                                 isActive
                                                     ? 'border-primary/20 bg-primary/5'
                                                     : sectionItem.isComplete
                                                         ? 'border-emerald-100 bg-emerald-50/70'
-                                                        : isLocked
-                                                            ? 'border-gray-100 bg-gray-50 opacity-70'
-                                                            : 'border-gray-100 bg-white'
+                                                        : 'border-gray-100 bg-white hover:bg-gray-50'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
@@ -1542,7 +1471,7 @@ const TakeExamPage: React.FC = () => {
                                                     {sectionItem.answered}/{sectionItem.total}
                                                 </span>
                                             </div>
-                                        </div>
+                                        </button>
                                     );
                                 })}
                             </div>

@@ -49,7 +49,6 @@ export class ExamService {
         await prisma.exam.updateMany({
             where: {
                 status: 'LIVE',
-                closeOnDeadline: true,
                 scheduleEnd: {
                     lte: new Date(),
                 },
@@ -147,7 +146,13 @@ export class ExamService {
             timeLimit: exam.timeLimitMinutes,
             scheduledDate: exam.scheduleStart,
             deadline: exam.scheduleEnd,
-            closeOnDeadline: Boolean(exam.closeOnDeadline),
+            // A selected close time is always a hard cutoff. The persisted flag
+            // remains for compatibility with existing records and reports.
+            closeOnDeadline: Boolean(exam.scheduleEnd),
+            isScheduled: exam.status === 'LIVE' && Boolean(exam.scheduleStart && new Date(exam.scheduleStart) > new Date()),
+            isAvailable: exam.status === 'LIVE'
+                && (!exam.scheduleStart || new Date(exam.scheduleStart) <= new Date())
+                && (!exam.scheduleEnd || new Date(exam.scheduleEnd) > new Date()),
             totalItems: exam.questions?.length ?? exam._count?.questions ?? 0,
             questionCount: exam.questions?.length ?? exam._count?.questions ?? 0,
             duration: exam.timeLimitMinutes,
@@ -467,6 +472,12 @@ export class ExamService {
 
         if (!exam) throw ApiError.notFound('Exam not found');
         if (exam.status !== 'LIVE') throw ApiError.forbidden('This exam is not currently live');
+        if (exam.scheduleStart && exam.scheduleStart.getTime() > Date.now()) {
+            throw ApiError.forbidden('This exam is scheduled and has not opened yet');
+        }
+        if (exam.scheduleEnd && exam.scheduleEnd.getTime() <= Date.now()) {
+            throw ApiError.forbidden('This exam has closed');
+        }
 
         return {
             ...this.normalizeExam(exam),
@@ -537,7 +548,7 @@ export class ExamService {
                     maxAttempts: data.maxAttempts ?? null,
                     scheduleStart: data.scheduledDate,
                     scheduleEnd: data.deadline,
-                    closeOnDeadline: Boolean(data.closeOnDeadline && data.deadline),
+                    closeOnDeadline: Boolean(data.deadline),
                     status: data.isPublished ? 'LIVE' : 'DRAFT',
                     createdBy: data.createdBy,
                 },

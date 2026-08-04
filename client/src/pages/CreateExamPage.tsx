@@ -87,6 +87,7 @@ interface ExamApi {
     timeLimitMinutes?: number;
     maxAttempts?: number | null;
     status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
+    scheduledDate?: string | null;
     deadline?: string | null;
     closeOnDeadline?: boolean;
     sections?: Array<{ id: string; title: string; orderNo?: number }>;
@@ -128,6 +129,8 @@ const CreateExamPage: React.FC = () => {
     const [duration, setDuration] = useState('');
     const [maxAttempts, setMaxAttempts] = useState('3');
     const [isCustomDuration, setIsCustomDuration] = useState(false);
+    const [scheduledDate, setScheduledDate] = useState('');
+    const [showScheduledDate, setShowScheduledDate] = useState(false);
     const [deadline, setDeadline] = useState('');
     const [showDeadline, setShowDeadline] = useState(false);
     const [closeOnDeadline, setCloseOnDeadline] = useState(false);
@@ -172,6 +175,7 @@ const CreateExamPage: React.FC = () => {
                 title,
                 duration,
                 maxAttempts,
+                scheduledDate,
                 deadline,
                 closeOnDeadline,
                 examStatus,
@@ -185,6 +189,7 @@ const CreateExamPage: React.FC = () => {
             title,
             duration,
             maxAttempts,
+            scheduledDate,
             deadline,
             closeOnDeadline,
             examStatus,
@@ -252,6 +257,14 @@ const CreateExamPage: React.FC = () => {
 
                 setMaxAttempts(String(exam.maxAttempts ?? 3));
                 setCloseOnDeadline(Boolean(exam.closeOnDeadline));
+
+                if (exam.scheduledDate) {
+                    const scheduledDateValue = new Date(exam.scheduledDate);
+                    const offset = scheduledDateValue.getTimezoneOffset();
+                    const localDate = new Date(scheduledDateValue.getTime() - offset * 60_000);
+                    setScheduledDate(localDate.toISOString().slice(0, 16));
+                    setShowScheduledDate(true);
+                }
 
                 if (loadedStatus && ['LIVE', 'DRAFT', 'CLOSED', 'ARCHIVED'].includes(loadedStatus)) {
                     setExamStatus(loadedStatus as EditableExamStatus);
@@ -612,6 +625,9 @@ const CreateExamPage: React.FC = () => {
             );
         }
         if (closeOnDeadline && !deadline) list.push('Close on deadline needs a deadline');
+        if (scheduledDate && deadline && new Date(deadline) <= new Date(scheduledDate)) {
+            list.push('Closing time must be after the opening time');
+        }
         return list;
     }, [
         title,
@@ -621,6 +637,7 @@ const CreateExamPage: React.FC = () => {
         questionsWithContent.length,
         incompleteQuestions.length,
         closeOnDeadline,
+        scheduledDate,
         deadline,
     ]);
 
@@ -670,8 +687,9 @@ const CreateExamPage: React.FC = () => {
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
             maxAttempts: allowMultipleAttemptsConfig ? Number(maxAttempts) : 1,
+            scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
-            closeOnDeadline: closeOnDeadline && Boolean(deadline),
+            closeOnDeadline: Boolean(deadline),
             isPublished: publish,
             status: isEditing ? (publish ? 'LIVE' : examStatus) : undefined,
             sections: normalizedSectionList,
@@ -1017,6 +1035,32 @@ const CreateExamPage: React.FC = () => {
                             </SettingsSection>
 
                             <SettingsSection label="Schedule">
+                                <p className="text-[12px] text-slate-500">Times are Philippine Time (Asia/Manila).</p>
+                                {!showScheduledDate ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowScheduledDate(true)}
+                                        className="flex items-center gap-1.5 rounded text-[12px] font-semibold text-slate-400 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                    >
+                                        <Plus size={12} aria-hidden="true" /> Set opening time
+                                    </button>
+                                ) : (
+                                    <div className="space-y-1">
+                                        <DateTimePicker
+                                            value={scheduledDate}
+                                            onChange={setScheduledDate}
+                                            placeholder="Select opening date & time"
+                                            onClear={() => setScheduledDate('')}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => { setShowScheduledDate(false); setScheduledDate(''); }}
+                                            className="flex items-center gap-1 rounded text-[12px] font-semibold text-slate-400 transition-colors hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                        >
+                                            <X size={11} aria-hidden="true" /> Remove opening time
+                                        </button>
+                                    </div>
+                                )}
                                 {!showDeadline ? (
                                     <button
                                         type="button"
@@ -1033,16 +1077,7 @@ const CreateExamPage: React.FC = () => {
                                             placeholder="Select deadline date & time"
                                             onClear={() => setDeadline('')}
                                         />
-                                        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 transition-colors hover:bg-slate-50">
-                                            <Checkbox
-                                                checked={closeOnDeadline}
-                                                onCheckedChange={(checked) => setCloseOnDeadline(Boolean(checked))}
-                                                className="h-3.5 w-3.5 rounded border-slate-300 data-[state=checked]:border-primary data-[state=checked]:bg-primary"
-                                            />
-                                            <span className="text-[12px] font-medium text-slate-700">
-                                                Close exam automatically on the deadline
-                                            </span>
-                                        </label>
+                                        <p className="text-[12px] text-slate-500">The exam closes and submits in-progress attempts at this time.</p>
                                         <button
                                             type="button"
                                             onClick={() => {

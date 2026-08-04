@@ -60,3 +60,22 @@ describe('exam validator — description', () => {
         assert.throws(() => createExamSchema.parse({ ...VALID_EXAM, title: '   ' }));
     });
 });
+
+describe('exam validator - schedule', () => {
+    it('rejects a close time at or before the opening time', () => {
+        assert.throws(() => createExamSchema.parse({
+            ...VALID_EXAM,
+            scheduledDate: '2026-08-05T09:00:00.000Z',
+            deadline: '2026-08-05T09:00:00.000Z',
+        }));
+    });
+
+    it('accepts an opening time before the closing time', () => {
+        const result = createExamSchema.parse({
+            ...VALID_EXAM,
+            scheduledDate: '2026-08-05T09:00:00.000Z',
+            deadline: '2026-08-05T10:00:00.000Z',
+        });
+        assert.equal(result.scheduledDate, '2026-08-05T09:00:00.000Z');
+    });
+});
