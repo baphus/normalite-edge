@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/axios';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 import RevieweeDashboard from './dashboards/RevieweeDashboard';
 import ReviewerDashboard from './dashboards/ReviewerDashboard';
 import AdminDashboard from './dashboards/AdminDashboard';
@@ -8,23 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const DashboardPage: React.FC = () => {
     const { user } = useAuth();
-    const [stats, setStats] = useState<Record<string, unknown> | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const response = await api.get('/dashboard/stats');
-                setStats(response.data.data);
-            } catch (error) {
-                console.error('Failed to fetch dashboard stats', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
-    }, []);
+    const { stats, loading } = useDashboardStats(user?.id);
 
     if (loading) {
         return (

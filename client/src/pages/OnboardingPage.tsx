@@ -44,13 +44,13 @@ const OnboardingPage: React.FC = () => {
                 background: 'radial-gradient(circle at top right, #f0fdf4, transparent 38%), radial-gradient(circle at top left, #eff6ff, transparent 40%), #f8fafc',
             }}
         >
-            <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-xl backdrop-blur">
+            <div className="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white/95 p-6 shadow-xl backdrop-blur sm:p-8">
                 <p className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
                     <Rocket size={14} />
                     First-time onboarding
                 </p>
 
-                <h1 className="mt-4 text-3xl font-black text-slate-900">Welcome to Normalite EDGE</h1>
+                <h1 className="mt-4 text-2xl font-semibold text-slate-900 sm:text-3xl">Welcome to Normalite EDGE</h1>
                 <p className="mt-2 text-sm text-slate-600">
                     Set up your learner profile so your study sessions and exams are personalized from day one.
                 </p>

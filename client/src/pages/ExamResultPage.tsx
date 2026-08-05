@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Select,
     SelectContent,
@@ -21,6 +22,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import api from '@/lib/axios';
+import ConfettiCelebration from '@/components/ConfettiCelebration';
 
 const SECTION_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
     'Professional Education': { dot: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700' },
@@ -106,6 +108,7 @@ const ExamResultPage: React.FC = () => {
     const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
     const [submittedAttempts, setSubmittedAttempts] = useState<AttemptOption[]>([]);
     const [result, setResult] = useState<ExamResultPayload | null>(null);
+    const [showConfetti, setShowConfetti] = useState(false);
 
     useEffect(() => {
         const loadAttemptOptions = async () => {
@@ -164,6 +167,7 @@ const ExamResultPage: React.FC = () => {
                 setError(null);
                 const resultResponse = await api.get(`/attempts/${attemptId}/result`);
                 setResult(resultResponse.data.data);
+                setShowConfetti(true);
             } catch (requestError: unknown) {
                 const apiError = requestError as ApiErrorLike;
                 const message = apiError?.response?.data?.message || apiError?.message || 'Failed to load exam result.';
@@ -290,7 +294,32 @@ const ExamResultPage: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="p-6 text-sm text-gray-500">Loading exam result...</div>;
+        return (
+            <div className="flex flex-col gap-5 pb-10 max-w-6xl" data-testid="exam-result-skeleton">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-44" />
+                            <Skeleton className="h-3 w-56" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-8 w-44 rounded-lg" />
+                </div>
+                <Skeleton className="h-24 w-full rounded-xl" />
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+                    <div className="space-y-4 lg:col-span-8">
+                        <Skeleton className="h-48 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                    </div>
+                    <div className="space-y-3 lg:col-span-4">
+                        <Skeleton className="h-56 w-full rounded-xl" />
+                        <Skeleton className="h-72 w-full rounded-xl" />
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     if (error || !result) {
@@ -311,19 +340,19 @@ const ExamResultPage: React.FC = () => {
         }[state];
 
         return (
-            <Card key={q.id} className="border-gray-200 shadow-none rounded-lg overflow-hidden">
+            <Card key={q.id} className="border-slate-200 shadow-none rounded-lg overflow-hidden">
                 <div className="flex items-start gap-3 px-4 py-3">
                     <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${stateStyle.dot}`} />
                     <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2">{q.questionText}</p>
-                            <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${stateStyle.badge}`}>{stateStyle.label}</span>
+                            <p className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2">{q.questionText}</p>
+                            <span className={`shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded border ${stateStyle.badge}`}>{stateStyle.label}</span>
                         </div>
-                        <p className="text-[10px] text-gray-400 font-medium">
+                        <p className="text-xs text-slate-400 font-medium">
                             Q{q.orderNo}
                             {q.section && <> Â· {q.section}</>}
                             {!q.isCorrect && q.userChoice && (
-                                <> Â· You chose <span className="font-bold text-red-500">{q.userChoice}</span> Â· Correct: <span className="font-bold text-emerald-600">{q.correctChoice}</span></>
+                                <> Â· You chose <span className="font-semibold text-red-500">{q.userChoice}</span> Â· Correct: <span className="font-semibold text-emerald-600">{q.correctChoice}</span></>
                             )}
                         </p>
                     </div>
@@ -338,11 +367,11 @@ const ExamResultPage: React.FC = () => {
             <header data-guide="exam-result-header" className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2.5 min-w-0">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/exams')} className="h-8 w-8 rounded-lg shrink-0">
-                        <ArrowLeft size={16} className="text-gray-500" />
+                        <ArrowLeft size={16} className="text-slate-500" />
                     </Button>
                     <div className="min-w-0">
-                        <h1 className="text-sm font-bold text-gray-900 truncate">{result.exam?.title || 'Exam Result'}</h1>
-                        <p className="text-xs text-gray-400 font-medium">
+                        <h1 className="text-sm font-semibold text-slate-900 truncate">{result.exam?.title || 'Exam Result'}</h1>
+                        <p className="text-xs text-slate-400 font-medium">
                             Submitted {results.date}
                             {selectedAttemptMeta?.attemptNo ? ` · Attempt ${selectedAttemptMeta.attemptNo}` : ''}
                         </p>
@@ -351,7 +380,7 @@ const ExamResultPage: React.FC = () => {
                 <div data-guide="exam-result-actions" className="flex items-center gap-2 shrink-0">
                     {submittedAttempts.length > 1 && (
                         <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
-                            <SelectTrigger data-guide="exam-result-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-gray-200 w-44">
+                            <SelectTrigger data-guide="exam-result-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-slate-200 w-44">
                                 <SelectValue placeholder="Select attempt" />
                             </SelectTrigger>
                             <SelectContent>
@@ -367,14 +396,14 @@ const ExamResultPage: React.FC = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => navigate(`/exams/${id}/take`)}
-                        className="h-8 px-3 text-xs font-semibold rounded-lg border-gray-200 gap-1.5"
+                        className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 gap-1.5"
                     >
                         <RotateCcw size={12} /> Retake
                     </Button>
                     <Button
                         size="sm"
                         onClick={() => navigate(`/exams/${id}/review?attemptId=${attemptId}`)}
-                        className="h-8 px-3 text-xs font-bold rounded-lg bg-primary text-white gap-1.5"
+                        className="h-8 px-3 text-xs font-semibold rounded-lg bg-primary text-white gap-1.5"
                     >
                         <FileSearch size={12} /> Review Answers
                     </Button>
@@ -382,16 +411,16 @@ const ExamResultPage: React.FC = () => {
             </header>
 
             {/* Score Hero */}
-            <div data-guide="exam-result-score-hero" className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div data-guide="exam-result-score-hero" className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="text-5xl font-black leading-none text-gray-900">
+                    <div className="text-5xl font-semibold leading-none text-slate-900">
                         {results.score}
                     </div>
                     <div>
-                        <p className="text-xs text-gray-500 font-medium">{results.correct} correct out of {results.totalQuestions} questions</p>
+                        <p className="text-xs text-slate-500 font-medium">{results.correct} correct out of {results.totalQuestions} questions</p>
                     </div>
                 </div>
-                <div className="sm:ml-auto flex flex-wrap gap-4 text-xs font-semibold text-gray-600">
+                <div className="sm:ml-auto flex flex-wrap gap-4 text-xs font-semibold text-slate-600">
                     {showCorrectMetric && (
                         <span className="flex items-center gap-1.5"><CheckCircle2 size={13} className="text-emerald-600" /> {results.correct} Correct</span>
                     )}
@@ -401,8 +430,8 @@ const ExamResultPage: React.FC = () => {
                     {showSkippedMetric && (
                         <span className="flex items-center gap-1.5"><MinusCircle size={13} className="text-amber-500" /> {results.skipped} Skipped</span>
                     )}
-                    <span className="flex items-center gap-1.5"><Clock size={13} className="text-gray-400" /> {results.timeSpent}</span>
-                    <span className="flex items-center gap-1.5"><TrendingUp size={13} className="text-gray-400" /> {results.avgTime}/q</span>
+                    <span className="flex items-center gap-1.5"><Clock size={13} className="text-slate-400" /> {results.timeSpent}</span>
+                    <span className="flex items-center gap-1.5"><TrendingUp size={13} className="text-slate-400" /> {results.avgTime}/q</span>
                 </div>
             </div>
 
@@ -412,29 +441,29 @@ const ExamResultPage: React.FC = () => {
 
                     {/* Section Breakdown */}
                     {sections.length > 0 && (
-                        <Card data-guide="exam-result-section-breakdown" className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
-                            <div className="px-4 py-3 border-b border-gray-100">
-                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Section Breakdown</h3>
+                        <Card data-guide="exam-result-section-breakdown" className="border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                            <div className="px-4 py-3 border-b border-slate-100">
+                                <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Section Breakdown</h3>
                             </div>
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-slate-100">
                                 {sections.map((sec, idx) => {
-                                    const colors = SECTION_COLORS[sec.name] || { dot: 'bg-gray-400', bg: 'bg-gray-50', text: 'text-gray-700' };
+                                    const colors = SECTION_COLORS[sec.name] || { dot: 'bg-slate-400', bg: 'bg-slate-50', text: 'text-slate-700' };
                                     const pct = Number(sec.score || 0);
                                     return (
                                         <div key={idx} className="px-4 py-3 flex items-center gap-4">
                                             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${colors.dot}`} />
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-xs font-semibold text-gray-800 truncate pr-3">{sec.name}</span>
+                                                    <span className="text-xs font-semibold text-slate-800 truncate pr-3">{sec.name}</span>
                                                     <div className="flex items-center gap-2 shrink-0">
-                                                        <span className="text-[10px] font-semibold text-gray-400">{sec.correct}/{sec.total}</span>
-                                                        <span className="text-xs font-black text-gray-700">{pct.toFixed(1)}%</span>
+                                                        <span className="text-xs font-semibold text-slate-400">{sec.correct}/{sec.total}</span>
+                                                        <span className="text-xs font-semibold text-slate-700">{pct.toFixed(1)}%</span>
                                                     </div>
                                                 </div>
                                                 <Progress value={pct} className="h-1.5" />
                                             </div>
                                             {sec.incorrect > 0 && (
-                                                <span className="shrink-0 text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{sec.incorrect} wrong</span>
+                                                <span className="shrink-0 text-xs font-semibold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{sec.incorrect} wrong</span>
                                             )}
                                         </div>
                                     );
@@ -446,12 +475,12 @@ const ExamResultPage: React.FC = () => {
                     {/* Question Snapshot */}
                     <section data-guide="exam-result-question-snapshot" className="space-y-3">
                         <header className="flex items-center justify-between">
-                            <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Question Snapshot</h3>
-                            <span className="text-[10px] text-gray-400 font-medium">{questionDetails.length} questions</span>
+                            <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Question Snapshot</h3>
+                            <span className="text-xs text-slate-400 font-medium">{questionDetails.length} questions</span>
                         </header>
 
                         {questionDetails.length === 0 ? (
-                            <div className="p-5 text-xs text-gray-400 font-medium text-center">No question data available.</div>
+                            <div className="p-5 text-xs text-slate-400 font-medium text-center">No question data available.</div>
                         ) : (
                             <>
                                 <div className="space-y-4">
@@ -461,12 +490,12 @@ const ExamResultPage: React.FC = () => {
                                         return (
                                             <div key={group.name || index} className="space-y-2">
                                                 {questionGroupsBySection.length > 1 && (
-                                                    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
                                                         <div className="min-w-0">
-                                                            <p className="text-xs font-black text-gray-800 truncate">Section {index + 1}: {group.name}</p>
-                                                            <p className="text-[10px] font-medium text-gray-400">{group.questions.length} questions</p>
+                                                            <p className="text-xs font-semibold text-slate-800 truncate">Section {index + 1}: {group.name}</p>
+                                                            <p className="text-xs font-medium text-slate-400">{group.questions.length} questions</p>
                                                         </div>
-                                                        <span className="shrink-0 rounded-md bg-gray-50 px-2 py-1 text-[10px] font-black text-gray-600">
+                                                        <span className="shrink-0 rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
                                                             {group.correct}/{group.total} · {accuracy.toFixed(0)}%
                                                         </span>
                                                     </div>
@@ -487,19 +516,19 @@ const ExamResultPage: React.FC = () => {
                                         skipped:   { dot: 'bg-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-100',       label: 'Skipped' },
                                     }[state];
                                     return (
-                                        <Card key={q.id} className="border-gray-200 shadow-none rounded-lg overflow-hidden">
+                                        <Card key={q.id} className="border-slate-200 shadow-none rounded-lg overflow-hidden">
                                             <div className="flex items-start gap-3 px-4 py-3">
                                                 <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${stateStyle.dot}`} />
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-start justify-between gap-2 mb-1">
-                                                        <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2">{q.questionText}</p>
-                                                        <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${stateStyle.badge}`}>{stateStyle.label}</span>
+                                                        <p className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2">{q.questionText}</p>
+                                                        <span className={`shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded border ${stateStyle.badge}`}>{stateStyle.label}</span>
                                                     </div>
-                                                    <p className="text-[10px] text-gray-400 font-medium">
+                                                    <p className="text-xs text-slate-400 font-medium">
                                                         Q{q.orderNo}
                                                         {q.section && <> · {q.section}</>}
                                                         {!q.isCorrect && q.userChoice && (
-                                                            <> · You chose <span className="font-bold text-red-500">{q.userChoice}</span> · Correct: <span className="font-bold text-emerald-600">{q.correctChoice}</span></>
+                                                            <> · You chose <span className="font-semibold text-red-500">{q.userChoice}</span> · Correct: <span className="font-semibold text-emerald-600">{q.correctChoice}</span></>
                                                         )}
                                                     </p>
                                                 </div>
@@ -516,57 +545,57 @@ const ExamResultPage: React.FC = () => {
                 {/* Right: Stat Cards */}
                 <aside className="lg:col-span-4 lg:sticky lg:top-5 lg:self-start lg:h-fit">
                     <div className="flex flex-col gap-3">
-                        <Card data-guide="exam-result-summary" className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
-                            <div className="px-4 py-3 border-b border-gray-100">
-                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Summary</h3>
+                        <Card data-guide="exam-result-summary" className="border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                            <div className="px-4 py-3 border-b border-slate-100">
+                                <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Summary</h3>
                             </div>
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-slate-100">
                                 {showCorrectMetric && (
                                     <div className="flex items-center justify-between px-4 py-2.5">
-                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                             <CheckCircle2 size={14} className="text-emerald-600" /> Correct
                                         </div>
-                                        <span className="text-sm font-black text-emerald-700">{results.correct}</span>
+                                        <span className="text-sm font-semibold text-emerald-700">{results.correct}</span>
                                     </div>
                                 )}
                                 {showIncorrectMetric && (
                                     <div className="flex items-center justify-between px-4 py-2.5">
-                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                             <XCircle size={14} className="text-red-500" /> Incorrect
                                         </div>
-                                        <span className="text-sm font-black text-red-600">{results.incorrect}</span>
+                                        <span className="text-sm font-semibold text-red-600">{results.incorrect}</span>
                                     </div>
                                 )}
                                 {showSkippedMetric && (
                                     <div className="flex items-center justify-between px-4 py-2.5">
-                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                             <MinusCircle size={14} className="text-amber-500" /> Skipped
                                         </div>
-                                        <span className="text-sm font-black text-amber-600">{results.skipped}</span>
+                                        <span className="text-sm font-semibold text-amber-600">{results.skipped}</span>
                                     </div>
                                 )}
                                 <div className="flex items-center justify-between px-4 py-2.5">
-                                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                        <Clock size={14} className="text-gray-400" /> Time Spent
+                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                                        <Clock size={14} className="text-slate-400" /> Time Spent
                                     </div>
-                                    <span className="text-sm font-black text-gray-700 font-mono">{results.timeSpent}</span>
+                                    <span className="text-sm font-semibold text-slate-700 font-mono">{results.timeSpent}</span>
                                 </div>
                                 <div className="flex items-center justify-between px-4 py-2.5">
-                                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                        <TrendingUp size={14} className="text-gray-400" /> Avg / Question
+                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                                        <TrendingUp size={14} className="text-slate-400" /> Avg / Question
                                     </div>
-                                    <span className="text-sm font-black text-gray-700">{results.avgTime}</span>
+                                    <span className="text-sm font-semibold text-slate-700">{results.avgTime}</span>
                                 </div>
                             </div>
                         </Card>
 
-                        <Card data-guide="exam-result-answer-breakdown" className="border-gray-200 shadow-sm rounded-xl p-4 space-y-4">
-                            <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Answer Breakdown</h3>
+                        <Card data-guide="exam-result-answer-breakdown" className="border-slate-200 shadow-sm rounded-xl p-4 space-y-4">
+                            <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Answer Breakdown</h3>
                             <div className="flex flex-col items-center gap-4">
                                 <div className="relative flex h-44 w-44 items-center justify-center rounded-full" style={pieChartStyle}>
                                     <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white shadow-sm">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Score</span>
-                                        <span className="text-2xl font-black text-gray-900">{results.score}</span>
+                                        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Score</span>
+                                        <span className="text-2xl font-semibold text-slate-900">{results.score}</span>
                                     </div>
                                 </div>
                                 <div className="w-full space-y-2">
@@ -575,7 +604,7 @@ const ExamResultPage: React.FC = () => {
                                             <div className="flex items-center gap-2 text-emerald-700">
                                                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Correct
                                             </div>
-                                            <span className="font-black text-emerald-700">{results.correct} · {correctPercent.toFixed(0)}%</span>
+                                            <span className="font-semibold text-emerald-700">{results.correct} · {correctPercent.toFixed(0)}%</span>
                                         </div>
                                     )}
                                     {showIncorrectMetric && (
@@ -583,7 +612,7 @@ const ExamResultPage: React.FC = () => {
                                             <div className="flex items-center gap-2 text-red-600">
                                                 <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Incorrect
                                             </div>
-                                            <span className="font-black text-red-600">{results.incorrect} · {incorrectPercent.toFixed(0)}%</span>
+                                            <span className="font-semibold text-red-600">{results.incorrect} · {incorrectPercent.toFixed(0)}%</span>
                                         </div>
                                     )}
                                     {showSkippedMetric && (
@@ -591,7 +620,7 @@ const ExamResultPage: React.FC = () => {
                                             <div className="flex items-center gap-2 text-amber-700">
                                                 <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Skipped
                                             </div>
-                                            <span className="font-black text-amber-700">{results.skipped} · {skippedPercent.toFixed(0)}%</span>
+                                            <span className="font-semibold text-amber-700">{results.skipped} · {skippedPercent.toFixed(0)}%</span>
                                         </div>
                                     )}
                                 </div>
@@ -600,6 +629,7 @@ const ExamResultPage: React.FC = () => {
                     </div>
                 </aside>
             </div>
+            <ConfettiCelebration trigger={showConfetti} onComplete={() => setShowConfetti(false)} />
         </div>
     );
 };

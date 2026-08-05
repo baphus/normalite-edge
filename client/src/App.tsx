@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { MotionProvider } from './providers/MotionProvider';
+import InstallBanner from './components/InstallBanner';
 import ProtectedRoute from './routes/ProtectedRoute';
 import RoleRoute from './routes/RoleRoute';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -69,7 +71,8 @@ function App() {
     <Router>
       <AuthProvider>
         <NotificationProvider>
-          <Routes>
+          <MotionProvider>
+            <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/about" element={<AboutPage />} />
@@ -148,6 +151,8 @@ function App() {
             {/* Redirects */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </MotionProvider>
+          <InstallBanner />
         </NotificationProvider>
       </AuthProvider>
       <Toaster />

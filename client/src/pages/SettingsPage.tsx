@@ -12,6 +12,10 @@ import {
     Lock,
     ToggleRight,
     MonitorSmartphone,
+    SlidersHorizontal,
+    PartyPopper,
+    Waves,
+    CloudOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,12 +35,24 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSyncStatus } from '@/hooks/useSyncStatus';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 
 /* ── Types ── */
 
-type Section = 'security' | 'account' | 'system';
+type Section = 'security' | 'account' | 'preferences' | 'system';
+
+type ReducedMotionPreference = 'system' | 'on' | 'off';
+
+const REDUCED_MOTION_OPTIONS: ReadonlyArray<{ value: ReducedMotionPreference; label: string }> = [
+    { value: 'system', label: 'Follow system' },
+    { value: 'on', label: 'On' },
+    { value: 'off', label: 'Off' },
+];
+
+const CONFETTI_STORAGE_KEY = 'pref-confetti';
+const REDUCED_MOTION_STORAGE_KEY = 'pref-reduced-motion';
 
 /* ── Google "G" mark ── */
 
@@ -56,6 +72,9 @@ const SettingsPage: React.FC = () => {
     const isAdmin = user?.role === 'ADMIN';
 
     const [activeSection, setActiveSection] = useState<Section>('security');
+
+    /* ── Offline sync state (ticket #58) ── */
+    const { status: syncStatus, syncNow } = useSyncStatus();
 
     /* ── Sessions state ── */
     const [revokeLoading, setRevokeLoading] = useState(false);
@@ -207,6 +226,31 @@ const SettingsPage: React.FC = () => {
         }
     };
 
+    /* ── Preferences state ── */
+
+    const [confettiEnabled, setConfettiEnabled] = useState<boolean>(
+        () => window.localStorage.getItem(CONFETTI_STORAGE_KEY) !== 'false'
+    );
+    const [reducedMotionPref, setReducedMotionPref] = useState<ReducedMotionPreference>(() => {
+        const stored = window.localStorage.getItem(REDUCED_MOTION_STORAGE_KEY);
+        return stored === 'on' || stored === 'off' ? stored : 'system';
+    });
+
+    const handleConfettiChange = (checked: boolean) => {
+        setConfettiEnabled(checked);
+        window.localStorage.setItem(CONFETTI_STORAGE_KEY, String(checked));
+    };
+
+    const handleReducedMotionChange = (value: ReducedMotionPreference) => {
+        setReducedMotionPref(value);
+        window.localStorage.setItem(REDUCED_MOTION_STORAGE_KEY, value);
+        // Notify any mounted MotionProvider so the `.reduce-motion` class flips
+        // immediately (same-tab localStorage writes do not fire `storage`).
+        window.dispatchEvent(
+            new StorageEvent('storage', { key: REDUCED_MOTION_STORAGE_KEY, newValue: value })
+        );
+    };
+
     /* ── Role badge ── */
 
     const roleBadgeConfig: Record<string, { label: string; className: string }> = {
@@ -280,6 +324,17 @@ const SettingsPage: React.FC = () => {
                     )}
                 >
                     <Lock size={14} /> Account
+                </button>
+                <button
+                    onClick={() => setActiveSection('preferences')}
+                    className={cn(
+                        'h-9 px-4 rounded-lg text-[11px] font-semibold uppercase tracking-[0.06em] transition-all flex items-center gap-2',
+                        activeSection === 'preferences'
+                            ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    )}
+                >
+                    <SlidersHorizontal size={14} /> Preferences
                 </button>
                 {isAdmin && (
                     <button
@@ -490,7 +545,136 @@ const SettingsPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* ═══ TAB 3: SYSTEM (ADMIN ONLY) ═══ */}
+                {/* ═══ TAB 3: PREFERENCES ═══ */}
+                {activeSection === 'preferences' && (
+                    <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300 space-y-3">
+                        <SectionHeader
+                            icon={<SlidersHorizontal size={18} />}
+                            title="Preferences"
+                            description="Personalize how Normalite EDGE looks and feels."
+                        />
+
+                        {/* ── Appearance & feedback card ── */}
+                        <Card className="rounded-xl border-slate-100 shadow-sm overflow-hidden bg-white">
+                            <CardContent className="p-5 space-y-4">
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-900">Appearance &amp; feedback</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        These preferences are stored on this device and apply everywhere you're signed in.
+                                    </p>
+                                </div>
+
+                                <div className="border-t border-slate-100" />
+
+                                {/* ── Confetti toggle ── */}
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-2.5 min-w-0">
+                                        <PartyPopper size={15} className="text-slate-400 shrink-0 mt-0.5" />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900">Confetti celebrations</p>
+                                            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                                                Show confetti when completing a deck or submitting an exam.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Switch
+                                        checked={confettiEnabled}
+                                        onCheckedChange={handleConfettiChange}
+                                        aria-label="Confetti celebrations"
+                                        className="data-[state=checked]:bg-primary shrink-0 mt-1"
+                                    />
+                                </div>
+
+                                <div className="border-t border-slate-100" />
+
+                                {/* ── Reduced motion segmented control ── */}
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-2.5 min-w-0">
+                                        <Waves size={15} className="text-slate-400 shrink-0 mt-0.5" />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900">Reduced motion</p>
+                                            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                                                Minimize animations throughout the interface.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div
+                                        role="radiogroup"
+                                        aria-label="Reduced motion"
+                                        className="flex items-center gap-1 p-1 rounded-lg border border-slate-200 bg-slate-50 shrink-0 mt-1"
+                                    >
+                                        {REDUCED_MOTION_OPTIONS.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={reducedMotionPref === option.value}
+                                                onClick={() => handleReducedMotionChange(option.value)}
+                                                className={cn(
+                                                    'h-7 px-3 rounded-md text-xs font-semibold transition-colors',
+                                                    reducedMotionPref === option.value
+                                                        ? 'bg-white text-primary shadow-sm border border-slate-200'
+                                                        : 'text-slate-500 hover:text-slate-800'
+                                                )}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* ── Offline study & sync card ── */}
+                        <Card className="rounded-xl border-slate-100 shadow-sm overflow-hidden bg-white">
+                            <CardContent className="p-5 space-y-4">
+                                <div className="flex items-center gap-2.5">
+                                    <CloudOff size={15} className="text-slate-400 shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900">Offline study</p>
+                                        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                                            Decks you open are saved on this device so you can keep reviewing without a
+                                            connection. Progress is flushed to your account when you're back online.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-slate-100" />
+
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-slate-900">Pending changes</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            {syncStatus === 'up-to-date'
+                                                ? 'Everything is synced.'
+                                                : syncStatus === 'syncing'
+                                                ? 'Syncing your progress…'
+                                                : 'Progress made offline is waiting to sync.'}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => void syncNow()}
+                                        disabled={syncStatus === 'syncing'}
+                                        className="shrink-0 h-9 rounded-lg px-4 text-xs font-semibold border-slate-200 gap-1.5"
+                                    >
+                                        {syncStatus === 'syncing' ? (
+                                            <>
+                                                <Loader2 size={13} className="animate-spin" /> Syncing…
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw size={13} /> Sync now
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {/* ═══ TAB 4: SYSTEM (ADMIN ONLY) ═══ */}
                 {activeSection === 'system' && isAdmin && (
                     <div className="animate-in fade-in-0 slide-in-from-right-2 duration-300 space-y-3">
                         <SectionHeader

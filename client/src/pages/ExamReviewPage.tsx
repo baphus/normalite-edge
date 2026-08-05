@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Select,
     SelectContent,
@@ -309,7 +310,38 @@ const ExamReviewPage: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="p-6 text-sm text-gray-500">Loading exam review...</div>;
+        return (
+            <div className="flex flex-col gap-4 pb-10 max-w-6xl" data-testid="exam-review-skeleton">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-44" />
+                            <Skeleton className="h-3 w-56" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-8 w-44 rounded-lg" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <Skeleton className="h-7 w-20 rounded-md" />
+                    <Skeleton className="h-7 w-24 rounded-md" />
+                    <Skeleton className="h-7 w-24 rounded-md" />
+                </div>
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+                    <div className="space-y-3 lg:col-span-8">
+                        <Skeleton className="h-6 w-40" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                    </div>
+                    <div className="space-y-3 lg:col-span-4">
+                        <Skeleton className="h-56 w-full rounded-xl" />
+                        <Skeleton className="h-48 w-full rounded-xl" />
+                        <Skeleton className="h-72 w-full rounded-xl" />
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     if (error) {
@@ -331,42 +363,42 @@ const ExamReviewPage: React.FC = () => {
                         onClick={() => navigate(`/exams/${id}/result${attemptId ? `?attemptId=${attemptId}` : ''}`)}
                         className="h-8 w-8 rounded-lg shrink-0"
                     >
-                        <ArrowLeft size={16} className="text-gray-500" />
+                        <ArrowLeft size={16} className="text-slate-500" />
                     </Button>
                     <div className="min-w-0">
-                        <h1 className="text-sm font-bold text-gray-900">Answer Review</h1>
-                        <p className="text-xs text-gray-400 font-medium">Question-by-question breakdown</p>
+                        <h1 className="text-sm font-semibold text-slate-900">Answer Review</h1>
+                        <p className="text-xs text-slate-400 font-medium">Question-by-question breakdown</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
                         {showCorrectMetric && (
-                            <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
+                            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700">
                                 <CheckCircle2 size={12} /> {metrics.correct}
                             </span>
                         )}
                         {showIncorrectMetric && (
                             <>
-                                {showCorrectMetric && <span className="text-gray-200">|</span>}
-                                <span className="flex items-center gap-1 text-xs font-bold text-red-600">
+                                {showCorrectMetric && <span className="text-slate-200">|</span>}
+                                <span className="flex items-center gap-1 text-xs font-semibold text-red-600">
                                     <XCircle size={12} /> {metrics.incorrect}
                                 </span>
                             </>
                         )}
                         {showSkippedMetric && (
                             <>
-                                {(showCorrectMetric || showIncorrectMetric) && <span className="text-gray-200">|</span>}
-                                <span className="flex items-center gap-1 text-xs font-bold text-amber-700">
+                                {(showCorrectMetric || showIncorrectMetric) && <span className="text-slate-200">|</span>}
+                                <span className="flex items-center gap-1 text-xs font-semibold text-amber-700">
                                     <MinusCircle size={12} /> {metrics.skipped}
                                 </span>
                             </>
                         )}
-                        {hasOutcomeMetrics && <span className="text-gray-200">|</span>}
-                        <span className="text-xs font-bold text-gray-500">{metrics.accuracy}%</span>
+                        {hasOutcomeMetrics && <span className="text-slate-200">|</span>}
+                        <span className="text-xs font-semibold text-slate-500">{metrics.accuracy}%</span>
                     </div>
                     {submittedAttempts.length > 1 && (
                         <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
-                            <SelectTrigger data-guide="exam-review-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-gray-200 w-44">
+                            <SelectTrigger data-guide="exam-review-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-slate-200 w-44">
                                 <SelectValue placeholder="Select attempt" />
                             </SelectTrigger>
                             <SelectContent>
@@ -394,17 +426,17 @@ const ExamReviewPage: React.FC = () => {
                         <button
                             key={status}
                             onClick={() => setFilterStatus(status)}
-                            className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${active ? (status === 'incorrect' ? 'bg-red-500 text-white' : status === 'correct' ? 'bg-emerald-600 text-white' : 'bg-gray-900 text-white') : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${active ? (status === 'incorrect' ? 'bg-red-500 text-white' : status === 'correct' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white') : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             {labels[status]}
-                            <span className={`text-[10px] font-bold px-1 rounded ${active ? 'bg-white/20' : 'bg-gray-200 text-gray-400'}`}>{counts[status]}</span>
+                            <span className={`text-xs font-semibold px-1 rounded ${active ? 'bg-white/20' : 'bg-slate-200 text-slate-400'}`}>{counts[status]}</span>
                         </button>
                     );
                 })}
                 {sectionOptions.length > 1 && (
                     <div className="ml-auto">
                         <Select value={filterSection} onValueChange={setFilterSection}>
-                            <SelectTrigger className="h-7 text-xs font-semibold rounded-md border-gray-200 w-40">
+                            <SelectTrigger className="h-7 text-xs font-semibold rounded-md border-slate-200 w-40">
                                 <SelectValue placeholder="All Sections" />
                             </SelectTrigger>
                             <SelectContent>
@@ -421,14 +453,14 @@ const ExamReviewPage: React.FC = () => {
             <div data-guide="exam-review-list" className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <main className="lg:col-span-8 space-y-3">
                     <header className="flex items-center justify-between">
-                        <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Answer Snapshot</h3>
-                        <span className="text-[10px] text-gray-400 font-medium">{filteredQuestions.length} shown</span>
+                        <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Answer Snapshot</h3>
+                        <span className="text-xs text-slate-400 font-medium">{filteredQuestions.length} shown</span>
                     </header>
 
                     {filteredQuestions.map((q, questionIndex) => {
                         const isCorrect = q.userAnswer === q.correctAnswer;
                         const isSkipped = !q.userAnswer;
-                        const dotColor = SECTION_DOTS[q.section] || 'bg-gray-400';
+                        const dotColor = SECTION_DOTS[q.section] || 'bg-slate-400';
                         const isExpanded = !collapsedQuestions[q.id];
                         const isExplanationExpanded = !collapsedExplanations[q.id];
                         const isFirstInSection = questionIndex === 0 || filteredQuestions[questionIndex - 1]?.section !== q.section;
@@ -440,40 +472,40 @@ const ExamReviewPage: React.FC = () => {
                         return (
                             <React.Fragment key={q.id}>
                             {isFirstInSection && (
-                                <div className="mt-4 first:mt-0 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                <div className="mt-4 first:mt-0 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
                                     <div className="min-w-0">
-                                        <p className="text-xs font-black text-gray-800 truncate">
+                                        <p className="text-xs font-semibold text-slate-800 truncate">
                                             Section {sectionReviewGroups.findIndex((group) => group.name === q.section) + 1}: {q.section}
                                         </p>
-                                        <p className="text-[10px] font-medium text-gray-400">{sectionGroup?.total || 0} questions</p>
+                                        <p className="text-xs font-medium text-slate-400">{sectionGroup?.total || 0} questions</p>
                                     </div>
-                                    <span className="shrink-0 rounded-md bg-gray-50 px-2 py-1 text-[10px] font-black text-gray-600">
+                                    <span className="shrink-0 rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
                                         {sectionGroup?.correct || 0}/{sectionGroup?.total || 0} · {sectionAccuracy.toFixed(0)}%
                                     </span>
                                 </div>
                             )}
-                            <Card key={q.id} className={`border shadow-none overflow-hidden rounded-xl transition-all ${isExpanded ? 'border-primary/20 shadow-sm' : 'border-gray-200'}`}>
-                                <div className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => toggleExpand(q.id)}>
+                            <Card key={q.id} className={`border shadow-none overflow-hidden rounded-xl transition-all ${isExpanded ? 'border-primary/20 shadow-sm' : 'border-slate-200'}`}>
+                                <div className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => toggleExpand(q.id)}>
                                     {isCorrect ? (<CheckCircle2 size={15} className="text-emerald-500 shrink-0" />) : isSkipped ? (<MinusCircle size={15} className="text-amber-400 shrink-0" />) : (<XCircle size={15} className="text-red-500 shrink-0" />)}
-                                    <span className="text-[11px] font-black text-gray-400 shrink-0 w-5 text-right">{q.orderNo}</span>
+                                    <span className="text-[11px] font-semibold text-slate-400 shrink-0 w-5 text-right">{q.orderNo}</span>
                                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
-                                    <p className="flex-1 text-xs font-medium text-gray-800 truncate min-w-0">{q.text}</p>
+                                    <p className="flex-1 text-xs font-medium text-slate-800 truncate min-w-0">{q.text}</p>
                                     {!isExpanded && (
                                         <div className="flex items-center gap-1.5 shrink-0">
                                             {typeof q.elapsedSeconds === 'number' && q.elapsedSeconds > 0 && (
-                                                <span className="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded">{formatDuration(q.elapsedSeconds)}</span>
+                                                <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">{formatDuration(q.elapsedSeconds)}</span>
                                             )}
-                                            {!isCorrect && !isSkipped && (<span className="text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{q.userAnswer} → {q.correctAnswer}</span>)}
-                                            {isSkipped && (<span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">Skipped</span>)}
+                                            {!isCorrect && !isSkipped && (<span className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{q.userAnswer} → {q.correctAnswer}</span>)}
+                                            {isSkipped && (<span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">Skipped</span>)}
                                         </div>
                                     )}
-                                    {isExpanded ? (<ChevronUp size={14} className="text-gray-300 shrink-0" />) : (<ChevronDown size={14} className="text-gray-300 shrink-0" />)}
+                                    {isExpanded ? (<ChevronUp size={14} className="text-slate-300 shrink-0" />) : (<ChevronDown size={14} className="text-slate-300 shrink-0" />)}
                                 </div>
                                 {isExpanded && (
-                                    <CardContent className="px-4 pb-4 pt-0 border-t border-gray-100 bg-gray-50/50 space-y-3">
-                                        <p className="text-xs font-semibold text-gray-800 leading-relaxed pt-3">{q.text}</p>
+                                    <CardContent className="px-4 pb-4 pt-0 border-t border-slate-100 bg-slate-50/50 space-y-3">
+                                        <p className="text-xs font-semibold text-slate-800 leading-relaxed pt-3">{q.text}</p>
                                         {q.imageUrl && (
-                                            <div className="rounded-lg border border-gray-200 bg-white p-2">
+                                            <div className="rounded-lg border border-slate-200 bg-white p-2">
                                                 <img src={q.imageUrl} alt="Question attachment" className="max-h-52 w-auto max-w-full rounded object-contain" />
                                             </div>
                                         )}
@@ -482,12 +514,12 @@ const ExamReviewPage: React.FC = () => {
                                                 const label = String.fromCharCode(65 + idx);
                                                 const isUserPick = q.userAnswer === label;
                                                 const isCorrectChoice = q.correctAnswer === label;
-                                                let style = 'border-gray-200 bg-white text-gray-600';
+                                                let style = 'border-slate-200 bg-white text-slate-600';
                                                 if (isCorrectChoice) style = 'border-emerald-300 bg-emerald-50 text-emerald-800';
                                                 else if (isUserPick && !isCorrect) style = 'border-red-300 bg-red-50 text-red-700';
                                                 return (
                                                     <div key={idx} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs font-medium ${style}`}>
-                                                        <span className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-black shrink-0 ${isCorrectChoice ? 'bg-emerald-600 text-white' : isUserPick && !isCorrectChoice ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'}`}>{label}</span>
+                                                        <span className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-semibold shrink-0 ${isCorrectChoice ? 'bg-emerald-600 text-white' : isUserPick && !isCorrectChoice ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{label}</span>
                                                         <span className="flex-1">{opt}</span>
                                                         {isCorrectChoice && <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />}
                                                         {isUserPick && !isCorrectChoice && <XCircle size={13} className="text-red-500 shrink-0" />}
@@ -504,8 +536,8 @@ const ExamReviewPage: React.FC = () => {
                                                 <div className="flex items-center gap-2.5 min-w-0">
                                                     <Info size={13} className="text-blue-500 shrink-0" />
                                                     <div>
-                                                        <p className="text-[10px] font-black text-blue-700 uppercase tracking-wide">Explanation</p>
-                                                        <p className="text-[10px] text-blue-500 font-medium">
+                                                        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Explanation</p>
+                                                        <p className="text-xs text-blue-500 font-medium">
                                                             {isExplanationExpanded ? 'Hide explanation' : 'Show explanation'}
                                                         </p>
                                                     </div>
@@ -518,7 +550,7 @@ const ExamReviewPage: React.FC = () => {
                                             </button>
                                             {isExplanationExpanded && (
                                                 <div className="border-t border-blue-100 px-3 py-2.5">
-                                                    <p className="text-xs text-gray-700 leading-relaxed font-medium">{q.rationalization}</p>
+                                                    <p className="text-xs text-slate-700 leading-relaxed font-medium">{q.rationalization}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -531,12 +563,12 @@ const ExamReviewPage: React.FC = () => {
 
                     {filteredQuestions.length === 0 && (
                         <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
-                            <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center">
-                                <HelpCircle size={22} className="text-gray-300" />
+                            <div className="h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center">
+                                <HelpCircle size={22} className="text-slate-300" />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-gray-700">No questions found</p>
-                                <p className="text-xs text-gray-400 font-medium">Adjust your filters to see results.</p>
+                                <p className="text-sm font-semibold text-slate-700">No questions found</p>
+                                <p className="text-xs text-slate-400 font-medium">Adjust your filters to see results.</p>
                             </div>
                         </div>
                     )}
@@ -545,14 +577,14 @@ const ExamReviewPage: React.FC = () => {
                 <aside className="lg:col-span-4 lg:sticky lg:top-5 lg:self-start lg:h-fit">
                     <div className="flex flex-col gap-3">
                         {sectionReviewGroups.length > 1 && (
-                            <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
-                                <div className="px-4 py-3 border-b border-gray-100">
-                                    <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Section Breakdown</h3>
+                            <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                                <div className="px-4 py-3 border-b border-slate-100">
+                                    <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Section Breakdown</h3>
                                 </div>
-                                <div className="divide-y divide-gray-100">
+                                <div className="divide-y divide-slate-100">
                                     {sectionReviewGroups.map((section, index) => {
                                         const accuracy = section.total > 0 ? (section.correct / section.total) * 100 : 0;
-                                        const dotColor = SECTION_DOTS[section.name] || 'bg-gray-400';
+                                        const dotColor = SECTION_DOTS[section.name] || 'bg-slate-400';
 
                                         return (
                                             <div key={section.name} className="px-4 py-3">
@@ -560,24 +592,24 @@ const ExamReviewPage: React.FC = () => {
                                                     <div className="flex min-w-0 items-center gap-2">
                                                         <span className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
                                                         <div className="min-w-0">
-                                                            <p className="truncate text-xs font-bold text-gray-800">Section {index + 1}: {section.name}</p>
-                                                            <p className="text-[10px] font-medium text-gray-400">{formatDuration(section.elapsedSeconds, 'No timing data')}</p>
+                                                            <p className="truncate text-xs font-semibold text-slate-800">Section {index + 1}: {section.name}</p>
+                                                            <p className="text-xs font-medium text-slate-400">{formatDuration(section.elapsedSeconds, 'No timing data')}</p>
                                                         </div>
                                                     </div>
-                                                    <span className="shrink-0 text-xs font-black text-gray-700">{accuracy.toFixed(1)}%</span>
+                                                    <span className="shrink-0 text-xs font-semibold text-slate-700">{accuracy.toFixed(1)}%</span>
                                                 </div>
                                                 <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
                                                     <div className="rounded-md bg-emerald-50 px-2 py-1">
-                                                        <p className="text-[10px] font-black text-emerald-700">{section.correct}</p>
-                                                        <p className="text-[9px] font-bold uppercase text-emerald-600">Correct</p>
+                                                        <p className="text-xs font-semibold text-emerald-700">{section.correct}</p>
+                                                        <p className="text-[11px] font-semibold uppercase text-emerald-600">Correct</p>
                                                     </div>
                                                     <div className="rounded-md bg-red-50 px-2 py-1">
-                                                        <p className="text-[10px] font-black text-red-600">{section.incorrect}</p>
-                                                        <p className="text-[9px] font-bold uppercase text-red-500">Wrong</p>
+                                                        <p className="text-xs font-semibold text-red-600">{section.incorrect}</p>
+                                                        <p className="text-[11px] font-semibold uppercase text-red-500">Wrong</p>
                                                     </div>
                                                     <div className="rounded-md bg-amber-50 px-2 py-1">
-                                                        <p className="text-[10px] font-black text-amber-700">{section.skipped}</p>
-                                                        <p className="text-[9px] font-bold uppercase text-amber-600">Skipped</p>
+                                                        <p className="text-xs font-semibold text-amber-700">{section.skipped}</p>
+                                                        <p className="text-[11px] font-semibold uppercase text-amber-600">Skipped</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -587,51 +619,51 @@ const ExamReviewPage: React.FC = () => {
                             </Card>
                         )}
 
-                        <Card className="border-gray-200 shadow-sm rounded-xl overflow-hidden">
-                            <div className="px-4 py-3 border-b border-gray-100">
-                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Summary</h3>
+                        <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                            <div className="px-4 py-3 border-b border-slate-100">
+                                <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Summary</h3>
                             </div>
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-slate-100">
                                 {showCorrectMetric && (
                                     <div className="flex items-center justify-between px-4 py-2.5">
-                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                             <CheckCircle2 size={14} className="text-emerald-600" /> Correct
                                         </div>
-                                        <span className="text-sm font-black text-emerald-700">{metrics.correct}</span>
+                                        <span className="text-sm font-semibold text-emerald-700">{metrics.correct}</span>
                                     </div>
                                 )}
                                 {showIncorrectMetric && (
                                     <div className="flex items-center justify-between px-4 py-2.5">
-                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                             <XCircle size={14} className="text-red-500" /> Incorrect
                                         </div>
-                                        <span className="text-sm font-black text-red-600">{metrics.incorrect}</span>
+                                        <span className="text-sm font-semibold text-red-600">{metrics.incorrect}</span>
                                     </div>
                                 )}
                                 {showSkippedMetric && (
                                     <div className="flex items-center justify-between px-4 py-2.5">
-                                        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                             <MinusCircle size={14} className="text-amber-500" /> Skipped
                                         </div>
-                                        <span className="text-sm font-black text-amber-700">{metrics.skipped}</span>
+                                        <span className="text-sm font-semibold text-amber-700">{metrics.skipped}</span>
                                     </div>
                                 )}
                                 <div className="flex items-center justify-between px-4 py-2.5">
-                                    <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                        <Clock3 size={14} className="text-gray-400" /> Attempt Time
+                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                                        <Clock3 size={14} className="text-slate-400" /> Attempt Time
                                     </div>
-                                    <span className="text-sm font-black text-gray-700">{formatDuration(reviewMeta?.timeSpentSeconds, '--')}</span>
+                                    <span className="text-sm font-semibold text-slate-700">{formatDuration(reviewMeta?.timeSpentSeconds, '--')}</span>
                                 </div>
                             </div>
                         </Card>
 
-                        <Card className="border-gray-200 shadow-sm rounded-xl p-4 space-y-4">
-                            <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Answer Breakdown</h3>
+                        <Card className="border-slate-200 shadow-sm rounded-xl p-4 space-y-4">
+                            <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Answer Breakdown</h3>
                             <div className="flex flex-col items-center gap-4">
                                 <div className="relative flex h-44 w-44 items-center justify-center rounded-full" style={pieChartStyle}>
                                     <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white shadow-sm">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Accuracy</span>
-                                        <span className="text-2xl font-black text-gray-900">{metrics.accuracy.toFixed(1)}%</span>
+                                        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Accuracy</span>
+                                        <span className="text-2xl font-semibold text-slate-900">{metrics.accuracy.toFixed(1)}%</span>
                                     </div>
                                 </div>
                                 <div className="w-full space-y-2">
@@ -640,7 +672,7 @@ const ExamReviewPage: React.FC = () => {
                                             <div className="flex items-center gap-2 text-emerald-700">
                                                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Correct
                                             </div>
-                                            <span className="font-black text-emerald-700">{metrics.correct} · {correctPercent.toFixed(0)}%</span>
+                                            <span className="font-semibold text-emerald-700">{metrics.correct} · {correctPercent.toFixed(0)}%</span>
                                         </div>
                                     )}
                                     {showIncorrectMetric && (
@@ -648,7 +680,7 @@ const ExamReviewPage: React.FC = () => {
                                             <div className="flex items-center gap-2 text-red-600">
                                                 <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Incorrect
                                             </div>
-                                            <span className="font-black text-red-600">{metrics.incorrect} · {incorrectPercent.toFixed(0)}%</span>
+                                            <span className="font-semibold text-red-600">{metrics.incorrect} · {incorrectPercent.toFixed(0)}%</span>
                                         </div>
                                     )}
                                     {showSkippedMetric && (
@@ -656,7 +688,7 @@ const ExamReviewPage: React.FC = () => {
                                             <div className="flex items-center gap-2 text-amber-700">
                                                 <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Skipped
                                             </div>
-                                            <span className="font-black text-amber-700">{metrics.skipped} · {skippedPercent.toFixed(0)}%</span>
+                                            <span className="font-semibold text-amber-700">{metrics.skipped} · {skippedPercent.toFixed(0)}%</span>
                                         </div>
                                     )}
                                 </div>

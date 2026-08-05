@@ -9,9 +9,11 @@ import {
     ListChecks,
     CheckCircle2,
     CircleDot,
+    WifiOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Dialog,
     DialogContent,
@@ -146,6 +148,7 @@ const TakeExamPage: React.FC = () => {
     const [preflightTabSwitchGraceSeconds, setPreflightTabSwitchGraceSeconds] = useState(5);
     const [preflightLoading, setPreflightLoading] = useState(true);
     const [isMobileNavigatorOpen, setIsMobileNavigatorOpen] = useState(false);
+    const [isOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
 
     const answersRef = useRef<Record<string, string>>({});
     const answerMetaRef = useRef<Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>>({});
@@ -496,6 +499,10 @@ const TakeExamPage: React.FC = () => {
 
     useEffect(() => {
         const loadPreflightSettings = async () => {
+            if (isOffline) {
+                setPreflightLoading(false);
+                return;
+            }
             setPreflightLoading(true);
             try {
                 const response = await api.get('/settings/system');
@@ -510,7 +517,7 @@ const TakeExamPage: React.FC = () => {
         };
 
         void loadPreflightSettings();
-    }, []);
+    }, [isOffline]);
 
     const saveAttempt = useCallback(async (force = false) => {
         if (!attemptId || !exam || isSubmitting) return;
@@ -609,6 +616,11 @@ const TakeExamPage: React.FC = () => {
     useEffect(() => {
         const fetchAttempt = async () => {
             if (!hasReviewedInstructions) {
+                return;
+            }
+
+            if (isOffline) {
+                setLoading(false);
                 return;
             }
 
@@ -742,7 +754,7 @@ const TakeExamPage: React.FC = () => {
         };
 
         fetchAttempt();
-    }, [clearExamStarted, computeRemainingFromEndsAt, getResumeIndex, hasReviewedInstructions, id, markExamStarted, navigate, normalizeQuestions, preflightTabSwitchGraceSeconds, readDraft, sanitizeAnswerMeta, sanitizeAnswersMap]);
+    }, [clearExamStarted, computeRemainingFromEndsAt, getResumeIndex, hasReviewedInstructions, id, isOffline, markExamStarted, navigate, normalizeQuestions, preflightTabSwitchGraceSeconds, readDraft, sanitizeAnswerMeta, sanitizeAnswersMap]);
 
     useEffect(() => {
         answersRef.current = answers;
@@ -999,43 +1011,74 @@ const TakeExamPage: React.FC = () => {
         }
     }, [attemptId, currentQuestionId, exam, flushActiveQuestionTime, isSubmitting, loading]);
 
+    if (isOffline) {
+        return (
+            <div className="p-4 sm:p-6 md:p-8">
+                <div className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-200 px-6 py-5">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Offline</p>
+                        <h1 className="mt-1 text-lg font-semibold text-slate-900">Exams require an internet connection</h1>
+                        <p className="mt-2 text-sm font-medium text-slate-500">
+                            You are currently offline. Reconnect to the internet before starting or resuming an exam.
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/60 px-6 py-4 sm:flex-row sm:justify-between">
+                        <Button
+                            variant="outline"
+                            onClick={() => navigate('/exams')}
+                            className="w-full sm:w-auto"
+                        >
+                            Back to Exams
+                        </Button>
+                        <Button
+                            onClick={() => window.location.reload()}
+                            className="w-full sm:w-auto"
+                        >
+                            <WifiOff size={14} className="mr-1.5" /> Retry Connection
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (!hasReviewedInstructions) {
         return (
             <div className="p-6 md:p-8">
-                <div className="max-w-2xl mx-auto rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-100">
-                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">Exam Instructions</p>
-                        <h1 className="text-2xl font-black text-gray-900 mt-1">Are You Ready to Start?</h1>
-                        <p className="text-sm text-gray-500 font-medium mt-2">
+                <div className="max-w-2xl mx-auto rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-100">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Exam Instructions</p>
+                        <h1 className="text-2xl font-semibold text-slate-900 mt-1">Are You Ready to Start?</h1>
+                        <p className="text-sm text-slate-500 font-medium mt-2">
                             Review the exam rules before continuing. The timer will only begin once you click <strong>Start Exam</strong>.
                         </p>
                     </div>
 
                     <div className="p-6 space-y-3">
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">1. The timer starts only after you press <strong>Start Exam</strong>.</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-800">1. The timer starts only after you press <strong>Start Exam</strong>.</p>
                         </div>
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">2. You may move between sections and review or change your answers at any time before submitting.</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-800">2. You may move between sections and review or change your answers at any time before submitting.</p>
                         </div>
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">3. Once started, the timer keeps running even if you leave this page.</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-800">3. Once started, the timer keeps running even if you leave this page.</p>
                         </div>
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">4. Do not refresh, close, or switch away during the exam unless necessary.</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-800">4. Do not refresh, close, or switch away during the exam unless necessary.</p>
                         </div>
-                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-gray-800">5. Save behavior is automatic, but keep a stable internet connection throughout.</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-800">5. Save behavior is automatic, but keep a stable internet connection throughout.</p>
                         </div>
                         <div className={`rounded-xl border px-4 py-3 ${preflightSingleTabEnabled ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
                             <div className="flex items-start gap-2">
                                 <AlertTriangle size={16} className={preflightSingleTabEnabled ? 'text-red-600 mt-0.5' : 'text-amber-600 mt-0.5'} />
                                 <div>
-                                    <p className={`text-sm font-black ${preflightSingleTabEnabled ? 'text-red-700' : 'text-amber-700'}`}>
+                                    <p className={`text-sm font-semibold ${preflightSingleTabEnabled ? 'text-red-700' : 'text-amber-700'}`}>
                                         6. Tab-Switch Policy
                                     </p>
                                     {preflightLoading ? (
-                                        <p className="text-xs font-medium text-gray-500 mt-1">Checking policy...</p>
+                                        <p className="text-xs font-medium text-slate-500 mt-1">Checking policy...</p>
                                     ) : preflightSingleTabEnabled ? (
                                         <p className="text-sm font-semibold text-red-700 mt-1">
                                             Switching to another browser tab gives you {preflightTabSwitchGraceSeconds}s to return, then the exam resets to the beginning and voids all your answers.
@@ -1050,7 +1093,7 @@ const TakeExamPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="px-6 py-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/60">
+                    <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/60">
                         <Button
                             variant="outline"
                             onClick={() => navigate('/exams')}
@@ -1074,7 +1117,33 @@ const TakeExamPage: React.FC = () => {
     }
 
     if (loading) {
-        return <div className="p-6 text-sm text-gray-500">Loading exam attempt...</div>;
+        return (
+            <div className="p-4 sm:p-6 md:p-8" data-testid="take-exam-skeleton">
+                <div className="mx-auto max-w-4xl space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-2">
+                            <Skeleton className="h-5 w-44" />
+                            <Skeleton className="h-3 w-64" />
+                        </div>
+                        <Skeleton className="h-9 w-28 rounded-lg" />
+                    </div>
+                    <Skeleton className="h-1.5 w-full rounded-full" />
+                    <div className="flex min-h-[28vh] items-center justify-center rounded-xl border border-slate-200 bg-white">
+                        <Skeleton className="h-6 w-3/4" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                    </div>
+                    <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                        <Skeleton className="h-11 w-28 rounded-xl" />
+                        <Skeleton className="h-11 w-28 rounded-xl" />
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     if (error || !exam || !attemptId) {
@@ -1157,7 +1226,7 @@ const TakeExamPage: React.FC = () => {
     };
 
     const answeredCount = exam.questions.filter((question) => Boolean(answers[question.id])).length;
-    const isOffline = !navigator.onLine;
+    const isNowOffline = !navigator.onLine;
     const saveLabel = saveStatus === 'saving'
         ? 'Saving...'
         : saveStatus === 'saved'
@@ -1169,36 +1238,36 @@ const TakeExamPage: React.FC = () => {
                     : 'Idle';
 
     return (
-        <div className="fixed inset-y-0 right-0 left-0 lg:left-54.5 z-50 flex flex-col overflow-hidden bg-gray-50">
+        <div className="fixed inset-y-0 right-0 left-0 z-50 flex flex-col overflow-hidden bg-slate-50">
             {/* Header */}
-            <header data-guide="exam-take-header" className="bg-white border-b border-gray-100 px-3 sm:px-5 py-2.5 flex items-center justify-between shrink-0 gap-2">
+            <header data-guide="exam-take-header" className="bg-white border-b border-slate-100 px-3 sm:px-5 py-2.5 flex items-center justify-between shrink-0 gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
-                        <h2 className="text-xs sm:text-sm font-bold text-gray-900 truncate leading-tight">{exam.title}</h2>
-                        <p className="text-[10px] sm:text-xs text-gray-400 font-medium truncate">
+                        <h2 className="text-xs sm:text-sm font-semibold text-slate-900 truncate leading-tight">{exam.title}</h2>
+                        <p className="text-xs sm:text-xs text-slate-400 font-medium truncate">
                             {exam.subject} · {currentSectionName} ({currentSectionAnsweredCount}/{currentSectionTotal})
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border ${isOffline ? 'text-amber-700 border-amber-200 bg-amber-50' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                        {isOffline ? 'Offline' : 'Online'}
+                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md border ${isNowOffline ? 'text-amber-700 border-amber-200 bg-amber-50' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isNowOffline ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                        {isNowOffline ? 'Offline' : 'Online'}
                     </span>
-                    <span className="text-[10px] font-semibold text-gray-400 hidden md:block">{saveLabel}</span>
+                    <span className="text-xs font-semibold text-slate-400 hidden md:block">{saveLabel}</span>
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 px-2.5 text-[11px] font-semibold rounded-lg border-gray-200 lg:hidden"
+                        className="h-8 px-2.5 text-xs font-semibold rounded-lg border-slate-200 lg:hidden"
                         onClick={() => setIsMobileNavigatorOpen(true)}
                     >
                         <ListChecks className="h-3.5 w-3.5 mr-1" />
                         Questions
                     </Button>
-                    <div data-guide="exam-take-timer" className="flex items-center gap-1.5 bg-gray-900 text-white px-2.5 sm:px-3 py-1.5 rounded-lg">
+                    <div data-guide="exam-take-timer" className="flex items-center gap-1.5 bg-slate-900 text-white px-2.5 sm:px-3 py-1.5 rounded-lg">
                         <Timer size={13} className="opacity-70" />
-                        <span className="font-mono font-bold text-xs sm:text-sm tracking-tight">
+                        <span className="font-mono font-semibold text-xs sm:text-sm tracking-tight">
                             {formatTime(timeLeft)}
                         </span>
                     </div>
@@ -1207,29 +1276,29 @@ const TakeExamPage: React.FC = () => {
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Main Question Area */}
-                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gray-50 flex flex-col">
+                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-slate-50 flex flex-col">
                     <div className="max-w-4xl mx-auto w-full h-full flex flex-col">
                         
                         {/* Question & Image - Flex 1 allows it to take available space */}
                         <div data-guide="exam-take-question" className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3 sm:gap-4 py-1 sm:py-2 mb-3 sm:mb-4">
                             <div className="flex flex-wrap items-center justify-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-primary">
                                     <CircleDot size={12} />
                                     {currentSectionName}
                                 </span>
-                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-500">
                                     Section question {Math.max(currentSectionQuestionPosition + 1, 1)} of {currentSectionTotal}
                                 </span>
                             </div>
                             <div className="w-full max-h-[36vh] sm:max-h-[40vh] overflow-y-auto px-1 sm:px-2 flex items-center justify-center">
-                                <h3 className="text-lg sm:text-xl md:text-3xl font-black text-gray-900 leading-tight text-center">
+                                <h3 className="text-lg sm:text-xl md:text-3xl font-semibold text-slate-900 leading-tight text-center">
                                     {currentQuestion.text}
                                 </h3>
                             </div>
 
                             {currentQuestion.imageUrl && (
                                 <div className="flex-1 min-h-0 w-full flex justify-center items-center">
-                                    <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white p-1.5 inline-flex max-h-full">
+                                    <div className="rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-white p-1.5 inline-flex max-h-full">
                                         <img
                                             src={currentQuestion.imageUrl}
                                             alt="Question attachment"
@@ -1266,10 +1335,10 @@ const TakeExamPage: React.FC = () => {
                                                 : `shadow-sm ${theme.bg} ${theme.border} ${theme.hover}`
                                         } ${hasAnswer && !isSelected ? 'opacity-50 grayscale-40' : 'opacity-100'} ${theme.text}`}
                                     >
-                                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-sm md:text-base shrink-0 mr-2.5 md:mr-4 transition-colors ${theme.iconBg} ${theme.iconText}`}>
+                                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-semibold text-sm md:text-base shrink-0 mr-2.5 md:mr-4 transition-colors ${theme.iconBg} ${theme.iconText}`}>
                                             {label}
                                         </div>
-                                        <span className="text-[13px] sm:text-sm md:text-base font-bold leading-snug wrap-break-word flex-1">
+                                        <span className="text-[13px] sm:text-sm md:text-base font-semibold leading-snug wrap-break-word flex-1">
                                             {option}
                                         </span>
                                     </button>
@@ -1278,28 +1347,28 @@ const TakeExamPage: React.FC = () => {
                         </div>
 
                         {/* Navigation Footer */}
-                        <div data-guide="exam-take-question-nav" className="sticky bottom-0 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200 shrink-0 bg-gray-50/95 backdrop-blur supports-backdrop-filter:bg-gray-50/85">
+                        <div data-guide="exam-take-question-nav" className="sticky bottom-0 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-200 shrink-0 bg-slate-50/95 backdrop-blur supports-backdrop-filter:bg-slate-50/85">
                             <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
                             <Button
                                 variant="outline"
                                 size="lg"
                                 onClick={handlePreviousQuestion}
                                 disabled={isFirstQuestion}
-                                className="h-10 sm:h-11 px-4 sm:px-5 text-xs sm:text-sm font-bold gap-1.5 sm:gap-2 rounded-xl bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                                className="h-10 sm:h-11 px-4 sm:px-5 text-xs sm:text-sm font-semibold gap-1.5 sm:gap-2 rounded-xl bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                             >
                                 <ArrowLeft size={16} /> Previous
                             </Button>
 
                             <div className="flex items-center gap-2 sm:gap-3 ml-auto">
                                 {!answers[currentQuestion.id] && (
-                                    <span className="text-xs text-gray-400 font-bold uppercase tracking-wider hidden sm:block">Not answered</span>
+                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider hidden sm:block">Not answered</span>
                                 )}
                                 {isLastQuestion ? (
                                     <Button
                                         size="lg"
                                         onClick={handleSubmitClick}
                                         disabled={isSubmitting}
-                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-black rounded-xl bg-gray-900 hover:bg-gray-800 text-white shadow-sm gap-1.5 sm:gap-2"
+                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm gap-1.5 sm:gap-2"
                                     >
                                         Submit Exam <Send size={16} />
                                     </Button>
@@ -1307,7 +1376,7 @@ const TakeExamPage: React.FC = () => {
                                     <Button
                                         size="lg"
                                         onClick={handleNextQuestion}
-                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-black rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5 sm:gap-2"
+                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-semibold rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5 sm:gap-2"
                                     >
                                         Next <ArrowRight size={16} />
                                     </Button>
@@ -1319,11 +1388,11 @@ const TakeExamPage: React.FC = () => {
                 </main>
 
                 {/* Right Sidebar - Navigator */}
-                <aside data-guide="exam-take-navigator" className="w-64 border-l border-gray-200 bg-white flex-col shrink-0 hidden lg:flex">
-                    <div className="p-4 border-b border-gray-100">
+                <aside data-guide="exam-take-navigator" className="w-64 border-l border-slate-200 bg-white flex-col shrink-0 hidden lg:flex">
+                    <div className="p-4 border-b border-slate-100">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em]">Navigator</span>
-                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em]">Navigator</span>
+                            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                                 {answeredCount}/{exam.questions.length}
                             </span>
                         </div>
@@ -1335,7 +1404,7 @@ const TakeExamPage: React.FC = () => {
                     <div className="p-4 flex-1 overflow-y-auto space-y-5">
                         {hasMultipleSections && (
                             <div className="space-y-2">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Section Flow</span>
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Section Flow</span>
                                 {sectionGroups.map((sectionItem, sectionIndex) => {
                                     const isActive = sectionIndex === currentSectionIndex;
                                     const icon = sectionItem.isComplete
@@ -1353,15 +1422,15 @@ const TakeExamPage: React.FC = () => {
                                                     ? 'border-primary/20 bg-primary/5'
                                                     : sectionItem.isComplete
                                                         ? 'border-emerald-100 bg-emerald-50/70'
-                                                        : 'border-gray-100 bg-white hover:bg-gray-50'
+                                                        : 'border-slate-100 bg-white hover:bg-slate-50'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
-                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
                                                     {icon}
-                                                    <span className="truncate text-[11px] font-bold">{sectionItem.name}</span>
+                                                    <span className="truncate text-[11px] font-semibold">{sectionItem.name}</span>
                                                 </div>
-                                                <span className={`shrink-0 text-[10px] font-black ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                <span className={`shrink-0 text-xs font-semibold ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
                                                     {sectionItem.answered}/{sectionItem.total}
                                                 </span>
                                             </div>
@@ -1372,10 +1441,10 @@ const TakeExamPage: React.FC = () => {
                             </div>
                         )}
 
-                        <div className={`${hasMultipleSections ? 'pt-3 border-t border-gray-100' : ''} space-y-3`}>
+                        <div className={`${hasMultipleSections ? 'pt-3 border-t border-slate-100' : ''} space-y-3`}>
                             <div>
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Current Section</span>
-                                <p className="mt-1 text-xs font-bold text-gray-800 truncate">{currentSectionName}</p>
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Current Section</span>
+                                <p className="mt-1 text-xs font-semibold text-slate-800 truncate">{currentSectionName}</p>
                             </div>
                             <div className="grid grid-cols-5 gap-1.5">
                                 {currentSectionQuestionIndexes.map((questionIndex, sectionQuestionIndex) => {
@@ -1388,12 +1457,12 @@ const TakeExamPage: React.FC = () => {
                                             key={question.id}
                                             onClick={() => setCurrentIndex(questionIndex)}
                                             title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}`}
-                                            className={`h-9 rounded-lg text-[11px] font-bold transition-all duration-150 ${
+                                            className={`h-9 rounded-lg text-[11px] font-semibold transition-all duration-150 ${
                                                 isCurrent
                                                     ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
                                                     : isAnswered
                                                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                        : 'bg-gray-50 text-gray-400 border border-gray-200 hover:bg-gray-100 hover:text-gray-600'
+                                                        : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100 hover:text-slate-600'
                                             }`}
                                         >
                                             {sectionQuestionIndex + 1}
@@ -1401,21 +1470,21 @@ const TakeExamPage: React.FC = () => {
                                     );
                                 })}
                             </div>
-                            <div className="flex items-center gap-3 text-[10px] font-semibold text-gray-400">
+                            <div className="flex items-center gap-3 text-xs font-semibold text-slate-400">
                                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
                                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-100 border border-gray-200 inline-block" />Open</span>
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-100 border border-slate-200 inline-block" />Open</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-4 border-t border-gray-100">
+                    <div className="p-4 border-t border-slate-100">
                         <Button
                             data-guide="exam-take-submit-btn"
                             onClick={handleSubmitClick}
                             disabled={isSubmitting}
                             size="sm"
-                            className="w-full h-8 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
+                            className="w-full h-8 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
                         >
                             <Send size={12} />
                             Submit Exam
@@ -1426,9 +1495,9 @@ const TakeExamPage: React.FC = () => {
 
             <Dialog open={isMobileNavigatorOpen} onOpenChange={setIsMobileNavigatorOpen}>
                 <DialogContent className="max-w-[94vw] sm:max-w-md rounded-xl p-0 overflow-hidden gap-0 lg:hidden">
-                    <DialogHeader className="px-4 pt-4 pb-3 border-b border-gray-100">
-                        <DialogTitle className="text-sm font-bold text-gray-900">Section Navigator</DialogTitle>
-                        <DialogDescription className="text-xs text-gray-500">
+                    <DialogHeader className="px-4 pt-4 pb-3 border-b border-slate-100">
+                        <DialogTitle className="text-sm font-semibold text-slate-900">Section Navigator</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
                             {currentSectionName}: {currentSectionAnsweredCount} of {currentSectionTotal} answered
                         </DialogDescription>
                     </DialogHeader>
@@ -1438,7 +1507,7 @@ const TakeExamPage: React.FC = () => {
 
                         {hasMultipleSections && (
                             <div className="space-y-1.5">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Section Flow</span>
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Section Flow</span>
                                 {sectionGroups.map((sectionItem, sectionIndex) => {
                                     const isActive = sectionIndex === currentSectionIndex;
                                     const icon = sectionItem.isComplete
@@ -1459,15 +1528,15 @@ const TakeExamPage: React.FC = () => {
                                                     ? 'border-primary/20 bg-primary/5'
                                                     : sectionItem.isComplete
                                                         ? 'border-emerald-100 bg-emerald-50/70'
-                                                        : 'border-gray-100 bg-white hover:bg-gray-50'
+                                                        : 'border-slate-100 bg-white hover:bg-slate-50'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
-                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
                                                     {icon}
-                                                    <span className="truncate text-[11px] font-bold">{sectionItem.name}</span>
+                                                    <span className="truncate text-[11px] font-semibold">{sectionItem.name}</span>
                                                 </div>
-                                                <span className={`shrink-0 text-[10px] font-black ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                                <span className={`shrink-0 text-xs font-semibold ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
                                                     {sectionItem.answered}/{sectionItem.total}
                                                 </span>
                                             </div>
@@ -1477,8 +1546,8 @@ const TakeExamPage: React.FC = () => {
                             </div>
                         )}
 
-                        <div className={`${hasMultipleSections ? 'pt-2 border-t border-gray-100' : ''} space-y-2`}>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] block">Current Section</span>
+                        <div className={`${hasMultipleSections ? 'pt-2 border-t border-slate-100' : ''} space-y-2`}>
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Current Section</span>
                             <div className="grid grid-cols-5 gap-2">
                                 {currentSectionQuestionIndexes.map((questionIndex, sectionQuestionIndex) => {
                                     const question = exam.questions[questionIndex];
@@ -1493,12 +1562,12 @@ const TakeExamPage: React.FC = () => {
                                                 setIsMobileNavigatorOpen(false);
                                             }}
                                             title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}`}
-                                            className={`h-9 rounded-md text-xs font-bold transition-all duration-150 ${
+                                            className={`h-9 rounded-md text-xs font-semibold transition-all duration-150 ${
                                                 isCurrent
                                                     ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
                                                     : isAnswered
                                                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                        : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
+                                                        : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100'
                                             }`}
                                         >
                                             {sectionQuestionIndex + 1}
@@ -1513,7 +1582,7 @@ const TakeExamPage: React.FC = () => {
                         <Button
                             onClick={handleSubmitClick}
                             disabled={isSubmitting}
-                            className="w-full h-9 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
+                            className="w-full h-9 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
                         >
                             <Send size={12} />
                             Submit Exam
@@ -1533,9 +1602,9 @@ const TakeExamPage: React.FC = () => {
                 }}
             >
                 <DialogContent className="max-w-sm rounded-xl p-0 overflow-hidden gap-0">
-                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-gray-100">
-                        <DialogTitle className="text-sm font-bold text-gray-900">Leave this exam?</DialogTitle>
-                        <DialogDescription className="text-xs text-gray-500 mt-1">
+                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
+                        <DialogTitle className="text-sm font-semibold text-slate-900">Leave this exam?</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500 mt-1">
                             You have an exam in progress. If you leave, your work may be interrupted.
                         </DialogDescription>
                     </DialogHeader>
@@ -1549,7 +1618,7 @@ const TakeExamPage: React.FC = () => {
                                 pendingNavigationTypeRef.current = null;
                                 setShowLeaveConfirm(false);
                             }}
-                            className="flex-1 h-8 text-xs font-semibold rounded-lg border-gray-200"
+                            className="flex-1 h-8 text-xs font-semibold rounded-lg border-slate-200"
                         >
                             Stay on Exam
                         </Button>
@@ -1569,7 +1638,7 @@ const TakeExamPage: React.FC = () => {
                                     navigate(pendingPath);
                                 }
                             }}
-                            className="flex-1 h-8 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            className="flex-1 h-8 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white"
                         >
                             Leave Page
                         </Button>
@@ -1580,9 +1649,9 @@ const TakeExamPage: React.FC = () => {
             {/* Submit Confirmation Dialog */}
             <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
                 <DialogContent className="max-w-sm rounded-xl p-0 overflow-hidden gap-0">
-                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-gray-100">
-                        <DialogTitle className="text-sm font-bold text-gray-900">Submit Exam?</DialogTitle>
-                        <DialogDescription className="text-xs text-gray-500 mt-1">
+                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
+                        <DialogTitle className="text-sm font-semibold text-slate-900">Submit Exam?</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500 mt-1">
                             {answeredCount} of {exam.questions.length} questions answered.
                         </DialogDescription>
                     </DialogHeader>
@@ -1591,22 +1660,22 @@ const TakeExamPage: React.FC = () => {
                         {/* Stats row */}
                         <div className="grid grid-cols-3 gap-2">
                             <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-center">
-                                <p className="text-lg font-black text-emerald-700">{answeredCount}</p>
-                                <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wide">Answered</p>
+                                <p className="text-lg font-semibold text-emerald-700">{answeredCount}</p>
+                                <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Answered</p>
                             </div>
                             <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-center">
-                                <p className="text-lg font-black text-amber-700">{skippedQuestions.length}</p>
-                                <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Skipped</p>
+                                <p className="text-lg font-semibold text-amber-700">{skippedQuestions.length}</p>
+                                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Skipped</p>
                             </div>
-                            <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-center">
-                                <p className="text-lg font-black text-gray-700">{exam.questions.length}</p>
-                                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Total</p>
+                            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-center">
+                                <p className="text-lg font-semibold text-slate-700">{exam.questions.length}</p>
+                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</p>
                             </div>
                         </div>
 
                         {skippedQuestions.length > 0 && (
                             <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
-                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-2">Unanswered Questions</p>
+                                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Unanswered Questions</p>
                                 <div className="flex flex-wrap gap-1.5">
                                     {skippedQuestions.map(({ idx }) => (
                                         <button
@@ -1615,13 +1684,13 @@ const TakeExamPage: React.FC = () => {
                                                 setShowConfirm(false);
                                                 setCurrentIndex(idx);
                                             }}
-                                            className="w-7 h-7 rounded-md bg-white border border-amber-200 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+                                            className="w-7 h-7 rounded-md bg-white border border-amber-200 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
                                         >
                                             {questionNumberById.get(exam.questions[idx].id) || idx + 1}
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-[10px] text-amber-600 mt-2 font-medium">Click a number to go back to that question.</p>
+                                <p className="text-xs text-amber-600 mt-2 font-medium">Click a number to go back to that question.</p>
                             </div>
                         )}
                     </div>
@@ -1631,7 +1700,7 @@ const TakeExamPage: React.FC = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => setShowConfirm(false)}
-                            className="flex-1 h-8 text-xs font-semibold rounded-lg border-gray-200"
+                            className="flex-1 h-8 text-xs font-semibold rounded-lg border-slate-200"
                         >
                             Go Back
                         </Button>
@@ -1639,7 +1708,7 @@ const TakeExamPage: React.FC = () => {
                             size="sm"
                             onClick={() => { setShowConfirm(false); handleFinish(false); }}
                             disabled={isSubmitting}
-                            className="flex-1 h-8 text-xs font-bold rounded-lg bg-primary hover:bg-primary/90 text-white gap-1.5"
+                            className="flex-1 h-8 text-xs font-semibold rounded-lg bg-primary hover:bg-primary/90 text-white gap-1.5"
                         >
                             <Send size={11} /> Confirm Submit
                         </Button>

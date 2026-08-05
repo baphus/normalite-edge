@@ -2,21 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft,
-    Calendar,
-    CheckCircle2,
-    Clock,
-    Grid2X2,
-    Layers,
     Play,
     RotateCcw,
     TrendingUp,
-    Users,
-    UserRound,
 } from 'lucide-react';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StatusPill, type StatusTone } from '@/components/manage/StatusPill';
+import { CollectionEmpty } from '@/components/manage/CollectionState';
+import { formatDateTime } from '@/lib/formatters';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ExamTrack {
@@ -73,30 +69,48 @@ interface AttemptItem {
     };
 }
 
-const formatDate = (value?: string | null) => {
-    if (!value) return 'N/A';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return 'N/A';
-    return d.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
-
-const getAvatarFallback = (name?: string) => {
+/**
+ * Local initials fallback for the attempt avatars. Previously the page shipped
+ * `ui-avatars.com` URLs to a third party whenever a student had no uploaded
+ * picture — a privacy leak the design system §10 forbids. Initials are derived
+ * locally, styled with the same neutral-maroon recipe the sidebar uses.
+ */
+const getAvatarInitials = (name?: string) => {
     const cleaned = (name || '').trim();
     if (!cleaned) return 'U';
-    const parts = cleaned.split(' ').filter(Boolean);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] || '';
+    const second = parts.length > 1 ? parts[1][0] : parts[0]?.[1];
+    return `${first}${second || ''}`.toUpperCase();
 };
 
-const getAvatarUrl = (name?: string, explicit?: string | null) => {
-    if (explicit) return explicit;
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random&rounded=true`;
+const STATUS_TONE: Record<string, StatusTone> = {
+    LIVE: 'live',
+    PUBLISHED: 'live',
+    DRAFT: 'draft',
+    CLOSED: 'closed',
+    ARCHIVED: 'archived',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+    LIVE: 'Live',
+    PUBLISHED: 'Published',
+    DRAFT: 'Draft',
+    CLOSED: 'Closed',
+    ARCHIVED: 'Archived',
+};
+
+const BackToExams: React.FC = () => {
+    const navigate = useNavigate();
+    return (
+        <button
+            type="button"
+            onClick={() => navigate('/exams')}
+            className="inline-flex w-fit items-center gap-1 rounded text-[12px] text-slate-500 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+        >
+            <ArrowLeft size={12} aria-hidden="true" /> Exams
+        </button>
+    );
 };
 
 const RevieweeExamViewPage: React.FC = () => {
@@ -199,270 +213,233 @@ const RevieweeExamViewPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex flex-col gap-3 font-lexend pb-6">
-                <Card className="rounded-lg border-gray-100 bg-white">
-                    <CardContent className="p-4 text-xs font-semibold text-gray-500">
-                        Loading exam details...
-                    </CardContent>
-                </Card>
+            <div className="flex flex-col gap-3 pb-6 font-lexend">
+                <BackToExams />
+                <div className="flex flex-col gap-2">
+                    <Skeleton className="h-5 w-72" />
+                    <Skeleton className="h-3 w-64" />
+                </div>
+                <Skeleton className="h-9 w-80 rounded-lg" />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <Skeleton key={index} className="h-[92px] rounded-xl" />
+                    ))}
+                </div>
+                <span className="sr-only" role="status">Loading exam…</span>
             </div>
         );
     }
 
+    if (error || !exam) {
+        return (
+            <div className="flex flex-col gap-3 pb-6 font-lexend">
+                {/* The header is not rendered on this branch, so the only route
+                    back would otherwise be the sidebar. */}
+                <BackToExams />
+                <CollectionEmpty
+                    filtersActive={false}
+                    emptyTitle={error || 'Exam not found'}
+                    emptyDescription={
+                        error
+                            ? 'Check your connection and try again.'
+                            : 'This exam may have been removed.'
+                    }
+                />
+            </div>
+        );
+    }
+
+    const status = exam.status || 'DRAFT';
+
     return (
-        <div className="flex flex-col gap-3 font-lexend pb-6">
+        <div className="flex flex-col gap-3 pb-6 font-lexend">
             {/* Header */}
-            <header data-guide="exam-preview-header" className="flex items-start gap-2.5 sm:items-center">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-md"
-                    onClick={() => navigate('/exams')}
-                >
-                    <ArrowLeft size={15} />
-                </Button>
-                <div>
-                    <h1 className="text-base font-bold text-gray-900 tracking-tight">Exam Details</h1>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                        Review exam information before taking it.
-                    </p>
+            <header data-guide="exam-preview-header" className="flex flex-col gap-2">
+                <nav aria-label="Breadcrumb">
+                    <ol className="flex items-center gap-1.5 text-[12px] text-slate-500">
+                        <li>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/exams')}
+                                className="inline-flex items-center gap-1 rounded transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+                            >
+                                <ArrowLeft size={12} aria-hidden="true" /> Exams
+                            </button>
+                        </li>
+                        <li aria-hidden="true" className="text-slate-300">/</li>
+                        <li className="truncate text-slate-500">Exam details</li>
+                    </ol>
+                </nav>
+
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">
+                            {exam.title || 'Untitled exam'}
+                        </h1>
+                        <StatusPill
+                            tone={STATUS_TONE[status] || 'neutral'}
+                            label={STATUS_LABEL[status] || 'Unknown'}
+                        />
+                        {hasSubmitted && (
+                            <StatusPill tone="success" label="Submitted" />
+                        )}
+                        {hasInProgress && !hasSubmitted && (
+                            <StatusPill tone="pending" label="In progress" />
+                        )}
+                    </div>
                 </div>
+
+                <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-slate-500">
+                    <div className="flex items-baseline gap-1">
+                        <dt className="text-slate-400">Questions</dt>
+                        <dd className="font-semibold tabular-nums text-slate-700">{questionCount}</dd>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <dt className="text-slate-400">Duration</dt>
+                        <dd className="font-semibold text-slate-700">
+                            {Number(exam.timeLimit || exam.duration || 0)} min
+                        </dd>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <dt className="text-slate-400">Max attempts</dt>
+                        <dd className="font-semibold text-slate-700">{exam.maxAttempts ?? 1}</dd>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <dt className="text-slate-400">Deadline</dt>
+                        <dd className="font-semibold text-slate-700">
+                            {formatDateTime(exam.deadline || exam.scheduledDate, '—')}
+                        </dd>
+                    </div>
+                </dl>
+
+                <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-slate-500">
+                    <div className="flex items-baseline gap-1">
+                        <dt className="text-slate-400">Sections</dt>
+                        <dd className="font-semibold text-slate-700">{sectionsLabel}</dd>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <dt className="text-slate-400">Visible to</dt>
+                        <dd className="font-semibold text-slate-700">{visibleToLabel}</dd>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <dt className="text-slate-400">Author</dt>
+                        <dd className="font-semibold text-slate-700">{creatorName}</dd>
+                    </div>
+                </dl>
             </header>
 
-            {error ? (
-                <Card className="rounded-lg border-red-100 bg-red-50/40">
-                    <CardContent className="p-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs font-semibold text-red-700">{error}</p>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate('/exams')}
-                            className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50"
-                        >
-                            Back to Exams
-                        </Button>
-                    </CardContent>
-                </Card>
-            ) : !exam ? (
-                <Card className="rounded-lg border-gray-100 bg-white">
-                    <CardContent className="p-4 text-xs font-semibold text-gray-500">
-                        Exam not found.
-                    </CardContent>
-                </Card>
-            ) : (
-                <>
-                    {/* Exam Metadata */}
-                    <Card data-guide="exam-preview-metadata" className="rounded-lg border-gray-100 bg-white">
-                        <CardContent className="p-5 space-y-4">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] uppercase tracking-widest">
-                                    {exam.category || 'No Category'}
-                                </Badge>
-                                <Badge
-                                    variant="outline"
-                                    className={`font-black text-[10px] uppercase tracking-widest ${
-                                        exam.status === 'LIVE' || exam.status === 'PUBLISHED'
-                                            ? 'border-green-200 text-green-700 bg-green-50'
-                                            : exam.status === 'DRAFT'
-                                            ? 'border-amber-200 text-amber-700 bg-amber-50'
-                                            : exam.status === 'CLOSED'
-                                            ? 'border-red-200 text-red-700 bg-red-50'
-                                            : 'border-gray-200 text-gray-700 bg-gray-50'
-                                    }`}
-                                >
-                                    {exam.status || 'UNKNOWN'}
-                                </Badge>
-                                {hasSubmitted && (
-                                    <Badge className="bg-green-50 text-green-700 border-none font-black text-[10px] uppercase tracking-widest">
-                                        <span className="w-1.5 h-1.5 rounded-full mr-1 bg-green-600" />
-                                        Submitted
-                                    </Badge>
-                                )}
-                                {hasInProgress && !hasSubmitted && (
-                                    <Badge className="bg-amber-50 text-amber-700 border-none font-black text-[10px] uppercase tracking-widest">
-                                        <span className="w-1.5 h-1.5 rounded-full mr-1 bg-amber-500" />
-                                        In Progress
-                                    </Badge>
-                                )}
-                            </div>
-
-                            <div>
-                                <h2 className="text-sm font-bold text-gray-900 tracking-tight">
-                                    {exam.title || 'Untitled Exam'}
-                                </h2>
-                                <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                    {exam.description || 'No description provided.'}
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Grid2X2 size={12} /> Questions
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{questionCount}</p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Clock size={12} /> Duration
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">
-                                        {Number(exam.timeLimit || exam.duration || 0)} min
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <CheckCircle2 size={12} /> Max Attempts
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">
-                                        {exam.maxAttempts ?? 1}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Calendar size={12} /> Deadline
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">
-                                        {formatDate(exam.deadline || exam.scheduledDate)}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Layers size={12} /> Sections
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1 line-clamp-2">
-                                        {sectionsLabel}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Users size={12} /> Visible To
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1 line-clamp-2">
-                                        {visibleToLabel}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-gray-100 p-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                        <UserRound size={12} /> Author
-                                    </p>
-                                    <p className="text-sm font-black text-gray-900 mt-1">{creatorName}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Recent Submitters — no scores */}
-                    <Card data-guide="exam-preview-social-proof" className="rounded-lg border-gray-100 bg-white">
-                        <CardContent className="p-4 space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                                    Students Recently Submitted
-                                </h3>
-                                <Badge
-                                    variant="outline"
-                                    className="font-black text-[10px] uppercase tracking-widest"
-                                >
-                                    {submittedCount} submission{submittedCount !== 1 ? 's' : ''}
-                                </Badge>
-                            </div>
-
-                            {recentSubmitters.length === 0 ? (
-                                <p className="text-sm font-semibold text-gray-500">
-                                    No submitted attempts yet.
-                                </p>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                    {recentSubmitters.map((student) => (
-                                        <div
-                                            key={student.id}
-                                            className="rounded-xl border border-gray-100 p-3 flex items-center gap-3"
-                                        >
-                                            <Avatar className="h-9 w-9 shrink-0">
-                                                <AvatarImage
-                                                    src={getAvatarUrl(student.name, student.profilePicture)}
-                                                    alt={student.name}
-                                                />
-                                                <AvatarFallback className="font-black text-xs">
-                                                    {getAvatarFallback(student.name)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-black text-gray-900 truncate">
-                                                    {student.name}
-                                                </p>
-                                                <p className="text-xs text-gray-500 font-medium truncate">
-                                                    {student.email}
-                                                </p>
-                                                <p className="text-[11px] text-gray-400 font-semibold truncate">
-                                                    {student.programTrack || 'N/A'} &bull;{' '}
-                                                    {formatDate(student.submittedAt)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Action Footer */}
-                    <Card data-guide="exam-preview-actions" className="rounded-lg border-gray-100 bg-white">
-                        <CardContent className="p-4 flex items-center justify-between gap-4">
-                            <p className="text-xs font-semibold text-gray-500">
-                                {hasSubmitted
-                                    ? 'You have already submitted this exam.'
-                                    : hasInProgress
-                                    ? 'You have an exam in progress — resume from where you left off.'
-                                    : canTake
-                                    ? "You've reviewed the details. Ready to take the exam?"
-                                    : 'This exam is not currently available.'}
-                            </p>
-                            <div className="flex items-center gap-2 shrink-0">
-                                <Button
-                                    variant="outline"
-                                    className="h-8 rounded-md border-gray-200 font-semibold text-xs"
-                                    onClick={() => navigate('/exams')}
-                                >
-                                    Back
-                                </Button>
-                                {hasSubmitted ? (
-                                    <Button
-                                        className="h-8 rounded-md bg-green-600 hover:bg-green-700 text-white font-semibold text-xs gap-1.5"
-                                        onClick={() =>
-                                            navigate(
-                                                `/exams/${exam.id}/result${
-                                                    exam.latestSubmittedAttemptId
-                                                        ? `?attemptId=${exam.latestSubmittedAttemptId}`
-                                                        : ''
-                                                }`
-                                            )
-                                        }
-                                    >
-                                        <TrendingUp size={13} /> View Result
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        data-guide="exam-preview-start-btn"
-                                        className="h-8 rounded-md bg-primary hover:bg-primary/90 text-white font-semibold text-xs gap-1.5"
-                                        disabled={!canTake}
-                                        onClick={() => navigate(`/exams/${exam.id}/take`)}
-                                    >
-                                        {hasInProgress ? (
-                                            <><RotateCcw size={13} /> Resume Exam</>
-                                        ) : (
-                                            <><Play size={13} fill="currentColor" /> Take Exam</>
-                                        )}
-                                    </Button>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </>
+            {/* Description */}
+            {exam.description && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                        Description
+                    </p>
+                    <p className="mt-1.5 text-[13px] leading-relaxed text-slate-700">{exam.description}</p>
+                </div>
             )}
+
+            {/* Recent Submitters — no scores */}
+            <Card data-guide="exam-preview-social-proof" className="rounded-xl border-slate-200 bg-white">
+                <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                            Students recently submitted
+                        </h2>
+                        <span className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 tabular-nums">
+                            {submittedCount} submission{submittedCount !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+
+                    {recentSubmitters.length === 0 ? (
+                        <p className="text-[13px] font-medium text-slate-500">No submitted attempts yet.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {recentSubmitters.map((student) => (
+                                <div
+                                    key={student.id}
+                                    className="rounded-xl border border-slate-200 p-3 flex items-center gap-3"
+                                >
+                                    <Avatar className="h-9 w-9 shrink-0">
+                                        {student.profilePicture && (
+                                            <AvatarImage
+                                                src={student.profilePicture}
+                                                alt={student.name || 'Student avatar'}
+                                            />
+                                        )}
+                                        <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
+                                            {getAvatarInitials(student.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                        <p className="text-[13px] font-semibold text-slate-900 truncate">
+                                            {student.name}
+                                        </p>
+                                        <p className="text-[12px] text-slate-500 truncate">{student.email}</p>
+                                        <p className="text-[11px] text-slate-400 truncate">
+                                            {student.programTrack || 'N/A'} &bull;{' '}
+                                            {formatDateTime(student.submittedAt, '—')}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Action Footer */}
+            <div
+                data-guide="exam-preview-actions"
+                className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4"
+            >
+                <p className="text-[12px] font-medium text-slate-500">
+                    {hasSubmitted
+                        ? 'You have already submitted this exam.'
+                        : hasInProgress
+                        ? 'You have an exam in progress — resume from where you left off.'
+                        : canTake
+                        ? "You've reviewed the details. Ready to take the exam?"
+                        : 'This exam is not currently available.'}
+                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                        variant="outline"
+                        className="h-8 rounded-lg border-slate-200 bg-white text-[12px] font-semibold text-slate-700"
+                        onClick={() => navigate('/exams')}
+                    >
+                        Back
+                    </Button>
+                    {hasSubmitted ? (
+                        <Button
+                            className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                            onClick={() =>
+                                navigate(
+                                    `/exams/${exam.id}/result${
+                                        exam.latestSubmittedAttemptId
+                                            ? `?attemptId=${exam.latestSubmittedAttemptId}`
+                                            : ''
+                                    }`
+                                )
+                            }
+                        >
+                            <TrendingUp size={13} aria-hidden="true" /> View Result
+                        </Button>
+                    ) : (
+                        <Button
+                            data-guide="exam-preview-start-btn"
+                            className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                            disabled={!canTake}
+                            onClick={() => navigate(`/exams/${exam.id}/take`)}
+                        >
+                            {hasInProgress ? (
+                                <><RotateCcw size={13} aria-hidden="true" /> Resume Exam</>
+                            ) : (
+                                <><Play size={13} fill="currentColor" aria-hidden="true" /> Take Exam</>
+                            )}
+                        </Button>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

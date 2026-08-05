@@ -78,6 +78,18 @@
   }
 }
 
+/* User-driven reduced motion: applied to <html> by MotionProvider when the
+   Settings → Preferences "Reduced motion" option is set to On (or the system
+   preference is active and the option is "Follow system"). */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 body {
   @apply bg-background text-foreground;
   font-family: 'Lexend', 'Noto Sans', sans-serif;

@@ -20,7 +20,8 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "types": [
-      "vite/client"
+      "vite/client",
+      "vitest/globals"
     ],
     /* Linting */
     "strict": true,
@@ -36,6 +37,7 @@
     }
   },
   "include": [
-    "src"
+    "src",
+    "vitest.setup.ts"
   ]
 }
