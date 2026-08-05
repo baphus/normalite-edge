@@ -1,40 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import api from '@/lib/axios';
-import { Button } from '@/components/ui/button';
+import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SectionLabel } from './SectionLabel';
 import type { SubjectAverage } from './types';
 
-type Status = 'loading' | 'ready' | 'error';
+interface StudyProgressStripProps {
+    averages?: SubjectAverage[];
+    loading?: boolean;
+}
 
 /**
- * Horizontal, scrollable strip of recent per-subject progress. Owns its own
- * fetch of GET /dashboard/stats so it can render real skeleton/error states
- * independently of the parent page's stats load.
+ * Horizontal, scrollable strip of recent per-subject progress.
+ * Receives data from the parent dashboard hook — no independent fetch.
  */
-export const StudyProgressStrip: React.FC = () => {
-    const [subjects, setSubjects] = useState<SubjectAverage[]>([]);
-    const [status, setStatus] = useState<Status>('loading');
-    const [reloadKey, setReloadKey] = useState(0);
-
-    useEffect(() => {
-        let cancelled = false;
-        api.get('/dashboard/stats')
-            .then((response) => {
-                if (cancelled) return;
-                const averages = (response.data?.data?.averagesBySubject as SubjectAverage[] | undefined) ?? [];
-                setSubjects(averages);
-                setStatus('ready');
-            })
-            .catch(() => {
-                if (!cancelled) setStatus('error');
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [reloadKey]);
-
-    if (status === 'loading') {
+export const StudyProgressStrip: React.FC<StudyProgressStripProps> = ({ averages, loading }) => {
+    if (loading) {
         return (
             <div>
                 <SectionLabel>Study progress</SectionLabel>
@@ -47,27 +26,7 @@ export const StudyProgressStrip: React.FC = () => {
         );
     }
 
-    if (status === 'error') {
-        return (
-            <div>
-                <SectionLabel>Study progress</SectionLabel>
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <p className="text-sm text-slate-600">We could not load your study progress. Please try again.</p>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-3"
-                        onClick={() => {
-                            setStatus('loading');
-                            setReloadKey((k) => k + 1);
-                        }}
-                    >
-                        Retry
-                    </Button>
-                </div>
-            </div>
-        );
-    }
+    const subjects = averages ?? [];
 
     if (subjects.length === 0) {
         return (

@@ -228,7 +228,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             </section>
 
             {/* ── Study progress strip ───────────────────────────────── */}
-            <StudyProgressStrip />
+            <StudyProgressStrip averages={stats?.averagesBySubject} loading={false} />
 
             {/* ── Daily challenge ────────────────────────────────────── */}
             <DailyChallenge />

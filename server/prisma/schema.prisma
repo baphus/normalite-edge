@@ -123,6 +123,7 @@ model User {
 
   @@index([trackId])
   @@index([campusId])
+  @@index([role])
   @@map("users")
 }
 
@@ -174,6 +175,7 @@ model Exam {
   trackLinks ExamTrack[]
 
   @@index([createdBy, createdAt(sort: Desc)])
+  @@index([status, scheduleStart(sort: Asc)])
   @@map("exams")
 }
 
@@ -419,6 +421,8 @@ model Conference {
 
   host User @relation(fields: [hostId], references: [id])
 
+  @@index([startAt(sort: Desc)])
+  @@index([hostId])
   @@map("conferences")
 }
 

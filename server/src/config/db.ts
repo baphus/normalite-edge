@@ -15,7 +15,7 @@ declare global {
 
 function getPoolConfig() {
     const isProduction = process.env.NODE_ENV === 'production';
-    const max = parseInt(process.env.PRISMA_CONNECTION_LIMIT || (isProduction ? '1' : '5'), 10);
+    const max = parseInt(process.env.PRISMA_CONNECTION_LIMIT || (isProduction ? '3' : '5'), 10);
     const idleTimeoutMillis = parseInt(process.env.PRISMA_POOL_TIMEOUT || (isProduction ? '30' : '20'), 10) * 1000;
 
     return { max, idleTimeoutMillis };
