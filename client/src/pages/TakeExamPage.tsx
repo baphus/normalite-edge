@@ -641,7 +641,7 @@ const TakeExamPage: React.FC = () => {
                 if (payload?.status === 'SUBMITTED') {
                     clearExamStarted();
                     allowNavigationRef.current = true;
-                    navigate(`/exams/${id}/result?attemptId=${payload.id}`, { replace: true });
+                    navigate(`/exams/${id}/result?attemptId=${payload.id}`, { replace: true, state: { justSubmitted: true } });
                     return;
                 }
 
@@ -906,7 +906,7 @@ const TakeExamPage: React.FC = () => {
             clearDraft();
             clearExamStarted();
             allowNavigationRef.current = true;
-            navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`);
+            navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`, { state: { justSubmitted: true } });
         } catch (submitError: unknown) {
             const apiError = submitError as ApiErrorLike;
             const message = apiError?.response?.data?.message || 'Failed to submit exam. Your progress remains saved.';

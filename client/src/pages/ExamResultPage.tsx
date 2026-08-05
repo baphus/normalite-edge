@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -102,7 +102,13 @@ interface ApiErrorLike {
 const ExamResultPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
+    // Confetti should only fire when arriving straight from a submission,
+    // not when revisiting a finished exam's result (ExamsPage, dropdown switches, etc.).
+    const justSubmittedRef = useRef(
+        Boolean((location.state as { justSubmitted?: boolean } | null)?.justSubmitted)
+    );
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
@@ -167,7 +173,10 @@ const ExamResultPage: React.FC = () => {
                 setError(null);
                 const resultResponse = await api.get(`/attempts/${attemptId}/result`);
                 setResult(resultResponse.data.data);
-                setShowConfetti(true);
+                if (justSubmittedRef.current) {
+                    justSubmittedRef.current = false;
+                    setShowConfetti(true);
+                }
             } catch (requestError: unknown) {
                 const apiError = requestError as ApiErrorLike;
                 const message = apiError?.response?.data?.message || apiError?.message || 'Failed to load exam result.';
