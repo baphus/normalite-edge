@@ -38,7 +38,12 @@ const OnboardingPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,#f0fdf4,transparent_38%),radial-gradient(circle_at_top_left,#eff6ff,transparent_40%),#f8fafc] px-6 py-10">
+        <div
+            className="min-h-screen px-6 py-10"
+            style={{
+                background: 'radial-gradient(circle at top right, #f0fdf4, transparent 38%), radial-gradient(circle at top left, #eff6ff, transparent 40%), #f8fafc',
+            }}
+        >
             <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-xl backdrop-blur">
                 <p className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
                     <Rocket size={14} />

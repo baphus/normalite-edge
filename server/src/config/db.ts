@@ -1,3 +1,10 @@
+// Must be the first import: PrismaPg is constructed at module top-level from
+// process.env.DATABASE_URL, and entrypoints like prisma/seed.ts import this
+// module before env.ts ever runs. Without this, the client silently falls back
+// to libpq defaults (OS username as both user and database) when nothing
+// preloaded .env.
+import 'dotenv/config';
+
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
