@@ -153,9 +153,9 @@ export const SettingsCard: React.FC<{ title: string; children: React.ReactNode }
 }) => (
     <section
         aria-label={title}
-        className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white"
+        className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white"
     >
-        <h2 className="bg-slate-50/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+        <h2 className="rounded-t-xl bg-slate-50/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
             {title}
         </h2>
         {children}

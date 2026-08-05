@@ -41,7 +41,7 @@ export const createExamSchema = z.object({
     closeOnDeadline: z.boolean().optional(),
     isPublished: z.boolean().optional(),
     sections: z.array(requiredTrimmedString('Section')).optional(),
-    questions: z.array(examQuestionSchema).min(1, 'At least 1 question is required'),
+    questions: z.array(examQuestionSchema).optional(),
 }).superRefine((data, ctx) => {
     if (data.scheduledDate && data.deadline && new Date(data.deadline) <= new Date(data.scheduledDate)) {
         ctx.addIssue({

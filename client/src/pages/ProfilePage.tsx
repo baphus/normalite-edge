@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     BarChart3,
-    Camera,
     CheckCircle2,
     Clock3,
     Mail,
@@ -23,6 +22,7 @@ import { uploadImageToCloudinary } from '@/lib/upload';
 import { NO_SUFFIX_VALUE, SUFFIX_OPTIONS, YEAR_LEVEL_OPTIONS } from '@/lib/userOptions';
 import { toast } from 'sonner';
 import ImageCropDialog from '@/components/ui/image-crop-dialog';
+import IdentificationCard from '@/components/IdentificationCard';
 
 type ProfilePerformanceStats = {
     totalExamsAnswered: number;
@@ -205,7 +205,6 @@ const ProfilePage: React.FC = () => {
     const [suffix, setSuffix] = useState('');
     const [email, setEmail] = useState('');
     const [picture, setPicture] = useState<string>('');
-    const [imgError, setImgError] = useState(false);
     const [trackId, setTrackId] = useState('');
     const [campusId, setCampusId] = useState('');
     const [yearLevel, setYearLevel] = useState('');
@@ -224,7 +223,6 @@ const ProfilePage: React.FC = () => {
     const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
     const [showCropDialog, setShowCropDialog] = useState(false);
 
-    const profileImageInputRef = useRef<HTMLInputElement | null>(null);
     const isReviewee = user?.role === 'REVIEWEE';
     const isReviewer = user?.role === 'REVIEWER';
     const canEditCampus = isReviewee || isReviewer;
@@ -239,7 +237,6 @@ const ProfilePage: React.FC = () => {
         setSuffix(user?.suffix || '');
         setEmail(user?.email || '');
         setPicture(user?.picture || '');
-        setImgError(false);
         setTrackId(user?.track_id || '');
         setCampusId(user?.campus_id || '');
         setYearLevel(user?.yearLevel || '');
@@ -347,16 +344,6 @@ const ProfilePage: React.FC = () => {
         suffix,
     });
 
-    const userInitials = useMemo(
-        () => displayName
-            .split(' ')
-            .filter(Boolean)
-            .map((part) => part.charAt(0).toUpperCase())
-            .join('')
-            .slice(0, 2),
-        [displayName]
-    );
-
     const handleProfilePictureSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = '';
@@ -408,7 +395,6 @@ const ProfilePage: React.FC = () => {
         setSuffix(user?.suffix || '');
         setEmail(user?.email || '');
         setPicture(user?.picture || '');
-        setImgError(false);
         setTrackId(user?.track_id || '');
         setCampusId(user?.campus_id || '');
         setYearLevel(user?.yearLevel || '');
@@ -518,118 +504,21 @@ const ProfilePage: React.FC = () => {
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                <Card className="lg:col-span-4 border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
-                    <CardContent className="p-0">
-
-                        {/* ── Header Band ─────────────────────────────── */}
-                        <div className="bg-primary px-4 py-3.5">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <p className="text-[8px] font-medium text-white/60 tracking-[0.2em] uppercase leading-none">Republic of the Philippines</p>
-                                    <p className="text-[15px] font-black text-white tracking-tight leading-tight mt-1">NORMALITE EDGE</p>
-                                    <p className="text-[10px] font-semibold text-white/80 leading-snug mt-0.5">Cebu Normal University</p>
-                                    <p className="text-[8px] font-medium text-white/50 tracking-[0.18em] uppercase mt-2">Student Identification Card</p>
-                                </div>
-                                <div className="border border-white/30 rounded px-2 py-1 shrink-0 mt-0.5">
-                                    <p className="text-[9px] uppercase tracking-wider font-bold text-white">{user?.role || 'Reviewee'}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Body ────────────────────────────────────── */}
-                        <div className="px-4 pt-4 pb-4 space-y-4">
-
-                            {/* Photo + identity */}
-                            <div className="flex gap-4 items-start">
-                                <div className="relative group shrink-0">
-                                    {picture && !imgError ? (
-                                        <img
-                                            src={picture}
-                                            alt="Profile"
-                                            className="h-24 w-18 object-cover border-2 border-primary"
-                                            onError={() => setImgError(true)}
-                                        />
-                                    ) : (
-                                        <div className="h-24 w-18 bg-primary/10 text-primary font-black text-xl flex items-center justify-center border-2 border-primary">
-                                            {userInitials}
-                                        </div>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => profileImageInputRef.current?.click()}
-                                        className="absolute -bottom-2 -right-2 h-6 w-6 border border-gray-200 bg-white text-gray-400 flex items-center justify-center group-hover:text-primary transition-colors shadow-sm"
-                                    >
-                                        <Camera size={12} />
-                                    </button>
-                                </div>
-
-                                <div className="min-w-0 flex-1 space-y-2">
-                                    <div>
-                                        <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-gray-400 leading-none">Name</p>
-                                        <p className="text-sm font-black text-gray-900 break-words leading-snug mt-0.5">{displayName}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-gray-400 leading-none">Email</p>
-                                        <p className="text-[10px] font-medium text-gray-600 break-all leading-snug mt-0.5">{email || '—'}</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => profileImageInputRef.current?.click()}
-                                        disabled={isUploadingPicture}
-                                        className="text-[10px] font-semibold text-primary disabled:opacity-50"
-                                    >
-                                        {isUploadingPicture ? 'Uploading...' : 'Update photo →'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <input
-                                ref={profileImageInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={(event) => {
-                                    void handleProfilePictureSelect(event);
-                                }}
-                                className="hidden"
-                            />
-
-                            {/* Divider */}
-                            <div className="border-t border-dashed border-gray-200" />
-
-                            {/* Info rows */}
-                            <div className="space-y-3">
-                                <div className="flex items-start justify-between gap-3">
-                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Campus</p>
-                                    <p className="text-[11px] font-semibold text-gray-800 text-right leading-snug">{user?.campus || '—'}</p>
-                                </div>
-                                <div className="flex items-start justify-between gap-3">
-                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Track</p>
-                                    <p className="text-[11px] font-semibold text-gray-800 text-right leading-snug">{user?.program || user?.program_track || '—'}</p>
-                                </div>
-                                <div className="flex items-start justify-between gap-3">
-                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Year Level</p>
-                                    <p className="text-[11px] font-semibold text-gray-800 text-right">{user?.yearLevel || '—'}</p>
-                                </div>
-                                <div className="flex items-start justify-between gap-3">
-                                    <p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Section</p>
-                                    <p className="text-[11px] font-semibold text-gray-800 text-right">{user?.section || '—'}</p>
-                                </div>
-                            </div>
-
-                            {/* ID code footer row */}
-                            <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
-                                <p className="font-mono text-[9px] tracking-[0.14em] text-gray-400 uppercase">
-                                    {(user?.id || '00000000').toString().slice(0, 8).toUpperCase()}-NE
-                                </p>
-                                <p className="text-[9px] uppercase tracking-widest font-black text-primary">{new Date().getFullYear()}</p>
-                            </div>
-                        </div>
-
-                        {/* ── Bottom accent stripe ─────────────────────── */}
-                        <div className="h-1.5 bg-primary" />
-
-                    </CardContent>
-                </Card>
+                <IdentificationCard
+                    className="lg:col-span-4"
+                    role={user?.role}
+                    displayName={displayName}
+                    email={email}
+                    picture={picture}
+                    campus={user?.campus || ''}
+                    track={user?.program || user?.program_track || ''}
+                    yearLevel={user?.yearLevel || ''}
+                    section={user?.section || ''}
+                    studentId={user?.studentId || ''}
+                    userId={user?.id}
+                    onPictureChange={handleProfilePictureSelect}
+                    isUploadingPicture={isUploadingPicture}
+                />
 
                 <Card className="lg:col-span-8 border-gray-100 rounded-lg bg-white">
                     <CardHeader className="p-4 pb-2">

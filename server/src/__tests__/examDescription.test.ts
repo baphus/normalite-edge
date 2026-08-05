@@ -61,6 +61,18 @@ describe('exam validator — description', () => {
     });
 });
 
+describe('exam validator - zero-question shell', () => {
+    it('accepts an exam without a questions key, yielding undefined questions', () => {
+        const result = createExamSchema.parse({ title: 'Shell', subject: 'Gen Ed', timeLimit: 60 });
+        assert.equal(result.questions, undefined);
+    });
+
+    it('accepts an explicit empty questions array', () => {
+        const result = createExamSchema.parse({ title: 'Shell', subject: 'Gen Ed', timeLimit: 60, questions: [] });
+        assert.deepEqual(result.questions, []);
+    });
+});
+
 describe('exam validator - schedule', () => {
     it('rejects a close time at or before the opening time', () => {
         assert.throws(() => createExamSchema.parse({

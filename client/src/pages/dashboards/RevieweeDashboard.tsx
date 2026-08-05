@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowRight,
     BookOpen,
+    CalendarClock,
     CheckCircle2,
     ClipboardList,
     Clock,
@@ -96,6 +97,15 @@ interface RevieweeDashboardProps {
         totalExamsAvailable?: number;
         upcomingSessions?: UpcomingSession[];
         recentAttempts?: RecentAttempt[];
+        upcomingExams?: {
+            id: string;
+            title: string;
+            subject: string | null;
+            scheduleStart: string;
+            scheduleEnd: string | null;
+            programTrack: string | null;
+            status: string;
+        }[];
     } | null;
 }
 
@@ -402,6 +412,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const programTrack = user?.program_track || user?.programTrack || user?.program || user?.major || 'Program track not set';
     const upcomingSessions = stats?.upcomingSessions || [];
     const recentAttempts = stats?.recentAttempts || [];
+    const upcomingExams = stats?.upcomingExams || [];
     const today = new Date();
 
     const [dailyQuestion, setDailyQuestion] = useState<DailyQuestion | null>(null);
@@ -447,6 +458,17 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
         }
         return `${start.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+    };
+
+    const formatDateTime = (dateValue: string) => {
+        const date = new Date(dateValue);
+        if (Number.isNaN(date.getTime())) return 'TBD';
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
     };
 
     const isTodaySession = (startAt: string) => {
@@ -967,6 +989,65 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
 
                 {/* ── Sidebar ──────────────────────────────────────── */}
                 <div data-guide="dashboard-side-panel" className="flex flex-col gap-4 lg:gap-5">
+                    {/* Upcoming Exams */}
+                    <div>
+                        <SectionLabel
+                            action={
+                                <Link to="/exams" className="font-mono text-[11px] font-semibold text-primary hover:underline">
+                                    View all
+                                </Link>
+                            }
+                        >
+                            <span className="inline-flex items-center gap-1.5">
+                                <CalendarClock className="h-3 w-3 text-emerald-500" /> Upcoming exams
+                            </span>
+                        </SectionLabel>
+                        <Card className="rounded-2xl border-gray-100 shadow-sm">
+                            <CardContent className="divide-y divide-gray-100 p-0">
+                                {upcomingExams.length > 0 ? upcomingExams.slice(0, 5).map((exam) => {
+                                    const rawSubject = exam.subject;
+                                    const subjectLabel = (!rawSubject || rawSubject.toLowerCase() === 'general section')
+                                        ? null
+                                        : rawSubject;
+                                    const accent = subjectLabel ? getSubjectAccent(subjectLabel) : null;
+                                    return (
+                                        <Link
+                                            key={exam.id}
+                                            to={`/exams`}
+                                            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50/70"
+                                        >
+                                            <div className="shrink-0 rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                                                <CalendarClock className="h-3.5 w-3.5" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-semibold text-gray-900">{exam.title}</p>
+                                                <div className="mt-0.5 flex items-center gap-1.5">
+                                                    {subjectLabel && accent && (
+                                                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold ${accent.bg} ${accent.text}`}>
+                                                            {subjectLabel}
+                                                        </span>
+                                                    )}
+                                                    <span className="truncate font-mono text-[11px] text-gray-500">
+                                                        {formatDateTime(exam.scheduleStart)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    );
+                                }) : (
+                                    <div className="px-4 py-6 text-center">
+                                        <p className="text-xs font-medium text-gray-400">No upcoming exams</p>
+                                        <Link to="/exams">
+                                            <Button variant="outline" size="sm" className="mt-2 h-8 rounded-lg text-[11px] font-semibold">
+                                                Browse exams
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
                     {/* Upcoming conferences */}
                     <div>
                         <SectionLabel

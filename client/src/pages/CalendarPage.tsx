@@ -25,6 +25,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { ExamScheduleDialog } from '@/components/calendar/ExamScheduleDialog';
+import { PROGRAM_TRACKS } from '@/components/calendar/programTracks';
+import {
     Sheet,
     SheetContent,
     SheetHeader,
@@ -63,16 +71,7 @@ interface CalendarEvent {
 /* Conference wizard types (mirrors VideoConferencePage)                       */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-const PROGRAM_TRACKS = [
-    { id: 'BEED', label: 'BEED' },
-    { id: 'BSED-English', label: 'BSED – English' },
-    { id: 'BSED-Math', label: 'BSED – Math' },
-    { id: 'BSED-Science', label: 'BSED – Science' },
-    { id: 'BSED-Filipino', label: 'BSED – Filipino' },
-    { id: 'BSED-Social Studies', label: 'BSED – Social Studies' },
-    { id: 'BSED-TLE', label: 'BSED – TLE' },
-    { id: 'BSED-MAPEH', label: 'BSED – MAPEH' },
-];
+/* PROGRAM_TRACKS is imported from ExamScheduleDialog */
 
 const WIZARD_STEPS = [
     { id: 1, label: 'Date', icon: CalendarDays },
@@ -345,6 +344,13 @@ const CalendarPage: React.FC = () => {
     const [wizardErrors, setWizardErrors] = useState<Record<string, string>>({});
     const [wizardSaving, setWizardSaving] = useState(false);
 
+    // Exam dialog
+    const [examDialogDate, setExamDialogDate] = useState<Date | null>(null);
+
+    const openNewExam = (date?: Date) => {
+        setExamDialogDate(date ?? null);
+    };
+
     // Edit/delete conference
     const [editingConferenceId, setEditingConferenceId] = useState<string | null>(null);
     const [deleteConferenceId, setDeleteConferenceId] = useState<string | null>(null);
@@ -595,14 +601,24 @@ const CalendarPage: React.FC = () => {
                         ))}
                     </div>
                     {canManage && (
-                        <Button
-                            size="sm"
-                            className="h-7 gap-1.5 text-[11px] sm:text-xs font-medium px-2.5 sm:px-3 rounded-lg shadow-sm"
-                            onClick={() => openNewConference()}
-                        >
-                            <Plus size={12} />
-                            Conference
-                        </Button>
+                        <>
+                            <Button
+                                size="sm"
+                                className="h-7 gap-1.5 text-[11px] sm:text-xs font-medium px-2.5 sm:px-3 rounded-lg shadow-sm"
+                                onClick={() => openNewExam()}
+                            >
+                                <Plus size={12} />
+                                Exam
+                            </Button>
+                            <Button
+                                size="sm"
+                                className="h-7 gap-1.5 text-[11px] sm:text-xs font-medium px-2.5 sm:px-3 rounded-lg shadow-sm"
+                                onClick={() => openNewConference()}
+                            >
+                                <Plus size={12} />
+                                Conference
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>
@@ -627,13 +643,29 @@ const CalendarPage: React.FC = () => {
                                     </h1>
                                     <p className="text-[10px] font-semibold text-gray-400">{viewYear}</p>
                                 </div>
-                                <button
-                                    onClick={nextMonth}
-                                    className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                                    aria-label="Next month"
-                                >
-                                    <ChevronRight size={16} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    {canManage && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const dateStr = mobileAgendaDate ?? todayKey;
+                                                const [y, mo, d] = dateStr.split('-').map(Number);
+                                                openNewExam(new Date(y, mo - 1, d));
+                                            }}
+                                            className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/8 transition-colors"
+                                            aria-label="Add exam"
+                                        >
+                                            <Plus size={14} />
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={nextMonth}
+                                        className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                        aria-label="Next month"
+                                    >
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
                             </div>
                             <div className="mt-2 grid grid-cols-7">
                                 {DAYS_OF_WEEK.map((d) => (
@@ -825,17 +857,38 @@ const CalendarPage: React.FC = () => {
                                             {/* Day number row */}
                                             <div className="flex items-center justify-between w-full mb-1">
                                                 {canManage ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            openNewConference(new Date(viewYear, viewMonth - 1, day));
-                                                        }}
-                                                        title="Add conference"
-                                                        className="h-5 w-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/8 transition-all"
-                                                    >
-                                                        <Plus size={11} />
-                                                    </button>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                title="Add event"
+                                                                className="h-5 w-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary hover:bg-primary/8 transition-all"
+                                                                onClick={e => e.stopPropagation()}
+                                                            >
+                                                                <Plus size={11} />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="start" className="w-36">
+                                                            <DropdownMenuItem
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openNewConference(new Date(viewYear, viewMonth - 1, day));
+                                                                }}
+                                                            >
+                                                                <Video size={12} className="mr-1.5" />
+                                                                Conference
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openNewExam(new Date(viewYear, viewMonth - 1, day));
+                                                                }}
+                                                            >
+                                                                <FileText size={12} className="mr-1.5" />
+                                                                Exam
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 ) : <span />}
                                                 <span className={cn(
                                                     'text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full transition-colors',
@@ -1038,19 +1091,34 @@ const CalendarPage: React.FC = () => {
                                 <p className="text-sm font-semibold text-gray-500">Nothing scheduled</p>
                                 <p className="text-xs text-gray-400 mt-1">This day is clear</p>
                                 {canManage && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="mt-5 text-xs rounded-lg"
-                                        onClick={() => {
-                                            if (selectedDate) {
-                                                const [y, mo, d] = selectedDate.split('-').map(Number);
-                                                openNewConference(new Date(y, mo - 1, d));
-                                            }
-                                        }}
-                                    >
-                                        <Plus size={12} className="mr-1.5" /> Schedule Conference
-                                    </Button>
+                                    <div className="flex items-center gap-2 mt-5">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs rounded-lg"
+                                            onClick={() => {
+                                                if (selectedDate) {
+                                                    const [y, mo, d] = selectedDate.split('-').map(Number);
+                                                    openNewExam(new Date(y, mo - 1, d));
+                                                }
+                                            }}
+                                        >
+                                            <Plus size={12} className="mr-1.5" /> Schedule Exam
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs rounded-lg"
+                                            onClick={() => {
+                                                if (selectedDate) {
+                                                    const [y, mo, d] = selectedDate.split('-').map(Number);
+                                                    openNewConference(new Date(y, mo - 1, d));
+                                                }
+                                            }}
+                                        >
+                                            <Plus size={12} className="mr-1.5" /> Schedule Conference
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         ) : (
@@ -1074,23 +1142,46 @@ const CalendarPage: React.FC = () => {
 
                     {canManage && selectedEvents.length > 0 && (
                         <div className="shrink-0 px-4 py-3.5 border-t border-gray-100">
-                            <button
-                                type="button"
-                                className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-gray-300 text-xs font-medium text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/4 transition-all"
-                                onClick={() => {
-                                    if (selectedDate) {
-                                        const [y, mo, d] = selectedDate.split('-').map(Number);
-                                        openNewConference(new Date(y, mo - 1, d));
-                                        setSelectedDate(null);
-                                    }
-                                }}
-                            >
-                                <Plus size={12} /> Add Conference
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-gray-300 text-xs font-medium text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/4 transition-all"
+                                    onClick={() => {
+                                        if (selectedDate) {
+                                            const [y, mo, d] = selectedDate.split('-').map(Number);
+                                            openNewExam(new Date(y, mo - 1, d));
+                                            setSelectedDate(null);
+                                        }
+                                    }}
+                                >
+                                    <Plus size={12} /> Add Exam
+                                </button>
+                                <button
+                                    type="button"
+                                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-gray-300 text-xs font-medium text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/4 transition-all"
+                                    onClick={() => {
+                                        if (selectedDate) {
+                                            const [y, mo, d] = selectedDate.split('-').map(Number);
+                                            openNewConference(new Date(y, mo - 1, d));
+                                            setSelectedDate(null);
+                                        }
+                                    }}
+                                >
+                                    <Plus size={12} /> Add Conference
+                                </button>
+                            </div>
                         </div>
                     )}
                 </SheetContent>
             </Sheet>
+
+            {/* ── Exam Schedule Dialog ──────────────────────────────────── */}
+            <ExamScheduleDialog
+                open={!!examDialogDate}
+                onOpenChange={(o) => { if (!o) setExamDialogDate(null); }}
+                prefillDate={examDialogDate}
+                onCreated={fetchEvents}
+            />
 
             {/* ── Conference Wizard ────────────────────────────────────── */}
             <Dialog open={wizardOpen} onOpenChange={open => { if (!open) setWizardOpen(false); }}>

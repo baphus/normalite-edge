@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,9 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
     onClear,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [openUp, setOpenUp] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const popupRef = useRef<HTMLDivElement>(null);
 
     const datePart = value ? value.split('T')[0] : '';
     const timePart = value ? (value.split('T')[1]?.slice(0, 5) || '12:00') : '12:00';
@@ -45,6 +47,17 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
         };
         if (isOpen) document.addEventListener('mousedown', handleOutsideClick);
         return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [isOpen]);
+
+    // Flip the popup upward when it would otherwise extend past the viewport bottom.
+    useLayoutEffect(() => {
+        if (!isOpen) return;
+        const trigger = containerRef.current;
+        const popup = popupRef.current;
+        if (!trigger || !popup) return;
+        const triggerRect = trigger.getBoundingClientRect();
+        const gap = 8; // mt-2 / mb-2
+        setOpenUp(triggerRect.bottom + popup.offsetHeight + gap > window.innerHeight);
     }, [isOpen]);
 
     const handleDateSelect = (date: Date | undefined) => {
@@ -100,7 +113,13 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 top-full left-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-200/60 overflow-hidden min-w-74">
+                <div
+                    ref={popupRef}
+                    className={cn(
+                        'absolute z-50 left-0 bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-200/60 overflow-hidden min-w-74',
+                        openUp ? 'bottom-full mb-2' : 'top-full mt-2',
+                    )}
+                >
                     {/* Calendar */}
                     <div className="p-3 pb-1">
                         <Calendar

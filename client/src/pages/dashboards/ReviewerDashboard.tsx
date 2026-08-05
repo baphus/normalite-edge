@@ -15,6 +15,7 @@ import {
     AlertTriangle,
     ClipboardCheck,
     Circle,
+    CalendarClock,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,15 @@ interface ReviewerDashboardProps {
             status: string;
             createdAt: string;
             creator?: { firstName: string; lastName: string };
+        }[];
+        upcomingExams?: {
+            id: string;
+            title: string;
+            subject: string | null;
+            scheduleStart: string;
+            scheduleEnd: string | null;
+            programTrack: string | null;
+            status: string;
         }[];
     } | null;
 }
@@ -143,6 +153,17 @@ const activityIcon = (title: string) => {
     return { icon: Activity, color: 'text-gray-400' };
 };
 
+const formatDateTime = (dateValue: string) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return 'TBD';
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+};
+
 /* ─── Tiny sub-components ──────────────────────────────────────────────── */
 
 const EmptyState: React.FC<{ message: string }> = ({ message }) => (
@@ -189,6 +210,7 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
     const recentExams = useMemo(() => stats?.recentExams ?? [], [stats]);
     const recentAttempts = useMemo(() => stats?.recentAttempts ?? [], [stats]);
     const activityFeed = useMemo(() => stats?.activityFeed ?? [], [stats]);
+    const upcomingExams = useMemo(() => stats?.upcomingExams ?? [], [stats]);
 
     // Performance metrics derived from recent attempts
     const avgScore = useMemo(() => {
@@ -571,7 +593,7 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
             {/* ── MAIN CONTENT GRID ───────────────────────────────────────── */}
             <div data-guide="dashboard-primary-panel" className="grid grid-cols-1 xl:grid-cols-3 gap-3">
                 {/* Left 2/3 */}
-                <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
                     {/* My Exams — maroon accent */}
                     <Card className="border-gray-100 shadow-sm rounded-xl overflow-hidden">
                         <div className="h-1 bg-primary" />
@@ -707,6 +729,70 @@ const ReviewerDashboard: React.FC<ReviewerDashboardProps> = ({ stats }) => {
                                                 </span>
                                             </div>
                                         </div>
+                                    );
+                                })
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Upcoming Exams — emerald accent */}
+                    <Card className="border-gray-100 shadow-sm rounded-xl overflow-hidden">
+                        <div className="h-1 bg-gradient-to-r from-emerald-500 to-emerald-400" />
+                        <CardHeader className="px-4 pt-3 pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                    <CalendarClock size={12} className="text-emerald-500" /> Upcoming Exams
+                                </CardTitle>
+                                <Link to="/manage-exams">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-auto py-0 px-0 text-[11px] text-primary font-semibold hover:bg-transparent hover:text-primary/70"
+                                    >
+                                        View all
+                                    </Button>
+                                </Link>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-3 pt-0 space-y-2">
+                            {upcomingExams.length === 0 ? (
+                                <div className="py-6 text-center">
+                                    <EmptyState message="No upcoming exams scheduled." />
+                                    <Link to="/manage-exams/create">
+                                        <Button variant="outline" size="sm" className="mt-2 h-8 text-[11px] font-semibold gap-1">
+                                            <PlusCircle size={11} /> Create an exam
+                                        </Button>
+                                    </Link>
+                                </div>
+                            ) : (
+                                upcomingExams.map((exam) => {
+                                    const accent = subjectAccent(normalizeExamSubject(exam.subject));
+                                    return (
+                                        <Link
+                                            key={exam.id}
+                                            to={`/manage-exams`}
+                                            className="block py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 rounded px-1 -mx-1 transition-colors"
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <p className="text-[12px] font-semibold text-gray-800 leading-tight flex-1 truncate">
+                                                    {exam.title}
+                                                </p>
+                                                <Badge
+                                                    className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 border ${statusBadgeClass(normalizeStatus(exam.status))}`}
+                                                >
+                                                    {normalizeStatus(exam.status)}
+                                                </Badge>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold ${accent.bg} ${accent.text}`}>
+                                                    {normalizeExamSubject(exam.subject)}
+                                                </span>
+                                                <span className="text-[10px] text-gray-400 flex items-center gap-0.5 font-mono">
+                                                    <Clock3 size={9} />
+                                                    {formatDateTime(exam.scheduleStart)}
+                                                </span>
+                                            </div>
+                                        </Link>
                                     );
                                 })
                             )}

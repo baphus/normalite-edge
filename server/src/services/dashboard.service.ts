@@ -1,5 +1,6 @@
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
+import { buildTrackVisibilityFilter } from './revieweeVisibility';
 
 export class DashboardService {
     private getDailySeed(userId: string) {
@@ -162,6 +163,31 @@ export class DashboardService {
             }),
         ]);
 
+        // Look up user's track for upcoming exams visibility
+        const revieweeUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { programTrack: true },
+        });
+
+        const upcomingExams = await prisma.exam.findMany({
+            where: {
+                status: 'LIVE',
+                scheduleStart: { gte: new Date() },
+                ...buildTrackVisibilityFilter(revieweeUser?.programTrack),
+            },
+            select: {
+                id: true,
+                title: true,
+                subject: true,
+                scheduleStart: true,
+                scheduleEnd: true,
+                programTrack: true,
+                status: true,
+            },
+            orderBy: { scheduleStart: 'asc' },
+            take: 5,
+        });
+
         const subjectScores: Record<string, { total: number; count: number }> = {};
         for (const attempt of attempts) {
             const subject = attempt.exam.subject || 'General';
@@ -189,6 +215,7 @@ export class DashboardService {
             totalMaterials,
             upcomingSessions,
             recentAttempts,
+            upcomingExams,
         };
     }
 
@@ -342,6 +369,7 @@ export class DashboardService {
             recentAttempts,
             recentExams,
             activityFeed,
+            upcomingExams,
         ] = await Promise.all([
             prisma.exam.count({ where: { createdBy: userId } }),
             prisma.studyDeck.count({ where: { createdBy: userId } }),
@@ -390,6 +418,24 @@ export class DashboardService {
                 orderBy: { createdAt: 'desc' },
                 take: 6,
             }),
+            prisma.exam.findMany({
+                where: {
+                    createdBy: userId,
+                    status: 'LIVE',
+                    scheduleStart: { gte: new Date() },
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    subject: true,
+                    scheduleStart: true,
+                    scheduleEnd: true,
+                    programTrack: true,
+                    status: true,
+                },
+                orderBy: { scheduleStart: 'asc' },
+                take: 5,
+            }),
         ]);
 
         return {
@@ -400,6 +446,7 @@ export class DashboardService {
             recentAttempts,
             recentExams,
             activityFeed,
+            upcomingExams,
         };
     }
 
@@ -421,6 +468,7 @@ export class DashboardService {
             recentSubmissions,
             recentUsers,
             recentAuditLogs,
+            upcomingExams,
         ] = await Promise.all([
             prisma.user.count(),
             // Admin approval was removed with the move to Google SSO, so there
@@ -514,6 +562,23 @@ export class DashboardService {
                 orderBy: { createdAt: 'desc' },
                 take: 5,
             }),
+            prisma.exam.findMany({
+                where: {
+                    status: 'LIVE',
+                    scheduleStart: { gte: now },
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    subject: true,
+                    scheduleStart: true,
+                    scheduleEnd: true,
+                    programTrack: true,
+                    status: true,
+                },
+                orderBy: { scheduleStart: 'asc' },
+                take: 5,
+            }),
         ]);
 
         const usersByRole = await prisma.user.groupBy({
@@ -570,6 +635,7 @@ export class DashboardService {
                 sub: log.summary || `Action: ${log.action}`,
                 createdAt: log.createdAt,
             })),
+            upcomingExams,
         };
     }
 }

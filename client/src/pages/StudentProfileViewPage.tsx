@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { ArrowLeft, BarChart3, CheckCircle2, Clock3, Mail, Timer, Trophy, XCircle } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/axios';
 import { formatUserDisplayName } from '@/lib/formatUserDisplayName';
+import IdentificationCard from '@/components/IdentificationCard';
 
 type ProfilePerformanceStats = {
     totalExamsAnswered: number;
@@ -102,7 +103,6 @@ const StudentProfileViewPage: React.FC = () => {
     const [profile, setProfile] = useState<StudentProfilePayload | null>(null);
     const [loading, setLoading] = useState(!stateStudent);
     const [error, setError] = useState<string | null>(null);
-    const [imgError, setImgError] = useState(false);
 
     useEffect(() => {
         if (!stateStudent || profile) return;
@@ -166,19 +166,15 @@ const StudentProfileViewPage: React.FC = () => {
         void fetchProfile();
     }, [id, stateStudent]);
 
-    const displayName = useMemo(() => formatUserDisplayName({
+    const displayName = formatUserDisplayName({
         firstName: profile?.firstName || '',
         middleInitial: profile?.middleInitial || '',
         lastName: profile?.lastName || '',
         suffix: profile?.suffix || '',
         name: [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || profile?.email,
-    }), [profile]);
+    });
 
-    const userInitials = useMemo(() => displayName.split(' ').filter(Boolean).map((part) => part[0]?.toUpperCase() || '').join('').slice(0, 2), [displayName]);
-    const effectivePicture = useMemo(
-        () => normalizeProfileImageUrl(profile?.picture || profile?.profilePicture || null),
-        [profile?.picture, profile?.profilePicture]
-    );
+    const effectivePicture = normalizeProfileImageUrl(profile?.picture || profile?.profilePicture || null);
 
     if (loading) {
         return (
@@ -226,54 +222,19 @@ const StudentProfileViewPage: React.FC = () => {
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                <Card className="lg:col-span-4 border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
-                    <CardContent className="p-0">
-                        <div className="bg-primary px-4 py-3.5">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <p className="text-[8px] font-medium text-white/60 tracking-[0.2em] uppercase leading-none">Republic of the Philippines</p>
-                                    <p className="text-[15px] font-black text-white tracking-tight leading-tight mt-1">NORMALITE EDGE</p>
-                                    <p className="text-[10px] font-semibold text-white/80 leading-snug mt-0.5">Cebu Normal University</p>
-                                    <p className="text-[8px] font-medium text-white/50 tracking-[0.18em] uppercase mt-2">Student Identification Card</p>
-                                </div>
-                                <div className="border border-white/30 rounded px-2 py-1 shrink-0 mt-0.5"><p className="text-[9px] uppercase tracking-wider font-bold text-white">REVIEWEE</p></div>
-                            </div>
-                        </div>
-                        <div className="px-4 pt-4 pb-4 space-y-4">
-                            <div className="flex gap-4 items-start">
-                                <div className="shrink-0">
-                                    {effectivePicture && !imgError ? (
-                                        <img src={effectivePicture} alt="Profile" className="h-24 w-18 object-cover border-2 border-primary" onError={() => setImgError(true)} />
-                                    ) : (
-                                        <div className="h-24 w-18 bg-primary/10 text-primary font-black text-xl flex items-center justify-center border-2 border-primary">{userInitials}</div>
-                                    )}
-                                </div>
-                                <div className="min-w-0 flex-1 space-y-2">
-                                    <div>
-                                        <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-gray-400 leading-none">Name</p>
-                                        <p className="text-sm font-black text-gray-900 break-words leading-snug mt-0.5">{displayName}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[8px] uppercase tracking-[0.18em] font-semibold text-gray-400 leading-none">Email</p>
-                                        <p className="text-[10px] font-medium text-gray-600 break-all leading-snug mt-0.5">{profile.email}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="border-t border-dashed border-gray-200" />
-                            <div className="space-y-3">
-                                <div className="flex items-start justify-between gap-3"><p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Campus</p><p className="text-[11px] font-semibold text-gray-800 text-right leading-snug">{profile.campus?.name || '—'}</p></div>
-                                <div className="flex items-start justify-between gap-3"><p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Track</p><p className="text-[11px] font-semibold text-gray-800 text-right leading-snug">{profile.track?.name || '—'}</p></div>
-                                <div className="flex items-start justify-between gap-3"><p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Year Level</p><p className="text-[11px] font-semibold text-gray-800 text-right">{profile.yearLevel || '—'}</p></div>
-                                <div className="flex items-start justify-between gap-3"><p className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 shrink-0">Section</p><p className="text-[11px] font-semibold text-gray-800 text-right">{profile.section || '—'}</p></div>
-                            </div>
-                            <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
-                                <p className="font-mono text-[9px] tracking-[0.14em] text-gray-400 uppercase">{profile.id.slice(0, 8).toUpperCase()}-NE</p>
-                                <p className="text-[9px] uppercase tracking-widest font-black text-primary">{new Date().getFullYear()}</p>
-                            </div>
-                        </div>
-                        <div className="h-1.5 bg-primary" />
-                    </CardContent>
-                </Card>
+                <IdentificationCard
+                    className="lg:col-span-4"
+                    role={profile.role || 'REVIEWEE'}
+                    displayName={displayName}
+                    email={profile.email}
+                    picture={effectivePicture}
+                    campus={profile.campus?.name || ''}
+                    track={profile.track?.name || ''}
+                    yearLevel={profile.yearLevel || ''}
+                    section={profile.section || ''}
+                    studentId={profile.studentId || ''}
+                    userId={profile.id}
+                />
 
                 <Card className="lg:col-span-8 border-gray-100 rounded-lg bg-white">
                     <CardHeader className="p-4 pb-2">

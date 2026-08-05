@@ -509,7 +509,7 @@ export class ExamService {
         closeOnDeadline?: boolean;
         isPublished?: boolean;
         sections?: string[];
-        questions: {
+        questions?: {
             text: string;
             choices: string[];
             correctAnswer: string;
@@ -519,7 +519,7 @@ export class ExamService {
         }[];
         createdBy: string;
     }) {
-        const normalizedQuestions = data.questions.map((q) => this.normalizeQuestionPayload(q));
+        const normalizedQuestions = (data.questions ?? []).map((q) => this.normalizeQuestionPayload(q));
 
         const exam = await prisma.$transaction(async (tx) => {
             if (data.categoryId) {
