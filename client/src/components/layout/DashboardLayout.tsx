@@ -22,16 +22,6 @@ const DashboardLayout: React.FC = () => {
 
             {/* ── Main content ── */}
             <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-                {/* Mobile header — simplified, brand-only, no hamburger */}
-                {showGuideOverlay && (
-                    <div className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-200/80 bg-white/90 dark:bg-white/90 backdrop-blur lg:hidden">
-                        <div className="mx-auto flex h-13 w-full max-w-screen-2xl items-center px-3 sm:px-4">
-                            <span className="text-sm font-semibold tracking-tight text-slate-900">
-                                Normalite EDGE
-                            </span>
-                        </div>
-                    </div>
-                )}
 
                 {/* Page content with transition */}
                 <div
