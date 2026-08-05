@@ -22,6 +22,8 @@ services:
     # fails the deploy and leaves the previous version serving. `npm start`
     # runs the same script, so migrations still apply if this never fires.
     preDeployCommand: npm run db:deploy
+    # Health check path — Render defaults to `/`, but our health endpoint is at `/api/health`
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         scope: all
@@ -30,5 +32,27 @@ services:
         scope: all
         sync: false
       - key: DIRECT_URL
+        scope: all
+        sync: false
+      # Required for Supabase Auth verification (JWKS endpoint)
+      - key: SUPABASE_URL
+        scope: all
+        sync: false
+      # Service role key bypasses RLS — server-only, never expose to client
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        scope: all
+        sync: false
+      # CORS allowlist — must match your Vercel frontend domain exactly (including https://)
+      - key: CLIENT_URL
+        scope: all
+        sync: false
+      # Optional: Cloudinary for avatar uploads
+      - key: CLOUDINARY_CLOUD_NAME
+        scope: all
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        scope: all
+        sync: false
+      - key: CLOUDINARY_API_SECRET
         scope: all
         sync: false

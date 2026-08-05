@@ -1,4 +1,4 @@
-import { Role, UserStatus, ExamStatus, FeedbackMode, Visibility } from '@prisma/client';
+import { Role, UserStatus, ExamStatus, FeedbackMode, Visibility, SystemSetting } from '@prisma/client';
 import prisma from '../src/config/db';
 import { supabaseAdmin } from '../src/config/supabase';
 
@@ -943,6 +943,18 @@ async function seed() {
         categoriesByName.set(name, category.id);
     }
 
+    // Seed SystemSetting (singleton with id=1)
+    await prisma.systemSetting.upsert({
+        where: { id: 1 },
+        update: {},
+        create: {
+            id: 1,
+            allowMultipleAttempts: false,
+            enforceExamSingleTab: false,
+            tabSwitchGraceSeconds: 5,
+        },
+    });
+
     const bsedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BSED' } });
     const beedTrack = await prisma.track.findUniqueOrThrow({ where: { code: 'BEED' } });
     const mainCampus = await prisma.campus.findUniqueOrThrow({ where: { code: 'CNU-MAIN' } });
@@ -969,6 +981,7 @@ async function seed() {
             lastName: 'User',
             middleInitial: 'A',
             suffix: 'Sr.',
+            isOnboarded: true,
         },
         create: {
             id: adminAuthId,
@@ -981,6 +994,7 @@ async function seed() {
             status: UserStatus.ACTIVE,
             createdByAdmin: true,
             isExternalEmail: true,
+            isOnboarded: true,
         },
     });
 
@@ -994,6 +1008,7 @@ async function seed() {
             trackId: bsedTrack.id,
             campusId: mainCampus.id,
             programTrack: bsedTrack.name,
+            isOnboarded: true,
         },
         create: {
             firstName: 'Maria',
@@ -1009,6 +1024,7 @@ async function seed() {
             programTrack: bsedTrack.name,
             createdByAdmin: true,
             isExternalEmail: true,
+            isOnboarded: true,
         },
     });
 
