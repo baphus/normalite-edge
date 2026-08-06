@@ -23,6 +23,7 @@ import { RecentAttempts } from '@/components/dashboard/reviewee/RecentAttempts';
 import CalendarEventsWidget from './CalendarEventsWidget';
 import { useStreakData } from '@/hooks/useStreakData';
 import StreakCelebration from '@/components/StreakCelebration';
+import { StartStreakModal } from '@/components/StartStreakModal';
 import type {
     RecentAttempt,
     RevieweeStats,
@@ -93,6 +94,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const prevStreakRef = useRef<number | null>(null);
     const [showStreakCelebration, setShowStreakCelebration] = useState(false);
     const [celebrationStreakCount, setCelebrationStreakCount] = useState(0);
+    const [streakModalOpen, setStreakModalOpen] = useState(false);
 
     useEffect(() => {
         if (streakLoading || !streakData) return;
@@ -173,6 +175,21 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         );
     };
 
+    const handleStreakChoice = (choice: 'daily-question' | 'study-deck' | 'take-exam') => {
+        switch (choice) {
+            case 'daily-question':
+                // Scroll to the daily challenge section on the dashboard
+                document.getElementById('daily-challenge')?.scrollIntoView({ behavior: 'smooth' });
+                break;
+            case 'study-deck':
+                navigate('/decks');
+                break;
+            case 'take-exam':
+                navigate('/exams');
+                break;
+        }
+    };
+
     return (
         <div className="flex flex-col gap-3 pb-6 font-lexend">
             {/* ── Header ─────────────────────────────────────────────── */}
@@ -230,7 +247,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                         currentStreak={streakData?.currentStreak ?? 0}
                         longestStreak={streakData?.longestStreak ?? 0}
                         activeDays={streakData?.activeDays ?? []}
-                        onStartStreak={() => navigate('/exams')}
+                        onStartStreak={() => setStreakModalOpen(true)}
                     />
                 </div>
             </section>
@@ -393,6 +410,12 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 trigger={showStreakCelebration}
                 streakCount={celebrationStreakCount}
                 onComplete={() => setShowStreakCelebration(false)}
+            />
+
+            <StartStreakModal
+                open={streakModalOpen}
+                onOpenChange={setStreakModalOpen}
+                onSelect={handleStreakChoice}
             />
         </div>
     );

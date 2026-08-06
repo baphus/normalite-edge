@@ -122,7 +122,7 @@ export const DailyChallenge: React.FC = () => {
 
     return (
         <>
-            <Card data-guide="dashboard-daily-challenge">
+            <Card id="daily-challenge" data-guide="dashboard-daily-challenge">
                 <CardContent className="flex items-center gap-3.5 border-l-4 border-primary p-4">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
                         <Zap size={17} />
