@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
     BarChart3,
+    CalendarDays,
     CheckCircle2,
     Clock3,
     Mail,
@@ -498,8 +500,16 @@ const ProfilePage: React.FC = () => {
                     <h1 className="text-base font-bold text-gray-900 tracking-tight">Profile</h1>
                     <p className="text-[11px] text-gray-400 mt-0.5">Keep your account details updated and track your exam performance.</p>
                 </div>
-                <div className="text-[10px] uppercase tracking-wider font-semibold rounded-md border border-gray-200 bg-white px-2.5 py-1 text-gray-500">
-                    {user?.role || 'User'}
+                <div className="flex items-center gap-2">
+                    <Link
+                        to="/calendar"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                        <CalendarDays size={13} aria-hidden="true" /> Calendar
+                    </Link>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold rounded-md border border-gray-200 bg-white px-2.5 py-1 text-gray-500">
+                        {user?.role || 'User'}
+                    </div>
                 </div>
             </header>
 
