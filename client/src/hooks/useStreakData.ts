@@ -29,29 +29,40 @@ export function useStreakData() {
     useEffect(() => {
         let cancelled = false;
 
-        // Initial fetch
         const tz = new Date().getTimezoneOffset();
-        api.get<{ data: StreakData }>('/streak', { params: { tz } })
-            .then((res) => {
-                if (!cancelled) setData(res.data.data);
-            })
-            .catch(() => {
-                // Silent fail — streak is non-critical
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
+
+        const doFetch = () =>
+            api.get<{ data: StreakData }>('/streak', { params: { tz } })
+                .then((res) => {
+                    if (!cancelled) setData(res.data.data);
+                })
+                .catch(() => {
+                    // Silent fail — streak is non-critical
+                })
+                .finally(() => {
+                    if (!cancelled) setLoading(false);
+                });
+
+        // Initial fetch
+        doFetch();
+
+        // Retry after a short delay to catch fire-and-forget streak recordings
+        // (e.g. deck completion, exam submission) that haven't landed yet on mount.
+        const retryTimer = setTimeout(() => {
+            if (!cancelled) doFetch();
+        }, 2000);
 
         // Refetch when user returns to the tab (stale count after activity)
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && !cancelled) {
-                fetchStreak();
+                doFetch();
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             cancelled = true;
+            clearTimeout(retryTimer);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [fetchStreak]);
