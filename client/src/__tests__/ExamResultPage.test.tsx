@@ -3,6 +3,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import ExamResultPage from '@/pages/ExamResultPage';
 import { MotionProvider } from '@/providers/MotionProvider';
+import { StreakProvider } from '@/contexts/StreakContext';
 
 const { apiMock } = vi.hoisted(() => ({
     apiMock: {
@@ -34,11 +35,13 @@ const resultPayload = {
 const renderPage = (initialEntry = '/exams/exam-1/result?attemptId=att1') => {
     return render(
         <MotionProvider>
-            <MemoryRouter initialEntries={[initialEntry]}>
-                <Routes>
-                    <Route path="/exams/:id/result" element={<ExamResultPage />} />
-                </Routes>
-            </MemoryRouter>
+            <StreakProvider>
+                <MemoryRouter initialEntries={[initialEntry]}>
+                    <Routes>
+                        <Route path="/exams/:id/result" element={<ExamResultPage />} />
+                    </Routes>
+                </MemoryRouter>
+            </StreakProvider>
         </MotionProvider>
     );
 };

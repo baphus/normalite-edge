@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Brain, BookOpen } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { SlidersHorizontal, X } from 'lucide-react';
 import api from '@/lib/axios';
 import { fetchAllPages } from '@/lib/fetchAllPages';
-import { categoryToneClasses } from '@/lib/categoryTone';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -12,12 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    ManageToolbar,
-    type ActiveFilterChip,
-    type ManageView,
-} from '@/components/manage/ManageToolbar';
-import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
+import { type ActiveFilterChip, FilterField } from '@/components/manage/ManageToolbar';
 import { ResourceGrid } from '@/components/manage/ResourceGrid';
 import { cn } from '@/lib/utils';
 
@@ -42,14 +38,12 @@ interface DeckResponse {
 }
 
 const StudyHubPage: React.FC = () => {
-    const navigate = useNavigate();
     const [decks, setDecks] = useState<StudyDeck[]>([]);
     const [loadState, setLoadState] = useState<'loading' | 'error' | 'ready'>('loading');
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
-    const [view, setView] = useState<ManageView>('grid');
 
     const fetchDecks = useCallback(async () => {
         setLoadState('loading');
@@ -65,7 +59,7 @@ const StudyHubPage: React.FC = () => {
                 items.map((deck) => ({
                     id: deck.id,
                     title: deck.title,
-                    description: deck.description || `${deck.subject || 'General'} deck`,
+                    description: deck.description || '',
                     category: deck.category || 'No category',
                     categoryCode: deck.categoryCode ?? null,
                     cardCount: deck.totalItems ?? deck.questions?.length ?? 0,
@@ -120,197 +114,139 @@ const StudyHubPage: React.FC = () => {
         return next;
     }, [search, categoryFilter]);
 
-    const renderCategoryBadge = useCallback(
+    const activeFilterCount = chips.length;
+
+    /**
+     * The whole card is the link — clicking anywhere on it opens the deck in
+     * view mode, matching the minimal reviewee card style. No action buttons,
+     * no category badge: category is muted text above the title.
+     */
+    const renderCard = useCallback(
         (deck: StudyDeck) => (
-            <span
-                className={cn(
-                    'inline-flex max-w-full items-center truncate rounded-md border px-2 py-0.5 text-[11px] font-semibold',
-                    categoryToneClasses(deck.category, deck.categoryCode),
-                )}
+            <Link
+                to={`/study/${deck.id}/view`}
+                className="flex min-h-[160px] h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-all duration-150 hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
             >
-                {deck.category}
-            </span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                    {deck.category}
+                </span>
+                <span className="line-clamp-2 text-[14px] font-semibold text-slate-900">{deck.title}</span>
+                {deck.description && (
+                    <p className="line-clamp-2 text-[12px] text-slate-400">{deck.description}</p>
+                )}
+                <span className="mt-auto self-end text-[12px] tabular-nums text-slate-500">
+                    {deck.cardCount} card{deck.cardCount !== 1 ? 's' : ''}
+                </span>
+            </Link>
         ),
         [],
     );
 
-    /**
-     * Two actions, not three. The old "View" button is now the title link, which
-     * is how both manager grids already work; what remains is the pair a reviewee
-     * actually came for, with the quiz as the primary.
-     */
-    const renderActions = useCallback(
-        (deck: StudyDeck, options?: { fullWidth?: boolean; stacked?: boolean }) => (
-            <div
-                className={cn(
-                    'flex items-center gap-1.5',
-                    options?.fullWidth ? 'w-full' : 'justify-end',
-                    options?.stacked ? 'flex-col' : '',
-                )}
-            >
-                <Button
-                    variant="outline"
-                    className={cn(
-                        'h-10 gap-1.5 rounded-lg border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700',
-                        options?.fullWidth ? 'flex-1' : '',
-                    )}
-                    onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
-                >
-                    <BookOpen size={13} aria-hidden="true" /> Cards
-                </Button>
-                <Button
-                    className={cn(
-                        'h-10 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90',
-                        options?.fullWidth ? 'flex-1' : '',
-                    )}
-                    onClick={() => navigate(`/study/${deck.id}?mode=study`)}
-                >
-                    <Brain size={13} aria-hidden="true" /> Quiz
-                </Button>
-            </div>
-        ),
-        [navigate],
-    );
-
-    const columns = useMemo<ResourceColumn<StudyDeck>[]>(
-        () => [
-            {
-                id: 'title',
-                header: 'Deck',
-                primary: true,
-                sortable: true,
-                sortValue: (deck) => deck.title,
-                cell: (deck) => (
-                    <Link
-                        to={`/study/${deck.id}/view`}
-                        className="line-clamp-2 font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    >
-                        {deck.title}
-                    </Link>
-                ),
-            },
-            {
-                id: 'description',
-                header: 'Description',
-                cell: (deck) => <span className="line-clamp-1 text-slate-500">{deck.description}</span>,
-            },
-            {
-                id: 'category',
-                header: 'Category',
-                className: 'w-44',
-                stacked: true,
-                sortable: true,
-                sortValue: (deck) => deck.category,
-                cell: renderCategoryBadge,
-                stackedCell: (deck) => deck.category,
-            },
-            {
-                id: 'cards',
-                header: 'Cards',
-                className: 'w-20 tabular-nums',
-                stacked: true,
-                sortable: true,
-                sortValue: (deck) => deck.cardCount,
-                cell: (deck) => deck.cardCount,
-                stackedCell: (deck) => `${deck.cardCount} cards`,
-            },
-        ],
-        [renderCategoryBadge],
-    );
-
-    const renderCard = useCallback(
-        (deck: StudyDeck) => (
-            <div className="flex min-h-[180px] h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-primary/30">
-                <div className="flex items-start justify-between gap-2">{renderCategoryBadge(deck)}</div>
-
-                <div className="min-w-0">
-                    <Link
-                        to={`/study/${deck.id}/view`}
-                        className="line-clamp-2 text-[14px] font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    >
-                        {deck.title}
-                    </Link>
-                    <p className="mt-0.5 line-clamp-2 text-[12px] text-slate-400">{deck.description}</p>
-                </div>
-
-                <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-2 text-[12px]">
-                    <dt className="text-slate-400">Cards</dt>
-                    <dd className="font-semibold tabular-nums text-slate-700">{deck.cardCount}</dd>
-                </div>
-
-                <div className="pt-1">{renderActions(deck, { fullWidth: true, stacked: true })}</div>
-            </div>
-        ),
-        [renderActions, renderCategoryBadge],
-    );
-
     return (
         <div className="flex flex-col gap-3 pb-6 font-lexend">
-            <ManageToolbar
-                title="Study hub"
-                description="Browse flashcard decks and sharpen your LET preparation."
-                search={search}
-                onSearchChange={setSearch}
-                searchPlaceholder="Search decks or topics…"
-                searchLabel="Search study decks"
-                inlineFilters={
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                        <SelectTrigger
-                            className="h-8 w-40 rounded-lg border-slate-200 bg-white text-[12px]"
-                            aria-label="Filter by category"
-                        >
-                            <SelectValue placeholder="All categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all" className="text-[12px]">
-                                All categories
-                            </SelectItem>
-                            {categoryOptions.map((category) => (
-                                <SelectItem key={category} value={category} className="text-[12px]">
-                                    {category}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                }
-                activeFilterCount={chips.length}
-                chips={chips}
-                onClearAll={clearAllFilters}
-                view={view}
-                onViewChange={setView}
-            />
+            <header className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">Study hub</h1>
+                        <p className="mt-0.5 text-[12px] text-slate-500">
+                            Browse flashcard decks and sharpen your LET preparation.
+                        </p>
+                    </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    'h-8 gap-1.5 rounded-lg border-slate-200 bg-white text-[12px] font-semibold',
+                                    activeFilterCount > 0 && 'border-primary/30 text-primary',
+                                )}
+                            >
+                                <SlidersHorizontal size={13} aria-hidden="true" /> Filters
+                                {activeFilterCount > 0 && (
+                                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/10 px-1 text-[11px] font-semibold text-primary">
+                                        {activeFilterCount}
+                                    </span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-80 rounded-xl p-3">
+                            <div className="space-y-3">
+                                <FilterField label="Search">
+                                    <Input
+                                        value={search}
+                                        onChange={(event) => setSearch(event.target.value)}
+                                        placeholder="Search decks or topics…"
+                                        aria-label="Search study decks"
+                                        className="h-8 w-full rounded-lg border-slate-200 text-[13px]"
+                                    />
+                                </FilterField>
+                                <FilterField label="Category">
+                                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                        <SelectTrigger
+                                            className="h-8 w-full rounded-lg border-slate-200 bg-white text-[12px]"
+                                            aria-label="Filter by category"
+                                        >
+                                            <SelectValue placeholder="All categories" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all" className="text-[12px]">
+                                                All categories
+                                            </SelectItem>
+                                            {categoryOptions.map((category) => (
+                                                <SelectItem key={category} value={category} className="text-[12px]">
+                                                    {category}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </FilterField>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </header>
 
-            {view === 'table' ? (
-                <ResourceTable
-                    rows={visibleDecks}
-                    columns={columns}
-                    getRowId={(deck) => deck.id}
-                    caption="Study decks available to you"
-                    state={loadState}
-                    error={loadError}
-                    onRetry={() => void fetchDecks()}
-                    filtersActive={chips.length > 0}
-                    onClearFilters={clearAllFilters}
-                    emptyTitle="No decks yet"
-                    emptyDescription="No study decks are assigned to your program yet."
-                    rowActions={(deck) => renderActions(deck)}
-                    resetKey={`${search}|${categoryFilter}`}
-                />
-            ) : (
-                <ResourceGrid
-                    rows={visibleDecks}
-                    getRowId={(deck) => deck.id}
-                    renderCard={renderCard}
-                    caption="Study decks available to you"
-                    state={loadState}
-                    error={loadError}
-                    onRetry={() => void fetchDecks()}
-                    filtersActive={chips.length > 0}
-                    onClearFilters={clearAllFilters}
-                    emptyTitle="No decks yet"
-                    emptyDescription="No study decks are assigned to your program yet."
-                />
+            {chips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                    {chips.map((chip) => (
+                        <span
+                            key={chip.id}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white py-0.5 pl-2 pr-1 text-[12px] text-slate-600"
+                        >
+                            {chip.label}
+                            <button
+                                type="button"
+                                onClick={chip.onClear}
+                                aria-label={`Remove filter: ${chip.label}`}
+                                className="rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            >
+                                <X size={11} aria-hidden="true" />
+                            </button>
+                        </span>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={clearAllFilters}
+                        className="rounded px-1.5 py-0.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    >
+                        Clear all
+                    </button>
+                </div>
             )}
+
+            <ResourceGrid
+                rows={visibleDecks}
+                getRowId={(deck) => deck.id}
+                renderCard={renderCard}
+                caption="Study decks available to you"
+                state={loadState}
+                error={loadError}
+                onRetry={() => void fetchDecks()}
+                filtersActive={activeFilterCount > 0}
+                onClearFilters={clearAllFilters}
+                emptyTitle="No decks yet"
+                emptyDescription="No study decks are assigned to your program yet."
+            />
         </div>
     );
 };

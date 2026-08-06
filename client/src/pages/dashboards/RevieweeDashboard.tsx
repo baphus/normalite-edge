@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ArrowRight,
     BookOpen,
@@ -21,8 +21,7 @@ import { DailyChallenge } from '@/components/dashboard/reviewee/DailyChallenge';
 import { SubjectPerformance } from '@/components/dashboard/reviewee/SubjectPerformance';
 import { RecentAttempts } from '@/components/dashboard/reviewee/RecentAttempts';
 import CalendarEventsWidget from './CalendarEventsWidget';
-import { useStreakData } from '@/hooks/useStreakData';
-import StreakCelebration from '@/components/StreakCelebration';
+import { useStreakContext } from '@/contexts/StreakContext';
 import { StartStreakModal } from '@/components/StartStreakModal';
 import type {
     RecentAttempt,
@@ -87,35 +86,10 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const inProgress = recentAttempts.find((a) => a.status === 'IN_PROGRESS');
 
     const subjectPerformance = useSubjectPerformance(recentAttempts);
-    const { data: streakData, loading: streakLoading, refetch: refetchStreak } = useStreakData();
+    const { streakCount, longestStreak, activeDays, refetchStreak } = useStreakContext();
     const navigate = useNavigate();
 
-    // ── Streak gain detection ──────────────────────────────────────
-    const prevStreakRef = useRef<number | null>(null);
-    const [showStreakCelebration, setShowStreakCelebration] = useState(false);
-    const [celebrationStreakCount, setCelebrationStreakCount] = useState(0);
     const [streakModalOpen, setStreakModalOpen] = useState(false);
-
-    useEffect(() => {
-        if (streakLoading || !streakData) return;
-
-        const current = streakData.currentStreak;
-        const prev = prevStreakRef.current;
-
-        // First load: just record the value, don't celebrate
-        if (prev === null) {
-            prevStreakRef.current = current;
-            return;
-        }
-
-        // Streak increased: celebrate
-        if (current > prev) {
-            setCelebrationStreakCount(current);
-            setShowStreakCelebration(true);
-        }
-
-        prevStreakRef.current = current;
-    }, [streakData, streakLoading]);
 
     const focusAction = inProgress?.exam?.id
         ? {
@@ -244,9 +218,9 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                         average={hasAttempts ? average : null}
                     />
                     <StreakWidget
-                        currentStreak={streakData?.currentStreak ?? 0}
-                        longestStreak={streakData?.longestStreak ?? 0}
-                        activeDays={streakData?.activeDays ?? []}
+                        currentStreak={streakCount}
+                        longestStreak={longestStreak}
+                        activeDays={activeDays}
                         onStartStreak={() => setStreakModalOpen(true)}
                     />
                 </div>
@@ -405,12 +379,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                     </div>
                 </div>
             </div>
-
-            <StreakCelebration
-                trigger={showStreakCelebration}
-                streakCount={celebrationStreakCount}
-                onComplete={() => setShowStreakCelebration(false)}
-            />
 
             <StartStreakModal
                 open={streakModalOpen}

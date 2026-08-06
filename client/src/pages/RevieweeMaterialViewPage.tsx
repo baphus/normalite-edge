@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Check, WifiOff } from 'lucide-react';
+import { ArrowLeft, BookOpen, Brain, WifiOff } from 'lucide-react';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatusPill, type StatusTone } from '@/components/manage/StatusPill';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
 import { CollectionEmpty } from '@/components/manage/CollectionState';
-import { categoryToneClasses } from '@/lib/categoryTone';
-import { formatShortDate } from '@/lib/formatters';
-import { cn } from '@/lib/utils';
 import { useDeckCache } from '@/hooks/useDeckCache';
 import type { DeckCache } from '@/lib/offline-store';
 
@@ -57,16 +60,6 @@ interface DeckView {
     questions: DeckQuestion[];
 }
 
-const STATUS_TONE: Record<string, StatusTone> = {
-    PUBLISHED: 'live',
-    DRAFT: 'draft',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-    PUBLISHED: 'Published',
-    DRAFT: 'Draft',
-};
-
 const BackToStudyHub: React.FC = () => (
     <Link
         to="/study"
@@ -74,13 +67,6 @@ const BackToStudyHub: React.FC = () => (
     >
         <ArrowLeft size={12} aria-hidden="true" /> Study hub
     </Link>
-);
-
-const Fact: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-    <div className="flex items-baseline gap-1">
-        <dt className="text-slate-400">{label}</dt>
-        <dd className="font-semibold text-slate-700">{children}</dd>
-    </div>
 );
 
 const RevieweeMaterialViewPage: React.FC = () => {
@@ -91,6 +77,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
     const [error, setError] = useState('');
     const [deck, setDeck] = useState<DeckView | null>(null);
     const [fromCache, setFromCache] = useState(false);
+    const [studyModalOpen, setStudyModalOpen] = useState(false);
 
     const { cachedDeck, cacheDeck, isOffline } = useDeckCache(id);
 
@@ -168,24 +155,6 @@ const RevieweeMaterialViewPage: React.FC = () => {
         [deck],
     );
 
-    const visibleToLabel = useMemo(() => {
-        const tracks = deck?.tracks || [];
-        if (tracks.length > 0) {
-            return tracks.map((t) => (t.code ? `${t.name} (${t.code})` : t.name)).join(', ');
-        }
-        if (deck?.program_track?.trim()) return deck.program_track;
-        return 'All Programs';
-    }, [deck]);
-
-    const creatorName = useMemo(() => {
-        if (!deck?.creator) return 'Unknown author';
-        return (
-            deck.creator.name ||
-            `${deck.creator.firstName || ''} ${deck.creator.lastName || ''}`.trim() ||
-            'Unknown author'
-        );
-    }, [deck]);
-
     const questionCount = questions.length;
 
     const getCorrectAnswer = (question: DeckQuestion) => {
@@ -254,8 +223,6 @@ const RevieweeMaterialViewPage: React.FC = () => {
         );
     }
 
-    const status = deck.visibility || 'PUBLISHED';
-
     return (
         <div className="flex flex-col gap-3 pb-6 font-lexend">
             {/* Offline notice — the cached copy is served, say so up front. */}
@@ -270,59 +237,29 @@ const RevieweeMaterialViewPage: React.FC = () => {
 
             {/* Header */}
             <header data-guide="material-header" className="flex flex-col gap-2">
-                <nav aria-label="Breadcrumb">
-                    <ol className="flex items-center gap-1.5 text-[12px] text-slate-500">
-                        <li>
-                            <Link
-                                to="/study"
-                                className="inline-flex items-center gap-1 rounded transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
-                            >
-                                <ArrowLeft size={12} aria-hidden="true" /> Study hub
-                            </Link>
-                        </li>
-                        <li aria-hidden="true" className="text-slate-300">/</li>
-                        <li className="truncate text-slate-500">Material details</li>
-                    </ol>
-                </nav>
+                <BackToStudyHub />
 
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">
-                            {deck.title || 'Untitled material'}
-                        </h1>
-                        <StatusPill
-                            tone={STATUS_TONE[status] || 'neutral'}
-                            label={STATUS_LABEL[status] || 'Unknown'}
-                        />
-                        <span
-                            className={cn(
-                                'inline-flex max-w-full items-center truncate rounded-md border px-2 py-0.5 text-[11px] font-semibold',
-                                categoryToneClasses(deck.category),
-                            )}
-                        >
-                            {deck.category || 'No category'}
-                        </span>
-                    </div>
+                <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">
+                    {deck.title || 'Untitled material'}
+                </h1>
+
+                <div className="flex items-center justify-between gap-3">
+                    <p className="text-[12px] tabular-nums text-slate-500">
+                        {questionCount} card{questionCount !== 1 ? 's' : ''}
+                    </p>
+                    <Button
+                        className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                        onClick={() => setStudyModalOpen(true)}
+                        disabled={questionCount === 0}
+                    >
+                        <BookOpen size={13} aria-hidden="true" /> Study
+                    </Button>
                 </div>
-
-                <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-slate-500">
-                    <Fact label="Flashcards">
-                        <span className="tabular-nums">{questionCount}</span>
-                    </Fact>
-                    <Fact label="Visible to">{visibleToLabel}</Fact>
-                    <Fact label="Author">{creatorName}</Fact>
-                    <Fact label="Created">{formatShortDate(deck.createdAt ?? undefined)}</Fact>
-                </dl>
             </header>
 
             {/* Description */}
             {deck.description && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-                        Description
-                    </p>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-slate-700">{deck.description}</p>
-                </div>
+                <p className="text-[13px] leading-relaxed text-slate-700">{deck.description}</p>
             )}
 
             {/* Questions */}
@@ -348,10 +285,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
                                 >
                                     <div className="space-y-3">
                                         <div>
-                                            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-[0.06em]">
-                                                Question {index + 1}
-                                            </p>
-                                            <p className="text-[13px] font-medium text-slate-900 mt-1 leading-relaxed">
+                                            <p className="text-[13px] font-medium text-slate-900 leading-relaxed">
                                                 {question.questionText || 'No question text available.'}
                                             </p>
                                             {question.imageUrl ? (
@@ -365,16 +299,13 @@ const RevieweeMaterialViewPage: React.FC = () => {
                                             ) : null}
                                         </div>
 
-                                        <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 p-3">
-                                            <Check size={14} className="text-green-600 shrink-0" aria-hidden="true" />
-                                            <div>
-                                                <p className="text-[11px] font-semibold text-green-700 uppercase tracking-[0.06em]">
-                                                    Correct
-                                                </p>
-                                                <p className="text-[13px] font-medium text-green-900 mt-0.5">
-                                                    {correctAnswer.label}. {correctAnswer.value}
-                                                </p>
-                                            </div>
+                                        <div className="flex items-baseline gap-1.5">
+                                            <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                                                Correct answer
+                                            </span>
+                                            <span className="text-[13px] font-medium text-slate-700">
+                                                {correctAnswer.label}. {correctAnswer.value}
+                                            </span>
                                         </div>
 
                                         {question.rationalization ? (
@@ -395,34 +326,31 @@ const RevieweeMaterialViewPage: React.FC = () => {
                 )}
             </section>
 
-            {/* Action Footer */}
-            <div
-                data-guide="material-actions"
-                className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4"
-            >
-                <p className="text-[12px] font-medium text-slate-500">
-                    {questionCount > 0
-                        ? `This material contains ${questionCount} flashcard${questionCount !== 1 ? 's' : ''}. Ready to begin?`
-                        : 'No questions available to quiz on.'}
-                </p>
-                <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                        variant="outline"
-                        className="h-8 rounded-lg border-slate-200 bg-white text-[12px] font-semibold text-slate-700"
-                        onClick={() => navigate('/study')}
-                    >
-                        Back
-                    </Button>
-                    <Button
-                        data-guide="material-start-btn"
-                        className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
-                        disabled={questionCount === 0}
-                        onClick={() => navigate(`/study/${id}?mode=study`)}
-                    >
-                        <BookOpen size={13} aria-hidden="true" /> Begin Quiz
-                    </Button>
-                </div>
-            </div>
+            {/* Study mode picker */}
+            <Dialog open={studyModalOpen} onOpenChange={setStudyModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Start studying</DialogTitle>
+                        <DialogDescription>Choose a study mode for this deck.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-2 pt-2">
+                        <Button
+                            variant="outline"
+                            className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold"
+                            onClick={() => navigate(`/study/${id}?mode=study`)}
+                        >
+                            <Brain size={14} aria-hidden="true" /> Quiz
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold"
+                            onClick={() => navigate(`/study/${id}?mode=flashcards`)}
+                        >
+                            <BookOpen size={14} aria-hidden="true" /> Flashcard
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

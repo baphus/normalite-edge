@@ -23,6 +23,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import api from '@/lib/axios';
+import { useStreakContext } from '@/contexts/StreakContext';
 import { toast } from 'sonner';
 
 interface Question {
@@ -129,6 +130,7 @@ const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
 const TakeExamPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { refetchStreak } = useStreakContext();
     const [exam, setExam] = useState<Exam | null>(null);
     const [attemptId, setAttemptId] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -906,6 +908,7 @@ const TakeExamPage: React.FC = () => {
             clearDraft();
             clearExamStarted();
             allowNavigationRef.current = true;
+            refetchStreak();
             navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`, { state: { justSubmitted: true } });
         } catch (submitError: unknown) {
             const apiError = submitError as ApiErrorLike;
@@ -915,7 +918,7 @@ const TakeExamPage: React.FC = () => {
         } finally {
             setIsSubmitting(false);
         }
-    }, [attemptId, clearDraft, clearExamStarted, currentIndex, exam, flushActiveQuestionTime, getTimeSpent, isSubmitting, navigate, sanitizeAnswerMeta, sanitizeAnswersMap]);
+    }, [attemptId, clearDraft, clearExamStarted, currentIndex, exam, flushActiveQuestionTime, getTimeSpent, isSubmitting, navigate, refetchStreak, sanitizeAnswerMeta, sanitizeAnswersMap]);
 
     useEffect(() => {
         if (!exam || loading || isSubmitting) return;

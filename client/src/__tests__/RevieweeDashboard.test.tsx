@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MotionProvider } from '@/providers/MotionProvider';
+import { StreakProvider } from '@/contexts/StreakContext';
 import RevieweeDashboard from '@/pages/dashboards/RevieweeDashboard';
 import api from '@/lib/axios';
 import type { RevieweeStats } from '@/components/dashboard/reviewee/types';
@@ -71,7 +72,9 @@ const renderDashboard = (overrides?: Partial<RevieweeStats>) =>
     render(
         <MemoryRouter>
             <MotionProvider>
-                <RevieweeDashboard stats={{ ...stats, ...overrides }} />
+                <StreakProvider>
+                    <RevieweeDashboard stats={{ ...stats, ...overrides }} />
+                </StreakProvider>
             </MotionProvider>
         </MemoryRouter>,
     );

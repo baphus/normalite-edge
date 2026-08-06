@@ -1,6 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { StreakProvider } from './contexts/StreakContext';
 import { MotionProvider } from './providers/MotionProvider';
 import InstallBanner from './components/InstallBanner';
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -93,6 +94,7 @@ function App() {
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
+              <Route element={<StreakProvider><Outlet /></StreakProvider>}>
               <Route element={<RoleRoute allowedRoles={['REVIEWEE']} />}>
                 <Route path="/onboarding" element={<OnboardingPage />} />
               </Route>
@@ -145,6 +147,7 @@ function App() {
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+              </Route>
               </Route>
             </Route>
 

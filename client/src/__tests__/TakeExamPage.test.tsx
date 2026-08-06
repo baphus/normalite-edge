@@ -2,6 +2,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import TakeExamPage from '@/pages/TakeExamPage';
+import { StreakProvider } from '@/contexts/StreakContext';
+import { MotionProvider } from '@/providers/MotionProvider';
 
 const { apiMock } = vi.hoisted(() => ({
     apiMock: {
@@ -39,11 +41,15 @@ const attemptPayload = {
 
 const renderPage = (initialEntry = '/exams/exam-1/take') => {
     return render(
-        <MemoryRouter initialEntries={[initialEntry]}>
-            <Routes>
-                <Route path="/exams/:id/take" element={<TakeExamPage />} />
-            </Routes>
-        </MemoryRouter>
+        <MotionProvider>
+            <StreakProvider>
+                <MemoryRouter initialEntries={[initialEntry]}>
+                    <Routes>
+                        <Route path="/exams/:id/take" element={<TakeExamPage />} />
+                    </Routes>
+                </MemoryRouter>
+            </StreakProvider>
+        </MotionProvider>
     );
 };
 

@@ -23,6 +23,7 @@ import ConfettiCelebration from '@/components/ConfettiCelebration';
 import { saveDeckProgress, type DeckProgress } from '@/lib/offline-store';
 import { queueProgress } from '@/lib/offline-sync';
 import { useDeckCache } from '@/hooks/useDeckCache';
+import { useStreakContext } from '@/contexts/StreakContext';
 import api from '@/lib/axios';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
@@ -52,6 +53,7 @@ const StudySessionPage: React.FC = () => {
     const navigate = useNavigate();
     const { reducedMotion } = useMotionPreference();
     const { isOffline } = useDeckCache(id);
+    const { refetchStreak } = useStreakContext();
     const [showConfetti, setShowConfetti] = useState(false);
 
     const [items, setItems] = useState<StudyItem[]>([]);
@@ -212,8 +214,9 @@ const StudySessionPage: React.FC = () => {
     useEffect(() => {
         if (showResults) {
             setShowConfetti(true);
+            refetchStreak();
         }
-    }, [showResults]);
+    }, [showResults, refetchStreak]);
 
     if (loading) {
         return (

@@ -22,6 +22,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import api from '@/lib/axios';
+import { useStreakContext } from '@/contexts/StreakContext';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 
 const SECTION_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
@@ -104,6 +105,7 @@ const ExamResultPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
+    const { refetchStreak } = useStreakContext();
     // Confetti should only fire when arriving straight from a submission,
     // not when revisiting a finished exam's result (ExamsPage, dropdown switches, etc.).
     const justSubmittedRef = useRef(
@@ -197,6 +199,7 @@ const ExamResultPage: React.FC = () => {
                 if (justSubmittedRef.current) {
                     justSubmittedRef.current = false;
                     setShowConfetti(true);
+                    refetchStreak();
                 }
             } catch (requestError: unknown) {
                 const apiError = requestError as ApiErrorLike;
