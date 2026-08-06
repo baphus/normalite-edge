@@ -248,6 +248,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
                         {questionCount} card{questionCount !== 1 ? 's' : ''}
                     </p>
                     <Button
+                        data-guide="material-start-btn"
                         className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
                         onClick={() => setStudyModalOpen(true)}
                         disabled={questionCount === 0}

@@ -80,7 +80,7 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
                 {
                     title: 'Deck metadata and questions',
                     description: 'Check deck details and scan the question list before you begin.',
-                    selectors: ['[data-guide="material-meta"]', '[data-guide="material-question-list"]'],
+                    selectors: ['[data-guide="material-question-list"]'],
                 },
             ],
         }),

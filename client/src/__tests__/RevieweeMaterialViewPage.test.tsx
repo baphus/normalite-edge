@@ -80,9 +80,7 @@ describe('RevieweeMaterialViewPage', () => {
 
         const heading = await screen.findByRole('heading', { level: 1 });
         expect(heading).toHaveTextContent('Gen Ed Set A');
-        expect(screen.getByText('Published')).toBeInTheDocument();
-        expect(screen.getByText('General Education')).toBeInTheDocument();
-        expect(screen.getByText('Admin User')).toBeInTheDocument();
+        expect(screen.getByText('1 card')).toBeInTheDocument();
         expect(screen.getByText('Core concepts for the LET.')).toBeInTheDocument();
     });
 
@@ -94,8 +92,8 @@ describe('RevieweeMaterialViewPage', () => {
         renderPage();
 
         expect(await screen.findByText('No questions yet')).toBeInTheDocument();
-        const startButton = screen.getByRole('button', { name: /begin quiz/i });
-        expect(startButton).toBeDisabled();
+        const studyButton = screen.getByRole('button', { name: /study/i });
+        expect(studyButton).toBeDisabled();
     });
 
     it('renders a question with its correct answer and rationalization', async () => {
