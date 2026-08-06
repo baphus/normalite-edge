@@ -63,7 +63,7 @@ interface DeckView {
 const BackToStudyHub: React.FC = () => (
     <Link
         to="/study"
-        className="inline-flex w-fit items-center gap-1 rounded text-[12px] text-slate-500 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+        className="inline-flex w-fit items-center gap-1 rounded text-[12px] text-slate-500 transition-all duration-150 hover:text-primary active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
     >
         <ArrowLeft size={12} aria-hidden="true" /> Study hub
     </Link>
@@ -176,7 +176,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex flex-col gap-3 pb-6 font-lexend">
+            <div className="flex flex-col gap-3 px-4 pb-6 font-lexend sm:px-6 lg:px-8">
                 <BackToStudyHub />
                 <div className="flex flex-col gap-2">
                     <Skeleton className="h-5 w-72" />
@@ -195,7 +195,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
 
     if (error || !deck) {
         return (
-            <div className="flex flex-col gap-3 pb-6 font-lexend">
+            <div className="flex flex-col gap-3 px-4 pb-6 font-lexend sm:px-6 lg:px-8">
                 {/* The header is not rendered on this branch, so the only route
                     back would otherwise be the sidebar. */}
                 <BackToStudyHub />
@@ -211,7 +211,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
                         error ? (
                             <Button
                                 variant="outline"
-                                className="h-8 rounded-lg border-slate-200 text-[12px] font-semibold"
+                                className="h-8 rounded-lg border-slate-200 text-[12px] font-semibold active:scale-[0.97] transition-all duration-150"
                                 onClick={() => void loadDeck()}
                             >
                                 Retry
@@ -224,7 +224,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col gap-3 pb-6 font-lexend">
+        <div className="flex flex-col gap-3 px-4 pb-6 font-lexend sm:px-6 lg:px-8">
             {/* Offline notice — the cached copy is served, say so up front. */}
             {fromCache && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
@@ -249,7 +249,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
                     </p>
                     <Button
                         data-guide="material-start-btn"
-                        className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                        className="h-10 gap-2 rounded-xl bg-primary px-5 text-[14px] font-semibold text-white hover:bg-primary/90 active:scale-[0.97] transition-all duration-150"
                         onClick={() => setStudyModalOpen(true)}
                         disabled={questionCount === 0}
                     >
@@ -337,14 +337,14 @@ const RevieweeMaterialViewPage: React.FC = () => {
                     <div className="flex flex-col gap-2 pt-2">
                         <Button
                             variant="outline"
-                            className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold"
+                            className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold active:scale-[0.97] transition-all duration-150"
                             onClick={() => navigate(`/study/${id}?mode=study`)}
                         >
                             <Brain size={14} aria-hidden="true" /> Quiz
                         </Button>
                         <Button
                             variant="outline"
-                            className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold"
+                            className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold active:scale-[0.97] transition-all duration-150"
                             onClick={() => navigate(`/study/${id}?mode=flashcards`)}
                         >
                             <BookOpen size={14} aria-hidden="true" /> Flashcard
