@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
     ArrowRight,
     BookOpen,
@@ -16,49 +16,16 @@ import { SectionLabel } from '@/components/dashboard/reviewee/SectionLabel';
 import { ExamReadinessHero } from '@/components/dashboard/reviewee/ExamReadinessHero';
 import { StatTiles } from '@/components/dashboard/reviewee/StatTiles';
 import { StreakWidget } from '@/components/dashboard/reviewee/StreakWidget';
-import { StudyProgressStrip } from '@/components/dashboard/reviewee/StudyProgressStrip';
 import { DailyChallenge } from '@/components/dashboard/reviewee/DailyChallenge';
-import { SubjectPerformance } from '@/components/dashboard/reviewee/SubjectPerformance';
 import { RecentAttempts } from '@/components/dashboard/reviewee/RecentAttempts';
 import CalendarEventsWidget from './CalendarEventsWidget';
 import { useStreakContext } from '@/contexts/StreakContext';
 import { StartStreakModal } from '@/components/StartStreakModal';
-import type {
-    RecentAttempt,
-    RevieweeStats,
-    SubjectPerformanceItem,
-} from '@/components/dashboard/reviewee/types';
+import type { RevieweeStats } from '@/components/dashboard/reviewee/types';
 
 interface RevieweeDashboardProps {
     stats: RevieweeStats | null;
 }
-
-/** Subject-level averages from submitted attempts, sorted by volume then score. */
-function useSubjectPerformance(attempts: RecentAttempt[]): SubjectPerformanceItem[] {
-    return useMemo(() => {
-        const grouped: Record<string, { total: number; count: number; best: number }> = {};
-        for (const a of attempts) {
-            if (a.status !== 'SUBMITTED') continue;
-            const raw = a.exam?.subject;
-            const subject = !raw || raw.toLowerCase() === 'general section' ? 'General' : raw;
-            if (!grouped[subject]) grouped[subject] = { total: 0, count: 0, best: 0 };
-            grouped[subject].total += Number(a.percentage || 0);
-            grouped[subject].count += 1;
-            grouped[subject].best = Math.max(grouped[subject].best, Number(a.percentage || 0));
-        }
-        return Object.entries(grouped)
-            .map(([subject, data]) => ({
-                subject,
-                avg: Math.round(data.total / data.count),
-                best: data.best,
-                count: data.count,
-            }))
-            .sort((a, b) => b.count - a.count || b.avg - a.avg)
-            .slice(0, 5);
-    }, [attempts]);
-}
-
-
 
 const getSubjectLabel = (raw: string | null | undefined): string | null => {
     if (!raw || raw.toLowerCase() === 'general section') return null;
@@ -85,7 +52,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const submittedCount = recentAttempts.filter((a) => a.status === 'SUBMITTED').length;
     const inProgress = recentAttempts.find((a) => a.status === 'IN_PROGRESS');
 
-    const subjectPerformance = useSubjectPerformance(recentAttempts);
     const { streakCount, longestStreak, activeDays, refetchStreak } = useStreakContext();
     const navigate = useNavigate();
 
@@ -226,16 +192,12 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 </div>
             </section>
 
-            {/* ── Study progress strip ───────────────────────────────── */}
-            <StudyProgressStrip averages={stats?.averagesBySubject} loading={false} />
-
             {/* ── Daily challenge ────────────────────────────────────── */}
             <DailyChallenge onAnswered={refetchStreak} />
 
             {/* ── Main content grid ──────────────────────────────────── */}
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
                 <section data-guide="dashboard-primary-panel" className="flex flex-col gap-3 lg:col-span-2">
-                    <SubjectPerformance subjects={subjectPerformance} />
                     <RecentAttempts attempts={recentAttempts} />
                 </section>
 

@@ -129,12 +129,8 @@ describe('RevieweeDashboard', () => {
         expect(screen.getByText('Exam readiness')).toBeInTheDocument();
         // StatTiles
         expect(screen.getByText('Total decks')).toBeInTheDocument();
-        // StudyProgressStrip (fetch-driven)
-        expect(await screen.findByText('Study progress')).toBeInTheDocument();
         // DailyChallenge
         expect(await screen.findByText('Daily challenge')).toBeInTheDocument();
-        // SubjectPerformance
-        expect(screen.getByText('Subject performance')).toBeInTheDocument();
         // RecentAttempts
         expect(screen.getByText('Recent mock attempts')).toBeInTheDocument();
     });
