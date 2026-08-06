@@ -196,8 +196,8 @@ const ExamsPage: React.FC = () => {
         );
         return [
             { value: 'all', label: 'All', count: examsBeforeSegment.length },
-            { value: 'open', label: 'Open', count: counts.open },
-            { value: 'submitted', label: 'Submitted', count: counts.submitted },
+            { value: 'open', label: 'Live', count: counts.open },
+            { value: 'submitted', label: 'Completed', count: counts.submitted },
             { value: 'closed', label: 'Closed', count: counts.closed },
         ];
     }, [examsBeforeSegment]);
@@ -262,7 +262,7 @@ const ExamsPage: React.FC = () => {
         (exam: Exam, options?: { fullWidth?: boolean }) => {
             const { hasSubmitted, hasInProgress, canTake } = examState(exam);
             const base = cn(
-                'h-8 gap-1.5 rounded-lg px-3 text-[12px] font-semibold',
+                'h-10 gap-1.5 rounded-lg px-3 text-[12px] font-semibold',
                 options?.fullWidth ? 'w-full' : '',
             );
 
@@ -455,11 +455,8 @@ const ExamsPage: React.FC = () => {
 
     const renderCard = useCallback(
         (exam: Exam) => {
-            const { attemptsRemaining, hasSubmitted } = examState(exam);
-            const score = exam.latestSubmittedScore ?? exam.lastScore;
-
             return (
-                <div className="flex h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-primary/30">
+                <div className="flex min-h-[180px] h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-primary/30">
                     <div className="flex items-start justify-between gap-2">
                         {renderCategoryBadge(exam)}
                         {renderStatus(exam)}
@@ -468,50 +465,29 @@ const ExamsPage: React.FC = () => {
                     <div className="min-w-0">
                         <Link
                             to={`/exams/${exam.id}/view`}
-                            className="line-clamp-2 text-[13px] font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            className="line-clamp-2 text-[14px] font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                         >
                             {exam.title}
                         </Link>
                         <p className="mt-0.5 truncate text-[12px] text-slate-400">{sectionSummary(exam)}</p>
                     </div>
 
-                    <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
-                        <div className="flex justify-between gap-2">
+                    <div className="mt-auto flex items-center gap-4 border-t border-slate-100 pt-2 text-[12px]">
+                        <div className="flex items-center gap-1.5">
                             <dt className="text-slate-400">Items</dt>
                             <dd className="font-semibold tabular-nums text-slate-700">{exam.questionCount}</dd>
                         </div>
-                        <div className="flex justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
                             <dt className="text-slate-400">Time</dt>
                             <dd className="font-semibold text-slate-700">{formatDurationMinutes(exam.duration)}</dd>
                         </div>
-                        <div className="flex justify-between gap-2">
-                            <dt className="text-slate-400">Deadline</dt>
-                            <dd className="font-semibold text-slate-700">{renderDeadline(exam)}</dd>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                            <dt className="text-slate-400">Published</dt>
-                            <dd className="font-semibold text-slate-700">
-                                {formatShortDate(exam.scheduledDate || exam.createdAt, 'Not published')}
-                            </dd>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                            <dt className="text-slate-400">{hasSubmitted && score != null ? 'Score' : 'Attempts'}</dt>
-                            <dd
-                                className={cn(
-                                    'font-semibold tabular-nums',
-                                    hasSubmitted && score != null ? scoreClasses(score) : 'text-slate-700',
-                                )}
-                            >
-                                {hasSubmitted && score != null ? `${score}%` : attemptsRemaining}
-                            </dd>
-                        </div>
-                    </dl>
+                    </div>
 
                     <div className="pt-1">{renderAction(exam, { fullWidth: true })}</div>
                 </div>
             );
         },
-        [renderAction, renderCategoryBadge, renderDeadline, renderStatus],
+        [renderAction, renderCategoryBadge, renderStatus],
     );
 
     const emptyDescription =

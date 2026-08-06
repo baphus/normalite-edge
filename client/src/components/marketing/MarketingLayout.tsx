@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMotionPreference } from '@/contexts/MotionContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 type NavItem = { label: string; href: string; router?: boolean };
@@ -13,6 +15,9 @@ const NAV: NavItem[] = [
     { label: 'Contact', href: '/contact', router: true },
 ];
 
+const MotionLink = motion.create(Link);
+const MotionA = motion.create('a');
+
 const NavLink: React.FC<{ item: NavItem; onClick?: () => void; className?: string }> = ({
     item,
     onClick,
@@ -20,14 +25,27 @@ const NavLink: React.FC<{ item: NavItem; onClick?: () => void; className?: strin
 }) => {
     const base =
         'font-lexend text-sm font-medium text-[#3a2727] transition-colors hover:text-primary dark:text-gray-300 dark:hover:text-secondary';
+
     return item.router ? (
-        <Link to={item.href} onClick={onClick} className={`${base} ${className ?? ''}`}>
+        <MotionLink
+            to={item.href}
+            onClick={onClick}
+            className={`${base} ${className ?? ''}`}
+            whileHover={{ y: -1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        >
             {item.label}
-        </Link>
+        </MotionLink>
     ) : (
-        <a href={item.href} onClick={onClick} className={`${base} ${className ?? ''}`}>
+        <MotionA
+            href={item.href}
+            onClick={onClick}
+            className={`${base} ${className ?? ''}`}
+            whileHover={{ y: -1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        >
             {item.label}
-        </a>
+        </MotionA>
     );
 };
 
@@ -60,6 +78,7 @@ const Wordmark: React.FC<{ size?: 'sm' | 'md' }> = ({ size = 'md' }) => (
 const MarketingLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const navigate = useNavigate();
     const { user, status, logout } = useAuth();
+    const { reducedMotion } = useMotionPreference();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const closeMenu = () => setIsMenuOpen(false);
@@ -164,88 +183,105 @@ const MarketingLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 </header>
 
                 {/* Mobile menu */}
-                <div className={`fixed inset-0 z-[100] lg:hidden ${isMenuOpen ? 'block' : 'hidden'}`}>
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={closeMenu} />
-                    <div
-                        className={`fixed right-0 top-0 h-full w-72 bg-[#F7F4EE] p-6 shadow-xl transition-transform duration-300 dark:bg-background-dark ${
-                            isMenuOpen ? 'translate-x-0' : 'translate-x-full'
-                        }`}
-                    >
-                        <div className="mb-6 flex items-center justify-between border-b border-[#e6ddd3] pb-4 dark:border-white/10">
-                            <Wordmark size="sm" />
-                            <button onClick={closeMenu} aria-label="Close menu" className="dark:text-white">
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
-                        <nav className="flex flex-col gap-5">
-                            {NAV.map((item) => (
-                                <NavLink key={item.label} item={item} onClick={closeMenu} className="text-lg" />
-                            ))}
-                            <hr className="border-[#e6ddd3] dark:border-white/10" />
-                            {status === 'ready' && user ? (
-                                <>
-                                    <div className="flex items-center gap-3 rounded-lg bg-primary/5 px-3 py-3 dark:bg-white/5">
-                                        {user.picture ? (
-                                            <Avatar className="h-10 w-10">
-                                                <AvatarImage src={user.picture} alt={user.name} className="object-cover" />
-                                                <AvatarFallback className="bg-primary text-sm text-white">
-                                                    {user.firstName?.[0]}{user.lastName?.[0]}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        ) : (
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-                                                {user.firstName?.[0]}{user.lastName?.[0]}
+                <AnimatePresence>
+                    {isMenuOpen && (
+                        <>
+                            <motion.div
+                                className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm lg:hidden"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: reducedMotion ? 0 : 0.2 }}
+                                onClick={closeMenu}
+                            />
+                            <motion.div
+                                className="fixed right-0 top-0 z-[100] h-full w-72 bg-[#F7F4EE] p-6 shadow-xl dark:bg-background-dark lg:hidden"
+                                initial={{ x: '100%' }}
+                                animate={{ x: 0 }}
+                                exit={{ x: '100%' }}
+                                transition={
+                                    reducedMotion
+                                        ? { duration: 0 }
+                                        : { type: 'spring', stiffness: 380, damping: 30 }
+                                }
+                            >
+                                <div className="mb-6 flex items-center justify-between border-b border-[#e6ddd3] pb-4 dark:border-white/10">
+                                    <Wordmark size="sm" />
+                                    <button onClick={closeMenu} aria-label="Close menu" className="dark:text-white">
+                                        <span className="material-symbols-outlined">close</span>
+                                    </button>
+                                </div>
+                                <nav className="flex flex-col gap-5">
+                                    {NAV.map((item) => (
+                                        <NavLink key={item.label} item={item} onClick={closeMenu} className="text-lg" />
+                                    ))}
+                                    <hr className="border-[#e6ddd3] dark:border-white/10" />
+                                    {status === 'ready' && user ? (
+                                        <>
+                                            <div className="flex items-center gap-3 rounded-lg bg-primary/5 px-3 py-3 dark:bg-white/5">
+                                                {user.picture ? (
+                                                    <Avatar className="h-10 w-10">
+                                                        <AvatarImage src={user.picture} alt={user.name} className="object-cover" />
+                                                        <AvatarFallback className="bg-primary text-sm text-white">
+                                                            {user.firstName?.[0]}{user.lastName?.[0]}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                ) : (
+                                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+                                                        {user.firstName?.[0]}{user.lastName?.[0]}
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-semibold text-[#3a2727] dark:text-white">{user.name}</p>
+                                                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                                                </div>
                                             </div>
-                                        )}
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold text-[#3a2727] dark:text-white">{user.name}</p>
-                                            <p className="truncate text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            navigate('/dashboard');
-                                            closeMenu();
-                                        }}
-                                        className="rounded-lg bg-primary py-3 font-semibold text-white"
-                                    >
-                                        Go to Dashboard
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            closeMenu();
-                                            logout();
-                                        }}
-                                        className="rounded-lg border border-primary/30 py-3 font-semibold text-primary dark:border-secondary/40 dark:text-secondary"
-                                    >
-                                        Sign out
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => {
-                                            navigate('/login');
-                                            closeMenu();
-                                        }}
-                                        className="rounded-lg border border-primary/30 py-3 font-semibold text-primary dark:border-secondary/40 dark:text-secondary"
-                                    >
-                                        Log in
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            navigate('/register');
-                                            closeMenu();
-                                        }}
-                                        className="rounded-lg bg-primary py-3 font-semibold text-white"
-                                    >
-                                        Register
-                                    </button>
-                                </>
-                            )}
-                        </nav>
-                    </div>
-                </div>
+                                            <button
+                                                onClick={() => {
+                                                    navigate('/dashboard');
+                                                    closeMenu();
+                                                }}
+                                                className="rounded-lg bg-primary py-3 font-semibold text-white"
+                                            >
+                                                Go to Dashboard
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    closeMenu();
+                                                    logout();
+                                                }}
+                                                className="rounded-lg border border-primary/30 py-3 font-semibold text-primary dark:border-secondary/40 dark:text-secondary"
+                                            >
+                                                Sign out
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    navigate('/login');
+                                                    closeMenu();
+                                                }}
+                                                className="rounded-lg border border-primary/30 py-3 font-semibold text-primary dark:border-secondary/40 dark:text-secondary"
+                                            >
+                                                Log in
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    navigate('/register');
+                                                    closeMenu();
+                                                }}
+                                                className="rounded-lg bg-primary py-3 font-semibold text-white"
+                                            >
+                                                Register
+                                            </button>
+                                        </>
+                                    )}
+                                </nav>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
 
                 {/* Page content */}
                 <main className="flex-1">{children}</main>

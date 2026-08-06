@@ -6,12 +6,14 @@ import BottomTabBar from '@/components/nav/BottomTabBar';
 import PageGuideOverlay from './PageGuideOverlay';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMotionPreference } from '@/contexts/MotionContext';
+import { cn } from '@/lib/utils';
 
 const DashboardLayout: React.FC = () => {
     const { user } = useAuth();
     const location = useLocation();
     const { reducedMotion: shouldReduceMotion } = useMotionPreference();
     const showGuideOverlay = user?.role === 'REVIEWEE';
+    const showBottomBar = showGuideOverlay && user?.role === 'REVIEWEE';
 
     return (
         <div className="flex h-dvh items-stretch overflow-hidden bg-slate-50 dark:bg-slate-900 font-lexend">
@@ -21,7 +23,7 @@ const DashboardLayout: React.FC = () => {
             </div>
 
             {/* ── Main content ── */}
-            <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+            <main className={cn("min-w-0 flex-1 overflow-x-hidden overflow-y-auto", showBottomBar && "pb-20")}>
 
                 {/* Page content with transition */}
                 <div

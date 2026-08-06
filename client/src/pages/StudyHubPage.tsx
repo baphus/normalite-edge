@@ -140,12 +140,18 @@ const StudyHubPage: React.FC = () => {
      * actually came for, with the quiz as the primary.
      */
     const renderActions = useCallback(
-        (deck: StudyDeck, options?: { fullWidth?: boolean }) => (
-            <div className={cn('flex items-center gap-1.5', options?.fullWidth ? 'w-full' : 'justify-end')}>
+        (deck: StudyDeck, options?: { fullWidth?: boolean; stacked?: boolean }) => (
+            <div
+                className={cn(
+                    'flex items-center gap-1.5',
+                    options?.fullWidth ? 'w-full' : 'justify-end',
+                    options?.stacked ? 'flex-col' : '',
+                )}
+            >
                 <Button
                     variant="outline"
                     className={cn(
-                        'h-8 gap-1.5 rounded-lg border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700',
+                        'h-10 gap-1.5 rounded-lg border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700',
                         options?.fullWidth ? 'flex-1' : '',
                     )}
                     onClick={() => navigate(`/study/${deck.id}?mode=flashcards`)}
@@ -154,7 +160,7 @@ const StudyHubPage: React.FC = () => {
                 </Button>
                 <Button
                     className={cn(
-                        'h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90',
+                        'h-10 gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90',
                         options?.fullWidth ? 'flex-1' : '',
                     )}
                     onClick={() => navigate(`/study/${deck.id}?mode=study`)}
@@ -214,27 +220,25 @@ const StudyHubPage: React.FC = () => {
 
     const renderCard = useCallback(
         (deck: StudyDeck) => (
-            <div className="flex h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-primary/30">
+            <div className="flex min-h-[180px] h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-primary/30">
                 <div className="flex items-start justify-between gap-2">{renderCategoryBadge(deck)}</div>
 
                 <div className="min-w-0">
                     <Link
                         to={`/study/${deck.id}/view`}
-                        className="line-clamp-2 text-[13px] font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        className="line-clamp-2 text-[14px] font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
                         {deck.title}
                     </Link>
                     <p className="mt-0.5 line-clamp-2 text-[12px] text-slate-400">{deck.description}</p>
                 </div>
 
-                <dl className="mt-auto grid grid-cols-1 gap-x-3 gap-y-1 border-t border-slate-100 pt-2 text-[12px]">
-                    <div className="flex justify-between gap-2">
-                        <dt className="text-slate-400">Cards</dt>
-                        <dd className="font-semibold tabular-nums text-slate-700">{deck.cardCount}</dd>
-                    </div>
-                </dl>
+                <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-2 text-[12px]">
+                    <dt className="text-slate-400">Cards</dt>
+                    <dd className="font-semibold tabular-nums text-slate-700">{deck.cardCount}</dd>
+                </div>
 
-                <div className="pt-1">{renderActions(deck, { fullWidth: true })}</div>
+                <div className="pt-1">{renderActions(deck, { fullWidth: true, stacked: true })}</div>
             </div>
         ),
         [renderActions, renderCategoryBadge],

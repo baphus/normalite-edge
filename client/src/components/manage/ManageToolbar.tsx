@@ -110,7 +110,7 @@ export const ManageToolbar: React.FC<ManageToolbarProps> = ({
                 <div
                     role="group"
                     aria-label={segmentLabel}
-                    className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5"
+                    className="flex items-center gap-0.5 overflow-x-auto rounded-lg border border-slate-200 bg-white p-0.5 scrollbar-hide"
                 >
                     {segments.map((segment) => {
                         const isActive = segment.value === segmentValue;
@@ -121,7 +121,7 @@ export const ManageToolbar: React.FC<ManageToolbarProps> = ({
                                 aria-pressed={isActive}
                                 onClick={() => onSegmentChange(segment.value)}
                                 className={cn(
-                                    'rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                                    'shrink-0 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                                     isActive
                                         ? 'bg-primary text-white'
                                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
@@ -184,7 +184,7 @@ export const ManageToolbar: React.FC<ManageToolbarProps> = ({
             <div
                 role="group"
                 aria-label="View mode"
-                className="ml-auto flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5"
+                className="ml-auto hidden items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 sm:flex"
             >
                 <button
                     type="button"

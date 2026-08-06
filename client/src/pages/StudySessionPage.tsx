@@ -59,6 +59,7 @@ const StudySessionPage: React.FC = () => {
     const [isFlipped, setIsFlipped] = useState(false);
     const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
     const [showResults, setShowResults] = useState(false);
+    const [showRationalization, setShowRationalization] = useState(true);
     const [loading, setLoading] = useState(true);
     const [deckTitle, setDeckTitle] = useState('');
     const [isShuffled, setIsShuffled] = useState(false);
@@ -79,6 +80,10 @@ const StudySessionPage: React.FC = () => {
             setFlashOrder(items.map((_, idx) => idx));
         }
     }, [id, mode, items.length]);
+
+    useEffect(() => {
+        setShowRationalization(true);
+    }, [currentIndex]);
 
     useEffect(() => {
         const fetchDeck = async () => {
@@ -701,8 +706,17 @@ const StudySessionPage: React.FC = () => {
 
                                 {userAnswers[currentIndex] !== undefined && (
                                     <div className="mx-auto mt-1 w-full max-w-2xl shrink-0 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3">
-                                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-blue-600">Rationalization</p>
-                                        <p className={`${rationalizationTextClass} font-medium leading-relaxed text-blue-900`}>{currentItem.rationalization}</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowRationalization((v) => !v)}
+                                            className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-widest text-blue-600"
+                                        >
+                                            <span>Rationalization</span>
+                                            <span className="text-[10px]">{showRationalization ? '▲ Hide' : '▼ Show'}</span>
+                                        </button>
+                                        {showRationalization && (
+                                            <p className={`mt-2 ${rationalizationTextClass} font-medium leading-relaxed text-blue-900`}>{currentItem.rationalization}</p>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -744,7 +758,7 @@ const StudySessionPage: React.FC = () => {
                                             key={idx}
                                             disabled={hasAnswer}
                                             onClick={() => handleOptionSelect(idx)}
-                                            className={`group relative flex min-h-[72px] items-center justify-start rounded-xl border-2 p-3 text-left transition-all duration-150 md:min-h-[88px] md:p-3.5 ${
+                                            className={`group relative flex min-h-[80px] items-center justify-start rounded-xl border-2 p-3 text-left transition-all duration-150 md:min-h-[88px] md:p-3.5 ${
                                                 isSelected && !hasAnswer
                                                     ? `ring-2 ring-offset-2 ${theme.activeRing} scale-[1.01] z-10`
                                                     : !hasAnswer ? `shadow-sm hover:-translate-y-0.5 ${theme.hover}` : ''

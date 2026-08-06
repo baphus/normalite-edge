@@ -1,7 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import MarketingLayout from '@/components/marketing/MarketingLayout';
 import { Eyebrow, BubbleList } from '@/components/marketing/Primitives';
+import FadeIn from '@/components/marketing/FadeIn';
+import { useMotionPreference } from '@/contexts/MotionContext';
 
 /** An answer-sheet row: the shaded choice marks the step you're on. */
 const AnswerRow: React.FC<{ marked: number }> = ({ marked }) => (
@@ -68,6 +71,14 @@ const TESTIMONIALS = [
 
 const LandingPage: React.FC = () => {
     const navigate = useNavigate();
+    const { reducedMotion } = useMotionPreference();
+
+    const primaryBtnTransition = reducedMotion
+        ? {}
+        : { type: 'spring' as const, stiffness: 400, damping: 17 };
+    const secondaryBtnTransition = reducedMotion
+        ? {}
+        : { type: 'spring' as const, stiffness: 400, damping: 20 };
 
     return (
         <MarketingLayout>
@@ -85,18 +96,24 @@ const LandingPage: React.FC = () => {
                             with your progress auto-saved as you go.
                         </p>
                         <div className="flex flex-wrap gap-3">
-                            <button
+                            <motion.button
                                 onClick={() => navigate('/register')}
+                                whileHover={reducedMotion ? undefined : { scale: 1.02 }}
+                                whileTap={reducedMotion ? undefined : { scale: 0.98 }}
+                                transition={primaryBtnTransition}
                                 className="rounded-lg bg-primary px-7 py-3.5 font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#5a1010]"
                             >
                                 Create your account
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
                                 onClick={() => navigate('/login')}
+                                whileHover={reducedMotion ? undefined : { scale: 1.01 }}
+                                whileTap={reducedMotion ? undefined : { scale: 0.98 }}
+                                transition={secondaryBtnTransition}
                                 className="rounded-lg border border-primary/25 bg-white/60 px-7 py-3.5 font-semibold text-primary transition-colors hover:border-primary/50 dark:border-secondary/30 dark:bg-white/5 dark:text-secondary"
                             >
                                 Log in
-                            </button>
+                            </motion.button>
                         </div>
                         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-primary/70 dark:text-secondary/70">
                             For @cnu.edu.ph accounts · Sign in with Google
@@ -141,28 +158,29 @@ const LandingPage: React.FC = () => {
             {/* How it works */}
             <section id="how" className="border-b border-[#e6ddd3] py-20 md:py-28 dark:border-white/10">
                 <div className="mx-auto max-w-[1200px] px-6 md:px-8">
-                    <div className="mb-14 max-w-2xl">
+                    <FadeIn className="mb-14 max-w-2xl">
                         <Eyebrow>How it works</Eyebrow>
                         <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-[#1A0E0E] md:text-4xl dark:text-white">
                             Three steps from sign-up to your first mock exam.
                         </h2>
-                    </div>
+                    </FadeIn>
                     <ol className="grid gap-6 md:grid-cols-3">
                         {STEPS.map((step, i) => (
-                            <li
-                                key={step.title}
-                                className="relative flex flex-col gap-4 rounded-2xl border border-[#e6ddd3] bg-white/60 p-7 dark:border-white/10 dark:bg-white/5"
-                            >
-                                <span className="flex size-12 items-center justify-center rounded-full border-2 border-primary/25 font-mono text-lg font-semibold text-primary dark:border-secondary/30 dark:text-secondary">
-                                    {String(i + 1).padStart(2, '0')}
-                                </span>
-                                <h3 className="font-serif text-xl font-semibold text-[#1A0E0E] dark:text-white">
-                                    {step.title}
-                                </h3>
-                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
-                                    {step.body}
-                                </p>
-                            </li>
+                            <FadeIn key={step.title} delay={i * 0.1}>
+                                <li
+                                    className="relative flex flex-col gap-4 rounded-2xl border border-[#e6ddd3] bg-white/60 p-7 dark:border-white/10 dark:bg-white/5"
+                                >
+                                    <span className="flex size-12 items-center justify-center rounded-full border-2 border-primary/25 font-mono text-lg font-semibold text-primary dark:border-secondary/30 dark:text-secondary">
+                                        {String(i + 1).padStart(2, '0')}
+                                    </span>
+                                    <h3 className="font-serif text-xl font-semibold text-[#1A0E0E] dark:text-white">
+                                        {step.title}
+                                    </h3>
+                                    <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                        {step.body}
+                                    </p>
+                                </li>
+                            </FadeIn>
                         ))}
                     </ol>
                 </div>
@@ -171,97 +189,103 @@ const LandingPage: React.FC = () => {
             {/* Features */}
             <section id="features" className="py-20 md:py-28">
                 <div className="mx-auto max-w-[1200px] px-6 md:px-8">
-                    <div className="mb-16 max-w-2xl">
+                    <FadeIn className="mb-16 max-w-2xl">
                         <Eyebrow>What you get</Eyebrow>
                         <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-[#1A0E0E] md:text-4xl dark:text-white">
                             Everything a Normalite needs to walk in ready.
                         </h2>
-                    </div>
+                    </FadeIn>
 
                     <div className="flex flex-col gap-20 md:gap-28">
-                        {/* Feature 1 */}
-                        <div className="grid items-center gap-10 lg:grid-cols-2">
-                            <div className="flex flex-col gap-5">
-                                <Eyebrow>Timed mock exams</Eyebrow>
-                                <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
-                                    Practice under the same clock.
-                                </h3>
-                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
-                                    Full-length mocks, timed like the real thing. Every item carries a written rationale,
-                                    so you learn <em>why</em> an answer is right &mdash; not just which one. Step away
-                                    anytime; your attempt is saved and waiting when you return.
-                                </p>
-                                <BubbleList
-                                    items={[
-                                        'Autosave and resume on any attempt',
-                                        'A written rationale for every item',
-                                        'Gen Ed, Prof Ed, and majorship coverage',
-                                    ]}
-                                />
+                        {/* Feature 1 — text left */}
+                        <FadeIn direction="left">
+                            <div className="grid items-center gap-10 lg:grid-cols-2">
+                                <div className="flex flex-col gap-5">
+                                    <Eyebrow>Timed mock exams</Eyebrow>
+                                    <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
+                                        Practice under the same clock.
+                                    </h3>
+                                    <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                        Full-length mocks, timed like the real thing. Every item carries a written rationale,
+                                        so you learn <em>why</em> an answer is right &mdash; not just which one. Step away
+                                        anytime; your attempt is saved and waiting when you return.
+                                    </p>
+                                    <BubbleList
+                                        items={[
+                                            'Autosave and resume on any attempt',
+                                            'A written rationale for every item',
+                                            'Gen Ed, Prof Ed, and majorship coverage',
+                                        ]}
+                                    />
+                                </div>
+                                <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 dark:border-white/10">
+                                    <img
+                                        src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030327/Screenshot_2026-03-09_at_12-24-14_Normalite_EDGE_cgc5ry.png"
+                                        alt="Mock exam interface"
+                                        className="aspect-video w-full object-cover object-top"
+                                    />
+                                </div>
                             </div>
-                            <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 dark:border-white/10">
-                                <img
-                                    src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030327/Screenshot_2026-03-09_at_12-24-14_Normalite_EDGE_cgc5ry.png"
-                                    alt="Mock exam interface"
-                                    className="aspect-video w-full object-cover object-top"
-                                />
-                            </div>
-                        </div>
+                        </FadeIn>
 
-                        {/* Feature 2 */}
-                        <div className="grid items-center gap-10 lg:grid-cols-2">
-                            <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 lg:order-last dark:border-white/10">
-                                <img
-                                    src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030328/Screenshot_2026-03-09_at_12-14-48_Normalite_EDGE_qn3aji.png"
-                                    alt="Review calendar"
-                                    className="aspect-video w-full object-cover object-top"
-                                />
+                        {/* Feature 2 — text right */}
+                        <FadeIn direction="right">
+                            <div className="grid items-center gap-10 lg:grid-cols-2">
+                                <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 lg:order-last dark:border-white/10">
+                                    <img
+                                        src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030328/Screenshot_2026-03-09_at_12-14-48_Normalite_EDGE_qn3aji.png"
+                                        alt="Review calendar"
+                                        className="aspect-video w-full object-cover object-top"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-5">
+                                    <Eyebrow>One calendar</Eyebrow>
+                                    <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
+                                        Nothing slips past you.
+                                    </h3>
+                                    <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                        Mock-exam windows, Zoom conferences, and study milestones sit side by side in one
+                                        view. Plan your week around what&rsquo;s actually coming up.
+                                    </p>
+                                    <BubbleList
+                                        items={[
+                                            'Conferences and exam windows in one place',
+                                            'Deadlines you can see coming',
+                                        ]}
+                                    />
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-5">
-                                <Eyebrow>One calendar</Eyebrow>
-                                <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
-                                    Nothing slips past you.
-                                </h3>
-                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
-                                    Mock-exam windows, Zoom conferences, and study milestones sit side by side in one
-                                    view. Plan your week around what&rsquo;s actually coming up.
-                                </p>
-                                <BubbleList
-                                    items={[
-                                        'Conferences and exam windows in one place',
-                                        'Deadlines you can see coming',
-                                    ]}
-                                />
-                            </div>
-                        </div>
+                        </FadeIn>
 
-                        {/* Feature 3 */}
-                        <div className="grid items-center gap-10 lg:grid-cols-2">
-                            <div className="flex flex-col gap-5">
-                                <Eyebrow>Materials, conferences &amp; results</Eyebrow>
-                                <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
-                                    Know where your next hour should go.
-                                </h3>
-                                <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
-                                    Study materials matched to your program track, conferences you can join in a click,
-                                    and score analytics that point to exactly where to spend your next study hour.
-                                </p>
-                                <BubbleList
-                                    items={[
-                                        'Track-specific study decks',
-                                        'Join conferences without leaving the app',
-                                        'Score breakdowns by subject area',
-                                    ]}
-                                />
+                        {/* Feature 3 — text left */}
+                        <FadeIn direction="left">
+                            <div className="grid items-center gap-10 lg:grid-cols-2">
+                                <div className="flex flex-col gap-5">
+                                    <Eyebrow>Materials, conferences &amp; results</Eyebrow>
+                                    <h3 className="font-serif text-2xl font-semibold text-[#1A0E0E] md:text-3xl dark:text-white">
+                                        Know where your next hour should go.
+                                    </h3>
+                                    <p className="text-[15px] leading-relaxed text-[#4a3a3a] dark:text-gray-300">
+                                        Study materials matched to your program track, conferences you can join in a click,
+                                        and score analytics that point to exactly where to spend your next study hour.
+                                    </p>
+                                    <BubbleList
+                                        items={[
+                                            'Track-specific study decks',
+                                            'Join conferences without leaving the app',
+                                            'Score breakdowns by subject area',
+                                        ]}
+                                    />
+                                </div>
+                                <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 dark:border-white/10">
+                                    <img
+                                        src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030568/3_collge_pupz05.png"
+                                        alt="Study materials and results"
+                                        className="aspect-video w-full object-cover object-top"
+                                    />
+                                </div>
                             </div>
-                            <div className="overflow-hidden rounded-2xl border border-[#e6ddd3] shadow-xl shadow-primary/5 dark:border-white/10">
-                                <img
-                                    src="https://res.cloudinary.com/dll6it35i/image/upload/v1773030568/3_collge_pupz05.png"
-                                    alt="Study materials and results"
-                                    className="aspect-video w-full object-cover object-top"
-                                />
-                            </div>
-                        </div>
+                        </FadeIn>
                     </div>
                 </div>
             </section>
@@ -269,12 +293,12 @@ const LandingPage: React.FC = () => {
             {/* Testimonials */}
             <section id="stories" className="border-y border-[#e6ddd3] bg-white/50 py-20 md:py-24 dark:border-white/10 dark:bg-white/5">
                 <div className="mx-auto max-w-[1200px] px-6 md:px-8">
-                    <div className="mb-8 max-w-2xl">
+                    <FadeIn className="mb-8 max-w-2xl">
                         <Eyebrow>Reviewee stories</Eyebrow>
                         <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-[#1A0E0E] md:text-4xl dark:text-white">
                             What a review week can look like.
                         </h2>
-                    </div>
+                    </FadeIn>
 
                     {/* Placeholder disclaimer — required: these are not real reviewees */}
                     <div className="mb-10 flex items-start gap-3 rounded-xl border border-secondary/50 bg-secondary/10 p-4">
@@ -291,39 +315,40 @@ const LandingPage: React.FC = () => {
                     </div>
 
                     <div className="grid gap-6 md:grid-cols-3">
-                        {TESTIMONIALS.map((t) => (
-                            <figure
-                                key={t.name}
-                                className="flex flex-col justify-between rounded-2xl border border-[#e6ddd3] bg-[#F7F4EE] p-6 dark:border-white/10 dark:bg-[#230f0f]"
-                            >
-                                <div>
-                                    <div className="mb-4 flex gap-0.5 text-secondary" aria-label={`${t.stars} out of 5`}>
-                                        {Array.from({ length: 5 }).map((_, i) => (
-                                            <span
-                                                key={i}
-                                                className="material-symbols-outlined text-[18px]"
-                                                style={{
-                                                    fontVariationSettings: `'FILL' ${i < t.stars ? 1 : 0}`,
-                                                }}
-                                            >
-                                                star
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <blockquote className="text-[15px] italic leading-relaxed text-[#3a2727] dark:text-gray-200">
-                                        &ldquo;{t.quote}&rdquo;
-                                    </blockquote>
-                                </div>
-                                <figcaption className="mt-6 flex items-center gap-3">
-                                    <InitialsAvatar initials={t.initials} />
+                        {TESTIMONIALS.map((t, i) => (
+                            <FadeIn key={t.name} delay={i * 0.1}>
+                                <figure
+                                    className="flex h-full flex-col justify-between rounded-2xl border border-[#e6ddd3] bg-[#F7F4EE] p-6 dark:border-white/10 dark:bg-[#230f0f]"
+                                >
                                     <div>
-                                        <p className="text-sm font-semibold text-[#1A0E0E] dark:text-white">{t.name}</p>
-                                        <p className="font-mono text-[11px] tracking-wide text-primary/80 dark:text-secondary/80">
-                                            {t.track} · sample
-                                        </p>
+                                        <div className="mb-4 flex gap-0.5 text-secondary" aria-label={`${t.stars} out of 5`}>
+                                            {Array.from({ length: 5 }).map((_, si) => (
+                                                <span
+                                                    key={si}
+                                                    className="material-symbols-outlined text-[18px]"
+                                                    style={{
+                                                        fontVariationSettings: `'FILL' ${si < t.stars ? 1 : 0}`,
+                                                    }}
+                                                >
+                                                    star
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <blockquote className="text-[15px] italic leading-relaxed text-[#3a2727] dark:text-gray-200">
+                                            &ldquo;{t.quote}&rdquo;
+                                        </blockquote>
                                     </div>
-                                </figcaption>
-                            </figure>
+                                    <figcaption className="mt-6 flex items-center gap-3">
+                                        <InitialsAvatar initials={t.initials} />
+                                        <div>
+                                            <p className="text-sm font-semibold text-[#1A0E0E] dark:text-white">{t.name}</p>
+                                            <p className="font-mono text-[11px] tracking-wide text-primary/80 dark:text-secondary/80">
+                                                {t.track} · sample
+                                            </p>
+                                        </div>
+                                    </figcaption>
+                                </figure>
+                            </FadeIn>
                         ))}
                     </div>
                 </div>
@@ -331,7 +356,7 @@ const LandingPage: React.FC = () => {
 
             {/* CTA */}
             <section className="bg-primary py-16 md:py-20">
-                <div className="mx-auto flex max-w-[900px] flex-col items-center gap-6 px-6 text-center">
+                <FadeIn className="mx-auto flex max-w-[900px] flex-col items-center gap-6 px-6 text-center">
                     <Eyebrow className="text-secondary dark:text-secondary">Ready when you are</Eyebrow>
                     <h2 className="font-serif text-3xl font-semibold text-white md:text-4xl">
                         Your CNU account is your way in.
@@ -340,13 +365,16 @@ const LandingPage: React.FC = () => {
                         Sign in with your @cnu.edu.ph Google account and start your LET review in under a
                         minute.
                     </p>
-                    <button
+                    <motion.button
                         onClick={() => navigate('/register')}
+                        whileHover={reducedMotion ? undefined : { scale: 1.02 }}
+                        whileTap={reducedMotion ? undefined : { scale: 0.98 }}
+                        transition={primaryBtnTransition}
                         className="mt-2 rounded-lg bg-secondary px-8 py-3.5 font-semibold text-[#1A0E0E] shadow-lg transition-all hover:-translate-y-0.5 hover:bg-[#ffca4d]"
                     >
                         Create your account
-                    </button>
-                </div>
+                    </motion.button>
+                </FadeIn>
             </section>
         </MarketingLayout>
     );
