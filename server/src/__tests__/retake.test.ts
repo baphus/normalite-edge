@@ -229,4 +229,40 @@ describe('startAttempt retake policy', () => {
         );
         assert.equal(state.created.length, 0, 'no attempt should be created');
     });
+
+    it('allows a retake once the cooldown has expired', async () => {
+        resetState({
+            allowMultipleAttempts: true,
+            submittedAttempt: { id: 'submitted-1' },
+            latestAttempt: makeAttempt({
+                attemptNo: 1,
+                status: 'SUBMITTED',
+                submittedAt: new Date(Date.now() - 20 * 60_000),
+            }),
+            exam: baseExam({ cooldownMinutes: 10 }),
+        });
+
+        const result = await attemptService.startAttempt(USER_ID, EXAM_ID);
+
+        assert.equal(result.attemptNo, 2, 'retake should be allowed after the cooldown has elapsed');
+        assert.equal(result.status, 'IN_PROGRESS');
+        assert.equal(state.created.length, 1);
+        assert.equal(state.created[0].attemptNo, 2);
+    });
+
+    it('resumes an IN_PROGRESS attempt when retakes are disabled', async () => {
+        resetState({
+            allowMultipleAttempts: false,
+            inProgressAttempt: makeAttempt({
+                attemptNo: 1,
+                status: 'IN_PROGRESS',
+            }),
+        });
+
+        const result = await attemptService.startAttempt(USER_ID, EXAM_ID);
+
+        assert.equal(result.attemptNo, 1, 'should resume the existing in-progress attempt');
+        assert.equal(result.status, 'IN_PROGRESS');
+        assert.equal(state.created.length, 0, 'no new attempt should be created');
+    });
 });

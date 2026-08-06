@@ -92,58 +92,60 @@ export class StreakService {
             },
         });
 
-        // Get or create the user streak record
-        const existing = await prisma.userStreak.findUnique({
-            where: { userId },
-        });
+        // Atomically update the streak count within a transaction
+        await prisma.$transaction(async (tx) => {
+            const existing = await tx.userStreak.findUnique({
+                where: { userId },
+            });
 
-        if (!existing) {
-            // First activity ever
-            await prisma.userStreak.create({
+            if (!existing) {
+                // First activity ever
+                await tx.userStreak.create({
+                    data: {
+                        userId,
+                        currentStreak: 1,
+                        longestStreak: 1,
+                        lastActiveDate: todayMidnight,
+                    },
+                });
+                return;
+            }
+
+            // Compute new streak
+            const lastActiveMidnight = new Date(
+                existing.lastActiveDate.getFullYear(),
+                existing.lastActiveDate.getMonth(),
+                existing.lastActiveDate.getDate(),
+            );
+            const diffDays = Math.round(
+                (todayMidnight.getTime() - lastActiveMidnight.getTime()) / 86_400_000,
+            );
+
+            let newCurrentStreak: number;
+            let newLongestStreak: number;
+
+            if (diffDays === 0) {
+                // Same day — no change to streak count
+                newCurrentStreak = existing.currentStreak;
+                newLongestStreak = existing.longestStreak;
+            } else if (diffDays === 1) {
+                // Consecutive day
+                newCurrentStreak = existing.currentStreak + 1;
+                newLongestStreak = Math.max(existing.longestStreak, newCurrentStreak);
+            } else {
+                // Gap — reset streak
+                newCurrentStreak = 1;
+                newLongestStreak = Math.max(existing.longestStreak, 1);
+            }
+
+            await tx.userStreak.update({
+                where: { userId },
                 data: {
-                    userId,
-                    currentStreak: 1,
-                    longestStreak: 1,
+                    currentStreak: newCurrentStreak,
+                    longestStreak: newLongestStreak,
                     lastActiveDate: todayMidnight,
                 },
             });
-            return;
-        }
-
-        // Compute new streak
-        const lastActiveMidnight = new Date(
-            existing.lastActiveDate.getFullYear(),
-            existing.lastActiveDate.getMonth(),
-            existing.lastActiveDate.getDate(),
-        );
-        const diffDays = Math.round(
-            (todayMidnight.getTime() - lastActiveMidnight.getTime()) / 86_400_000,
-        );
-
-        let newCurrentStreak: number;
-        let newLongestStreak: number;
-
-        if (diffDays === 0) {
-            // Same day — no change to streak count
-            newCurrentStreak = existing.currentStreak;
-            newLongestStreak = existing.longestStreak;
-        } else if (diffDays === 1) {
-            // Consecutive day
-            newCurrentStreak = existing.currentStreak + 1;
-            newLongestStreak = Math.max(existing.longestStreak, newCurrentStreak);
-        } else {
-            // Gap — reset streak
-            newCurrentStreak = 1;
-            newLongestStreak = Math.max(existing.longestStreak, 1);
-        }
-
-        await prisma.userStreak.update({
-            where: { userId },
-            data: {
-                currentStreak: newCurrentStreak,
-                longestStreak: newLongestStreak,
-                lastActiveDate: todayMidnight,
-            },
         });
     }
 }

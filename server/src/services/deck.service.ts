@@ -541,7 +541,14 @@ export class DeckService {
             }[];
         }
     ) {
-        const session = await prisma.deckSession.findUnique({ where: { id: sessionId } });
+        const session = await prisma.deckSession.findUnique({
+            where: { id: sessionId },
+            include: {
+                items: {
+                    select: { wasViewed: true },
+                },
+            },
+        });
         if (!session) throw ApiError.notFound('Deck session not found');
         if (session.userId !== userId) throw ApiError.forbidden('Not your deck session');
         if (session.status !== 'IN_PROGRESS') throw ApiError.badRequest('Session is already finalized');
@@ -587,8 +594,14 @@ export class DeckService {
             });
         });
 
-        // Record streak activity for completed deck sessions (fire-and-forget)
-        if (data.status === 'COMPLETED') {
+        // Only record streak if the user actually viewed items (gamification
+        // integrity). Items may have been written by earlier saves rather than
+        // this final payload, so count both the payload items and stored ones.
+        const viewedInPayload = (data.items ?? []).filter((item) => item.wasViewed !== false).length;
+        const viewedInSession = (session?.items ?? []).filter((item) => item.wasViewed).length;
+        const viewedItems = Math.max(viewedInPayload, viewedInSession);
+
+        if (data.status === 'COMPLETED' && viewedItems > 0) {
             streakService.recordActivity(userId, 'DECK_SESSION').catch(() => {});
         }
 
