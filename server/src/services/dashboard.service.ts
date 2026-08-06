@@ -169,17 +169,20 @@ export class DashboardService {
             }),
         ]);
 
-        // Look up user's track for upcoming exams visibility
+        // Look up user's track for upcoming exams visibility.  Use trackId
+        // (UUID FK to the Track table), NOT programTrack (a legacy free-text
+        // string).  buildTrackVisibilityFilter expects a UUID because it
+        // filters through the trackLinks junction table.
         const revieweeUser = await prisma.user.findUnique({
             where: { id: userId },
-            select: { programTrack: true },
+            select: { trackId: true },
         });
 
         const upcomingExams = await prisma.exam.findMany({
             where: {
                 status: 'LIVE',
                 scheduleStart: { gte: new Date() },
-                ...buildTrackVisibilityFilter(revieweeUser?.programTrack),
+                ...buildTrackVisibilityFilter(revieweeUser?.trackId),
             },
             select: {
                 id: true,
