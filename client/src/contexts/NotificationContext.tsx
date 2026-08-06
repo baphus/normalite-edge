@@ -49,6 +49,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const [loading, setLoading] = useState(false);
     const [toasts, setToasts] = useState<ToastMessage[]>([]);
     const reconnectTimerRef = useRef<number | null>(null);
+    const reconnectAttemptsRef = useRef(0);
+    const MAX_RECONNECT_DELAY = 60_000; // 1 minute max
 
     const pushToast = useCallback((notification: NotificationItem) => {
         const toastId = `${notification.id}-${Date.now()}`;
@@ -126,10 +128,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 ticket = ticketRes.data?.data?.ticket;
                 if (!ticket) return;
             } catch {
-                // If ticket fetch fails, retry after delay
-                reconnectTimerRef.current = window.setTimeout(connect, 5000);
+                // If ticket fetch fails, retry with exponential backoff
+                const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, MAX_RECONNECT_DELAY);
+                reconnectAttemptsRef.current += 1;
+                reconnectTimerRef.current = window.setTimeout(connect, delay);
                 return;
             }
+
+            // Ticket succeeded — reset backoff
+            reconnectAttemptsRef.current = 0;
 
             const baseUrl = String(api.defaults.baseURL || 'http://localhost:5000/api/v1').replace(/\/$/, '');
             const streamUrl = `${baseUrl}/notifications/stream?ticket=${encodeURIComponent(ticket)}`;
@@ -172,7 +179,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 }
 
                 if (!closedByCleanup) {
-                    reconnectTimerRef.current = window.setTimeout(connect, 3000);
+                    const delay = Math.min(3000 * 2 ** reconnectAttemptsRef.current, MAX_RECONNECT_DELAY);
+                    reconnectAttemptsRef.current += 1;
+                    reconnectTimerRef.current = window.setTimeout(connect, delay);
                 }
             };
         };

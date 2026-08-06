@@ -56,10 +56,10 @@ function rateLimitKey(req: Request): string {
     return ipKeyGenerator(req.ip ?? 'unknown');
 }
 
-// Global: 100 requests per 15 minutes per user (or IP for anonymous traffic)
+// Global: 300 requests per 15 minutes per user (or IP for anonymous traffic)
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 300,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: rateLimitKey,
