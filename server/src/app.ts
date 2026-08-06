@@ -2,7 +2,8 @@ import express, { type Request } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { ipKeyGenerator } from 'express-rate-limit';
+import { slidingWindowLimiter } from './middleware/slidingWindowLimiter';
 import { corsOptions } from './config/cors';
 import { errorHandler } from './middleware/errorHandler';
 import v1Routes from './routes/v1';
@@ -56,34 +57,32 @@ function rateLimitKey(req: Request): string {
     return ipKeyGenerator(req.ip ?? 'unknown');
 }
 
+// Sliding window counter — prevents burst-at-boundary abuse.
+// Weighted estimate: (prev_count × overlap_ratio) + curr_count.
+// ~90%+ accuracy, O(1) memory per client.
+
 // Global: 300 requests per 15 minutes per user (or IP for anonymous traffic)
-const globalLimiter = rateLimit({
+const globalLimiter = slidingWindowLimiter({
     windowMs: 15 * 60 * 1000,
     max: 300,
-    standardHeaders: true,
-    legacyHeaders: false,
     keyGenerator: rateLimitKey,
-    message: { success: false, message: 'Too many requests, please try again later' },
+    message: 'Too many requests, please try again later',
 });
 
 // Exam flow: 600 requests per 15 minutes — save/submit endpoints are
 // time-critical during live exams and must not be throttled by general browsing.
-const examLimiter = rateLimit({
+const examLimiter = slidingWindowLimiter({
     windowMs: 15 * 60 * 1000,
     max: 600,
-    standardHeaders: true,
-    legacyHeaders: false,
     keyGenerator: rateLimitKey,
-    message: { success: false, message: 'Too many exam requests, please try again later' },
+    message: 'Too many exam requests, please try again later',
 });
 
 // Strict: 10 attempts per 15 minutes for auth endpoints
-const authLimiter = rateLimit({
+const authLimiter = slidingWindowLimiter({
     windowMs: 15 * 60 * 1000,
     max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, message: 'Too many authentication attempts, please try again later' },
+    message: 'Too many authentication attempts, please try again later',
 });
 
 // Upload limits are per-identity and live on the uploads router itself — an
