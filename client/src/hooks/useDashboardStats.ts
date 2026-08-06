@@ -69,8 +69,9 @@ export function useDashboardStats(userId?: string): UseDashboardStatsResult {
                     // Best-effort write; never break the dashboard on a full store.
                 });
             })
-            .catch(() => {
+            .catch((err) => {
                 if (cancelled) return;
+                console.error('[useDashboardStats] Failed to fetch dashboard stats:', err);
                 // Keep whatever is showing (cached stats or nothing); stop the spinner.
                 setLoading(false);
             });
