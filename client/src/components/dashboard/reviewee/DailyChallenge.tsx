@@ -28,7 +28,11 @@ interface DailyAnswerCache {
  * question, submits the answer, and rehydrates an already-answered question
  * from localStorage so a reload keeps the result.
  */
-export const DailyChallenge: React.FC = () => {
+interface DailyChallengeProps {
+    onAnswered?: () => void;
+}
+
+export const DailyChallenge: React.FC<DailyChallengeProps> = ({ onAnswered }) => {
     const { user } = useAuth();
     const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -103,6 +107,9 @@ export const DailyChallenge: React.FC = () => {
             const answerResult = (response.data?.data as DailyAnswerResult | null) ?? null;
             if (!answerResult) return;
             setResult(answerResult);
+
+            // Notify parent so streak data refetches (triggers celebration if streak gained)
+            onAnswered?.();
 
             if (user?.id) {
                 const payload: DailyAnswerCache = {

@@ -87,7 +87,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const inProgress = recentAttempts.find((a) => a.status === 'IN_PROGRESS');
 
     const subjectPerformance = useSubjectPerformance(recentAttempts);
-    const { data: streakData, loading: streakLoading } = useStreakData();
+    const { data: streakData, loading: streakLoading, refetch: refetchStreak } = useStreakData();
     const navigate = useNavigate();
 
     // ── Streak gain detection ──────────────────────────────────────
@@ -256,7 +256,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             <StudyProgressStrip averages={stats?.averagesBySubject} loading={false} />
 
             {/* ── Daily challenge ────────────────────────────────────── */}
-            <DailyChallenge />
+            <DailyChallenge onAnswered={refetchStreak} />
 
             {/* ── Main content grid ──────────────────────────────────── */}
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
