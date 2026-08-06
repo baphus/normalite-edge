@@ -103,6 +103,10 @@ export const DailyChallenge: React.FC<DailyChallengeProps> = ({ onAnswered }) =>
             const response = await api.post('/dashboard/daily-question/answer', {
                 questionId: question.questionId,
                 selectedChoice,
+            }, {
+                // tz: client's UTC offset in minutes (e.g. -480 for UTC+8). The server
+                // uses it to record the streak on the user's local calendar date.
+                params: { tz: new Date().getTimezoneOffset() },
             });
             const answerResult = (response.data?.data as DailyAnswerResult | null) ?? null;
             if (!answerResult) return;

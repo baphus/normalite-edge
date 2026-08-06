@@ -903,6 +903,10 @@ const TakeExamPage: React.FC = () => {
                 timeSpent: getTimeSpent(exam.timeLimit, timeLeftRef.current),
                 autoSubmitted,
                 remainingSeconds: Math.max(0, timeLeftRef.current),
+            }, {
+                // tz: client's UTC offset in minutes (e.g. -480 for UTC+8). The
+                // server uses it to record the streak on the user's local date.
+                params: { tz: new Date().getTimezoneOffset() },
             });
 
             clearDraft();

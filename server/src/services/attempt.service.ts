@@ -238,7 +238,7 @@ export class AttemptService {
         return clientViewedAt;
     }
 
-    private async autoSubmitExpiredAttempt(attemptId: string) {
+    private async autoSubmitExpiredAttempt(attemptId: string, timezoneOffsetMinutes: number = 0) {
         const attempt = await prisma.attempt.findUnique({
             where: { id: attemptId },
             include: {
@@ -299,7 +299,7 @@ export class AttemptService {
         });
 
         // Record streak activity for auto-submitted exam (fire-and-forget)
-        streakService.recordActivity(attempt.userId, 'EXAM_SUBMISSION').catch(() => {});
+        streakService.recordActivity(attempt.userId, 'EXAM_SUBMISSION', timezoneOffsetMinutes).catch((err) => console.error('[streak] EXAM_SUBMISSION recordActivity failed:', err));
 
         const finalizedAttempt = await prisma.attempt.findUnique({
             where: { id: attempt.id },
@@ -642,7 +642,7 @@ export class AttemptService {
         timeSpent?: number;
         autoSubmitted?: boolean;
         remainingSeconds?: number;
-    }) {
+    }, timezoneOffsetMinutes: number = 0) {
         this.validateAnswerChoices(data.answers || {});
 
         const attempt = await prisma.attempt.findUnique({
@@ -683,7 +683,7 @@ export class AttemptService {
         }
 
         if (this.computeRemainingSeconds(refreshedAttempt.endsAt) <= 0) {
-            const finalized = await this.autoSubmitExpiredAttempt(attemptId);
+            const finalized = await this.autoSubmitExpiredAttempt(attemptId, timezoneOffsetMinutes);
             return {
                 ...finalized,
                 exam: this.normalizeExam(finalized.exam),
@@ -835,7 +835,7 @@ export class AttemptService {
         ]);
 
         // Record streak activity for exam submission (fire-and-forget)
-        streakService.recordActivity(userId, 'EXAM_SUBMISSION').catch(() => {});
+        streakService.recordActivity(userId, 'EXAM_SUBMISSION', timezoneOffsetMinutes).catch((err) => console.error('[streak] EXAM_SUBMISSION recordActivity failed:', err));
 
         const submittedAttempt = await prisma.attempt.findUnique({
             where: { id: attemptId },

@@ -81,7 +81,7 @@ export class DashboardService {
         };
     }
 
-    async checkDailyQuestionAnswer(userId: string, questionId: string, selectedChoice: string) {
+    async checkDailyQuestionAnswer(userId: string, questionId: string, selectedChoice: string, timezoneOffsetMinutes: number = 0) {
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { programTrack: true },
@@ -127,10 +127,8 @@ export class DashboardService {
         const normalizedChoice = selectedChoice.toUpperCase();
         const normalizedCorrect = question.correctChoice.toUpperCase();
 
-        // Record streak activity for daily question (fire-and-forget). The
-        // controller has no timezone offset here, so this uses the server
-        // default (UTC) — the day boundary is approximate for this activity.
-        streakService.recordActivity(userId, 'DAILY_QUESTION').catch(() => {});
+        // Record streak activity for daily question (fire-and-forget).
+        streakService.recordActivity(userId, 'DAILY_QUESTION', timezoneOffsetMinutes).catch((err) => console.error('[streak] DAILY_QUESTION recordActivity failed:', err));
 
         return {
             questionId: question.id,

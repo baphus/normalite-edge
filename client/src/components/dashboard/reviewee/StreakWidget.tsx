@@ -73,7 +73,9 @@ export const StreakWidget: React.FC<StreakWidgetProps> = ({
 
                     return (
                         <div key={i} className="flex flex-col items-center gap-1">
-                            <span className="text-[11px] font-semibold text-slate-400">{day}</span>
+                            <span className={cn('text-[11px] font-semibold', isToday ? 'text-primary' : 'text-slate-400')}>
+                                {day}
+                            </span>
                             <div
                                 className={cn(
                                     'h-6 w-6 rounded-full flex items-center justify-center text-[11px]',
@@ -82,6 +84,7 @@ export const StreakWidget: React.FC<StreakWidgetProps> = ({
                                         : isToday
                                           ? 'bg-slate-100 text-slate-600'
                                           : 'bg-slate-50 text-slate-300',
+                                    isToday && 'ring-2 ring-primary/40 ring-offset-1',
                                 )}
                                 aria-label={`${day}: ${isActive ? 'active' : isToday ? 'today' : 'inactive'}`}
                             >

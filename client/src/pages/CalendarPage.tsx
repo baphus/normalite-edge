@@ -738,6 +738,7 @@ const CalendarPage: React.FC = () => {
                                     const dayEvents = eventsByDate.get(dateKey) ?? [];
                                     const isToday = dateKey === todayKey;
                                     const isSelected = dateKey === mobileAgendaDate;
+                                    const isStreakDay = streakData?.activeDays.includes(dateKey) ?? false;
 
                                     return (
                                         <button
@@ -746,15 +747,20 @@ const CalendarPage: React.FC = () => {
                                             onClick={() => setMobileAgendaDate(dateKey)}
                                             className="h-10 flex flex-col items-center justify-center"
                                         >
-                                            <span className={cn(
-                                                'h-6 min-w-6 px-1 rounded-full inline-flex items-center justify-center text-[12px] font-semibold',
-                                                isSelected
-                                                    ? 'bg-gray-900 text-white'
-                                                    : isToday
-                                                        ? 'bg-primary/10 text-primary'
-                                                        : 'text-gray-700',
-                                            )}>
-                                                {day}
+                                            <span className="inline-flex items-center gap-0.5">
+                                                <span className={cn(
+                                                    'h-6 min-w-6 px-1 rounded-full inline-flex items-center justify-center text-[12px] font-semibold',
+                                                    isSelected
+                                                        ? 'bg-gray-900 text-white'
+                                                        : isToday
+                                                            ? 'bg-primary/10 text-primary'
+                                                            : 'text-gray-700',
+                                                )}>
+                                                    {day}
+                                                </span>
+                                                {isStreakDay && (
+                                                    <Flame size={9} className="text-orange-500" aria-label="Streak day" />
+                                                )}
                                             </span>
                                             <span className="mt-0.5 flex items-center gap-0.5 h-1.5">
                                                 {dayEvents.slice(0, 3).map((ev) => (
@@ -891,6 +897,7 @@ const CalendarPage: React.FC = () => {
                                         today.getDate() === day;
                                     const isSelected = selectedDate === key;
                                     const isWeekend = idx % 7 === 0 || idx % 7 === 6;
+                                    const isStreakDay = streakData?.activeDays.includes(key) ?? false;
 
                                     const visibleEvents = dayEvents.slice(0, 3);
                                     const overflow = dayEvents.length - 3;
@@ -944,15 +951,20 @@ const CalendarPage: React.FC = () => {
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 ) : <span />}
-                                                <span className={cn(
-                                                    'text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full transition-colors',
-                                                    isToday
-                                                        ? 'bg-primary text-white'
-                                                        : isWeekend
-                                                            ? 'text-gray-400'
-                                                            : 'text-gray-700',
-                                                )}>
-                                                    {day}
+                                                <span className="flex items-center gap-1">
+                                                    <span className={cn(
+                                                        'text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full transition-colors',
+                                                        isToday
+                                                            ? 'bg-primary text-white'
+                                                            : isWeekend
+                                                                ? 'text-gray-400'
+                                                                : 'text-gray-700',
+                                                    )}>
+                                                        {day}
+                                                    </span>
+                                                    {isStreakDay && (
+                                                        <Flame size={11} className="text-orange-500 shrink-0" aria-label="Streak day" />
+                                                    )}
                                                 </span>
                                             </div>
 

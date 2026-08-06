@@ -66,8 +66,11 @@ const StudySessionPage: React.FC = () => {
     const [deckTitle, setDeckTitle] = useState('');
     const [isShuffled, setIsShuffled] = useState(false);
     const [flashOrder, setFlashOrder] = useState<number[]>([]);
+    const [sessionId, setSessionId] = useState<string | null>(null);
 
     const isStudyMode = mode === 'study';
+    // Map the route mode to the server's DeckSessionMode enum.
+    const sessionMode = mode === 'study' ? 'VIEW' : mode.toUpperCase();
 
     useEffect(() => {
         setFlashOrder(items.map((_, idx) => idx));
@@ -144,6 +147,26 @@ const StudySessionPage: React.FC = () => {
         fetchDeck();
     }, [id]);
 
+    // Start a deck session on the server so completion can be recorded for
+    // streaks. Best-effort: only when online, and never for an empty deck or a
+    // session we already started. Skipped entirely when offline — the local
+    // IndexedDB progress path covers that case.
+    useEffect(() => {
+        if (isOffline || loading || showResults || items.length === 0 || sessionId) return;
+        let cancelled = false;
+        api.post(`/decks/${id}/sessions/start`, { mode: sessionMode })
+            .then((response) => {
+                const newSessionId: string | undefined = response.data?.data?.id;
+                if (!cancelled && newSessionId) setSessionId(newSessionId);
+            })
+            .catch((error) => {
+                if (!cancelled) console.error('Failed to start deck session', error);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [id, mode, sessionMode, items.length, loading, isOffline, showResults, sessionId]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
@@ -215,8 +238,35 @@ const StudySessionPage: React.FC = () => {
         if (showResults) {
             setShowConfetti(true);
             refetchStreak();
+            // Tell the server the session is complete so the streak increments.
+            // Fire-and-forget: the streak fetch already happens optimistically,
+            // and a failed end call must not block the results screen.
+            if (sessionId && !isOffline) {
+                const payloadItems = items.map((item, idx) => {
+                    const selected = userAnswers[idx];
+                    return {
+                        questionId: item.id,
+                        wasViewed: true,
+                        selectedChoice: (selected !== undefined ? OPTION_LABELS[selected] : null) as 'A' | 'B' | 'C' | 'D' | null,
+                        isCorrect: selected !== undefined ? selected === item.answer : null,
+                    };
+                });
+                api.patch(`/decks/sessions/${sessionId}/end`, {
+                    status: 'COMPLETED',
+                    currentIndex: items.length - 1,
+                    score: items.filter((_, idx) => userAnswers[idx] === items[idx].answer).length,
+                    totalItems: items.length,
+                    items: payloadItems,
+                }, {
+                    // tz: client's UTC offset in minutes (e.g. -480 for UTC+8). The
+                    // server uses it to record the streak on the user's local date.
+                    params: { tz: new Date().getTimezoneOffset() },
+                }).catch((error) => {
+                    console.error('Failed to end deck session', error);
+                });
+            }
         }
-    }, [showResults, refetchStreak]);
+    }, [showResults, refetchStreak, sessionId, isOffline, items, userAnswers]);
 
     if (loading) {
         return (

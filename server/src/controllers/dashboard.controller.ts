@@ -31,10 +31,14 @@ export const dashboardController = {
     }),
 
     submitDailyQuestionAnswer: catchAsync(async (req: Request, res: Response) => {
+        // `tz` is the client's UTC offset in minutes (e.g. -480 for UTC+8).
+        const tzParsed = parseInt(String(req.query.tz), 10);
+        const timezoneOffset = Number.isNaN(tzParsed) ? 0 : tzParsed;
         const result = await dashboardService.checkDailyQuestionAnswer(
             req.user!.userId,
             req.body.questionId as string,
-            req.body.selectedChoice as string
+            req.body.selectedChoice as string,
+            timezoneOffset
         );
 
         ApiResponse.success(res, result);

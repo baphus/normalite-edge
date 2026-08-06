@@ -539,7 +539,8 @@ export class DeckService {
                 selectedChoice?: 'A' | 'B' | 'C' | 'D' | null;
                 isCorrect?: boolean | null;
             }[];
-        }
+        },
+        timezoneOffsetMinutes: number = 0,
     ) {
         const session = await prisma.deckSession.findUnique({
             where: { id: sessionId },
@@ -602,7 +603,7 @@ export class DeckService {
         const viewedItems = Math.max(viewedInPayload, viewedInSession);
 
         if (data.status === 'COMPLETED' && viewedItems > 0) {
-            streakService.recordActivity(userId, 'DECK_SESSION').catch(() => {});
+            streakService.recordActivity(userId, 'DECK_SESSION', timezoneOffsetMinutes).catch((err) => console.error('[streak] DECK_SESSION recordActivity failed:', err));
         }
 
         return this.getDeckSession(sessionId, userId, 'REVIEWEE');

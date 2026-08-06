@@ -22,10 +22,14 @@ export const attemptController = {
     }),
 
     submitAttempt: catchAsync(async (req: Request, res: Response) => {
+        // `tz` is the client's UTC offset in minutes (e.g. -480 for UTC+8).
+        const tzParsed = parseInt(String(req.query.tz), 10);
+        const timezoneOffset = Number.isNaN(tzParsed) ? 0 : tzParsed;
         const attempt = await attemptService.submitAttempt(
             req.params.id as string,
             req.user!.userId,
-            req.body
+            req.body,
+            timezoneOffset
         );
         ApiResponse.success(res, attempt, 'Attempt submitted');
     }),
