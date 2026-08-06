@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MotionProvider } from '@/providers/MotionProvider';
 import RevieweeDashboard from '@/pages/dashboards/RevieweeDashboard';
 import api from '@/lib/axios';
 import type { RevieweeStats } from '@/components/dashboard/reviewee/types';
@@ -69,7 +70,9 @@ const stats: RevieweeStats = {
 const renderDashboard = (overrides?: Partial<RevieweeStats>) =>
     render(
         <MemoryRouter>
-            <RevieweeDashboard stats={{ ...stats, ...overrides }} />
+            <MotionProvider>
+                <RevieweeDashboard stats={{ ...stats, ...overrides }} />
+            </MotionProvider>
         </MemoryRouter>,
     );
 
