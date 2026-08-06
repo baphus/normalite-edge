@@ -1,6 +1,7 @@
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { buildTrackVisibilityFilter } from './revieweeVisibility';
+import { streakService } from './streak.service';
 
 export class DashboardService {
     private getDailySeed(userId: string) {
@@ -125,6 +126,11 @@ export class DashboardService {
 
         const normalizedChoice = selectedChoice.toUpperCase();
         const normalizedCorrect = question.correctChoice.toUpperCase();
+
+        // Record streak activity for daily question (fire-and-forget). The
+        // controller has no timezone offset here, so this uses the server
+        // default (UTC) — the day boundary is approximate for this activity.
+        streakService.recordActivity(userId, 'DAILY_QUESTION').catch(() => {});
 
         return {
             questionId: question.id,

@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { cloudinaryService } from './cloudinary.service';
 import { notificationService } from './notification.service';
+import { streakService } from './streak.service';
 import { buildDeckListWhere } from './revieweeVisibility';
 
 export class DeckService {
@@ -585,6 +586,11 @@ export class DeckService {
                 },
             });
         });
+
+        // Record streak activity for completed deck sessions (fire-and-forget)
+        if (data.status === 'COMPLETED') {
+            streakService.recordActivity(userId, 'DECK_SESSION').catch(() => {});
+        }
 
         return this.getDeckSession(sessionId, userId, 'REVIEWEE');
     }

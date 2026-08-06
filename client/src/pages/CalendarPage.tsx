@@ -18,6 +18,7 @@ import {
     Loader2,
     Pencil,
     Trash2,
+    Flame,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -357,6 +358,20 @@ const CalendarPage: React.FC = () => {
     const [deleteConferenceTitle, setDeleteConferenceTitle] = useState('');
     const [deleting, setDeleting] = useState(false);
 
+    // Streak data
+    const [streakData, setStreakData] = useState<{
+        currentStreak: number;
+        longestStreak: number;
+        activeDays: string[];
+    } | null>(null);
+
+    /* ── Fetch streak ─────────────────────────────────────────────────── */
+    useEffect(() => {
+        api.get<{ data: { currentStreak: number; longestStreak: number; activeDays: string[] } }>('/streak')
+            .then((res) => setStreakData(res.data.data))
+            .catch(() => {});
+    }, []);
+
     /* ── Fetch events ───────────────────────────────────────────────────── */
     const fetchEvents = useCallback(async () => {
         setLoading(true);
@@ -625,6 +640,45 @@ const CalendarPage: React.FC = () => {
 
             {/* ── Calendar ────────────────────────────────────────────── */}
             <div className="flex-1 overflow-auto">
+                {/* Streak Banner */}
+                {streakData && streakData.currentStreak > 0 && (
+                    <div className="flex items-center gap-3 px-4 py-2 bg-orange-50 border-b border-orange-100">
+                        <div className="flex items-center gap-1.5">
+                            <Flame size={14} className="text-orange-500" />
+                            <span className="text-xs font-semibold text-orange-700">
+                                {streakData.currentStreak} day streak
+                            </span>
+                        </div>
+                        <span className="text-xs text-orange-500">
+                            Best: {streakData.longestStreak}
+                        </span>
+                        {/* Show fire icons for active days in current week */}
+                        <div className="flex items-center gap-1 ml-auto">
+                            {(() => {
+                                const today = new Date();
+                                const startOfWeek = new Date(today);
+                                startOfWeek.setDate(today.getDate() - today.getDay());
+                                return Array.from({ length: 7 }, (_, i) => {
+                                    const d = new Date(startOfWeek);
+                                    d.setDate(startOfWeek.getDate() + i);
+                                    const dateStr = d.toISOString().split('T')[0];
+                                    const isActive = streakData.activeDays.includes(dateStr);
+                                    return (
+                                        <div
+                                            key={i}
+                                            className={`h-4 w-4 rounded-full flex items-center justify-center ${
+                                                isActive ? 'bg-orange-100' : 'bg-transparent'
+                                            }`}
+                                        >
+                                            {isActive && <Flame size={8} className="text-orange-500" />}
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    </div>
+                )}
+
                 {/* Mobile: Apple-style month + daily agenda */}
                 <div className="md:hidden border-t border-gray-200/70 bg-white">
                     <div className="m-3 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">

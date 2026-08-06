@@ -260,20 +260,32 @@ const ExamsPage: React.FC = () => {
 
     const renderAction = useCallback(
         (exam: Exam, options?: { fullWidth?: boolean }) => {
-            const { hasSubmitted, hasInProgress, canTake } = examState(exam);
+            const { hasSubmitted, hasInProgress, canTake, attemptsRemaining } = examState(exam);
             const base = cn(
                 'h-10 gap-1.5 rounded-lg px-3 text-[12px] font-semibold',
                 options?.fullWidth ? 'w-full' : '',
             );
 
             if (hasSubmitted) {
+                const canRetake = attemptsRemaining > 0;
                 return (
-                    <Button
-                        className={cn(base, 'bg-emerald-700 text-white hover:bg-emerald-800')}
-                        onClick={() => goToExam(exam)}
-                    >
-                        <TrendingUp size={13} aria-hidden="true" /> View result
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            className={cn(base, 'bg-emerald-700 text-white hover:bg-emerald-800')}
+                            onClick={() => goToExam(exam)}
+                        >
+                            <TrendingUp size={13} aria-hidden="true" /> View result
+                        </Button>
+                        {canRetake && (
+                            <Button
+                                variant="outline"
+                                className={cn(base, 'border-slate-200 bg-white text-slate-700')}
+                                onClick={() => navigate(`/exams/${exam.id}/take`)}
+                            >
+                                <RotateCcw size={13} aria-hidden="true" /> Retake
+                            </Button>
+                        )}
+                    </div>
                 );
             }
             if (hasInProgress && canTake) {

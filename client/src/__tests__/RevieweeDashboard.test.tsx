@@ -84,6 +84,9 @@ beforeEach(() => {
         if (url === '/dashboard/stats') {
             return Promise.resolve({ data: { data: { averagesBySubject: stats.averagesBySubject } } });
         }
+        if (url === '/streak') {
+            return Promise.resolve({ data: { data: { currentStreak: 0, longestStreak: 0, activeDays: [], lastActiveDate: null } } });
+        }
         return Promise.resolve({ data: { data: [] } });
     });
     vi.mocked(api.post).mockResolvedValue({ data: { data: null } });
@@ -96,11 +99,10 @@ describe('RevieweeDashboard', () => {
         // Flush the self-fetching sections' effects so no act warnings remain.
         await screen.findByText('No question available today.');
 
-        // All four tile labels come from the provided stats.
+        // All three tile labels come from the provided stats.
         expect(screen.getByText('Total decks')).toBeInTheDocument();
         expect(screen.getByText('Exams taken')).toBeInTheDocument();
         expect(screen.getByText('Avg score')).toBeInTheDocument();
-        expect(screen.getByText('Streak')).toBeInTheDocument();
 
         // Tile values are scoped to the tile grid because the calendar widget
         // renders day numbers that would otherwise collide with them.
@@ -108,7 +110,8 @@ describe('RevieweeDashboard', () => {
         expect(tiles.getByText('12')).toBeInTheDocument();
         expect(tiles.getByText('3')).toBeInTheDocument();
         expect(tiles.getByText('68%')).toBeInTheDocument();
-        expect(tiles.getByText('0')).toBeInTheDocument();
+        // Streak is now rendered by StreakWidget outside the stat-tiles grid.
+        expect(screen.getByText('Streak')).toBeInTheDocument();
         // Hero + tile both render the average.
         expect(screen.getAllByText('68%').length).toBeGreaterThan(0);
     });

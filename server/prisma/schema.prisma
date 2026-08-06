@@ -71,6 +71,12 @@ enum AuditAction {
   REGISTER
 }
 
+enum StreakActivityType {
+  DAILY_QUESTION
+  DECK_SESSION
+  EXAM_SUBMISSION
+}
+
 enum DeckSessionMode {
   VIEW
   FLASHCARDS
@@ -118,6 +124,7 @@ model User {
   sessions              Conference[]
   auditLogs             AuditLog[]
   receivedNotifications Notification[]
+  streak                UserStreak?
   track                 Track?         @relation(fields: [trackId], references: [id], onDelete: SetNull)
   campus                Campus?        @relation(fields: [campusId], references: [id], onDelete: SetNull)
 
@@ -453,4 +460,33 @@ model SystemSetting {
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+model UserStreak {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  currentStreak  Int      @default(0) @map("current_streak")
+  longestStreak  Int      @default(0) @map("longest_streak")
+  lastActiveDate DateTime @map("last_active_date")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  streakDay StreakDay[] @relation("UserStreakDays")
+
+  @@map("user_streaks")
+}
+
+model StreakDay {
+  id            String             @id @default(uuid()) @db.Uuid
+  userId        String             @map("user_id") @db.Uuid
+  date          DateTime           @db.Date
+  activityType  StreakActivityType @map("activity_type")
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  streak UserStreak @relation("UserStreakDays", fields: [userId], references: [userId], onDelete: Cascade, map: "streak_days_streak_fkey")
+
+  @@unique([userId, date])
+  @@index([userId, date(sort: Desc)])
+  @@map("streak_days")
 }

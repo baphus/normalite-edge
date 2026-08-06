@@ -115,6 +115,13 @@ const ExamResultPage: React.FC = () => {
     const [submittedAttempts, setSubmittedAttempts] = useState<AttemptOption[]>([]);
     const [result, setResult] = useState<ExamResultPayload | null>(null);
     const [showConfetti, setShowConfetti] = useState(false);
+    const [previousAttempt, setPreviousAttempt] = useState<{
+        attemptNo: number;
+        score: number;
+        percentage: number;
+        submittedAt: string | null;
+    } | null>(null);
+    const [allowMultipleAttempts, setAllowMultipleAttempts] = useState(false);
 
     useEffect(() => {
         const loadAttemptOptions = async () => {
@@ -163,6 +170,20 @@ const ExamResultPage: React.FC = () => {
 
         loadAttemptOptions();
     }, [id, searchParams, setSearchParams]);
+
+    useEffect(() => {
+        if (id) {
+            api.get(`/attempts/previous?examId=${id}&currentAttemptId=${attemptId || ''}`)
+                .then((res) => setPreviousAttempt(res.data.data))
+                .catch(() => {});
+        }
+    }, [id, attemptId]);
+
+    useEffect(() => {
+        api.get('/settings/system')
+            .then((res) => setAllowMultipleAttempts(Boolean(res.data?.data?.allowMultipleAttempts)))
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         const fetchResult = async () => {
@@ -372,6 +393,16 @@ const ExamResultPage: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-5 pb-10 max-w-6xl">
+            {previousAttempt && allowMultipleAttempts && (
+                <Card className="border-slate-200 shadow-sm rounded-xl p-4 mb-3">
+                    <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-2">Previous Attempt</h3>
+                    <div className="flex items-center gap-4 text-xs text-slate-600">
+                        <span>Attempt {previousAttempt.attemptNo}</span>
+                        <span className="font-semibold">{Number(previousAttempt.percentage || 0).toFixed(1)}%</span>
+                        <span>{previousAttempt.submittedAt ? new Date(previousAttempt.submittedAt).toLocaleDateString() : '—'}</span>
+                    </div>
+                </Card>
+            )}
             {/* Header */}
             <header data-guide="exam-result-header" className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -401,14 +432,21 @@ const ExamResultPage: React.FC = () => {
                             </SelectContent>
                         </Select>
                     )}
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate(`/exams/${id}/take`)}
-                        className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 gap-1.5"
-                    >
-                        <RotateCcw size={12} /> Retake
-                    </Button>
+                    {allowMultipleAttempts && (() => {
+                        const maxAttempts = 3; // matches server default
+                        const attemptsLeft = maxAttempts - submittedAttempts.length;
+                        return (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={attemptsLeft <= 0}
+                                onClick={() => navigate(`/exams/${id}/take`)}
+                                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 gap-1.5"
+                            >
+                                <RotateCcw size={12} /> Retake {submittedAttempts.length > 0 && `(${submittedAttempts.length}/${maxAttempts})`}
+                            </Button>
+                        );
+                    })()}
                     <Button
                         size="sm"
                         onClick={() => navigate(`/exams/${id}/review?attemptId=${attemptId}`)}

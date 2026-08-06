@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../utils/catchAsync';
 import { ApiResponse } from '../utils/ApiResponse';
+import { ApiError } from '../utils/ApiError';
 import { parsePagination } from '../utils/pagination';
 import { attemptService } from '../services/attempt.service';
 
@@ -8,6 +9,16 @@ export const attemptController = {
     startAttempt: catchAsync(async (req: Request, res: Response) => {
         const attempt = await attemptService.startAttempt(req.user!.userId, req.body.examId);
         ApiResponse.created(res, attempt, 'Attempt started');
+    }),
+
+    getPreviousAttempt: catchAsync(async (req: Request, res: Response) => {
+        const userId = (req as any).user.userId;
+        const { examId, currentAttemptId } = req.query;
+        if (!examId || typeof examId !== 'string') {
+            throw ApiError.badRequest('examId query parameter is required');
+        }
+        const attempt = await attemptService.getPreviousAttempt(userId, examId, currentAttemptId as string | undefined);
+        res.json({ data: attempt });
     }),
 
     submitAttempt: catchAsync(async (req: Request, res: Response) => {

@@ -8,18 +8,20 @@ import {
     Sparkles,
     Video,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SectionLabel } from '@/components/dashboard/reviewee/SectionLabel';
 import { ExamReadinessHero } from '@/components/dashboard/reviewee/ExamReadinessHero';
 import { StatTiles } from '@/components/dashboard/reviewee/StatTiles';
+import { StreakWidget } from '@/components/dashboard/reviewee/StreakWidget';
 import { StudyProgressStrip } from '@/components/dashboard/reviewee/StudyProgressStrip';
 import { DailyChallenge } from '@/components/dashboard/reviewee/DailyChallenge';
 import { SubjectPerformance } from '@/components/dashboard/reviewee/SubjectPerformance';
 import { RecentAttempts } from '@/components/dashboard/reviewee/RecentAttempts';
 import CalendarEventsWidget from './CalendarEventsWidget';
+import { useStreakData } from '@/hooks/useStreakData';
 import type {
     RecentAttempt,
     RevieweeStats,
@@ -55,36 +57,7 @@ function useSubjectPerformance(attempts: RecentAttempt[]): SubjectPerformanceIte
     }, [attempts]);
 }
 
-/** Current streak: consecutive days with a submitted attempt, ending today or yesterday. */
-function useStreak(attempts: RecentAttempt[]): number {
-    return useMemo(() => {
-        const submitted = attempts.filter((a) => a.status === 'SUBMITTED');
-        const days = new Set<number>();
-        for (const a of submitted) {
-            if (a.submittedAt) {
-                const d = new Date(a.submittedAt);
-                days.add(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
-            }
-        }
-        const sortedDays = [...days].sort((a, b) => b - a);
-        if (sortedDays.length === 0) return 0;
 
-        const msPerDay = 86_400_000;
-        const now = new Date();
-        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        let cursor = todayMidnight;
-        let streak = 0;
-        for (const day of sortedDays) {
-            if (day === cursor || day === cursor - msPerDay) {
-                streak += 1;
-                cursor = day - msPerDay;
-            } else {
-                break;
-            }
-        }
-        return streak;
-    }, [attempts]);
-}
 
 const getSubjectLabel = (raw: string | null | undefined): string | null => {
     if (!raw || raw.toLowerCase() === 'general section') return null;
@@ -112,7 +85,8 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const inProgress = recentAttempts.find((a) => a.status === 'IN_PROGRESS');
 
     const subjectPerformance = useSubjectPerformance(recentAttempts);
-    const streak = useStreak(recentAttempts);
+    const { data: streakData } = useStreakData();
+    const navigate = useNavigate();
 
     const focusAction = inProgress?.exam?.id
         ? {
@@ -219,12 +193,19 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
             {/* ── Readiness hero + stat tiles ────────────────────────── */}
             <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
                 <ExamReadinessHero average={average} submittedCount={submittedCount} hasAttempts={hasAttempts} />
-                <StatTiles
-                    totalMaterials={stats?.totalMaterials ?? 0}
-                    totalExamsTaken={stats?.totalExamsTaken ?? recentAttempts.length}
-                    average={hasAttempts ? average : null}
-                    streak={streak}
-                />
+                <div className="flex flex-col gap-3">
+                    <StatTiles
+                        totalMaterials={stats?.totalMaterials ?? 0}
+                        totalExamsTaken={stats?.totalExamsTaken ?? recentAttempts.length}
+                        average={hasAttempts ? average : null}
+                    />
+                    <StreakWidget
+                        currentStreak={streakData?.currentStreak ?? 0}
+                        longestStreak={streakData?.longestStreak ?? 0}
+                        activeDays={streakData?.activeDays ?? []}
+                        onStartStreak={() => navigate('/exams')}
+                    />
+                </div>
             </section>
 
             {/* ── Study progress strip ───────────────────────────────── */}

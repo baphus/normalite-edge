@@ -1,6 +1,7 @@
 import prisma from '../config/db';
 import { ApiError } from '../utils/ApiError';
 import { notificationService } from './notification.service';
+import { streakService } from './streak.service';
 
 export class AttemptService {
     private readonly validChoices = new Set(['A', 'B', 'C', 'D']);
@@ -297,6 +298,9 @@ export class AttemptService {
             });
         });
 
+        // Record streak activity for auto-submitted exam (fire-and-forget)
+        streakService.recordActivity(attempt.userId, 'EXAM_SUBMISSION').catch(() => {});
+
         const finalizedAttempt = await prisma.attempt.findUnique({
             where: { id: attempt.id },
             include: {
@@ -492,6 +496,41 @@ export class AttemptService {
                 tabSwitchGraceSeconds: settings.tabSwitchGraceSeconds,
             });
         });
+    }
+
+    /**
+     * Get the most recent submitted attempt for an exam, so the frontend can
+     * show a summary before the reviewee starts a retake. When a
+     * `currentAttemptId` is given, returns the attempt immediately before it
+     * instead of the very latest one.
+     */
+    async getPreviousAttempt(userId: string, examId: string, currentAttemptId?: string) {
+        const where: any = { userId, examId, status: 'SUBMITTED' };
+
+        if (currentAttemptId) {
+            // Get the current attempt's attemptNo to find the one before it
+            const currentAttempt = await prisma.attempt.findUnique({
+                where: { id: currentAttemptId },
+                select: { attemptNo: true },
+            });
+            if (currentAttempt) {
+                where.attemptNo = { lt: currentAttempt.attemptNo };
+            }
+        }
+
+        const attempt = await prisma.attempt.findFirst({
+            where,
+            orderBy: { attemptNo: 'desc' },
+            select: {
+                id: true,
+                attemptNo: true,
+                score: true,
+                percentage: true,
+                submittedAt: true,
+                timeSpentSeconds: true,
+            },
+        });
+        return attempt || null;
     }
 
     async resetAttemptForTabViolation(attemptId: string, userId: string) {
@@ -794,6 +833,9 @@ export class AttemptService {
                 severity: 'INFO',
             }),
         ]);
+
+        // Record streak activity for exam submission (fire-and-forget)
+        streakService.recordActivity(userId, 'EXAM_SUBMISSION').catch(() => {});
 
         const submittedAttempt = await prisma.attempt.findUnique({
             where: { id: attemptId },

@@ -103,6 +103,7 @@ export class ReportService {
     }) {
         const where: any = {
             status: { not: 'IN_PROGRESS' },
+            attemptNo: 1,  // Only first attempts count for school records
         };
 
         if (params.examId) where.examId = params.examId;

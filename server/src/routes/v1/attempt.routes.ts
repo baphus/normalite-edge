@@ -11,6 +11,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', attemptController.listAttempts);
+router.get('/previous', authorize('REVIEWEE'), attemptController.getPreviousAttempt);
 router.get('/:id/result', attemptController.getAttemptResult);
 router.get('/:id', attemptController.getAttemptReview);
 router.post('/', authorize('REVIEWEE'), validate(startAttemptSchema), attemptController.startAttempt);
