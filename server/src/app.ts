@@ -66,7 +66,18 @@ const globalLimiter = rateLimit({
     message: { success: false, message: 'Too many requests, please try again later' },
 });
 
-// Strict: 5 attempts per 15 minutes for auth endpoints
+// Exam flow: 600 requests per 15 minutes — save/submit endpoints are
+// time-critical during live exams and must not be throttled by general browsing.
+const examLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: rateLimitKey,
+    message: { success: false, message: 'Too many exam requests, please try again later' },
+});
+
+// Strict: 10 attempts per 15 minutes for auth endpoints
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
@@ -98,6 +109,8 @@ app.use(cookieParser());
 // provisioning surface.
 app.use('/api/v1/auth/complete-profile', authLimiter);
 app.use('/api/v1/auth/session-start', authLimiter);
+// Exam save/submit gets a higher limit — these are time-critical during live exams.
+app.use('/api/v1/attempts', examLimiter);
 app.use('/api/v1', globalLimiter);
 
 // ─── Health Check ──────────────────────────────────────
