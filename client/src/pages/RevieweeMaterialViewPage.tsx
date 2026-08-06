@@ -239,12 +239,12 @@ const RevieweeMaterialViewPage: React.FC = () => {
             <header data-guide="material-header" className="flex flex-col gap-2">
                 <BackToStudyHub />
 
-                <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">
+                <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
                     {deck.title || 'Untitled material'}
                 </h1>
 
                 <div className="flex items-center justify-between gap-3">
-                    <p className="text-[12px] tabular-nums text-slate-500">
+                    <p className="text-[13px] font-medium text-slate-600">
                         {questionCount} card{questionCount !== 1 ? 's' : ''}
                     </p>
                     <Button
@@ -260,12 +260,12 @@ const RevieweeMaterialViewPage: React.FC = () => {
 
             {/* Description */}
             {deck.description && (
-                <p className="text-[13px] leading-relaxed text-slate-700">{deck.description}</p>
+                <p className="text-[14px] leading-relaxed text-slate-600 border-l-2 border-slate-200 pl-3">{deck.description}</p>
             )}
 
             {/* Questions */}
             <section data-guide="material-question-list" className="flex flex-col gap-3">
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-slate-500">
                     Question List
                 </h2>
 
@@ -282,11 +282,11 @@ const RevieweeMaterialViewPage: React.FC = () => {
                             return (
                                 <Card
                                     key={question.id}
-                                    className="rounded-xl border-slate-200 bg-white p-4"
+                                    className="rounded-xl border-slate-200 bg-white p-5"
                                 >
                                     <div className="space-y-3">
                                         <div>
-                                            <p className="text-[13px] font-medium text-slate-900 leading-relaxed">
+                                            <p className="text-[14px] font-semibold text-slate-900 leading-relaxed">
                                                 {question.questionText || 'No question text available.'}
                                             </p>
                                             {question.imageUrl ? (
@@ -300,17 +300,17 @@ const RevieweeMaterialViewPage: React.FC = () => {
                                             ) : null}
                                         </div>
 
-                                        <div className="flex items-baseline gap-1.5">
+                                        <div className="flex items-baseline gap-1.5 border-l-2 border-emerald-400 pl-3">
                                             <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
                                                 Correct answer
                                             </span>
-                                            <span className="text-[13px] font-medium text-slate-700">
+                                            <span className="text-[14px] font-semibold text-slate-800">
                                                 {correctAnswer.label}. {correctAnswer.value}
                                             </span>
                                         </div>
 
                                         {question.rationalization ? (
-                                            <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                                            <div className="rounded-lg bg-slate-50 border-l-2 border-slate-300 p-3">
                                                 <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-[0.06em] mb-1">
                                                     Rationalization
                                                 </p>
