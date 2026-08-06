@@ -182,7 +182,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                 document.getElementById('daily-challenge')?.scrollIntoView({ behavior: 'smooth' });
                 break;
             case 'study-deck':
-                navigate('/decks');
+                navigate('/study');
                 break;
             case 'take-exam':
                 navigate('/exams');
