@@ -44,25 +44,35 @@ const StudySessionPage: React.FC = () => {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [selfAssessment, setSelfAssessment] = useState<Record<number, 'got_it' | 'review'>>({});
     const [resultFilter, setResultFilter] = useState<'all' | 'got_it' | 'review'>('all');
+    // When set, the session studies this shuffled review subset instead of the
+    // full deck. Set by handleReviewAgain; cleared on deck/mode change.
+    const [reviewOnlyItems, setReviewOnlyItems] = useState<StudyItem[] | null>(null);
 
     const isStudyMode = mode === 'study';
     // Map the route mode to the server's DeckSessionMode enum.
     const sessionMode = mode === 'study' ? 'VIEW' : mode.toUpperCase();
+    // The cards currently being studied. A "review again" round overrides the
+    // full deck with the (shuffled) subset marked for review.
+    const sessionItems = reviewOnlyItems ?? items;
 
     useEffect(() => {
-        if (items.length > 0) {
-            if (shuffleParam) {
-                setFlashOrder(shuffleArray(items.map((_, idx) => idx)));
+        const effective = reviewOnlyItems ?? items;
+        if (effective.length > 0) {
+            // Review rounds are already shuffled in handleReviewAgain, so keep
+            // their identity order here rather than shuffling again.
+            if (shuffleParam && !reviewOnlyItems) {
+                setFlashOrder(shuffleArray(effective.map((_, idx) => idx)));
             } else {
-                setFlashOrder(items.map((_, idx) => idx));
+                setFlashOrder(effective.map((_, idx) => idx));
             }
         }
-    }, [items, shuffleParam]);
+    }, [items, reviewOnlyItems, shuffleParam]);
 
     useEffect(() => {
         setCurrentIndex(0);
         setIsFlipped(false);
         setShowResults(false);
+        setReviewOnlyItems(null);
     }, [id, mode, items.length]);
 
     useEffect(() => {
@@ -147,7 +157,7 @@ const StudySessionPage: React.FC = () => {
         const handleKey = (e: KeyboardEvent) => {
             if (showResults || loading) return;
             const mappedIndex = isStudyMode ? currentIndex : flashOrder[currentIndex] ?? currentIndex;
-            const item = items[mappedIndex];
+            const item = sessionItems[mappedIndex];
             if (!item) return;
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             if (e.target instanceof HTMLElement && e.target.closest('button, a, input, textarea, select, [role="button"], summary')) return;
@@ -159,7 +169,7 @@ const StudySessionPage: React.FC = () => {
                 } else if (e.key === 'ArrowLeft') {
                     if (currentIndex > 0) { setCurrentIndex(p => p - 1); setIsFlipped(false); }
                 } else if (e.key === 'ArrowRight') {
-                    if (currentIndex < items.length - 1) { setCurrentIndex(p => p + 1); setIsFlipped(false); }
+                    if (currentIndex < sessionItems.length - 1) { setCurrentIndex(p => p + 1); setIsFlipped(false); }
                     else setShowResults(true);
                 }
             } else {
@@ -168,14 +178,14 @@ const StudySessionPage: React.FC = () => {
                 if (e.key === 'ArrowLeft') {
                     if (currentIndex > 0) { setCurrentIndex(p => p - 1); setIsFlipped(false); }
                 } else if (e.key === 'ArrowRight') {
-                    if (currentIndex < items.length - 1) { setCurrentIndex(p => p + 1); setIsFlipped(false); }
+                    if (currentIndex < sessionItems.length - 1) { setCurrentIndex(p => p + 1); setIsFlipped(false); }
                     else setShowResults(true);
                 }
             }
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [showResults, loading, items, currentIndex, isStudyMode, userAnswers, flashOrder]);
+    }, [showResults, loading, sessionItems, currentIndex, isStudyMode, userAnswers, flashOrder]);
 
     // Persist deck progress locally and queue it for sync when offline.
     const persistProgress = useCallback(async (cardsViewed: number) => {
@@ -200,21 +210,23 @@ const StudySessionPage: React.FC = () => {
         }
     }, [id, items.length, isOffline]);
 
-    // Record progress whenever a new card becomes active.
+    // Record progress whenever a new card becomes active. Review rounds are
+    // skipped: the full-deck progress was already recorded on the primary run.
     useEffect(() => {
-        if (items.length === 0) return;
+        if (items.length === 0 || reviewOnlyItems) return;
         void persistProgress(Math.min(currentIndex + 1, items.length));
-    }, [persistProgress, currentIndex, items.length]);
+    }, [persistProgress, currentIndex, items.length, reviewOnlyItems]);
 
-    // Celebrate when the deck is completed.
+    // Celebrate when the deck is completed. Flashcard completion stays calm and
+    // minimal (no confetti); only quiz completion celebrates.
     useEffect(() => {
         if (showResults) {
-            setShowConfetti(true);
             refetchStreak();
             // Tell the server the session is complete so the streak increments.
             // Fire-and-forget: the streak fetch already happens optimistically,
-            // and a failed end call must not block the results screen.
-            if (sessionId && !isOffline) {
+            // and a failed end call must not block the results screen. Only the
+            // primary run ends the session — review rounds must not re-end it.
+            if (sessionId && !isOffline && !reviewOnlyItems) {
                 const payloadItems = items.map((item, idx) => {
                     const selected = userAnswers[idx];
                     return {
@@ -238,8 +250,11 @@ const StudySessionPage: React.FC = () => {
                     console.error('Failed to end deck session', error);
                 });
             }
+            if (isStudyMode) {
+                setShowConfetti(true);
+            }
         }
-    }, [showResults, refetchStreak, sessionId, isOffline, items, userAnswers]);
+    }, [showResults, refetchStreak, sessionId, isOffline, items, userAnswers, isStudyMode, reviewOnlyItems]);
 
     if (loading) {
         return (
@@ -280,8 +295,8 @@ const StudySessionPage: React.FC = () => {
     }
 
     const currentItemIndex = isStudyMode ? currentIndex : flashOrder[currentIndex] ?? currentIndex;
-    const currentItem = items[currentItemIndex];
-    const progress = ((currentIndex + 1) / items.length) * 100;
+    const currentItem = sessionItems[currentItemIndex];
+    const progress = ((currentIndex + 1) / sessionItems.length) * 100;
     const questionLength = currentItem?.question?.length || 0;
     const rationaleLength = currentItem?.rationalization?.length || 0;
 
@@ -306,7 +321,7 @@ const StudySessionPage: React.FC = () => {
         : 'text-2xl md:text-4xl';
 
     const handleNext = () => {
-        if (currentIndex < items.length - 1) {
+        if (currentIndex < sessionItems.length - 1) {
             setCurrentIndex(prev => prev + 1);
             setIsFlipped(false);
         } else {
@@ -328,10 +343,94 @@ const StudySessionPage: React.FC = () => {
         setIsFlipped(false);
         setSelfAssessment({});
         setResultFilter('all');
+        setReviewOnlyItems(null);
+    };
+
+    // Restart the flashcard session with only the cards the user marked
+    // "Review again", shuffled. Recursive: subsequent rounds can filter down
+    // again, so review subsets can keep looping until nothing is left to review.
+    const handleReviewAgain = () => {
+        const reviewItems = sessionItems.filter((_, idx) => selfAssessment[idx] === 'review');
+        if (reviewItems.length === 0) return;
+        const shuffledOrder = shuffleArray(reviewItems.map((_, idx) => idx));
+        const shuffledItems = shuffledOrder.map((idx) => reviewItems[idx]);
+        setReviewOnlyItems(shuffledItems);
+        setFlashOrder(shuffledItems.map((_, idx) => idx));
+        setCurrentIndex(0);
+        setIsFlipped(false);
+        setSelfAssessment({});
+        setUserAnswers({});
+        setShowResults(false);
+        setResultFilter('all');
     };
 
     /* ── Results screen ── */
     if (showResults) {
+        // Flashcard sessions get a calm, minimal completion screen: stat row +
+        // actions. No confetti, no score wheel, no per-question breakdown.
+        if (!isStudyMode) {
+            const reviewCount = Object.values(selfAssessment).filter((v) => v === 'review').length;
+            return (
+                <div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-slate-50 font-lexend">
+                    {/* Minimal header — deck title + back arrow only */}
+                    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-5">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate('/study')}
+                            className="h-8 w-8 shrink-0 rounded-lg text-slate-500 hover:text-slate-700"
+                            aria-label="Back to Study Hub"
+                        >
+                            <ArrowLeft size={16} />
+                        </Button>
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-slate-900">
+                            {deckTitle || 'Study Session'}
+                        </p>
+                    </header>
+
+                    <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
+                        {/* Stat row — "{N} cards reviewed" as primary headline */}
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                                <CheckCircle2 size={26} />
+                            </div>
+                            <div className="text-4xl font-bold leading-none tabular-nums text-slate-900">
+                                {sessionItems.length}
+                            </div>
+                            <div className="text-sm font-medium text-slate-500">
+                                cards reviewed
+                            </div>
+                        </div>
+
+                        {/* Calm message below the stat row */}
+                        <p className="mt-5 max-w-xs text-center text-sm text-slate-500">
+                            {reviewCount > 0 ? 'All done for now.' : 'Great session.'}
+                        </p>
+
+                        {/* Actions */}
+                        <div className="mt-8 flex w-full max-w-xs flex-col gap-2">
+                            <Button
+                                onClick={() => navigate('/study')}
+                                className="h-11 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+                            >
+                                Done
+                            </Button>
+                            {reviewCount > 0 && (
+                                <Button
+                                    variant="outline"
+                                    onClick={handleReviewAgain}
+                                    className="h-11 w-full rounded-xl text-sm font-semibold"
+                                >
+                                    Review {reviewCount} marked card{reviewCount === 1 ? '' : 's'}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /* ── Quiz completion screen (unchanged) ── */
         const correctCount = items.filter((_, idx) => userAnswers[idx] === items[idx].answer).length;
         const scorePercent = Math.round((correctCount / items.length) * 100);
         const reviewCount = Object.values(selfAssessment).filter((v) => v === 'review').length;
@@ -552,7 +651,7 @@ const StudySessionPage: React.FC = () => {
                         />
                     </div>
                     <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-500">
-                        {currentIndex + 1} / {items.length}
+                        {currentIndex + 1} / {sessionItems.length}
                     </span>
                 </div>
             </div>
@@ -562,7 +661,7 @@ const StudySessionPage: React.FC = () => {
                 <div className="mx-auto flex w-full max-w-4xl flex-col space-y-4">
                     {!isStudyMode ? (
                         <FlashcardMode
-                            items={items}
+                            items={sessionItems}
                             currentIndex={currentIndex}
                             isFlipped={isFlipped}
                             setIsFlipped={setIsFlipped}
@@ -577,7 +676,7 @@ const StudySessionPage: React.FC = () => {
                         />
                     ) : (
                         <QuizMode
-                            items={items}
+                            items={sessionItems}
                             currentIndex={currentIndex}
                             userAnswers={userAnswers}
                             setUserAnswers={setUserAnswers}
