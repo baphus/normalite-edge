@@ -561,13 +561,11 @@ const StudySessionPage: React.FC = () => {
                         <QuizMode
                             items={items}
                             currentIndex={currentIndex}
-                            setCurrentIndex={setCurrentIndex}
                             userAnswers={userAnswers}
                             setUserAnswers={setUserAnswers}
                             handleNext={handleNext}
                             handlePrev={handlePrev}
                             questionTextClass={questionTextClass}
-                            rationalizationTextClass={rationalizationTextClass}
                         />
                     )}
                 </div>

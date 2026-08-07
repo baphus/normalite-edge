@@ -12,25 +12,21 @@ import type { StudyItem } from './types';
 interface QuizModeProps {
     items: StudyItem[];
     currentIndex: number;
-    setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
     userAnswers: Record<number, number>;
     setUserAnswers: React.Dispatch<React.SetStateAction<Record<number, number>>>;
     handleNext: () => void;
     handlePrev: () => void;
     questionTextClass: string;
-    rationalizationTextClass: string;
 }
 
 const QuizMode: React.FC<QuizModeProps> = ({
     items,
     currentIndex,
-    setCurrentIndex,
     userAnswers,
     setUserAnswers,
     handleNext,
     handlePrev,
     questionTextClass,
-    rationalizationTextClass,
 }) => {
     const currentItem = items[currentIndex];
     const hasSelected = userAnswers[currentIndex] !== undefined;
