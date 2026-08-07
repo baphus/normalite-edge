@@ -1,10 +1,8 @@
-﻿import React, { useCallback, useState, useEffect } from 'react';
+﻿import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
     X,
-    RotateCcw,
-    Trophy,
     Repeat2,
     CheckCircle2,
     XCircle,
@@ -43,7 +41,10 @@ const StudySessionPage: React.FC = () => {
     const [flashOrder, setFlashOrder] = useState<number[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [selfAssessment, setSelfAssessment] = useState<Record<number, 'got_it' | 'review'>>({});
-    const [resultFilter, setResultFilter] = useState<'all' | 'got_it' | 'review'>('all');
+    const [resultFilter, setResultFilter] = useState<'all' | 'wrong' | 'got_it' | 'review'>('all');
+    // Used by the "Review answers" button to scroll the results screen down to
+    // the always-visible per-question review list.
+    const reviewSectionRef = useRef<HTMLDivElement | null>(null);
     // When set, the session studies this shuffled review subset instead of the
     // full deck. Set by handleReviewAgain; cleared on deck/mode change.
     const [reviewOnlyItems, setReviewOnlyItems] = useState<StudyItem[] | null>(null);
@@ -251,10 +252,23 @@ const StudySessionPage: React.FC = () => {
                 });
             }
             if (isStudyMode) {
-                setShowConfetti(true);
+                const score = Math.round(
+                    (items.filter((_, idx) => userAnswers[idx] === items[idx].answer).length / items.length) * 100
+                );
+                // Confetti only for strong scores (≥75%). Perfect scores also
+                // get the "Perfect score!" message on the results screen.
+                setShowConfetti(score >= 75);
             }
         }
     }, [showResults, refetchStreak, sessionId, isOffline, items, userAnswers, isStudyMode, reviewOnlyItems]);
+
+    // Quiz results default to showing wrong answers first when any exist.
+    // In flashcard mode this filter is unused, so it is left untouched there.
+    useEffect(() => {
+        if (!showResults || !isStudyMode) return;
+        const hasWrong = items.some((item, idx) => userAnswers[idx] !== undefined && userAnswers[idx] !== item.answer);
+        setResultFilter(hasWrong ? 'wrong' : 'all');
+    }, [showResults, isStudyMode, items, userAnswers]);
 
     if (loading) {
         return (
@@ -334,16 +348,6 @@ const StudySessionPage: React.FC = () => {
             setCurrentIndex(prev => prev - 1);
             setIsFlipped(false);
         }
-    };
-
-    const handleRestart = () => {
-        setCurrentIndex(0);
-        setUserAnswers({});
-        setShowResults(false);
-        setIsFlipped(false);
-        setSelfAssessment({});
-        setResultFilter('all');
-        setReviewOnlyItems(null);
     };
 
     // Restart the flashcard session with only the cards the user marked
@@ -430,43 +434,35 @@ const StudySessionPage: React.FC = () => {
             );
         }
 
-        /* ── Quiz completion screen (unchanged) ── */
+        /* ── Quiz completion screen ── */
         const correctCount = items.filter((_, idx) => userAnswers[idx] === items[idx].answer).length;
         const scorePercent = Math.round((correctCount / items.length) * 100);
         const reviewCount = Object.values(selfAssessment).filter((v) => v === 'review').length;
 
         const filteredItems = items.map((item, idx) => ({ item, idx })).filter(({ idx }) => {
             if (resultFilter === 'all') return true;
+            if (resultFilter === 'wrong') {
+                return userAnswers[idx] !== undefined && userAnswers[idx] !== items[idx].answer;
+            }
             return selfAssessment[idx] === resultFilter;
         });
 
         return (
             <div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-slate-50 font-lexend">
+                {/* Minimal header — deck title + back arrow only */}
                 <header className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                        <Trophy size={16} className="text-slate-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold leading-tight text-slate-900">Session Complete</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                            onClick={handleRestart}
-                            size="sm"
-                            className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white hover:bg-primary/90"
-                        >
-                            <RotateCcw size={12} /> Retake
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700"
-                            onClick={() => navigate('/study')}
-                            aria-label="Back to Study Hub"
-                        >
-                            <ArrowLeft size={15} />
-                        </Button>
-                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate('/study')}
+                        className="h-8 w-8 shrink-0 rounded-lg text-slate-500 hover:text-slate-700"
+                        aria-label="Back to Study Hub"
+                    >
+                        <ArrowLeft size={16} />
+                    </Button>
+                    <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-slate-900">
+                        {deckTitle || 'Study Session'}
+                    </p>
                 </header>
 
                 <div className="flex-1 overflow-y-auto">
@@ -480,7 +476,10 @@ const StudySessionPage: React.FC = () => {
                                     <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Score</span>
                                 </div>
                                 <div className="flex-1 space-y-1.5">
-                                    <p className="text-base font-semibold text-slate-900">
+                                    <p className="text-2xl font-bold leading-tight text-slate-900">
+                                        {scorePercent}% correct
+                                    </p>
+                                    <p className="text-sm text-slate-500">
                                         {correctCount} of {items.length} correct
                                     </p>
                                     {reviewCount > 0 && (
@@ -489,26 +488,21 @@ const StudySessionPage: React.FC = () => {
                                         </p>
                                     )}
                                     <p className="text-xs text-slate-500">
-                                        {scorePercent >= 75 ? 'Great job! Keep it up.' :
-                                         scorePercent >= 50 ? 'Good effort. Review missed items.' :
-                                         'Keep practicing to improve.'}
+                                        {scorePercent === 100 ? 'Perfect score! You nailed every question.' :
+                                         scorePercent >= 75 ? 'You really know your stuff!' :
+                                         scorePercent >= 50 ? "You're building a strong foundation." :
+                                         'Every session makes you stronger.'}
                                     </p>
-                                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                                        <div
-                                            className="h-full rounded-full bg-slate-900"
-                                            style={{ width: `${scorePercent}%` }}
-                                        />
-                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* Per-question review */}
-                        <div className="space-y-2">
+                        {/* Per-question review — always visible below the score card */}
+                        <div ref={reviewSectionRef} className="space-y-2">
                             <div className="flex items-center gap-2">
                                 <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Review</h3>
                                 <div className="flex gap-1 ml-auto">
-                                    {(['all', 'got_it', 'review'] as const).map((filter) => (
+                                    {(['all', 'wrong', 'got_it', 'review'] as const).map((filter) => (
                                         <button
                                             key={filter}
                                             onClick={() => setResultFilter(filter)}
@@ -519,7 +513,7 @@ const StudySessionPage: React.FC = () => {
                                             }`}
                                             aria-pressed={resultFilter === filter}
                                         >
-                                            {filter === 'all' ? 'All' : filter === 'got_it' ? 'Got it' : 'Review'}
+                                            {filter === 'all' ? 'All' : filter === 'wrong' ? 'Wrong' : filter === 'got_it' ? 'Got it' : 'Review'}
                                         </button>
                                     ))}
                                 </div>
@@ -597,14 +591,23 @@ const StudySessionPage: React.FC = () => {
                             })}
                         </div>
 
-                        {/* Prominent Retake at bottom */}
-                        <div className="flex justify-center pb-4">
+                        {/* Actions — Done (primary) + Review answers (secondary, only when wrong answers exist) */}
+                        <div className="space-y-2 pb-4">
                             <Button
-                                onClick={handleRestart}
-                                className="h-11 rounded-xl bg-primary px-6 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+                                onClick={() => navigate('/study')}
+                                className="h-11 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
                             >
-                                <RotateCcw size={16} className="mr-2" /> Retake
+                                Done
                             </Button>
+                            {correctCount < items.length && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                    className="h-11 w-full rounded-xl text-sm font-semibold"
+                                >
+                                    Review answers
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
