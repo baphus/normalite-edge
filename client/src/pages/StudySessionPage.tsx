@@ -27,6 +27,7 @@ const StudySessionPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
     const mode = searchParams.get('mode') || 'study';
+    const shuffleParam = searchParams.get('shuffle');
     const navigate = useNavigate();
     const { isOffline } = useDeckCache(id);
     const { refetchStreak } = useStreakContext();
@@ -39,7 +40,6 @@ const StudySessionPage: React.FC = () => {
     const [showResults, setShowResults] = useState(false);
     const [loading, setLoading] = useState(true);
     const [deckTitle, setDeckTitle] = useState('');
-    const [isShuffled, setIsShuffled] = useState(false);
     const [flashOrder, setFlashOrder] = useState<number[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [selfAssessment, setSelfAssessment] = useState<Record<number, 'got_it' | 'review'>>({});
@@ -50,17 +50,19 @@ const StudySessionPage: React.FC = () => {
     const sessionMode = mode === 'study' ? 'VIEW' : mode.toUpperCase();
 
     useEffect(() => {
-        setFlashOrder(items.map((_, idx) => idx));
-    }, [items]);
+        if (items.length > 0) {
+            if (shuffleParam) {
+                setFlashOrder(shuffleArray(items.map((_, idx) => idx)));
+            } else {
+                setFlashOrder(items.map((_, idx) => idx));
+            }
+        }
+    }, [items, shuffleParam]);
 
     useEffect(() => {
         setCurrentIndex(0);
         setIsFlipped(false);
         setShowResults(false);
-        setIsShuffled(false);
-        if (items.length > 0) {
-            setFlashOrder(items.map((_, idx) => idx));
-        }
     }, [id, mode, items.length]);
 
     useEffect(() => {
@@ -319,19 +321,6 @@ const StudySessionPage: React.FC = () => {
         }
     };
 
-    const handleToggleShuffle = () => {
-        const base = items.map((_, idx) => idx);
-        if (isShuffled) {
-            setFlashOrder(base);
-            setIsShuffled(false);
-        } else {
-            setFlashOrder(shuffleArray(base));
-            setIsShuffled(true);
-        }
-        setCurrentIndex(0);
-        setIsFlipped(false);
-    };
-
     const handleRestart = () => {
         setCurrentIndex(0);
         setUserAnswers({});
@@ -578,8 +567,6 @@ const StudySessionPage: React.FC = () => {
                             isFlipped={isFlipped}
                             setIsFlipped={setIsFlipped}
                             flashOrder={flashOrder}
-                            isShuffled={isShuffled}
-                            handleToggleShuffle={handleToggleShuffle}
                             handleNext={handleNext}
                             handlePrev={handlePrev}
                             questionTextClass={questionTextClass}

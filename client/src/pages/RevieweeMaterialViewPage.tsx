@@ -5,6 +5,7 @@ import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import {
     Dialog,
     DialogContent,
@@ -78,6 +79,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
     const [deck, setDeck] = useState<DeckView | null>(null);
     const [fromCache, setFromCache] = useState(false);
     const [studyModalOpen, setStudyModalOpen] = useState(false);
+    const [shuffle, setShuffle] = useState(false);
 
     const { cachedDeck, cacheDeck, isOffline } = useDeckCache(id);
 
@@ -334,18 +336,26 @@ const RevieweeMaterialViewPage: React.FC = () => {
                         <DialogTitle>Start studying</DialogTitle>
                         <DialogDescription>Choose a study mode for this deck.</DialogDescription>
                     </DialogHeader>
-                    <div className="flex flex-col gap-2 pt-2">
+                    <div className="flex items-center justify-between pt-2">
+                        <label htmlFor="shuffle-toggle" className="text-[13px] font-semibold text-slate-700">Shuffle cards</label>
+                        <Switch
+                            id="shuffle-toggle"
+                            checked={shuffle}
+                            onCheckedChange={setShuffle}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2 pt-1">
                         <Button
                             variant="outline"
                             className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold active:scale-[0.97] transition-all duration-150"
-                            onClick={() => navigate(`/study/${id}?mode=study`)}
+                            onClick={() => navigate(`/study/${id}?mode=study${shuffle ? '&shuffle=1' : ''}`)}
                         >
                             <Brain size={14} aria-hidden="true" /> Quiz
                         </Button>
                         <Button
                             variant="outline"
                             className="h-10 justify-start gap-2 rounded-lg border-slate-200 text-[13px] font-semibold active:scale-[0.97] transition-all duration-150"
-                            onClick={() => navigate(`/study/${id}?mode=flashcards`)}
+                            onClick={() => navigate(`/study/${id}?mode=flashcards${shuffle ? '&shuffle=1' : ''}`)}
                         >
                             <BookOpen size={14} aria-hidden="true" /> Flashcard
                         </Button>

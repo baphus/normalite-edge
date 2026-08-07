@@ -1,21 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import {
-    ArrowLeft,
-    ArrowRight,
-    Shuffle,
-    FlipHorizontal,
-    Repeat2,
-    CheckCircle2,
-    MoreHorizontal,
-} from 'lucide-react';
+import { Repeat2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useMotionPreference } from '@/contexts/MotionContext';
 import type { StudyItem } from './types';
 
@@ -25,8 +11,6 @@ interface FlashcardModeProps {
     isFlipped: boolean;
     setIsFlipped: React.Dispatch<React.SetStateAction<boolean>>;
     flashOrder: number[];
-    isShuffled: boolean;
-    handleToggleShuffle: () => void;
     handleNext: () => void;
     handlePrev: () => void;
     questionTextClass: string;
@@ -42,8 +26,6 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
     isFlipped,
     setIsFlipped,
     flashOrder,
-    isShuffled,
-    handleToggleShuffle,
     handleNext,
     handlePrev,
     questionTextClass,
@@ -89,10 +71,10 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
     };
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-1 flex-col items-center justify-center">
             {/* Card flip */}
             <div
-                className="flex min-h-0 w-full flex-1 cursor-pointer select-none flex-col justify-center"
+                className="flex w-full max-w-lg cursor-pointer select-none flex-col justify-center"
                 onClick={() => setIsFlipped(!isFlipped)}
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
@@ -134,9 +116,6 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                                     </div>
                                 )}
                             </div>
-                            <div className="absolute bottom-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700/60 md:bottom-5">
-                                Space or tap to flip
-                            </div>
                         </motion.div>
 
                         {/* Back */}
@@ -155,9 +134,6 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                                     {currentItem.options[currentItem.answer]}
                                 </p>
                             </div>
-                            <div className="absolute bottom-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-700/60 md:bottom-5">
-                                Tap to flip back
-                            </div>
                         </motion.div>
                     </motion.div>
                 </div>
@@ -165,7 +141,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
 
             {/* Collapsible rationalization accordion — visible only after flip */}
             {isFlipped && currentItem.rationalization && (
-                <div className="mt-2 shrink-0">
+                <div className="mt-2 w-full max-w-lg shrink-0">
                     <button
                         type="button"
                         onClick={(e) => {
@@ -196,137 +172,40 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                 </div>
             )}
 
-            {/* Bottom controls — thumb-reachable */}
-            <div className="mt-2 flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 pt-3 sm:mt-3 sm:pt-4">
-                <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                    disabled={currentIndex === 0}
-                    className="h-10 rounded-xl border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:h-11 sm:px-3 md:px-5"
-                    aria-label="Previous card"
-                >
-                    <ArrowLeft size={16} /> <span className="hidden sm:inline">Previous</span>
-                </Button>
-
-                {isFlipped ? (
-                    /* Self-assessment buttons after flip */
-                    <div className="flex flex-1 gap-2 sm:max-w-[280px]">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setSelfAssessment((prev) => ({ ...prev, [flashOrder[currentIndex] ?? currentIndex]: 'got_it' }));
-                                handleNext();
-                            }}
-                            className="h-10 flex-1 rounded-xl border-emerald-300 bg-emerald-50 px-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 sm:h-11 sm:px-3"
-                            aria-label="Got it"
-                        >
-                            <CheckCircle2 size={16} className="mr-1.5" />
-                            Got it
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setSelfAssessment((prev) => ({ ...prev, [flashOrder[currentIndex] ?? currentIndex]: 'review' }));
-                                handleNext();
-                            }}
-                            className="h-10 flex-1 rounded-xl border-amber-300 bg-amber-50 px-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 sm:h-11 sm:px-3"
-                            aria-label="Review again"
-                        >
-                            <Repeat2 size={16} className="mr-1.5" />
-                            Review
-                        </Button>
-                    </div>
-                ) : (
-                    /* Flip button before flip */
+            {/* Self-assessment buttons — visible after flip only */}
+            {isFlipped && (
+                <div className="mt-4 flex w-full max-w-lg gap-3">
+                    <Button
+                        type="button"
+                        size="lg"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setSelfAssessment((prev) => ({ ...prev, [flashOrder[currentIndex] ?? currentIndex]: 'got_it' }));
+                            handleNext();
+                        }}
+                        className="flex-1 h-12 rounded-xl bg-emerald-500 text-base font-semibold text-white hover:bg-emerald-600 active:scale-[0.97] transition-all duration-150"
+                        aria-label="Got it"
+                    >
+                        <CheckCircle2 size={18} className="mr-2" />
+                        Got it
+                    </Button>
                     <Button
                         type="button"
                         variant="outline"
                         size="lg"
                         onClick={(e) => {
                             e.stopPropagation();
-                            setIsFlipped((v) => !v);
+                            setSelfAssessment((prev) => ({ ...prev, [flashOrder[currentIndex] ?? currentIndex]: 'review' }));
+                            handleNext();
                         }}
-                        className="h-10 flex-1 rounded-xl border-amber-300 bg-white px-2 text-sm font-semibold text-amber-800 hover:bg-amber-50 sm:h-11 sm:px-3 sm:max-w-[180px]"
-                        aria-label="Flip card"
+                        className="flex-1 h-12 rounded-xl border-amber-300 bg-amber-50 text-base font-semibold text-amber-700 hover:bg-amber-100 active:scale-[0.97] transition-all duration-150"
+                        aria-label="Review again"
                     >
-                        <FlipHorizontal size={16} className="mr-1.5" />
-                        <span>Flip</span>
+                        <Repeat2 size={18} className="mr-2" />
+                        Review again
                     </Button>
-                )}
-
-                <div className="flex items-center gap-2">
-                    <Button
-                        size="lg"
-                        onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                        className="h-10 rounded-xl bg-primary px-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 sm:h-11 sm:px-3 md:px-6"
-                        aria-label={currentIndex === items.length - 1 ? 'Finish session' : 'Next card'}
-                    >
-                        {currentIndex === items.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={16} />
-                    </Button>
-
-                    {/* Mobile: overflow menu with shuffle toggle */}
-                    <div className="sm:hidden">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className={`h-10 w-10 rounded-xl ${
-                                        isShuffled
-                                            ? 'border-amber-500 bg-amber-50 text-amber-600'
-                                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                    aria-label="More options"
-                                >
-                                    <MoreHorizontal size={16} />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" sideOffset={8}>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleToggleShuffle();
-                                    }}
-                                    className={isShuffled ? 'text-amber-600' : ''}
-                                >
-                                    <Shuffle size={14} className={isShuffled ? 'text-amber-500' : ''} />
-                                    {isShuffled ? 'Shuffled' : 'Shuffle'}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    {/* Desktop: standalone shuffle button */}
-                    <div className="hidden sm:block">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleShuffle();
-                            }}
-                            className={`h-8 rounded-lg px-3 text-xs font-semibold ${
-                                isShuffled
-                                    ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-500/90'
-                                    : 'border-amber-200 bg-white text-amber-800 hover:bg-amber-100'
-                            }`}
-                        >
-                            <Shuffle size={14} className="mr-1.5" />
-                            {isShuffled ? 'Shuffled' : 'Shuffle'}
-                        </Button>
-                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
