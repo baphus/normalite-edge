@@ -226,7 +226,7 @@ const RevieweeMaterialViewPage: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col gap-3 px-4 pb-6 font-lexend sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-3 px-4 pb-20 font-lexend sm:px-6 lg:px-8">
             {/* Offline notice — the cached copy is served, say so up front. */}
             {fromCache && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
@@ -353,15 +353,17 @@ const RevieweeMaterialViewPage: React.FC = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Floating Study Button */}
-            <div className="pointer-events-none fixed bottom-24 left-0 right-0 z-40 flex justify-center px-5 sm:bottom-8 lg:bottom-8">
+            {/* Floating Study Button — mobile: fixed near top, desktop: sticky at viewport bottom within scroll area */}
+            <div
+                className="pointer-events-none fixed inset-x-4 top-20 z-40 flex justify-center lg:sticky lg:bottom-6 lg:z-30 lg:inset-x-auto lg:top-auto lg:mx-auto lg:w-fit lg:block"
+            >
                 <Button
                     data-guide="material-start-btn"
-                    className="pointer-events-auto h-14 gap-3 rounded-2xl bg-primary px-8 text-[16px] font-bold text-white shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.97] transition-all duration-150 disabled:opacity-50 disabled:shadow-none sm:h-14 sm:px-8 sm:text-[16px]"
+                    className="pointer-events-auto h-11 gap-2.5 rounded-full bg-gradient-to-r from-primary to-primary/90 px-7 text-[14px] font-bold text-white shadow-lg shadow-primary/30 ring-1 ring-white/20 ring-offset-1 ring-offset-background transition-all duration-200 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.03] active:scale-[0.97] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100 animate-float-breathe"
                     onClick={() => setStudyModalOpen(true)}
                     disabled={questionCount === 0}
                 >
-                    <BookOpen size={20} aria-hidden="true" /> Study
+                    <BookOpen size={17} aria-hidden="true" /> Study
                 </Button>
             </div>
         </div>
