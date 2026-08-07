@@ -245,19 +245,9 @@ const RevieweeMaterialViewPage: React.FC = () => {
                     {deck.title || 'Untitled material'}
                 </h1>
 
-                <div className="flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-medium text-slate-600">
-                        {questionCount} card{questionCount !== 1 ? 's' : ''}
-                    </p>
-                    <Button
-                        data-guide="material-start-btn"
-                        className="h-10 gap-2 rounded-xl bg-primary px-5 text-[14px] font-semibold text-white hover:bg-primary/90 active:scale-[0.97] transition-all duration-150"
-                        onClick={() => setStudyModalOpen(true)}
-                        disabled={questionCount === 0}
-                    >
-                        <BookOpen size={13} aria-hidden="true" /> Study
-                    </Button>
-                </div>
+                <p className="text-[13px] font-medium text-slate-600">
+                    {questionCount} card{questionCount !== 1 ? 's' : ''}
+                </p>
             </header>
 
             {/* Description */}
@@ -362,6 +352,18 @@ const RevieweeMaterialViewPage: React.FC = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Floating Study Button */}
+            <div className="pointer-events-none fixed bottom-24 left-0 right-0 z-40 flex justify-center px-5 sm:bottom-8 lg:bottom-8">
+                <Button
+                    data-guide="material-start-btn"
+                    className="pointer-events-auto h-14 gap-3 rounded-2xl bg-primary px-8 text-[16px] font-bold text-white shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.97] transition-all duration-150 disabled:opacity-50 disabled:shadow-none sm:h-14 sm:px-8 sm:text-[16px]"
+                    onClick={() => setStudyModalOpen(true)}
+                    disabled={questionCount === 0}
+                >
+                    <BookOpen size={20} aria-hidden="true" /> Study
+                </Button>
+            </div>
         </div>
     );
 };
