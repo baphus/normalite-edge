@@ -41,7 +41,7 @@ const StudySessionPage: React.FC = () => {
     const [flashOrder, setFlashOrder] = useState<number[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [selfAssessment, setSelfAssessment] = useState<Record<number, 'got_it' | 'review'>>({});
-    const [resultFilter, setResultFilter] = useState<'all' | 'wrong' | 'got_it' | 'review'>('all');
+    const [resultFilter, setResultFilter] = useState<'all' | 'wrong' | 'correct'>('all');
     // Used by the "Review answers" button to scroll the results screen down to
     // the always-visible per-question review list.
     const reviewSectionRef = useRef<HTMLDivElement | null>(null);
@@ -437,14 +437,13 @@ const StudySessionPage: React.FC = () => {
         /* ── Quiz completion screen ── */
         const correctCount = items.filter((_, idx) => userAnswers[idx] === items[idx].answer).length;
         const scorePercent = Math.round((correctCount / items.length) * 100);
-        const reviewCount = Object.values(selfAssessment).filter((v) => v === 'review').length;
 
         const filteredItems = items.map((item, idx) => ({ item, idx })).filter(({ idx }) => {
             if (resultFilter === 'all') return true;
-            if (resultFilter === 'wrong') {
-                return userAnswers[idx] !== undefined && userAnswers[idx] !== items[idx].answer;
-            }
-            return selfAssessment[idx] === resultFilter;
+            const isCorrect = userAnswers[idx] === items[idx].answer;
+            if (resultFilter === 'wrong') return !isCorrect;
+            if (resultFilter === 'correct') return isCorrect;
+            return true;
         });
 
         return (
@@ -482,11 +481,6 @@ const StudySessionPage: React.FC = () => {
                                     <p className="text-sm text-slate-500">
                                         {correctCount} of {items.length} correct
                                     </p>
-                                    {reviewCount > 0 && (
-                                        <p className="text-xs text-amber-600 font-medium">
-                                            {reviewCount} marked for review
-                                        </p>
-                                    )}
                                     <p className="text-xs text-slate-500">
                                         {scorePercent === 100 ? 'Perfect score! You nailed every question.' :
                                          scorePercent >= 75 ? 'You really know your stuff!' :
@@ -502,7 +496,7 @@ const StudySessionPage: React.FC = () => {
                             <div className="flex items-center gap-2">
                                 <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Review</h3>
                                 <div className="flex gap-1 ml-auto">
-                                    {(['all', 'wrong', 'got_it', 'review'] as const).map((filter) => (
+                                    {(['all', 'wrong', 'correct'] as const).map((filter) => (
                                         <button
                                             key={filter}
                                             onClick={() => setResultFilter(filter)}
@@ -513,7 +507,7 @@ const StudySessionPage: React.FC = () => {
                                             }`}
                                             aria-pressed={resultFilter === filter}
                                         >
-                                            {filter === 'all' ? 'All' : filter === 'wrong' ? 'Wrong' : filter === 'got_it' ? 'Got it' : 'Review'}
+                                            {filter === 'all' ? 'All' : filter === 'wrong' ? 'Wrong' : 'Correct'}
                                         </button>
                                     ))}
                                 </div>
