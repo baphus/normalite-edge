@@ -80,6 +80,7 @@ export interface RevieweeStats {
     totalMaterials?: number;
     totalExamsAvailable?: number;
     totalExamsTaken?: number;
+    questionsAnswered?: number;
     averagesBySubject?: SubjectAverage[];
     upcomingSessions?: UpcomingSession[];
     recentAttempts?: RecentAttempt[];

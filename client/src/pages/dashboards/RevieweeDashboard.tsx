@@ -3,6 +3,7 @@ import {
     ArrowRight,
     BookOpen,
     CalendarClock,
+    CheckCircle2,
     ClipboardList,
     PlayCircle,
     Sparkles,
@@ -144,9 +145,17 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                             Here is the clearest next step for your LET preparation.
                         </p>
                     </div>
-                    <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
-                        {programTrack}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                            {programTrack}
+                        </span>
+                        {stats != null && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                                <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                                {new Intl.NumberFormat('en-US').format(stats.questionsAnswered ?? 0)} answered
+                            </span>
+                        )}
+                    </div>
                 </div>
             </header>
 

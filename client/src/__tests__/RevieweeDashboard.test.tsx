@@ -30,6 +30,7 @@ const stats: RevieweeStats = {
     totalMaterials: 12,
     totalExamsAvailable: 8,
     totalExamsTaken: 3,
+    questionsAnswered: 1234,
     averagesBySubject: [
         { subject: 'General Education', average: 70 },
         { subject: 'Mathematics', average: 60 },
@@ -140,5 +141,36 @@ describe('RevieweeDashboard', () => {
 
         expect(await screen.findByText('No attempts yet')).toBeInTheDocument();
         expect(screen.getByText('No mocks yet')).toBeInTheDocument();
+    });
+
+    it('renders the questions-answered pill with a thousands-separated count', async () => {
+        renderDashboard();
+
+        await screen.findByText('No question available today.');
+
+        // 1234 should render as "1,234 answered"
+        expect(screen.getByText('1,234 answered')).toBeInTheDocument();
+    });
+
+    it('shows 0 answered for a new user with no data', async () => {
+        renderDashboard({ questionsAnswered: 0 });
+
+        await screen.findByText('No question available today.');
+
+        expect(screen.getByText('0 answered')).toBeInTheDocument();
+    });
+
+    it('hides the questions-answered pill when stats is null', () => {
+        render(
+            <MemoryRouter>
+                <MotionProvider>
+                    <StreakProvider>
+                        <RevieweeDashboard stats={null} />
+                    </StreakProvider>
+                </MotionProvider>
+            </MemoryRouter>,
+        );
+
+        expect(screen.queryByText(/answered/)).not.toBeInTheDocument();
     });
 });

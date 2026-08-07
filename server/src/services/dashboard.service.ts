@@ -146,7 +146,7 @@ export class DashboardService {
      * Get dashboard stats for a reviewee.
      */
     async getRevieweeStats(userId: string) {
-        const [attempts, totalExams, totalMaterials, upcomingSessions, recentAttempts] = await Promise.all([
+        const [attempts, totalExams, totalMaterials, upcomingSessions, recentAttempts, examAnswersAnswered, deckAnswersAnswered] = await Promise.all([
             prisma.attempt.findMany({
                 where: { userId, status: { not: 'IN_PROGRESS' } },
                 select: { score: true, percentage: true, exam: { select: { subject: true } } },
@@ -164,6 +164,18 @@ export class DashboardService {
                 include: { exam: { select: { id: true, title: true, subject: true, timeLimitMinutes: true } } },
                 orderBy: { submittedAt: 'desc' },
                 take: 4,
+            }),
+            prisma.attemptAnswer.count({
+                where: {
+                    answeredAt: { not: null },
+                    attempt: { userId },
+                },
+            }),
+            prisma.deckSessionItem.count({
+                where: {
+                    selectedChoice: { not: null },
+                    session: { userId },
+                },
             }),
         ]);
 
@@ -220,6 +232,7 @@ export class DashboardService {
             totalExamsTaken: attempts.length,
             totalExamsAvailable: totalExams,
             totalMaterials,
+            questionsAnswered: examAnswersAnswered + deckAnswersAnswered,
             upcomingSessions,
             recentAttempts,
             upcomingExams,
