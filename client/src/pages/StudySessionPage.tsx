@@ -43,6 +43,7 @@ const StudySessionPage: React.FC = () => {
     const [isShuffled, setIsShuffled] = useState(false);
     const [flashOrder, setFlashOrder] = useState<number[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
+    const [selfAssessment, setSelfAssessment] = useState<Record<number, 'got_it' | 'review'>>({});
 
     const isStudyMode = mode === 'study';
     // Map the route mode to the server's DeckSessionMode enum.
@@ -239,19 +240,14 @@ const StudySessionPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-50 font-lexend" data-testid="study-session-skeleton">
-                <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-3 sm:px-5">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
-                        <div className="min-w-0 space-y-1.5">
-                            <Skeleton className="h-4 w-40" />
-                            <Skeleton className="h-3 w-16" />
-                        </div>
-                    </div>
-                    <Skeleton className="h-8 w-16 shrink-0 rounded-lg" />
+            <div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-slate-50 font-lexend" data-testid="study-session-skeleton">
+                <header className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-5">
+                    <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="ml-auto h-8 w-8 shrink-0 rounded-lg" />
                 </header>
                 <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
-                    <Skeleton className="h-1.5 w-full rounded-full" />
+                    <Skeleton className="h-0.5 w-full rounded-full" />
                     <Skeleton className="w-full flex-1 rounded-xl" />
                     <div className="flex shrink-0 items-center justify-between gap-2">
                         <Skeleton className="h-11 w-28 rounded-xl" />
@@ -265,7 +261,7 @@ const StudySessionPage: React.FC = () => {
 
     if (items.length === 0) {
         return (
-            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-50 px-6 font-lexend">
+            <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-slate-50 px-6 font-lexend">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
                     <Repeat2 size={24} />
                 </div>
@@ -295,9 +291,9 @@ const StudySessionPage: React.FC = () => {
             : 'text-xl md:text-3xl';
 
     const rationalizationTextClass = rationaleLength > 700
-        ? 'text-xs md:text-sm'
+        ? 'text-sm md:text-base'
         : rationaleLength > 300
-            ? 'text-xs md:text-sm'
+            ? 'text-sm md:text-base'
             : rationaleLength > 180
             ? 'text-sm md:text-base'
             : 'text-base md:text-lg';
@@ -346,18 +342,22 @@ const StudySessionPage: React.FC = () => {
     if (showResults) {
         const correctCount = items.filter((_, idx) => userAnswers[idx] === items[idx].answer).length;
         const scorePercent = Math.round((correctCount / items.length) * 100);
+        const reviewCount = Object.values(selfAssessment).filter((v) => v === 'review').length;
+        const [resultFilter, setResultFilter] = useState<'all' | 'got_it' | 'review'>('all');
+
+        const filteredItems = items.map((item, idx) => ({ item, idx })).filter(({ idx }) => {
+            if (resultFilter === 'all') return true;
+            return selfAssessment[idx] === resultFilter;
+        });
 
         return (
-            <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-50 font-lexend">
-                <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-5">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                            <Trophy size={16} className="text-slate-600" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold leading-tight text-slate-900">Session Complete</p>
-                            <p className="truncate text-xs font-medium text-slate-400 max-w-[180px]">{deckTitle}</p>
-                        </div>
+            <div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-slate-50 font-lexend">
+                <header className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                        <Trophy size={16} className="text-slate-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold leading-tight text-slate-900">Session Complete</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                         <Button
@@ -368,12 +368,13 @@ const StudySessionPage: React.FC = () => {
                             <RotateCcw size={12} /> Retake
                         </Button>
                         <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 rounded-lg border-slate-200 px-3 text-xs font-semibold"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700"
                             onClick={() => navigate('/study')}
+                            aria-label="Back to Study Hub"
                         >
-                            <ArrowLeft size={12} /> Hub
+                            <ArrowLeft size={15} />
                         </Button>
                     </div>
                 </header>
@@ -392,6 +393,11 @@ const StudySessionPage: React.FC = () => {
                                     <p className="text-base font-semibold text-slate-900">
                                         {correctCount} of {items.length} correct
                                     </p>
+                                    {reviewCount > 0 && (
+                                        <p className="text-xs text-amber-600 font-medium">
+                                            {reviewCount} marked for review
+                                        </p>
+                                    )}
                                     <p className="text-xs text-slate-500">
                                         {scorePercent >= 75 ? 'Great job! Keep it up.' :
                                          scorePercent >= 50 ? 'Good effort. Review missed items.' :
@@ -409,10 +415,28 @@ const StudySessionPage: React.FC = () => {
 
                         {/* Per-question review */}
                         <div className="space-y-2">
-                            <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Review</h3>
-                            {items.map((item, idx) => {
+                            <div className="flex items-center gap-2">
+                                <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Review</h3>
+                                <div className="flex gap-1 ml-auto">
+                                    {(['all', 'got_it', 'review'] as const).map((filter) => (
+                                        <button
+                                            key={filter}
+                                            onClick={() => setResultFilter(filter)}
+                                            className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                                                resultFilter === filter
+                                                    ? 'bg-slate-900 text-white'
+                                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            {filter === 'all' ? 'All' : filter === 'got_it' ? 'Got it' : 'Review'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {filteredItems.map(({ item, idx }) => {
                                 const isCorrect = userAnswers[idx] === item.answer;
                                 const userAnswerIdx = userAnswers[idx];
+                                const assessment = selfAssessment[idx];
                                 return (
                                     <Card key={idx} className="overflow-hidden rounded-xl border-slate-200 bg-white">
                                         <div className="h-0.5 w-full bg-slate-200" />
@@ -423,19 +447,26 @@ const StudySessionPage: React.FC = () => {
                                                 </span>
                                                 <p className="flex-1 text-sm font-semibold leading-snug text-slate-900">
                                                     {item.question}
-                                                    {isStudyMode && (
-                                                        <span className="ml-2 inline-block align-middle text-[11px] font-semibold uppercase tracking-wider">
-                                                            {isCorrect ? (
-                                                                <span className="inline-flex items-center gap-1 text-emerald-600">
-                                                                    <CheckCircle2 size={13} /> Correct
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center gap-1 text-red-600">
-                                                                    <XCircle size={13} /> Wrong
-                                                                </span>
-                                                            )}
-                                                        </span>
-                                                    )}
+                                                    <span className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-semibold uppercase tracking-wider">
+                                                        {isStudyMode && (isCorrect ? (
+                                                            <span className="text-emerald-600">
+                                                                <CheckCircle2 size={13} /> Correct
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-red-600">
+                                                                <XCircle size={13} /> Wrong
+                                                            </span>
+                                                        ))}
+                                                        {assessment && (
+                                                            <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${
+                                                                assessment === 'got_it'
+                                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                                    : 'bg-amber-100 text-amber-700'
+                                                            }`}>
+                                                                {assessment === 'got_it' ? 'Got it' : 'Review'}
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </p>
                                             </div>
                                             {item.imageUrl && (
@@ -493,48 +524,44 @@ const StudySessionPage: React.FC = () => {
 
     /* ── Session screen ── */
     return (
-        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-50 font-lexend">
-            {/* Header */}
-            <header data-guide="session-header" className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-3 sm:px-5">
-                <div className="flex min-w-0 items-center gap-3">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/study')}
-                        className="h-8 w-8 shrink-0 rounded-lg text-slate-500 hover:text-slate-700"
-                    >
-                        <ArrowLeft size={16} />
-                    </Button>
-                    <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold leading-tight text-slate-900">{deckTitle || 'Study Session'}</p>
-                        <p className="text-xs font-medium text-slate-400">{currentIndex + 1} / {items.length}</p>
-                    </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                    <Badge className={`hidden rounded-full border-none px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider sm:flex ${isStudyMode ? 'bg-violet-100 text-violet-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {isStudyMode ? 'Quiz' : 'Flashcards'}
-                    </Badge>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/study')}
-                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700"
-                    >
-                        <X size={15} />
-                    </Button>
-                </div>
+        <div className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-slate-50 font-lexend">
+            {/* Compact header */}
+            <header data-guide="session-header" className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-5">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate('/study')}
+                    className="h-8 w-8 shrink-0 rounded-lg text-slate-500 hover:text-slate-700"
+                    aria-label="Back to Study Hub"
+                >
+                    <ArrowLeft size={16} />
+                </Button>
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-slate-900">
+                    {deckTitle || 'Study Session'}
+                </p>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate('/study')}
+                    className="h-8 w-8 shrink-0 rounded-lg text-slate-400 hover:text-slate-700"
+                    aria-label="Close session"
+                >
+                    <X size={15} />
+                </Button>
             </header>
 
-            {/* Progress */}
-            <div data-guide="session-progress" className="shrink-0 border-b border-slate-200 bg-white px-3 py-2.5 sm:px-5">
+            {/* Thin progress bar at top edge */}
+            <div data-guide="session-progress" className="shrink-0 bg-white px-3 py-1.5 sm:px-5">
                 <div className="flex items-center gap-3">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                         <div
                             className="h-full rounded-full bg-primary transition-all duration-300"
                             style={{ width: `${progress}%` }}
                         />
                     </div>
-                    <span className="w-8 shrink-0 text-right text-xs font-semibold text-primary">{Math.round(progress)}%</span>
+                    <span className="w-12 shrink-0 text-right text-xs font-semibold text-slate-500">
+                        {currentIndex + 1} / {items.length}
+                    </span>
                 </div>
             </div>
 
@@ -556,6 +583,8 @@ const StudySessionPage: React.FC = () => {
                             questionTextClass={questionTextClass}
                             answerTextClass={answerTextClass}
                             rationalizationTextClass={rationalizationTextClass}
+                            selfAssessment={selfAssessment}
+                            setSelfAssessment={setSelfAssessment}
                         />
                     ) : (
                         <QuizMode
