@@ -7,8 +7,15 @@ import {
     FlipHorizontal,
     Repeat2,
     CheckCircle2,
+    MoreHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useMotionPreference } from '@/contexts/MotionContext';
 import type { StudyItem } from './types';
 
@@ -250,43 +257,75 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                         aria-label="Flip card"
                     >
                         <FlipHorizontal size={16} className="mr-1.5" />
-                        <span className="hidden sm:inline">Flip</span>
-                        <span className="sm:hidden">Flip</span>
+                        <span>Flip</span>
                     </Button>
                 )}
 
-                <Button
-                    size="lg"
-                    onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                    className="h-10 rounded-xl bg-primary px-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 sm:h-11 sm:px-3 md:px-6"
-                    aria-label={currentIndex === items.length - 1 ? 'Finish session' : 'Next card'}
-                >
-                    {currentIndex === items.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={16} />
-                </Button>
-            </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        size="lg"
+                        onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                        className="h-10 rounded-xl bg-primary px-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 sm:h-11 sm:px-3 md:px-6"
+                        aria-label={currentIndex === items.length - 1 ? 'Finish session' : 'Next card'}
+                    >
+                        {currentIndex === items.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={16} />
+                    </Button>
 
-            {/* Shuffle control */}
-            <div className="mt-1 flex shrink-0 items-center justify-end gap-2 sm:mt-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleShuffle();
-                    }}
-                    className={`h-8 rounded-lg px-3 text-xs font-semibold ${
-                        isShuffled
-                            ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-500/90'
-                            : 'border-amber-200 bg-white text-amber-800 hover:bg-amber-100'
-                    }`}
-                >
-                    <Shuffle size={14} className="mr-1.5" />
-                    {isShuffled ? 'Shuffled' : 'Shuffle'}
-                </Button>
-                <p className="hidden text-xs font-semibold uppercase tracking-wider text-amber-700/80 sm:block">
-                    Tap card or press Space to flip
-                </p>
+                    {/* Mobile: overflow menu with shuffle toggle */}
+                    <div className="sm:hidden">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`h-10 w-10 rounded-xl ${
+                                        isShuffled
+                                            ? 'border-amber-500 bg-amber-50 text-amber-600'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                    aria-label="More options"
+                                >
+                                    <MoreHorizontal size={16} />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" sideOffset={8}>
+                                <DropdownMenuItem
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleShuffle();
+                                    }}
+                                    className={isShuffled ? 'text-amber-600' : ''}
+                                >
+                                    <Shuffle size={14} className={isShuffled ? 'text-amber-500' : ''} />
+                                    {isShuffled ? 'Shuffled' : 'Shuffle'}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    {/* Desktop: standalone shuffle button */}
+                    <div className="hidden sm:block">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleShuffle();
+                            }}
+                            className={`h-8 rounded-lg px-3 text-xs font-semibold ${
+                                isShuffled
+                                    ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-500/90'
+                                    : 'border-amber-200 bg-white text-amber-800 hover:bg-amber-100'
+                            }`}
+                        >
+                            <Shuffle size={14} className="mr-1.5" />
+                            {isShuffled ? 'Shuffled' : 'Shuffle'}
+                        </Button>
+                    </div>
+                </div>
             </div>
         </div>
     );
