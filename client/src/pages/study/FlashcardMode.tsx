@@ -104,7 +104,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                     >
                         {/* Front */}
                         <motion.div
-                            className="col-start-1 row-start-1 flex min-h-[280px] max-h-[55vh] flex-col items-center justify-center overflow-hidden rounded-xl border-4 border-amber-200 bg-amber-50 p-4 text-center shadow-sm md:p-10"
+                            className="col-start-1 row-start-1 flex min-h-[200px] max-h-[45vh] sm:min-h-[280px] sm:max-h-[55vh] flex-col items-center justify-center overflow-hidden rounded-xl border-4 border-amber-200 bg-amber-50 p-3 text-center shadow-sm sm:p-4 md:p-10"
                             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                             animate={{ opacity: reducedMotion ? (isFlipped ? 0 : 1) : 1 }}
                             transition={{ duration: reducedMotion ? 0.15 : 0 }}
@@ -134,7 +134,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
 
                         {/* Back */}
                         <motion.div
-                            className="col-start-1 row-start-1 flex min-h-[280px] max-h-[55vh] flex-col items-center justify-center overflow-hidden rounded-xl border-4 border-emerald-200 bg-emerald-50 p-4 text-center shadow-sm md:p-10"
+                            className="col-start-1 row-start-1 flex min-h-[200px] max-h-[45vh] sm:min-h-[280px] sm:max-h-[55vh] flex-col items-center justify-center overflow-hidden rounded-xl border-4 border-emerald-200 bg-emerald-50 p-3 text-center shadow-sm sm:p-4 md:p-10"
                             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', rotateY: reducedMotion ? 0 : 180 }}
                             animate={{ opacity: reducedMotion ? (isFlipped ? 1 : 0) : 1 }}
                             transition={{ duration: reducedMotion ? 0.15 : 0 }}
@@ -190,13 +190,13 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
             )}
 
             {/* Bottom controls — thumb-reachable */}
-            <div className="mt-3 flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 pt-4">
+            <div className="mt-2 flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 pt-3 sm:mt-3 sm:pt-4">
                 <Button
                     variant="outline"
                     size="lg"
                     onClick={(e) => { e.stopPropagation(); handlePrev(); }}
                     disabled={currentIndex === 0}
-                    className="h-11 rounded-xl border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:px-5"
+                    className="h-10 rounded-xl border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:h-11 sm:px-3 md:px-5"
                     aria-label="Previous card"
                 >
                     <ArrowLeft size={16} /> <span className="hidden sm:inline">Previous</span>
@@ -214,7 +214,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                                 setSelfAssessment((prev) => ({ ...prev, [flashOrder[currentIndex] ?? currentIndex]: 'got_it' }));
                                 handleNext();
                             }}
-                            className="h-11 flex-1 rounded-xl border-emerald-300 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                            className="h-10 flex-1 rounded-xl border-emerald-300 bg-emerald-50 px-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 sm:h-11 sm:px-3"
                             aria-label="Got it"
                         >
                             <CheckCircle2 size={16} className="mr-1.5" />
@@ -229,7 +229,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                                 setSelfAssessment((prev) => ({ ...prev, [flashOrder[currentIndex] ?? currentIndex]: 'review' }));
                                 handleNext();
                             }}
-                            className="h-11 flex-1 rounded-xl border-amber-300 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100"
+                            className="h-10 flex-1 rounded-xl border-amber-300 bg-amber-50 px-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 sm:h-11 sm:px-3"
                             aria-label="Review again"
                         >
                             <Repeat2 size={16} className="mr-1.5" />
@@ -246,7 +246,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                             e.stopPropagation();
                             setIsFlipped((v) => !v);
                         }}
-                        className="h-11 flex-1 rounded-xl border-amber-300 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50 sm:max-w-[180px]"
+                        className="h-10 flex-1 rounded-xl border-amber-300 bg-white px-2 text-sm font-semibold text-amber-800 hover:bg-amber-50 sm:h-11 sm:px-3 sm:max-w-[180px]"
                         aria-label="Flip card"
                     >
                         <FlipHorizontal size={16} className="mr-1.5" />
@@ -258,7 +258,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
                 <Button
                     size="lg"
                     onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                    className="h-11 rounded-xl bg-primary px-3 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 sm:px-6"
+                    className="h-10 rounded-xl bg-primary px-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 sm:h-11 sm:px-3 md:px-6"
                     aria-label={currentIndex === items.length - 1 ? 'Finish session' : 'Next card'}
                 >
                     {currentIndex === items.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={16} />
@@ -266,7 +266,7 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
             </div>
 
             {/* Shuffle control */}
-            <div className="mt-2 flex shrink-0 items-center justify-end gap-2">
+            <div className="mt-1 flex shrink-0 items-center justify-end gap-2 sm:mt-2">
                 <Button
                     type="button"
                     variant="outline"

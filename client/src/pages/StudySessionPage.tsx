@@ -569,8 +569,8 @@ const StudySessionPage: React.FC = () => {
             </div>
 
             {/* Main content */}
-            <main className="flex flex-1 flex-col overflow-hidden bg-slate-50 p-3 sm:p-6">
-                <div className="mx-auto flex h-full w-full max-w-4xl flex-col space-y-4">
+            <main className="flex flex-1 flex-col overflow-y-auto bg-slate-50 p-3 sm:p-6">
+                <div className="mx-auto flex w-full max-w-4xl flex-col space-y-4">
                     {!isStudyMode ? (
                         <FlashcardMode
                             items={items}
