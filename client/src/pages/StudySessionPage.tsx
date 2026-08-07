@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import { saveDeckProgress, type DeckProgress } from '@/lib/offline-store';
@@ -44,6 +43,7 @@ const StudySessionPage: React.FC = () => {
     const [flashOrder, setFlashOrder] = useState<number[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [selfAssessment, setSelfAssessment] = useState<Record<number, 'got_it' | 'review'>>({});
+    const [resultFilter, setResultFilter] = useState<'all' | 'got_it' | 'review'>('all');
 
     const isStudyMode = mode === 'study';
     // Map the route mode to the server's DeckSessionMode enum.
@@ -148,6 +148,7 @@ const StudySessionPage: React.FC = () => {
             const item = items[mappedIndex];
             if (!item) return;
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            if (e.target instanceof HTMLElement && e.target.closest('button, a, input, textarea, select, [role="button"], summary')) return;
 
             if (!isStudyMode) {
                 if (e.code === 'Space') {
@@ -336,6 +337,8 @@ const StudySessionPage: React.FC = () => {
         setUserAnswers({});
         setShowResults(false);
         setIsFlipped(false);
+        setSelfAssessment({});
+        setResultFilter('all');
     };
 
     /* ── Results screen ── */
@@ -343,7 +346,6 @@ const StudySessionPage: React.FC = () => {
         const correctCount = items.filter((_, idx) => userAnswers[idx] === items[idx].answer).length;
         const scorePercent = Math.round((correctCount / items.length) * 100);
         const reviewCount = Object.values(selfAssessment).filter((v) => v === 'review').length;
-        const [resultFilter, setResultFilter] = useState<'all' | 'got_it' | 'review'>('all');
 
         const filteredItems = items.map((item, idx) => ({ item, idx })).filter(({ idx }) => {
             if (resultFilter === 'all') return true;
@@ -386,7 +388,7 @@ const StudySessionPage: React.FC = () => {
                             <div className="h-1.5 w-full bg-slate-200" />
                             <CardContent className="flex items-center gap-4 p-4 sm:p-6">
                                 <div className="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-50">
-                                    <span className="text-2xl font-semibold leading-none text-slate-900">{scorePercent}%</span>
+                                    <span className="text-2xl font-semibold tabular-nums leading-none text-slate-900">{scorePercent}%</span>
                                     <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Score</span>
                                 </div>
                                 <div className="flex-1 space-y-1.5">
@@ -422,11 +424,12 @@ const StudySessionPage: React.FC = () => {
                                         <button
                                             key={filter}
                                             onClick={() => setResultFilter(filter)}
-                                            className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                                            className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
                                                 resultFilter === filter
                                                     ? 'bg-slate-900 text-white'
                                                     : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                             }`}
+                                            aria-pressed={resultFilter === filter}
                                         >
                                             {filter === 'all' ? 'All' : filter === 'got_it' ? 'Got it' : 'Review'}
                                         </button>
@@ -458,7 +461,7 @@ const StudySessionPage: React.FC = () => {
                                                             </span>
                                                         ))}
                                                         {assessment && (
-                                                            <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${
+                                                            <span className={`ml-1 rounded px-1.5 py-0.5 text-[11px] font-semibold ${
                                                                 assessment === 'got_it'
                                                                     ? 'bg-emerald-100 text-emerald-700'
                                                                     : 'bg-amber-100 text-amber-700'
@@ -512,7 +515,7 @@ const StudySessionPage: React.FC = () => {
                                 onClick={handleRestart}
                                 className="h-11 rounded-xl bg-primary px-6 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
                             >
-                                <RotateCcw size={16} className="mr-2" /> Retake Quiz
+                                <RotateCcw size={16} className="mr-2" /> Retake
                             </Button>
                         </div>
                     </div>
@@ -559,7 +562,7 @@ const StudySessionPage: React.FC = () => {
                             style={{ width: `${progress}%` }}
                         />
                     </div>
-                    <span className="w-12 shrink-0 text-right text-xs font-semibold text-slate-500">
+                    <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-500">
                         {currentIndex + 1} / {items.length}
                     </span>
                 </div>
@@ -572,7 +575,6 @@ const StudySessionPage: React.FC = () => {
                         <FlashcardMode
                             items={items}
                             currentIndex={currentIndex}
-                            setCurrentIndex={setCurrentIndex}
                             isFlipped={isFlipped}
                             setIsFlipped={setIsFlipped}
                             flashOrder={flashOrder}
