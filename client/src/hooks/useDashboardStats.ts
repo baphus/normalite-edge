@@ -36,7 +36,8 @@ export function useDashboardStats(userId?: string): UseDashboardStatsResult {
 
     useEffect(() => {
         if (!userId) {
-            setLoading(false);
+            // No user yet: `loading` is derived below so nothing needs to be
+            // set synchronously inside the effect.
             return;
         }
 
@@ -81,5 +82,7 @@ export function useDashboardStats(userId?: string): UseDashboardStatsResult {
         };
     }, [userId]);
 
-    return { stats, loading, fromCache };
+    // With no user id there is nothing to load, so `loading` is only reported
+    // as true while a fetch could actually be in flight.
+    return { stats, loading: loading && Boolean(userId), fromCache };
 }

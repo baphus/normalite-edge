@@ -142,6 +142,17 @@ const normalizeProfileImageUrl = (rawUrl?: string | null): string => {
     return trimmed;
 };
 
+const getApiErrorMessage = (error: unknown): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const data = (error as { response?: { data?: unknown } }).response?.data;
+        if (data && typeof data === 'object' && 'message' in data) {
+            const message = (data as { message?: unknown }).message;
+            if (typeof message === 'string') return message;
+        }
+    }
+    return '';
+};
+
 const defaultCreateForm = {
     email: '',
     role: 'REVIEWER' as CreateUserRole,
@@ -237,15 +248,18 @@ const UserManagementPage: React.FC = () => {
             const records = (response.data?.data || []) as UserApiItem[];
             setUsers(records.map(toUiUser));
             setTotalUsers(response.data?.meta?.total || records.length);
-        } catch (error: any) {
-            setErrorMessage(error?.response?.data?.message || 'Failed to load users');
+        } catch (error) {
+            setErrorMessage(getApiErrorMessage(error) || 'Failed to load users');
         } finally {
             setLoading(false);
         }
     }, [page, limit, search, roleFilter, statusFilter]);
 
     useEffect(() => {
-        void fetchUsers();
+        const load = () => {
+            void fetchUsers();
+        };
+        load();
     }, [fetchUsers]);
 
     useEffect(() => {
@@ -304,8 +318,8 @@ const UserManagementPage: React.FC = () => {
                 void fetchUsers();
             }
             toast.success(`${target.name} has been deleted.`);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || 'Failed to delete user.');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error) || 'Failed to delete user.');
         } finally {
             setMutatingId(null);
         }
@@ -335,8 +349,8 @@ const UserManagementPage: React.FC = () => {
             setCreateForm({ ...defaultCreateForm });
             void fetchUsers();
             toast.success('Invite link created.');
-        } catch (error: any) {
-            setCreateError(error?.response?.data?.message || 'Failed to create user');
+        } catch (error) {
+            setCreateError(getApiErrorMessage(error) || 'Failed to create user');
         } finally {
             setCreating(false);
         }
@@ -350,8 +364,8 @@ const UserManagementPage: React.FC = () => {
             setInviteEmail(user.email);
             setIsEditModalOpen(false);
             toast.success('Access link created.');
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || 'Failed to generate an access link.');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error) || 'Failed to generate an access link.');
         } finally {
             setMutatingId(null);
         }
@@ -361,7 +375,7 @@ const UserManagementPage: React.FC = () => {
         if (!selectedUser) return;
         try {
             setMutatingId(selectedUser.id);
-            const body: Record<string, any> = {};
+            const body: Record<string, unknown> = {};
             if (editFirstName !== selectedUser.firstName) body.firstName = editFirstName;
             if (editLastName !== selectedUser.lastName) body.lastName = editLastName;
             if (editMiddleInitial !== (selectedUser.middleInitial || '')) body.middleInitial = editMiddleInitial || undefined;
@@ -383,8 +397,8 @@ const UserManagementPage: React.FC = () => {
             setSelectedUser(null);
             void fetchUsers();
             toast.success('User updated successfully.');
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || 'Failed to update user.');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error) || 'Failed to update user.');
         } finally {
             setMutatingId(null);
         }

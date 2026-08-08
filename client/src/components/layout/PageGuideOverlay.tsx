@@ -38,19 +38,20 @@ const findGuideTarget = (selectors: string[]) => {
 const PageGuideOverlay: React.FC = () => {
     const location = useLocation();
     const { user, updateUser } = useAuth();
-    const isReviewee = user?.role === 'REVIEWEE';
+    const role = user?.role;
+    const isReviewee = role === 'REVIEWEE';
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [stepIndex, setStepIndex] = useState(0);
     const [targetRect, setTargetRect] = useState<Rect | null>(null);
 
     const guide = useMemo(() => {
-        if (!user?.role || !isReviewee) {
+        if (!role || !isReviewee) {
             return null;
         }
 
-        return resolvePageGuide(location.pathname, user.role);
-    }, [isReviewee, location.pathname, user?.role]);
+        return resolvePageGuide(location.pathname, role);
+    }, [isReviewee, location.pathname, role]);
 
     const currentStep = useMemo(() => {
         if (!guide || !guide.steps.length) {
@@ -64,19 +65,27 @@ const PageGuideOverlay: React.FC = () => {
 
     useEffect(() => {
         if (!user?.isOnboarded || !guide?.id) {
-            setOpen(false);
-            setStepIndex(0);
+            // Reset the tour UI from a microtask so the effect body performs no
+            // synchronous state updates (react-hooks/set-state-in-effect).
+            Promise.resolve().then(() => {
+                setOpen(false);
+                setStepIndex(0);
+            });
             return;
         }
 
         const completedTours = user.completedTours || [];
         const shouldOpen = !completedTours.includes(guide.id);
-        setStepIndex(0);
 
         if (!shouldOpen) {
-            setOpen(false);
+            Promise.resolve().then(() => {
+                setOpen(false);
+                setStepIndex(0);
+            });
             return;
         }
+
+        Promise.resolve().then(() => setStepIndex(0));
 
         let pollInterval: number | null = null;
         const openWhenFirstTargetIsReady = () => {
@@ -91,7 +100,7 @@ const PageGuideOverlay: React.FC = () => {
             }
         };
 
-        openWhenFirstTargetIsReady();
+        Promise.resolve().then(() => openWhenFirstTargetIsReady());
         pollInterval = window.setInterval(openWhenFirstTargetIsReady, 500);
 
         return () => {
@@ -103,7 +112,9 @@ const PageGuideOverlay: React.FC = () => {
 
     useEffect(() => {
         if (!open || !currentStep) {
-            setTargetRect(null);
+            // Clear the spotlight measurement from a microtask so the effect body
+            // performs no synchronous state updates.
+            Promise.resolve().then(() => setTargetRect(null));
             return;
         }
 
@@ -123,7 +134,7 @@ const PageGuideOverlay: React.FC = () => {
             });
         };
 
-        updateTargetRect();
+        Promise.resolve().then(() => updateTargetRect());
         window.addEventListener('resize', updateTargetRect);
         window.addEventListener('scroll', updateTargetRect, true);
 

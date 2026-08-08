@@ -191,6 +191,9 @@ const ProfileForm: React.FC<{
         setError('Please check the highlighted fields and try again.');
     };
 
+    // react-hooks/incompatible-library: RHF's `watch()` cannot be memoized
+    // safely; React Compiler will simply skip memoizing this component.
+    // eslint-disable-next-line react-hooks/incompatible-library
     const suffixValue = watch('suffix');
 
     // The upload wins over the suggestion; `imgError` covers a suggested URL

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowDown,
     ArrowUp,
@@ -41,6 +41,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
+import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -178,15 +179,15 @@ const StudentManagementPage: React.FC = () => {
 
     const isAdmin = user?.role === 'ADMIN';
 
-    const fetchAttempts = async () => {
+    const fetchAttempts = useCallback(async () => {
         const response = await api.get('/attempts', {
             params: { page: 1, limit: 500 },
         });
 
         return (response.data?.data || []) as AttemptItem[];
-    };
+    }, []);
 
-    const fetchStudents = async () => {
+    const fetchStudents = useCallback(async () => {
         const response = await api.get('/users', {
             params: {
                 page: 1,
@@ -196,14 +197,14 @@ const StudentManagementPage: React.FC = () => {
         });
 
         return (response.data?.data || []) as StudentUserItem[];
-    };
+    }, []);
 
-    const fetchTracks = async () => {
+    const fetchTracks = useCallback(async () => {
         const response = await api.get('/tracks');
         return (response.data?.data || []) as TrackItem[];
-    };
+    }, []);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setErrorMessage(null);
         try {
@@ -219,19 +220,22 @@ const StudentManagementPage: React.FC = () => {
             setAttempts(attemptRows);
             setStudents(studentRows);
             setTracks(trackRows);
-        } catch (error: any) {
-            setErrorMessage(error?.response?.data?.message || 'Failed to load student activity');
+        } catch (error) {
+            setErrorMessage(
+                (isAxiosError<{ message?: string }>(error) && error.response?.data?.message)
+                    || 'Failed to load student activity'
+            );
             setAttempts([]);
             setStudents([]);
             setTracks([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, [fetchAttempts, fetchStudents, fetchTracks]);
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        void Promise.resolve().then(() => fetchData());
+    }, [fetchData]);
 
     const studentSummaries = useMemo<StudentSummary[]>(() => {
         const byStudent = new Map<string, AttemptItem[]>();
@@ -418,7 +422,7 @@ const StudentManagementPage: React.FC = () => {
     }, [sortedStudents, page, limit]);
 
     useEffect(() => {
-        setPage(1);
+        void Promise.resolve().then(() => setPage(1));
     }, [search, trackFilter, campusFilter, statusFilter, yearLevelFilter, sectionFilter]);
 
     const handleSort = (key: SortKey) => {

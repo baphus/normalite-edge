@@ -82,14 +82,14 @@ const CustomDeckPage: React.FC = () => {
     const normalizeImportKey = (key: string) =>
         key.replace(/^\uFEFF/, '').replace(/[\s_-]+/g, '').toLowerCase();
 
-    const toNormalizedRecord = (record: Record<string, any>) => {
-        return Object.entries(record).reduce<Record<string, any>>((acc, [key, value]) => {
+    const toNormalizedRecord = (record: Record<string, unknown>) => {
+        return Object.entries(record).reduce<Record<string, unknown>>((acc, [key, value]) => {
             acc[normalizeImportKey(key)] = value;
             return acc;
         }, {});
     };
 
-    const pickImportValue = (record: Record<string, any>, aliases: string[]) => {
+    const pickImportValue = (record: Record<string, unknown>, aliases: string[]) => {
         const normalizedRecord = toNormalizedRecord(record);
 
         for (const alias of aliases) {
@@ -127,7 +127,7 @@ const CustomDeckPage: React.FC = () => {
         return matchedIndex >= 0 ? matchedIndex : 0;
     };
 
-    const mapRecordToCard = (record: Record<string, any>, index: number): CardItem | null => {
+    const mapRecordToCard = (record: Record<string, unknown>, index: number): CardItem | null => {
         const question = String(
             pickImportValue(record, ['question', 'questionText', 'front', 'prompt']) ?? ''
         ).trim();
@@ -182,7 +182,7 @@ const CustomDeckPage: React.FC = () => {
             const content = await readUploadedText(file);
             const lowerFileName = file.name.toLowerCase();
 
-            let records: Array<Record<string, any>> = [];
+            let records: Array<Record<string, unknown>> = [];
             if (lowerFileName.endsWith('.json')) {
                 const parsed = JSON.parse(content);
                 records = Array.isArray(parsed)
@@ -267,7 +267,7 @@ const CustomDeckPage: React.FC = () => {
         }
     };
 
-    const updateCard = (id: string, field: keyof CardItem, value: any) => {
+    const updateCard = <K extends keyof CardItem>(id: string, field: K, value: CardItem[K]) => {
         setCards(cards.map(card => card.id === id ? { ...card, [field]: value } : card));
     };
 
@@ -313,9 +313,11 @@ const CustomDeckPage: React.FC = () => {
             await api.post('/decks', payload);
             toast.success('Deck created successfully!');
             navigate('/study');
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to save deck:', error);
-            const detail = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+            const responseData = (error as { response?: { data?: unknown } }).response?.data;
+            const message = (error as { message?: string }).message;
+            const detail = responseData ? JSON.stringify(responseData) : message;
             toast.error(`Failed to create deck: ${detail}`);
         }
     };

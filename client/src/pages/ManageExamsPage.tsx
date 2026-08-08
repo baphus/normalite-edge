@@ -37,6 +37,7 @@ import {
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 import { StatusPill, type StatusTone } from '@/components/manage/StatusPill';
 import { ResourceGrid } from '@/components/manage/ResourceGrid';
+import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
 import { fetchAllPages, extractListPayload } from '@/lib/fetchAllPages';
 import { formatShortDate, formatDurationMinutes } from '@/lib/formatters';
@@ -243,6 +244,10 @@ const ManageExamsPage: React.FC = () => {
         setOwnershipFilter(isReviewer ? 'mine' : 'all');
     }
 
+    // Captured once per mount so the published-relative filters stay pure
+    // during render while still tracking "now" for this page session.
+    const [now] = useState(() => Date.now());
+
     const fetchManagedExams = useCallback(async () => {
         setLoading(true);
         setLoadError(null);
@@ -270,7 +275,7 @@ const ManageExamsPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        void fetchManagedExams();
+        void Promise.resolve().then(() => fetchManagedExams());
     }, [fetchManagedExams]);
 
     const fetchCategories = useCallback(() => {
@@ -337,8 +342,8 @@ const ManageExamsPage: React.FC = () => {
                     || (deadlineFilter === 'without-deadline' && !exam.deadline);
 
                 const publishedTimestamp = new Date(exam.publishedAt || 0).getTime();
-                const sevenDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
-                const thirtyDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
+                const sevenDaysAgo = now - 1000 * 60 * 60 * 24 * 7;
+                const thirtyDaysAgo = now - 1000 * 60 * 60 * 24 * 30;
                 const matchesPublished =
                     publishedFilter === 'all'
                     || (publishedFilter === 'last_7_days' && publishedTimestamp >= sevenDaysAgo)
@@ -370,6 +375,7 @@ const ManageExamsPage: React.FC = () => {
             deadlineFilter,
             publishedFilter,
             autoCloseFilter,
+            now,
         ],
     );
 
@@ -612,10 +618,10 @@ const ManageExamsPage: React.FC = () => {
                     ? `Exported to study materials as "${deck.title}".`
                     : 'Mock exam exported to study materials.',
             );
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to export exam to study materials', error);
             toast.error(
-                error?.response?.data?.message
+                (isAxiosError<{ message?: string }>(error) && error.response?.data?.message)
                     || 'Failed to export exam to study materials. Please try again.',
             );
         } finally {

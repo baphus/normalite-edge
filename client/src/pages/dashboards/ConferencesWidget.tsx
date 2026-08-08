@@ -20,6 +20,18 @@ interface ConferenceItem {
     isToday: boolean;
 }
 
+/** Raw session shape as returned by the `/sessions` API. */
+interface RawConference {
+    id: string;
+    title: string;
+    scheduledDate?: string | null;
+    startAt?: string | null;
+    endAt?: string | null;
+    startTime?: string;
+    endTime?: string;
+    meetingLink?: string;
+}
+
 const normalizeDate = (raw: unknown): string => {
     if (!raw) return '';
     const d = new Date(raw as string);
@@ -64,7 +76,7 @@ const ConferencesWidget: React.FC<ConferencesWidgetProps> = ({ compact = true })
             try {
                 const res = await api.get('/sessions');
                 const payload = res.data?.data;
-                const list: any[] = Array.isArray(payload)
+                const list: RawConference[] = Array.isArray(payload)
                     ? payload
                     : Array.isArray(payload?.items)
                         ? payload.items

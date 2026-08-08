@@ -92,6 +92,19 @@ const normalizeCampus = (campus: CampusApiItem): CampusItem => ({
     updatedAt: campus.updatedAt || null,
 });
 
+const getApiErrorMessage = (error: unknown): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const data = (error as { response?: { data?: unknown } }).response?.data;
+        if (data && typeof data === 'object' && 'message' in data) {
+            const message = (data as { message?: unknown }).message;
+            if (typeof message === 'string') return message;
+        }
+    }
+    return '';
+};
+
+const thirtyDaysAgoMs = () => Date.now() - (1000 * 60 * 60 * 24 * 30);
+
 const CampusesPage: React.FC = () => {
     const [campuses, setCampuses] = useState<CampusItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -120,8 +133,8 @@ const CampusesPage: React.FC = () => {
             const response = await api.get('/campuses');
             const rows = (response.data?.data || []) as CampusApiItem[];
             setCampuses(rows.map(normalizeCampus));
-        } catch (error: any) {
-            setErrorMessage(error?.response?.data?.message || 'Failed to load campuses.');
+        } catch (error) {
+            setErrorMessage(getApiErrorMessage(error) || 'Failed to load campuses.');
             setCampuses([]);
         } finally {
             setLoading(false);
@@ -129,12 +142,15 @@ const CampusesPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        void fetchCampuses();
+        const load = () => {
+            void fetchCampuses();
+        };
+        load();
     }, [fetchCampuses]);
 
     const filteredCampuses = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
-        const threshold = Date.now() - (1000 * 60 * 60 * 24 * 30);
+        const threshold = thirtyDaysAgoMs();
 
         return campuses.filter((campus) => {
             const matchesSearch = !normalizedSearch
@@ -207,8 +223,8 @@ const CampusesPage: React.FC = () => {
             setSelectedCampus(null);
             setFormState(defaultFormState);
             await fetchCampuses();
-        } catch (error: any) {
-            setFormError(error?.response?.data?.message || 'Failed to save campus.');
+        } catch (error) {
+            setFormError(getApiErrorMessage(error) || 'Failed to save campus.');
         } finally {
             setSaving(false);
         }
@@ -227,8 +243,8 @@ const CampusesPage: React.FC = () => {
             }
             toast.success('Campus deleted successfully.');
             await fetchCampuses();
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || 'Failed to delete campus.');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error) || 'Failed to delete campus.');
         }
     };
 
@@ -251,9 +267,9 @@ const CampusesPage: React.FC = () => {
                 page += 1;
             } while (page <= totalPages);
             setCampusMembers(allMembers);
-        } catch (error: any) {
+        } catch (error) {
             setCampusMembers([]);
-            toast.error(error?.response?.data?.message || 'Failed to load users for this campus.');
+            toast.error(getApiErrorMessage(error) || 'Failed to load users for this campus.');
         } finally {
             setMembersLoading(false);
         }

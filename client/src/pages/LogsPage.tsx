@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Clock3,
     Search,
@@ -10,6 +10,7 @@ import {
     SearchX,
     Shield,
 } from 'lucide-react';
+import { isAxiosError } from 'axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -115,43 +116,65 @@ const LogsPage: React.FC = () => {
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
-    const fetchLogs = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await api.get('/audit/logs', {
-                params: {
-                    page,
-                    limit,
-                    search: search || undefined,
-                    action: actionFilter === 'all' ? undefined : actionFilter,
-                    actorRole: roleFilter === 'all' ? undefined : roleFilter,
-                    entityType: entityFilter === 'all' ? undefined : entityFilter,
-                    from: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
-                    to: toDate ? `${toDate}T23:59:59.999Z` : undefined,
-                },
-            });
+    // `search` is debounced, so the fetch callback reads it through a ref and
+    // stays stable across keystrokes; the search-driven effect re-fetches on
+    // its own debounced timer.
+    const searchRef = useRef(search);
+    useEffect(() => {
+        searchRef.current = search;
+    }, [search]);
 
-            const data = (response.data?.data || []) as AuditLog[];
-            setLogs(data);
-            setTotal(response.data?.meta?.total || data.length);
-        } catch (err: any) {
-            setError(err?.response?.data?.message || 'Failed to load audit logs');
-            setLogs([]);
-            setTotal(0);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const fetchLogs = useCallback(() => {
+        // All state updates run in promise callbacks so the effects that kick
+        // off the fetch perform no synchronous setState calls.
+        Promise.resolve()
+            .then(() => {
+                setLoading(true);
+                setError(null);
+                return api.get('/audit/logs', {
+                    params: {
+                        page,
+                        limit,
+                        search: searchRef.current || undefined,
+                        action: actionFilter === 'all' ? undefined : actionFilter,
+                        actorRole: roleFilter === 'all' ? undefined : roleFilter,
+                        entityType: entityFilter === 'all' ? undefined : entityFilter,
+                        from: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
+                        to: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+                    },
+                });
+            })
+            .then((response) => {
+                const data = (response.data?.data || []) as AuditLog[];
+                setLogs(data);
+                setTotal(response.data?.meta?.total || data.length);
+            })
+            .catch((err: unknown) => {
+                const message = isAxiosError<{ message?: string }>(err)
+                    ? err.response?.data?.message
+                    : undefined;
+                setError(message || 'Failed to load audit logs');
+                setLogs([]);
+                setTotal(0);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+    }, [page, limit, actionFilter, roleFilter, entityFilter, fromDate, toDate]);
+
+    const fetchLogsRef = useRef(fetchLogs);
+    useEffect(() => {
+        fetchLogsRef.current = fetchLogs;
+    }, [fetchLogs]);
 
     useEffect(() => {
         fetchLogs();
-    }, [page, actionFilter, roleFilter, entityFilter, fromDate, toDate]);
+    }, [fetchLogs]);
 
     useEffect(() => {
         const timeout = setTimeout(() => {
             setPage(1);
-            fetchLogs();
+            fetchLogsRef.current();
         }, 300);
 
         return () => clearTimeout(timeout);

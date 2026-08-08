@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Cropper from 'react-easy-crop';
+import Cropper, { type Area } from 'react-easy-crop';
 import {
     Dialog,
     DialogContent,
@@ -38,8 +38,8 @@ const ImageCropDialog: React.FC<ImageCropDialogProps> = ({
     const [cropping, setCropping] = useState(false);
 
     const onCropCompleteInternal = (
-        _croppedArea: any,
-        croppedAreaPixels: any
+        _croppedArea: Area,
+        croppedAreaPixels: Area
     ) => {
         setCroppedAreaPixels(croppedAreaPixels);
     };

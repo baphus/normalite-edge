@@ -22,6 +22,7 @@ interface StreakContextValue {
 
 const StreakContext = createContext<StreakContextValue | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useStreakContext(): StreakContextValue {
     const ctx = useContext(StreakContext);
     if (!ctx) throw new Error('useStreakContext must be used within StreakProvider');

@@ -21,6 +21,45 @@ import QuizMode from './study/QuizMode';
 import { OPTION_LABELS, shuffleArray } from './study/types';
 import type { StudyItem } from './study/types';
 
+interface DeckQuestionOptions {
+    A?: unknown;
+    a?: unknown;
+    B?: unknown;
+    b?: unknown;
+    C?: unknown;
+    c?: unknown;
+    D?: unknown;
+    d?: unknown;
+}
+
+interface DeckQuestion {
+    id?: string;
+    orderNo?: number | null;
+    order_no?: number | null;
+    questionText?: string | null;
+    question_text?: string | null;
+    imageUrl?: string | null;
+    image_url?: string | null;
+    rationalization?: string | null;
+    answerText?: string | null;
+    correctChoice?: string | null;
+    correct_choice?: string | null;
+    options?: DeckQuestionOptions | unknown[] | null;
+    choiceA?: string | null;
+    choice_a?: string | null;
+    choiceB?: string | null;
+    choice_b?: string | null;
+    choiceC?: string | null;
+    choice_c?: string | null;
+    choiceD?: string | null;
+    choice_d?: string | null;
+}
+
+interface StudyDeckResponse {
+    title?: string | null;
+    questions?: DeckQuestion[] | null;
+}
+
 const StudySessionPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
@@ -58,7 +97,8 @@ const StudySessionPage: React.FC = () => {
 
     useEffect(() => {
         const effective = reviewOnlyItems ?? items;
-        if (effective.length > 0) {
+        if (effective.length === 0) return;
+        const syncFlashOrder = () => {
             // Review rounds are already shuffled in handleReviewAgain, so keep
             // their identity order here rather than shuffling again.
             if (shuffleParam && !reviewOnlyItems) {
@@ -66,14 +106,18 @@ const StudySessionPage: React.FC = () => {
             } else {
                 setFlashOrder(effective.map((_, idx) => idx));
             }
-        }
+        };
+        syncFlashOrder();
     }, [items, reviewOnlyItems, shuffleParam]);
 
     useEffect(() => {
-        setCurrentIndex(0);
-        setIsFlipped(false);
-        setShowResults(false);
-        setReviewOnlyItems(null);
+        const resetSessionState = () => {
+            setCurrentIndex(0);
+            setIsFlipped(false);
+            setShowResults(false);
+            setReviewOnlyItems(null);
+        };
+        resetSessionState();
     }, [id, mode, items.length]);
 
     useEffect(() => {
@@ -81,13 +125,13 @@ const StudySessionPage: React.FC = () => {
             try {
                 if (!id) { setItems([]); setLoading(false); return; }
                 const response = await api.get(`/decks/${id}?questions=true`);
-                const deck = response.data.data;
-                setDeckTitle(deck.title);
+                const deck = (response.data?.data ?? {}) as StudyDeckResponse;
+                setDeckTitle(deck.title ?? '');
                 const questions = deck.questions || [];
-                questions.sort((a: any, b: any) => (a.orderNo ?? a.order_no ?? 0) - (b.orderNo ?? b.order_no ?? 0));
-                const formattedItems: StudyItem[] = questions.map((q: any) => {
+                questions.sort((a, b) => (a.orderNo ?? a.order_no ?? 0) - (b.orderNo ?? b.order_no ?? 0));
+                const formattedItems: StudyItem[] = questions.map((q) => {
                     const optionObject = q.options && typeof q.options === 'object' && !Array.isArray(q.options)
-                        ? q.options
+                        ? (q.options as DeckQuestionOptions)
                         : null;
 
                     const arrayOptions = Array.isArray(q.options) ? q.options : [];
@@ -115,7 +159,7 @@ const StudySessionPage: React.FC = () => {
                     }
 
                     return {
-                        id: q.id,
+                        id: q.id ?? '',
                         question: q.questionText ?? q.question_text ?? 'Untitled question',
                         imageUrl: q.imageUrl ?? q.image_url ?? null,
                         options,
@@ -257,7 +301,10 @@ const StudySessionPage: React.FC = () => {
                 );
                 // Confetti only for strong scores (≥75%). Perfect scores also
                 // get the "Perfect score!" message on the results screen.
-                setShowConfetti(score >= 75);
+                const syncConfetti = () => {
+                    setShowConfetti(score >= 75);
+                };
+                syncConfetti();
             }
         }
     }, [showResults, refetchStreak, sessionId, isOffline, items, userAnswers, isStudyMode, reviewOnlyItems]);
@@ -267,7 +314,10 @@ const StudySessionPage: React.FC = () => {
     useEffect(() => {
         if (!showResults || !isStudyMode) return;
         const hasWrong = items.some((item, idx) => userAnswers[idx] !== undefined && userAnswers[idx] !== item.answer);
-        setResultFilter(hasWrong ? 'wrong' : 'all');
+        const syncResultFilter = () => {
+            setResultFilter(hasWrong ? 'wrong' : 'all');
+        };
+        syncResultFilter();
     }, [showResults, isStudyMode, items, userAnswers]);
 
     if (loading) {

@@ -248,6 +248,10 @@ const ExamsPage: React.FC = () => {
     /** The single expanded card. Only one can be open at a time. */
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
+    // Captured once per mount so the published-relative filters stay pure
+    // during render while still tracking "now" for this page session.
+    const [now] = useState(() => Date.now());
+
     const fetchExams = useCallback(async () => {
         setLoadState('loading');
         setLoadError(null);
@@ -268,7 +272,7 @@ const ExamsPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        void fetchExams();
+        void Promise.resolve().then(() => fetchExams());
     }, [fetchExams]);
 
     const categoryOptions = useMemo(
@@ -279,8 +283,8 @@ const ExamsPage: React.FC = () => {
     /** Every filter except the status segment — so the segmented control shows honest counts. */
     const examsBeforeSegment = useMemo(() => {
         const term = search.trim().toLowerCase();
-        const sevenDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
-        const thirtyDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 30;
+        const sevenDaysAgo = now - 1000 * 60 * 60 * 24 * 7;
+        const thirtyDaysAgo = now - 1000 * 60 * 60 * 24 * 30;
 
         return exams.filter((exam) => {
             const matchesSearch =
@@ -295,7 +299,7 @@ const ExamsPage: React.FC = () => {
                 (publishedFilter === 'last_30_days' && published >= thirtyDaysAgo);
             return matchesSearch && matchesCategory && matchesPublished;
         });
-    }, [exams, search, categoryFilter, publishedFilter]);
+    }, [exams, search, categoryFilter, publishedFilter, now]);
 
     const segments = useMemo<ToolbarSegment[]>(() => {
         const counts = examsBeforeSegment.reduce(

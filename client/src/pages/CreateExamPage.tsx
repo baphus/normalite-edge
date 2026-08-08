@@ -48,6 +48,7 @@ import {
     QuestionImportError,
 } from '@/lib/importQuestions';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
 import { uploadQuestionImageFromEvent } from '@/lib/questionImage';
 import { toast } from 'sonner';
@@ -707,9 +708,12 @@ const CreateExamPage: React.FC = () => {
             }
             setSavedSnapshot(snapshot);
             navigate('/manage-exams');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to submit exam', error);
-            toast.error(error.response?.data?.message || 'Failed to save exam.');
+            const message = isAxiosError<{ message?: string }>(error)
+                ? error.response?.data?.message
+                : undefined;
+            toast.error(message || 'Failed to save exam.');
         } finally {
             setIsSubmitting(false);
         }

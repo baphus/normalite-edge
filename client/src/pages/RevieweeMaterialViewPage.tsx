@@ -95,54 +95,62 @@ const RevieweeMaterialViewPage: React.FC = () => {
         isOfflineRef.current = isOffline;
     }, [isOffline]);
 
-    const loadDeck = useCallback(async () => {
+    const loadDeck = useCallback(() => {
         if (!id) {
-            setError('Missing material ID.');
-            setLoading(false);
-            return;
+            Promise.resolve().then(() => {
+                setError('Missing material ID.');
+                setLoading(false);
+            });
+            return Promise.resolve();
         }
 
-        setLoading(true);
-        setError('');
-        setFromCache(false);
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the load performs no synchronous setState calls.
+        return Promise.resolve()
+            .then(() => {
+                setLoading(true);
+                setError('');
+                setFromCache(false);
+                return api.get(`/decks/${id}?questions=true`);
+            })
+            .then(async (response) => {
+                const data = (response.data?.data || null) as DeckView | null;
+                setDeck(data);
 
-        try {
-            const response = await api.get(`/decks/${id}?questions=true`);
-            const data = (response.data?.data || null) as DeckView | null;
-            setDeck(data);
-
-            // Persist the fresh copy for the next outage. Exam content is never
-            // cached; study decks are, so offline review stays possible.
-            if (data) {
-                await cacheDeck({
-                    id: data.id,
-                    title: data.title,
-                    description: data.description,
-                    subject: undefined,
-                    category: data.category,
-                    visibility: data.visibility,
-                    tracks: data.tracks,
-                    program_track: data.program_track,
-                    creator: data.creator,
-                    createdAt: data.createdAt ?? undefined,
-                    questions: data.questions,
-                    cachedAt: Date.now(),
-                });
-            }
-        } catch (loadErr) {
-            console.error('Failed to load reviewee material details', loadErr);
-            // The cache exists precisely for this moment. Show it when offline
-            // rather than an error the reviewee cannot act on.
-            if (isOfflineRef.current && cachedDeckRef.current) {
-                setDeck(cachedDeckRef.current as DeckView);
-                setFromCache(true);
-            } else {
-                setError('Unable to load material details right now.');
-                setDeck(null);
-            }
-        } finally {
-            setLoading(false);
-        }
+                // Persist the fresh copy for the next outage. Exam content is never
+                // cached; study decks are, so offline review stays possible.
+                if (data) {
+                    await cacheDeck({
+                        id: data.id,
+                        title: data.title,
+                        description: data.description,
+                        subject: undefined,
+                        category: data.category,
+                        visibility: data.visibility,
+                        tracks: data.tracks,
+                        program_track: data.program_track,
+                        creator: data.creator,
+                        createdAt: data.createdAt ?? undefined,
+                        questions: data.questions,
+                        cachedAt: Date.now(),
+                    });
+                }
+            })
+            .catch((loadErr) => {
+                console.error('Failed to load reviewee material details', loadErr);
+                // The cache exists precisely for this moment. Show it when offline
+                // rather than an error the reviewee cannot act on.
+                if (isOfflineRef.current && cachedDeckRef.current) {
+                    setDeck(cachedDeckRef.current as DeckView);
+                    setFromCache(true);
+                } else {
+                    setError('Unable to load material details right now.');
+                    setDeck(null);
+                }
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     }, [id, cacheDeck]);
 
     useEffect(() => {

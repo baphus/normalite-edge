@@ -107,36 +107,40 @@ const StudentProfileViewPage: React.FC = () => {
     useEffect(() => {
         if (!stateStudent || profile) return;
 
-        setProfile({
-            id: stateStudent.id,
-            email: stateStudent.email,
-            picture: stateStudent.picture || null,
-            firstName: stateStudent.name.split(' ').filter(Boolean)[0] || '',
-            lastName: stateStudent.name.split(' ').filter(Boolean).slice(1).join(' '),
-            status: stateStudent.status,
-            yearLevel: stateStudent.yearLevel,
-            section: stateStudent.section,
-            campus: stateStudent.campus ? { name: stateStudent.campus } : null,
-            track: stateStudent.programTrack ? { name: stateStudent.programTrack } : null,
-            performance: {
-                totalExamsAnswered: Number(stateStudent.attempts || 0),
-                averageScore: Number(stateStudent.avgPercentage || 0),
-                averageCompletionSeconds: 0,
-                averageTimePerAnsweredQuestionSeconds: 0,
-                accuracy: 0,
-                totals: {
-                    correctAnswers: 0,
-                    wrongAnswers: 0,
-                    answeredQuestions: 0,
-                    skippedQuestions: 0,
-                    questionsServed: 0,
+        // Seed the profile from navigation state on a microtask so the effect
+        // body performs no synchronous state updates (react-hooks/set-state-in-effect).
+        Promise.resolve().then(() => {
+            setProfile({
+                id: stateStudent.id,
+                email: stateStudent.email,
+                picture: stateStudent.picture || null,
+                firstName: stateStudent.name.split(' ').filter(Boolean)[0] || '',
+                lastName: stateStudent.name.split(' ').filter(Boolean).slice(1).join(' '),
+                status: stateStudent.status,
+                yearLevel: stateStudent.yearLevel,
+                section: stateStudent.section,
+                campus: stateStudent.campus ? { name: stateStudent.campus } : null,
+                track: stateStudent.programTrack ? { name: stateStudent.programTrack } : null,
+                performance: {
+                    totalExamsAnswered: Number(stateStudent.attempts || 0),
+                    averageScore: Number(stateStudent.avgPercentage || 0),
+                    averageCompletionSeconds: 0,
+                    averageTimePerAnsweredQuestionSeconds: 0,
+                    accuracy: 0,
+                    totals: {
+                        correctAnswers: 0,
+                        wrongAnswers: 0,
+                        answeredQuestions: 0,
+                        skippedQuestions: 0,
+                        questionsServed: 0,
+                    },
+                    highestScore: {
+                        percentage: Number(stateStudent.bestPercentage || 0),
+                        examTitle: 'Best attempt',
+                    },
+                    fastestCompletion: null,
                 },
-                highestScore: {
-                    percentage: Number(stateStudent.bestPercentage || 0),
-                    examTitle: 'Best attempt',
-                },
-                fastestCompletion: null,
-            },
+            });
         });
     }, [profile, stateStudent]);
 

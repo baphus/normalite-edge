@@ -33,6 +33,7 @@ import {
     QuestionImportError,
 } from '@/lib/importQuestions';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
 import { uploadQuestionImageFromEvent } from '@/lib/questionImage';
 import { toast } from 'sonner';
@@ -364,9 +365,12 @@ const DeckEditorPage: React.FC = () => {
             }
             setSavedSnapshot(snapshot);
             navigate('/materials');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to save deck:', error);
-            toast.error(error.response?.data?.message || 'Failed to save study material.');
+            const message = isAxiosError<{ message?: string }>(error)
+                ? error.response?.data?.message
+                : undefined;
+            toast.error(message || 'Failed to save study material.');
         } finally {
             setIsSubmitting(false);
         }

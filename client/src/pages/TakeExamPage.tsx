@@ -467,7 +467,7 @@ const TakeExamPage: React.FC = () => {
         if (!startedKey) return;
         const hasStarted = localStorage.getItem(startedKey) === '1';
         if (hasStarted) {
-            setHasReviewedInstructions(true);
+            void Promise.resolve().then(() => setHasReviewedInstructions(true));
         }
     }, [startedKey]);
 
@@ -1106,7 +1106,9 @@ const TakeExamPage: React.FC = () => {
         if (!attemptId || !exam || loading || isSubmitting) return;
 
         dirtyRef.current = true;
-        setSaveStatus((previous) => (previous === 'saving' ? previous : 'pending'));
+        void Promise.resolve().then(() => {
+            setSaveStatus((previous) => (previous === 'saving' ? previous : 'pending'));
+        });
     }, [attemptId, currentIndex, exam, isSubmitting, loading]);
 
     useEffect(() => {
@@ -1115,18 +1117,20 @@ const TakeExamPage: React.FC = () => {
         flushActiveQuestionTime();
         activeQuestionIdRef.current = currentQuestionId;
 
-        setAnswerMeta((prev) => {
-            if (prev[currentQuestionId]?.viewedAt) {
-                return prev;
-            }
+        void Promise.resolve().then(() => {
+            setAnswerMeta((prev) => {
+                if (prev[currentQuestionId]?.viewedAt) {
+                    return prev;
+                }
 
-            return {
-                ...prev,
-                [currentQuestionId]: {
-                    ...prev[currentQuestionId],
-                    viewedAt: new Date().toISOString(),
-                },
-            };
+                return {
+                    ...prev,
+                    [currentQuestionId]: {
+                        ...prev[currentQuestionId],
+                        viewedAt: new Date().toISOString(),
+                    },
+                };
+            });
         });
 
         if (isDocumentVisibleRef.current) {

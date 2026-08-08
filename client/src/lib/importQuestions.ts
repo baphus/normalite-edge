@@ -15,13 +15,13 @@ const stripByteOrderMark = (value: string) => (value.charCodeAt(0) === 0xfeff ? 
 const normalizeImportKey = (key: string) =>
     stripByteOrderMark(key).replace(/[\s_-]+/g, '').toLowerCase();
 
-const toNormalizedRecord = (record: Record<string, any>) =>
-    Object.entries(record).reduce<Record<string, any>>((accumulator, [key, value]) => {
+const toNormalizedRecord = (record: Record<string, unknown>) =>
+    Object.entries(record).reduce<Record<string, unknown>>((accumulator, [key, value]) => {
         accumulator[normalizeImportKey(key)] = value;
         return accumulator;
     }, {});
 
-const pickImportValue = (record: Record<string, any>, aliases: string[]) => {
+const pickImportValue = (record: Record<string, unknown>, aliases: string[]) => {
     const normalizedRecord = toNormalizedRecord(record);
     for (const alias of aliases) {
         const value = normalizedRecord[normalizeImportKey(alias)];
@@ -54,7 +54,7 @@ export function normalizeCorrectOption(correctAnswer: unknown, choices: string[]
 }
 
 export function mapImportedRecords(
-    records: Array<Record<string, any>>,
+    records: Array<Record<string, unknown>>,
     options?: { section?: string; idPrefix?: string },
 ): EditableQuestion[] {
     const idPrefix = options?.idPrefix ?? `import-${Date.now()}`;
@@ -130,22 +130,24 @@ export async function parseQuestionFile(
         throw new QuestionImportError('Could not read that file. Please try again.');
     }
 
-    let rows: Array<Record<string, any>>;
+    let rows: Array<Record<string, unknown>>;
 
     if (lowerName.endsWith('.json')) {
-        let parsed: any;
+        let parsed: unknown;
         try {
             parsed = JSON.parse(content);
         } catch {
             throw new QuestionImportError('That JSON file could not be parsed. Check the template and try again.');
         }
-        rows = Array.isArray(parsed)
-            ? parsed
-            : Array.isArray(parsed?.questions)
-                ? parsed.questions
-                : Array.isArray(parsed?.items)
-                    ? parsed.items
-                    : [parsed];
+        if (Array.isArray(parsed)) {
+            rows = parsed as Array<Record<string, unknown>>;
+        } else if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { questions?: unknown }).questions)) {
+            rows = (parsed as { questions: Array<Record<string, unknown>> }).questions;
+        } else if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { items?: unknown }).items)) {
+            rows = (parsed as { items: Array<Record<string, unknown>> }).items;
+        } else {
+            rows = [parsed as Record<string, unknown>];
+        }
     } else {
         rows = parseCsvRecords(content);
         if (rows.length === 0) {

@@ -18,6 +18,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAxiosError } from 'axios';
+import type { AxiosResponse } from 'axios';
 import api from '@/lib/axios';
 import { formatUserDisplayName } from '@/lib/formatUserDisplayName';
 import { uploadImageToCloudinary } from '@/lib/upload';
@@ -81,6 +83,11 @@ type AttemptResultPayload = {
         answered: number;
     };
 };
+
+/** Envelope returned by GET /attempts/:id/result. */
+interface AttemptResultResponse {
+    data?: { data?: AttemptResultPayload };
+}
 
 const formatDuration = (seconds: number) => {
     if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
@@ -233,18 +240,20 @@ const ProfilePage: React.FC = () => {
         const resolvedFirstName = user?.firstName?.trim() || user?.name?.trim().split(/\s+/).filter(Boolean)[0] || '';
         const resolvedLastName = user?.lastName?.trim() || user?.name?.trim().split(/\s+/).filter(Boolean).slice(1).join(' ') || '';
 
-        setFirstName(resolvedFirstName);
-        setLastName(resolvedLastName);
-        setMiddleInitial(user?.middleInitial || '');
-        setSuffix(user?.suffix || '');
-        setEmail(user?.email || '');
-        setPicture(user?.picture || '');
-        setTrackId(user?.track_id || '');
-        setCampusId(user?.campus_id || '');
-        setYearLevel(user?.yearLevel || '');
-        setSection(user?.section || '');
-        setStudentId(user?.studentId || '');
-        setContactNumber(user?.contactNumber || '');
+        void Promise.resolve().then(() => {
+            setFirstName(resolvedFirstName);
+            setLastName(resolvedLastName);
+            setMiddleInitial(user?.middleInitial || '');
+            setSuffix(user?.suffix || '');
+            setEmail(user?.email || '');
+            setPicture(user?.picture || '');
+            setTrackId(user?.track_id || '');
+            setCampusId(user?.campus_id || '');
+            setYearLevel(user?.yearLevel || '');
+            setSection(user?.section || '');
+            setStudentId(user?.studentId || '');
+            setContactNumber(user?.contactNumber || '');
+        });
     }, [user]);
 
     useEffect(() => {
@@ -320,7 +329,10 @@ const ProfilePage: React.FC = () => {
                     );
 
                     const validResults = resultResponses
-                        .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+                        .filter(
+                            (result): result is PromiseFulfilledResult<AxiosResponse<AttemptResultResponse>> =>
+                                result.status === 'fulfilled',
+                        )
                         .map((result) => result.value?.data?.data as AttemptResultPayload)
                         .filter(Boolean);
 
@@ -485,9 +497,12 @@ const ProfilePage: React.FC = () => {
             const nextUser = response.data?.data || user;
             updateUser(nextUser);
             toast.success('Profile updated successfully.');
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to update profile', error);
-            toast.error(error?.response?.data?.message || 'Failed to update profile.');
+            toast.error(
+                (isAxiosError<{ message?: string }>(error) && error.response?.data?.message)
+                    || 'Failed to update profile.',
+            );
         } finally {
             setIsSavingProfile(false);
         }

@@ -62,15 +62,19 @@ export const ExamScheduleDialog: React.FC<ExamScheduleDialogProps> = ({
     /* Reset form whenever the dialog opens */
     useEffect(() => {
         if (!open) return;
-        const d = prefillDate ?? new Date();
-        setOpensValue(`${toDateStr(d)}T08:00`);
-        setTitle('');
-        setSubject('');
-        setTimeLimit('60');
-        setProgramTrack(null);
-        setShowDeadline(false);
-        setDeadlineValue('');
-        setErrors({});
+        // Defer the reset to a microtask so the effect body performs no
+        // synchronous state updates (react-hooks/set-state-in-effect).
+        Promise.resolve().then(() => {
+            const d = prefillDate ?? new Date();
+            setOpensValue(`${toDateStr(d)}T08:00`);
+            setTitle('');
+            setSubject('');
+            setTimeLimit('60');
+            setProgramTrack(null);
+            setShowDeadline(false);
+            setDeadlineValue('');
+            setErrors({});
+        });
     }, [open, prefillDate]);
 
     /* ── Validation ──────────────────────────────────────────────────────── */

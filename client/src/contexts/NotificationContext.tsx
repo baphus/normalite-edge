@@ -29,9 +29,22 @@ interface ToastMessage {
     message: string;
 }
 
+/** Raw shape of a notification row as returned by the API. */
+interface NotificationRow {
+    id: string | number;
+    title?: string | null;
+    message?: string | null;
+    type?: string | null;
+    severity?: string | null;
+    entityType?: string | null;
+    link?: string | null;
+    createdAt?: string | null;
+    isRead?: boolean | null;
+}
+
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const mapNotification = (row: any): NotificationItem => ({
+const mapNotification = (row: NotificationRow): NotificationItem => ({
     id: String(row.id),
     title: String(row.title ?? 'Notification'),
     message: String(row.message ?? ''),
@@ -77,7 +90,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setLoading(true);
         try {
             const response = await api.get('/notifications?page=1&limit=100');
-            const rows = (response.data?.data || []) as any[];
+            const rows = (response.data?.data || []) as NotificationRow[];
             setNotifications(rows.map(mapNotification));
         } catch {
             setNotifications([]);
@@ -98,7 +111,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     useEffect(() => {
         if (!user) {
-            setNotifications([]);
+            void Promise.resolve().then(() => setNotifications([]));
             if (reconnectTimerRef.current) {
                 window.clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
@@ -106,7 +119,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return;
         }
 
-        refreshNotifications();
+        void Promise.resolve().then(() => refreshNotifications());
 
         let eventSource: EventSource | null = null;
         let closedByCleanup = false;
@@ -227,6 +240,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useNotifications = () => {
     const context = useContext(NotificationContext);
     if (!context) {

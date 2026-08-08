@@ -90,6 +90,19 @@ const normalizeProgram = (program: ProgramApiItem): ProgramItem => ({
     updatedAt: program.updatedAt || null,
 });
 
+const getApiErrorMessage = (error: unknown): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const data = (error as { response?: { data?: unknown } }).response?.data;
+        if (data && typeof data === 'object' && 'message' in data) {
+            const message = (data as { message?: unknown }).message;
+            if (typeof message === 'string') return message;
+        }
+    }
+    return '';
+};
+
+const thirtyDaysAgoMs = () => Date.now() - (1000 * 60 * 60 * 24 * 30);
+
 const ProgramsPage: React.FC = () => {
     const [programs, setPrograms] = useState<ProgramItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -118,8 +131,8 @@ const ProgramsPage: React.FC = () => {
             const response = await api.get('/tracks');
             const rows = (response.data?.data || []) as ProgramApiItem[];
             setPrograms(rows.map(normalizeProgram));
-        } catch (error: any) {
-            setErrorMessage(error?.response?.data?.message || 'Failed to load programs.');
+        } catch (error) {
+            setErrorMessage(getApiErrorMessage(error) || 'Failed to load programs.');
             setPrograms([]);
         } finally {
             setLoading(false);
@@ -127,12 +140,15 @@ const ProgramsPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        void fetchPrograms();
+        const load = () => {
+            void fetchPrograms();
+        };
+        load();
     }, [fetchPrograms]);
 
     const filteredPrograms = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
-        const threshold = Date.now() - (1000 * 60 * 60 * 24 * 30);
+        const threshold = thirtyDaysAgoMs();
 
         return programs.filter((program) => {
             const matchesSearch = !normalizedSearch
@@ -204,8 +220,8 @@ const ProgramsPage: React.FC = () => {
             setSelectedProgram(null);
             setFormState(defaultFormState);
             await fetchPrograms();
-        } catch (error: any) {
-            setFormError(error?.response?.data?.message || 'Failed to save program.');
+        } catch (error) {
+            setFormError(getApiErrorMessage(error) || 'Failed to save program.');
         } finally {
             setSaving(false);
         }
@@ -224,8 +240,8 @@ const ProgramsPage: React.FC = () => {
             }
             toast.success('Program deleted successfully.');
             await fetchPrograms();
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || 'Failed to delete program.');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error) || 'Failed to delete program.');
         }
     };
 
@@ -247,9 +263,9 @@ const ProgramsPage: React.FC = () => {
                 page += 1;
             } while (page <= totalPages);
             setProgramStudents(allStudents);
-        } catch (error: any) {
+        } catch (error) {
             setProgramStudents([]);
-            toast.error(error?.response?.data?.message || 'Failed to load students for this program.');
+            toast.error(getApiErrorMessage(error) || 'Failed to load students for this program.');
         } finally {
             setStudentsLoading(false);
         }

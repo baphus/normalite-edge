@@ -58,7 +58,7 @@ const QuizMode: React.FC<QuizModeProps> = ({
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [isConfirmed, hasSelected, currentIndex, handleNext, currentItem.options.length]);
+    }, [isConfirmed, hasSelected, currentIndex, handleNext, currentItem.options.length, setUserAnswers]);
 
     // Move focus to feedback panel when confirmed
     useEffect(() => {

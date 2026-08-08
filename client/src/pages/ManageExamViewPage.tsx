@@ -79,74 +79,88 @@ const ManageExamViewPage: React.FC = () => {
     // clear the new one's loading flag.
     const generationRef = useRef(0);
 
-    const loadExam = useCallback(async () => {
-        if (!id) return;
+    const loadExam = useCallback(() => {
+        if (!id) return Promise.resolve();
         const generation = generationRef.current;
         const stale = () => generation !== generationRef.current;
 
-        setExamLoading(true);
-        setExamError(null);
-        try {
-            const response = await api.get(`/exams/${id}?questions=true`);
-            if (stale()) return;
-            setExam((response.data?.data || null) as ExamDetails | null);
-        } catch (error) {
-            if (stale()) return;
-            console.error('Failed to load exam detail', error);
-            setExam(null);
-            setExamError('Could not load this exam');
-        } finally {
-            if (!stale()) setExamLoading(false);
-        }
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the load performs no synchronous setState calls.
+        return Promise.resolve()
+            .then(() => {
+                setExamLoading(true);
+                setExamError(null);
+                return api.get(`/exams/${id}?questions=true`);
+            })
+            .then((response) => {
+                if (stale()) return;
+                setExam((response.data?.data || null) as ExamDetails | null);
+            })
+            .catch((error) => {
+                if (stale()) return;
+                console.error('Failed to load exam detail', error);
+                setExam(null);
+                setExamError('Could not load this exam');
+            })
+            .finally(() => {
+                if (!stale()) setExamLoading(false);
+            });
     }, [id]);
 
-    const loadAttempts = useCallback(async () => {
-        if (!id) return;
+    const loadAttempts = useCallback(() => {
+        if (!id) return Promise.resolve();
         const generation = generationRef.current;
         const stale = () => generation !== generationRef.current;
 
-        setAttemptsLoading(true);
-        setAttemptsError(null);
-        try {
-            // No `limit` override: the server clamps page size to 100, and asking
-            // for more than it will serve is how a short page gets mistaken for
-            // the end of the list.
-            const result = await fetchAllPages<AttemptItem>((page, limit) =>
-                api.get('/attempts', { params: { examId: id, page, limit } }),
-            );
-            if (stale()) return;
-            setAttempts(result.items);
-            if (result.truncated) {
-                toast.warning(
-                    'This exam has an unusually large number of attempts — some may be missing from the table and from exports.',
+        return Promise.resolve()
+            .then(() => {
+                setAttemptsLoading(true);
+                setAttemptsError(null);
+                // No `limit` override: the server clamps page size to 100, and asking
+                // for more than it will serve is how a short page gets mistaken for
+                // the end of the list.
+                return fetchAllPages<AttemptItem>((page, limit) =>
+                    api.get('/attempts', { params: { examId: id, page, limit } }),
                 );
-            }
-        } catch (error) {
-            if (stale()) return;
-            console.error('Failed to load exam attempts', error);
-            setAttempts([]);
-            setAttemptsError('Could not load submissions');
-        } finally {
-            if (!stale()) setAttemptsLoading(false);
-        }
+            })
+            .then((result) => {
+                if (stale()) return;
+                setAttempts(result.items);
+                if (result.truncated) {
+                    toast.warning(
+                        'This exam has an unusually large number of attempts — some may be missing from the table and from exports.',
+                    );
+                }
+            })
+            .catch((error) => {
+                if (stale()) return;
+                console.error('Failed to load exam attempts', error);
+                setAttempts([]);
+                setAttemptsError('Could not load submissions');
+            })
+            .finally(() => {
+                if (!stale()) setAttemptsLoading(false);
+            });
     }, [id]);
 
     // Supplementary: supplies the schedule-end fallback and the plain-English
     // submission message, so a failure degrades those quietly rather than taking
     // the page down. The request is not optional despite its small payload — the
     // endpoint also closes exams whose deadline has passed.
-    const loadAnalytics = useCallback(async () => {
-        if (!id) return;
+    const loadAnalytics = useCallback(() => {
+        if (!id) return Promise.resolve();
         const generation = generationRef.current;
-        try {
-            const response = await api.get(`/exams/${id}/submission-analytics`);
-            if (generation !== generationRef.current) return;
-            setAnalytics((response.data?.data || null) as SubmissionAnalytics | null);
-        } catch (error) {
-            if (generation !== generationRef.current) return;
-            console.error('Failed to load submission analytics', error);
-            setAnalytics(null);
-        }
+        return Promise.resolve()
+            .then(() => api.get(`/exams/${id}/submission-analytics`))
+            .then((response) => {
+                if (generation !== generationRef.current) return;
+                setAnalytics((response.data?.data || null) as SubmissionAnalytics | null);
+            })
+            .catch((error) => {
+                if (generation !== generationRef.current) return;
+                console.error('Failed to load submission analytics', error);
+                setAnalytics(null);
+            });
     }, [id]);
 
     useEffect(() => {
@@ -154,9 +168,13 @@ const ManageExamViewPage: React.FC = () => {
         generationRef.current += 1;
 
         if (!id) {
-            setExamError('Missing exam ID');
-            setExamLoading(false);
-            setAttemptsLoading(false);
+            // Defer the error/loading updates to a microtask so the effect body
+            // performs no synchronous state updates.
+            Promise.resolve().then(() => {
+                setExamError('Missing exam ID');
+                setExamLoading(false);
+                setAttemptsLoading(false);
+            });
             return;
         }
         void loadExam();

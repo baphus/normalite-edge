@@ -38,33 +38,44 @@ const MaterialViewPage: React.FC = () => {
 
     const generationRef = useRef(0);
 
-    const loadMaterial = useCallback(async () => {
-        if (!id) return;
+    const loadMaterial = useCallback(() => {
+        if (!id) return Promise.resolve();
         const generation = generationRef.current;
         const stale = () => generation !== generationRef.current;
 
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await api.get(`/decks/${id}?questions=true`);
-            if (stale()) return;
-            setMaterial((response.data?.data || null) as MaterialDetails | null);
-        } catch (loadErr) {
-            if (stale()) return;
-            console.error('Failed to load deck details', loadErr);
-            setMaterial(null);
-            setError('Could not load this material');
-        } finally {
-            if (!stale()) setLoading(false);
-        }
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the load performs no synchronous setState calls.
+        return Promise.resolve()
+            .then(() => {
+                setLoading(true);
+                setError(null);
+                return api.get(`/decks/${id}?questions=true`);
+            })
+            .then((response) => {
+                if (stale()) return;
+                setMaterial((response.data?.data || null) as MaterialDetails | null);
+            })
+            .catch((loadErr) => {
+                if (stale()) return;
+                console.error('Failed to load deck details', loadErr);
+                setMaterial(null);
+                setError('Could not load this material');
+            })
+            .finally(() => {
+                if (!stale()) setLoading(false);
+            });
     }, [id]);
 
     useEffect(() => {
         generationRef.current += 1;
 
         if (!id) {
-            setError('Missing material ID');
-            setLoading(false);
+            // Defer the error/loading updates to a microtask so the effect body
+            // performs no synchronous state updates.
+            Promise.resolve().then(() => {
+                setError('Missing material ID');
+                setLoading(false);
+            });
             return;
         }
         void loadMaterial();

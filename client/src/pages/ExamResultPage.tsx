@@ -279,7 +279,7 @@ const ExamResultPage: React.FC = () => {
         };
 
         fetchResult();
-    }, [attemptId]);
+    }, [attemptId, refetchStreak]);
 
     // Review data is supplementary to the result payload (it adds per-question
     // elapsed timing). A failure here must never take down the whole page.

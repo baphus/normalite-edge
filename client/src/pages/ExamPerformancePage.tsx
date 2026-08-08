@@ -198,47 +198,56 @@ const ExamPerformancePage: React.FC = () => {
         });
     }, [attempts, search]);
 
-    const loadData = async (asRefresh = false) => {
+    const loadData = (asRefresh = false) => {
         if (!id) {
-            setLoadError('Missing exam ID.');
+            Promise.resolve().then(() => {
+                setLoadError('Missing exam ID.');
+                setLoading(false);
+            });
             return;
         }
 
-        if (asRefresh) {
-            setRefreshing(true);
-        } else {
-            setLoading(true);
-        }
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the load performs no synchronous setState calls.
+        Promise.resolve()
+            .then(() => {
+                if (asRefresh) {
+                    setRefreshing(true);
+                } else {
+                    setLoading(true);
+                }
 
-        setLoadError('');
+                setLoadError('');
 
-        try {
-            const [examResponse, reportResponse, attemptsResponse] = await Promise.all([
-                api.get(`/exams/${id}`),
-                api.get('/reports/exam-performance', { params: { examId: id } }),
-                api.get('/attempts', { params: { examId: id, page: 1, limit: 200 } }),
-            ]);
+                return Promise.all([
+                    api.get(`/exams/${id}`),
+                    api.get('/reports/exam-performance', { params: { examId: id } }),
+                    api.get('/attempts', { params: { examId: id, page: 1, limit: 200 } }),
+                ]);
+            })
+            .then(([examResponse, reportResponse, attemptsResponse]) => {
+                const fetchedExam = (examResponse.data?.data || null) as ExamDetails | null;
+                const reportItems = (reportResponse.data?.data?.items || []) as ReportItem[];
+                const summary = (reportResponse.data?.data?.summary || null) as ReportSummary | null;
+                const fetchedAttempts = (attemptsResponse.data?.data || []) as AttemptListItem[];
 
-            const fetchedExam = (examResponse.data?.data || null) as ExamDetails | null;
-            const reportItems = (reportResponse.data?.data?.items || []) as ReportItem[];
-            const summary = (reportResponse.data?.data?.summary || null) as ReportSummary | null;
-            const fetchedAttempts = (attemptsResponse.data?.data || []) as AttemptListItem[];
-
-            setExam(fetchedExam);
-            setReportItem(reportItems[0] || null);
-            setReportSummary(summary);
-            setAttempts(fetchedAttempts);
-        } catch (error) {
-            console.error('Failed to load exam analytics', error);
-            setLoadError('Unable to load analytics data at the moment.');
-            setExam(null);
-            setReportItem(null);
-            setReportSummary(null);
-            setAttempts([]);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
+                setExam(fetchedExam);
+                setReportItem(reportItems[0] || null);
+                setReportSummary(summary);
+                setAttempts(fetchedAttempts);
+            })
+            .catch((error) => {
+                console.error('Failed to load exam analytics', error);
+                setLoadError('Unable to load analytics data at the moment.');
+                setExam(null);
+                setReportItem(null);
+                setReportSummary(null);
+                setAttempts([]);
+            })
+            .finally(() => {
+                setLoading(false);
+                setRefreshing(false);
+            });
     };
 
     useEffect(() => {
@@ -314,7 +323,7 @@ const ExamPerformancePage: React.FC = () => {
                     orderNo: index + 1,
                     section: (typeof question.section === 'string'
                         ? question.section
-                        : (question.section as any)?.title || ''
+                        : question.section?.title || ''
                     ).trim() || 'Full Exam',
                     questionText: question.questionText?.trim() || 'No question text available.',
                     imageUrl: question.imageUrl || null,

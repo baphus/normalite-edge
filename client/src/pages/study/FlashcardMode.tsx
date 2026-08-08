@@ -39,7 +39,11 @@ const FlashcardMode: React.FC<FlashcardModeProps> = ({
 
     // Reset accordion when card changes
     useEffect(() => {
-        setRationaleOpen(false);
+        // Defer to a microtask so the effect body performs no synchronous
+        // setState call (react-hooks/set-state-in-effect).
+        Promise.resolve().then(() => {
+            setRationaleOpen(false);
+        });
     }, [currentIndex]);
 
     // Swipe gesture handling

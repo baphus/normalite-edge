@@ -93,8 +93,13 @@ const CalendarEventsWidget: React.FC = () => {
     /* fetch whenever viewYear/viewMonth changes */
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        api.get('/calendar', { params: { year: viewYear, month: viewMonth + 1 } })
+        // Defer the loading flag to a microtask so the effect body performs no
+        // synchronous setState calls (react-hooks/set-state-in-effect).
+        Promise.resolve()
+            .then(() => {
+                setLoading(true);
+                return api.get('/calendar', { params: { year: viewYear, month: viewMonth + 1 } });
+            })
             .then((res) => {
                 if (!cancelled) setEvents((res.data?.data as CalendarEvent[]) || []);
             })

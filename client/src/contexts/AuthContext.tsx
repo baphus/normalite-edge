@@ -104,6 +104,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // does not produce duplicate audit entries.
     const reportedSessionRef = useRef<string | null>(null);
 
+    // The profile is keyed to the signed-in user id, not the session object:
+    // Supabase hands out a fresh session on every token refresh, and reloading
+    // the profile then would flash the app back to its loading state.
+    const lastLoadedUserIdRef = useRef<string | null | undefined>(null);
+
     useEffect(() => {
         let active = true;
 
@@ -185,9 +190,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         if (!sessionResolved) return;
-        setProfileResolved(false);
-        void loadProfile(session);
-    }, [sessionResolved, session?.user?.id, loadProfile]);
+        if (lastLoadedUserIdRef.current === session?.user?.id) return;
+        lastLoadedUserIdRef.current = session?.user?.id;
+        void Promise.resolve().then(() => {
+            setProfileResolved(false);
+            void loadProfile(session);
+        });
+    }, [sessionResolved, session, loadProfile]);
 
     const signInWithGoogle = useCallback(async (redirectPath?: string) => {
         const redirectTo = redirectPath
@@ -267,6 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (context === undefined) {

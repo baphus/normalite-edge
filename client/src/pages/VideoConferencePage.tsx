@@ -27,6 +27,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,23 @@ interface Session {
     endTime: string;
     programTrack?: string | null;
     creator?: { id?: string; name: string; email?: string | null; profilePicture?: string | null };
+}
+
+/** Raw session shape as returned by the `/sessions` API. */
+interface RawSession {
+    id: string;
+    title: string;
+    description?: string;
+    meetingLink?: string;
+    recordingLink?: string;
+    scheduledDate?: string | null;
+    startAt?: string | null;
+    endAt?: string | null;
+    startTime?: string;
+    endTime?: string;
+    programTrack?: string | null;
+    program_track?: string | null;
+    creator?: Session['creator'];
 }
 
 /* ------------------------------------------------------------------ */
@@ -97,7 +115,7 @@ const INITIAL_WIZARD: WizardState = {
 /* ------------------------------------------------------------------ */
 /* Helpers                                                               */
 /* ------------------------------------------------------------------ */
-const mapSession = (s: any): Session => {
+const mapSession = (s: RawSession): Session => {
     const startAt = s.startAt ? new Date(s.startAt) : null;
     const endAt = s.endAt ? new Date(s.endAt) : null;
     const rawScheduled = s.scheduledDate || s.startAt;
@@ -511,22 +529,29 @@ const VideoConferencePage: React.FC = () => {
     const canCreate = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
 
     /* ---------- fetch ---------- */
-    const fetchSessions = async () => {
-        setLoading(true);
-        try {
-            const res = await api.get('/sessions');
-            const payload = res.data?.data;
-            const list = Array.isArray(payload)
-                ? payload
-                : Array.isArray(payload?.items)
-                    ? payload.items
-                    : [];
-            setSessions(list.map(mapSession));
-        } catch {
-            setSessions([]);
-        } finally {
-            setLoading(false);
-        }
+    const fetchSessions = () => {
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the fetch performs no synchronous setState calls.
+        return Promise.resolve()
+            .then(() => {
+                setLoading(true);
+                return api.get('/sessions');
+            })
+            .then((res) => {
+                const payload = res.data?.data;
+                const list = Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(payload?.items)
+                        ? payload.items
+                        : [];
+                setSessions(list.map(mapSession));
+            })
+            .catch(() => {
+                setSessions([]);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     };
 
     useEffect(() => { fetchSessions(); }, []);
@@ -662,12 +687,16 @@ const VideoConferencePage: React.FC = () => {
 
             closeSheet();
             await fetchSessions();
-        } catch (err: any) {
-            const apiMessage = err?.response?.data?.message as string | undefined;
-            const fieldErrors = err?.response?.data?.errors as Array<{ field?: string; message?: string }> | undefined;
-            const firstFieldError = Array.isArray(fieldErrors) && fieldErrors.length > 0
-                ? fieldErrors[0]?.message
-                : undefined;
+        } catch (err: unknown) {
+            let apiMessage: string | undefined;
+            let firstFieldError: string | undefined;
+            if (isAxiosError<{ message?: string; errors?: Array<{ field?: string; message?: string }> }>(err)) {
+                apiMessage = err.response?.data?.message;
+                const fieldErrors = err.response?.data?.errors;
+                firstFieldError = Array.isArray(fieldErrors) && fieldErrors.length > 0
+                    ? fieldErrors[0]?.message
+                    : undefined;
+            }
             setCreateError(firstFieldError || apiMessage || 'Failed to schedule conference.');
         } finally {
             setCreating(false);

@@ -51,16 +51,26 @@ interface Deck {
     createdAt: string;
 }
 
-const normalizeDeckItem = (deck: Partial<Deck> & Record<string, any>): Deck => {
-    const rawTracks = Array.isArray(deck.tracks)
+interface RawDeckTrack {
+    id?: string | number | null;
+    name?: string | null;
+    code?: string | null;
+}
+
+interface DeckTrackLink {
+    track?: RawDeckTrack | null;
+}
+
+const normalizeDeckItem = (deck: Partial<Deck> & Record<string, unknown>): Deck => {
+    const rawTracks: Array<RawDeckTrack | Track | null | undefined> = Array.isArray(deck.tracks)
         ? deck.tracks
         : Array.isArray(deck.trackLinks)
-            ? deck.trackLinks.map((link: any) => link?.track).filter(Boolean)
+            ? (deck.trackLinks as DeckTrackLink[]).map((link) => link?.track).filter(Boolean)
             : [];
 
     const tracks: Track[] = rawTracks
-        .filter((track: any) => track && typeof track === 'object')
-        .map((track: any) => ({
+        .filter((track): track is RawDeckTrack | Track => !!track && typeof track === 'object')
+        .map((track) => ({
             id: String(track.id ?? ''),
             name: String(track.name ?? track.code ?? 'Unknown Track'),
             code: track.code ?? null,
@@ -110,15 +120,15 @@ const ManageMaterialsPage: React.FC = () => {
             let usedFallback = false;
 
             try {
-                result = await fetchAllPages<Partial<Deck> & Record<string, any>>((page, limit) =>
+                result = await fetchAllPages<Partial<Deck> & Record<string, unknown>>((page, limit) =>
                     api.get('/decks/managed', { params: { page, limit } }),
                 );
-            } catch (requestError: any) {
-                const statusCode = requestError?.response?.status;
+            } catch (requestError) {
+                const statusCode = (requestError as { response?: { status?: number } }).response?.status;
                 if (!(statusCode === 404 && userRole === 'ADMIN')) throw requestError;
 
                 usedFallback = true;
-                result = await fetchAllPages<Partial<Deck> & Record<string, any>>((page, limit) =>
+                result = await fetchAllPages<Partial<Deck> & Record<string, unknown>>((page, limit) =>
                     api.get('/decks', { params: { page, limit } }),
                 );
             }
@@ -139,7 +149,10 @@ const ManageMaterialsPage: React.FC = () => {
 
     useEffect(() => {
         if (!user) return;
-        void fetchManagedDecks();
+        const load = () => {
+            void fetchManagedDecks();
+        };
+        load();
     }, [user, fetchManagedDecks]);
 
     const getDisplayCreatorName = useCallback(
