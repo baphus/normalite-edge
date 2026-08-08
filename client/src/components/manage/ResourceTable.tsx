@@ -46,14 +46,20 @@ export interface ResourceTableProps<T> {
     state: 'loading' | 'error' | 'ready';
     error?: string | null;
     onRetry?: () => void;
+    errorIcon?: React.ReactNode;
+    errorDescription?: string;
 
     /** True when any filter or search term is narrowing the list. */
     filtersActive?: boolean;
     onClearFilters?: () => void;
+    filtersIcon?: React.ReactNode;
+    filtersTitle?: string;
+    filtersDescription?: string;
 
     emptyTitle: string;
     emptyDescription: string;
     emptyAction?: React.ReactNode;
+    emptyIcon?: React.ReactNode;
 
     /** Trailing actions cell (kebab). Clicks inside are not treated as row clicks. */
     rowActions?: (row: T) => React.ReactNode;
@@ -80,11 +86,17 @@ function ResourceTableInner<T>({
     state,
     error,
     onRetry,
+    errorIcon,
+    errorDescription,
     filtersActive = false,
     onClearFilters,
+    filtersIcon,
+    filtersTitle,
+    filtersDescription,
     emptyTitle,
     emptyDescription,
     emptyAction,
+    emptyIcon,
     rowActions,
     resetKey,
     initialSort,
@@ -143,7 +155,14 @@ function ResourceTableInner<T>({
 
     // ── Error ────────────────────────────────────────────────────────────────
     if (state === 'error') {
-        return <CollectionError message={error || 'Something went wrong'} onRetry={onRetry} />;
+        return (
+            <CollectionError
+                message={error || 'Something went wrong'}
+                onRetry={onRetry}
+                icon={errorIcon}
+                description={errorDescription}
+            />
+        );
     }
 
     // ── Loading ──────────────────────────────────────────────────────────────
@@ -205,6 +224,10 @@ function ResourceTableInner<T>({
                 emptyTitle={emptyTitle}
                 emptyDescription={emptyDescription}
                 emptyAction={emptyAction}
+                emptyIcon={emptyIcon}
+                filtersIcon={filtersIcon}
+                filtersTitle={filtersTitle}
+                filtersDescription={filtersDescription}
             />
         );
     }

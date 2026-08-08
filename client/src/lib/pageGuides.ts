@@ -139,30 +139,6 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
         }),
     },
     {
-        matcher: /^\/exams\/[^/]+\/view$/,
-        build: () => ({
-            id: 'guide-exam-view',
-            title: 'Exam preview walkthrough',
-            steps: [
-                {
-                    title: 'Exam preview header',
-                    description: 'Confirm the exam title and context here before starting.',
-                    selectors: ['[data-guide="exam-preview-header"]'],
-                },
-                {
-                    title: 'Exam details and requirements',
-                    description: 'Review metadata and guidance so you know the rules and expectations.',
-                    selectors: ['[data-guide="exam-preview-metadata"]', '[data-guide="exam-preview-social-proof"]'],
-                },
-                {
-                    title: 'Start action',
-                    description: 'Use this action area to begin your attempt once you are ready.',
-                    selectors: ['[data-guide="exam-preview-actions"]', '[data-guide="exam-preview-start-btn"]'],
-                },
-            ],
-        }),
-    },
-    {
         matcher: /^\/exams\/[^/]+\/take$/,
         build: () => ({
             id: 'guide-exam-take',
@@ -209,37 +185,18 @@ const pageGuideMap: Array<{ matcher: RegExp; build: () => PageGuide }> = [
                 },
                 {
                     title: 'Performance analysis',
-                    description: 'Use section and question breakdowns to identify weak areas and specific mistakes.',
-                    selectors: ['[data-guide="exam-result-section-breakdown"]', '[data-guide="exam-result-question-snapshot"]'],
+                    description: 'Use the section breakdown to identify weak areas and where time went per section.',
+                    selectors: ['[data-guide="exam-result-section-breakdown"]'],
+                },
+                {
+                    title: 'Filter and inspect questions',
+                    description: 'Filter the question review by status or section, then expand any card to see your choice, the correct answer, and the explanation.',
+                    selectors: ['[data-guide="exam-result-question-review"]', '[data-guide="exam-review-filters"]', '[data-guide="exam-review-list"]'],
                 },
                 {
                     title: 'Next step actions',
-                    description: 'Use Review Answers for detailed feedback, or Retake when you are ready to retry.',
-                    selectors: ['[data-guide="exam-result-actions"]', '[data-guide="exam-result-summary"]', '[data-guide="exam-result-answer-breakdown"]'],
-                },
-            ],
-        }),
-    },
-    {
-        matcher: /^\/exams\/[^/]+\/review$/,
-        build: () => ({
-            id: 'guide-exam-review',
-            title: 'Exam review walkthrough',
-            steps: [
-                {
-                    title: 'Review header and attempt picker',
-                    description: 'Use the attempt selector to compare how your answers changed across tries.',
-                    selectors: ['[data-guide="exam-review-header"]', '[data-guide="exam-review-attempt-selector"]'],
-                },
-                {
-                    title: 'Filter reviewed questions',
-                    description: 'Use these filters to focus on wrong answers, skipped items, or a specific section.',
-                    selectors: ['[data-guide="exam-review-filters"]'],
-                },
-                {
-                    title: 'Detailed answer analysis',
-                    description: 'Inspect each question card to review your choice, the correct answer, and explanation.',
-                    selectors: ['[data-guide="exam-review-list"]'],
+                    description: 'Use Retake when you are ready to retry the exam.',
+                    selectors: ['[data-guide="exam-result-actions"]'],
                 },
             ],
         }),

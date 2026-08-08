@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useParams, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { StreakProvider } from './contexts/StreakContext';
@@ -20,7 +20,6 @@ import DashboardPage from './pages/DashboardPage';
 import ExamsPage from './pages/ExamsPage';
 import TakeExamPage from './pages/TakeExamPage';
 import ExamResultPage from './pages/ExamResultPage';
-import ExamReviewPage from './pages/ExamReviewPage';
 import ManageExamsPage from './pages/ManageExamsPage';
 import StudyHubPage from './pages/StudyHubPage';
 import StudySessionPage from './pages/StudySessionPage';
@@ -38,7 +37,6 @@ import DeckEditorPage from './pages/StudyMaterialEditorPage';
 import LogsPage from './pages/LogsPage';
 import CreateExamPage from './pages/CreateExamPage';
 import ManageExamViewPage from './pages/ManageExamViewPage';
-import RevieweeExamViewPage from './pages/RevieweeExamViewPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ZoomMeetingPage from './pages/ZoomMeetingPage';
 import StudentManagementPage from './pages/StudentManagementPage';
@@ -65,6 +63,15 @@ function LegacyManageExamSubmissionsRedirect() {
   const { id } = useParams<{ id: string }>();
   if (!id) return <Navigate to="/manage-exams" replace />;
   return <Navigate to={`/manage-exams/${id}/view`} replace />;
+}
+
+// The exam review is now merged into the result page at /exams/:id/result.
+// Keep the old /exams/:id/review route redirecting there (query preserved).
+function ExamReviewRedirect() {
+  const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  if (!id) return <Navigate to="/exams" replace />;
+  return <Navigate to={`/exams/${id}/result${location.search}`} replace />;
 }
 
 function App() {
@@ -107,10 +114,19 @@ function App() {
                   <Route path="/study/:id/view" element={<RevieweeMaterialViewPage />} />
                   <Route path="/study/:id" element={<ErrorBoundary><StudySessionPage /></ErrorBoundary>} />
                   <Route path="/exams" element={<ExamsPage />} />
-                  <Route path="/exams/:id/view" element={<RevieweeExamViewPage />} />
                   <Route path="/exams/:id/take" element={<TakeExamPage />} />
-                  <Route path="/exams/:id/result" element={<ExamResultPage />} />
-                  <Route path="/exams/:id/review" element={<ExamReviewPage />} />
+                  {/* The result page slides in from the right on mount (e.g. when
+                      arriving straight from a completed take) — a subtle polish,
+                      not a full page transition. */}
+                  <Route
+                    path="/exams/:id/result"
+                    element={
+                      <div className="animate-in slide-in-from-right-4 fade-in-0 duration-300">
+                        <ExamResultPage />
+                      </div>
+                    }
+                  />
+                  <Route path="/exams/:id/review" element={<ExamReviewRedirect />} />
                 </Route>
 
                 {/* Reviewer/Admin Routes */}

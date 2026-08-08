@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Timer,
@@ -9,6 +9,7 @@ import {
     ListChecks,
     CheckCircle2,
     CircleDot,
+    Flag,
     WifiOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,12 @@ import {
     DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import api from '@/lib/axios';
 import { useStreakContext } from '@/contexts/StreakContext';
 import { toast } from 'sonner';
@@ -85,6 +92,7 @@ interface ExamTakeResponse {
 interface LocalDraft {
     attemptId: string;
     answers: Record<string, string>;
+    flagged?: Record<string, boolean>;
     answerMeta?: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>;
     questionElapsedMs?: Record<string, number>;
     currentIndex: number;
@@ -125,6 +133,8 @@ interface ApiErrorLike {
     };
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'pending' | 'error';
+
 const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
 
 const TakeExamPage: React.FC = () => {
@@ -136,11 +146,13 @@ const TakeExamPage: React.FC = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [answerMeta, setAnswerMeta] = useState<Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>>({});
+    const [flagged, setFlagged] = useState<Record<string, boolean>>({});
     const [timeLeft, setTimeLeft] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'pending' | 'error'>('idle');
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+    const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
     const [showConfirm, setShowConfirm] = useState(false);
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [enforceExamSingleTab, setEnforceExamSingleTab] = useState(false);
@@ -154,6 +166,7 @@ const TakeExamPage: React.FC = () => {
 
     const answersRef = useRef<Record<string, string>>({});
     const answerMetaRef = useRef<Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>>({});
+    const flaggedRef = useRef<Record<string, boolean>>({});
     const questionElapsedMsRef = useRef<Record<string, number>>({});
     const activeQuestionIdRef = useRef<string | null>(null);
     const activeQuestionStartedAtRef = useRef<number | null>(null);
@@ -171,6 +184,14 @@ const TakeExamPage: React.FC = () => {
     const pendingNavigationPathRef = useRef<string | null>(null);
     const pendingNavigationTypeRef = useRef<'route' | 'history' | null>(null);
     const skipNextPopStateRef = useRef(false);
+    const timerRef = useRef<HTMLDivElement | null>(null);
+    const timerRoleRef = useRef<'timer' | 'alert'>('timer');
+    const timerRoleSwapTimeoutRef = useRef<number | null>(null);
+    const prevTimeLeftRef = useRef<number | null>(null);
+    const mobileNavigatorScrollRef = useRef<HTMLDivElement | null>(null);
+    const sheetTouchStartYRef = useRef<number | null>(null);
+    const sheetTouchStartScrollTopRef = useRef<number | null>(null);
+    const submitConfirmDialogRef = useRef<HTMLDivElement | null>(null);
 
     const draftKey = useMemo(() => (id ? `exam-draft:${id}` : ''), [id]);
     const startedKey = useMemo(() => (id ? `exam-started:${id}` : ''), [id]);
@@ -279,12 +300,14 @@ const TakeExamPage: React.FC = () => {
         elapsedMsByQuestionId: Record<string, number> = {},
         questions: Question[] = [],
         safeAnswers: Record<string, string> = {},
+        flaggedMap: Record<string, boolean> = {},
     ) => {
         const validQuestionIds = new Set((questions || []).map((question) => question.id));
-        const safeMeta: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }> = {};
+        const safeMeta: Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null; flagged?: boolean }> = {};
         const trackedQuestionIds = new Set<string>([
             ...Object.keys(safeAnswers || {}),
             ...Object.keys(rawMeta || {}),
+            ...Object.keys(flaggedMap || {}),
         ]);
 
         for (const questionId of trackedQuestionIds) {
@@ -292,6 +315,7 @@ const TakeExamPage: React.FC = () => {
 
             const selectedChoice = safeAnswers?.[questionId];
             const isAnswered = CHOICE_LABELS.includes(String(selectedChoice || '').trim().toUpperCase());
+            const isFlagged = Boolean(flaggedMap?.[questionId]);
 
             const value = rawMeta?.[questionId] || {};
 
@@ -319,7 +343,7 @@ const TakeExamPage: React.FC = () => {
             const elapsedFromTracker = Math.max(0, Math.round(Number(elapsedMsByQuestionId?.[questionId] || 0) / 1000));
             const elapsedSeconds = Math.max(elapsedFromMetaSafe, elapsedFromTracker);
 
-            if (!isAnswered && !viewedAt && elapsedSeconds <= 0) {
+            if (!isAnswered && !viewedAt && elapsedSeconds <= 0 && !isFlagged) {
                 continue;
             }
 
@@ -327,10 +351,23 @@ const TakeExamPage: React.FC = () => {
                 viewedAt,
                 answeredAt,
                 elapsedSeconds,
+                ...(isFlagged ? { flagged: true } : {}),
             };
         }
 
         return safeMeta;
+    }, []);
+
+    const sanitizeFlagged = useCallback((rawFlagged: Record<string, unknown> = {}, questions: Question[] = []) => {
+        const validQuestionIds = new Set((questions || []).map((question) => question.id));
+        const safeFlagged: Record<string, boolean> = {};
+
+        for (const [questionId, value] of Object.entries(rawFlagged || {})) {
+            if (!validQuestionIds.has(questionId)) continue;
+            if (value === true) safeFlagged[questionId] = true;
+        }
+
+        return safeFlagged;
     }, []);
 
     const flushActiveQuestionTime = useCallback(() => {
@@ -537,7 +574,7 @@ const TakeExamPage: React.FC = () => {
             const safeAnswers = sanitizeAnswersMap(answersRef.current, exam.questions || []);
             const response = await api.patch(`/attempts/${attemptId}/save`, {
                 answers: safeAnswers,
-                answerMeta: sanitizeAnswerMeta(answerMetaRef.current, questionElapsedMsRef.current, exam.questions || [], safeAnswers),
+                answerMeta: sanitizeAnswerMeta(answerMetaRef.current, questionElapsedMsRef.current, exam.questions || [], safeAnswers, flaggedRef.current),
                 currentQuestionIndex: currentIndex,
                 timeSpent: getTimeSpent(exam.timeLimit, timeLeftRef.current),
                 remainingSeconds: Math.max(0, timeLeftRef.current),
@@ -566,6 +603,7 @@ const TakeExamPage: React.FC = () => {
 
             dirtyRef.current = false;
             setSaveStatus('saved');
+            setLastSavedAt(Date.now());
         } catch {
             setSaveStatus('error');
         }
@@ -592,6 +630,8 @@ const TakeExamPage: React.FC = () => {
             answersRef.current = safeAnswers;
             setAnswerMeta(safeMeta);
             answerMetaRef.current = safeMeta;
+            setFlagged({});
+            flaggedRef.current = {};
 
             setCurrentIndex(0);
 
@@ -712,6 +752,10 @@ const TakeExamPage: React.FC = () => {
                     setAnswerMeta(mergedAnswerMeta);
                     answerMetaRef.current = mergedAnswerMeta;
 
+                    const safeDraftFlagged = sanitizeFlagged(draft.flagged || {}, normalizedQuestions);
+                    setFlagged(safeDraftFlagged);
+                    flaggedRef.current = safeDraftFlagged;
+
                     const draftIndex = Math.min(Math.max(draft.currentIndex, 0), Math.max(normalizedExam.questions.length - 1, 0));
                     const resumeFromAnswersIndex = getResumeIndex(normalizedExam.questions, mergedAnswers);
                     const baseIndex = serverCurrentIndex ?? resumeFromAnswersIndex;
@@ -740,6 +784,9 @@ const TakeExamPage: React.FC = () => {
                     setAnswerMeta(serverAnswerMeta);
                     answerMetaRef.current = serverAnswerMeta;
 
+                    setFlagged({});
+                    flaggedRef.current = {};
+
                     setCurrentIndex(serverCurrentIndex ?? getResumeIndex(normalizedExam.questions, serverAnswers));
 
                     const safeTimeLeft = Math.max(0, serverTimeLeft);
@@ -756,7 +803,7 @@ const TakeExamPage: React.FC = () => {
         };
 
         fetchAttempt();
-    }, [clearExamStarted, computeRemainingFromEndsAt, getResumeIndex, hasReviewedInstructions, id, isOffline, markExamStarted, navigate, normalizeQuestions, preflightTabSwitchGraceSeconds, readDraft, sanitizeAnswerMeta, sanitizeAnswersMap]);
+    }, [clearExamStarted, computeRemainingFromEndsAt, getResumeIndex, hasReviewedInstructions, id, isOffline, markExamStarted, navigate, normalizeQuestions, preflightTabSwitchGraceSeconds, readDraft, sanitizeAnswerMeta, sanitizeAnswersMap, sanitizeFlagged]);
 
     useEffect(() => {
         answersRef.current = answers;
@@ -765,6 +812,10 @@ const TakeExamPage: React.FC = () => {
     useEffect(() => {
         answerMetaRef.current = answerMeta;
     }, [answerMeta]);
+
+    useEffect(() => {
+        flaggedRef.current = flagged;
+    }, [flagged]);
 
     useEffect(() => {
         timeLeftRef.current = timeLeft;
@@ -778,13 +829,14 @@ const TakeExamPage: React.FC = () => {
         writeDraft({
             attemptId,
             answers,
+            flagged,
             answerMeta,
             questionElapsedMs: questionElapsedMsRef.current,
             currentIndex,
             timeLeft,
             updatedAt: Date.now(),
         });
-    }, [attemptId, answerMeta, answers, currentIndex, draftKey, exam, flushActiveQuestionTime, timeLeft, writeDraft]);
+    }, [attemptId, answerMeta, answers, currentIndex, draftKey, exam, flagged, flushActiveQuestionTime, timeLeft, writeDraft]);
 
     useEffect(() => {
         if (!exam || loading || isSubmitting) return;
@@ -850,6 +902,7 @@ const TakeExamPage: React.FC = () => {
             writeDraft({
                 attemptId,
                 answers: answersRef.current,
+                flagged: flaggedRef.current,
                 answerMeta: answerMetaRef.current,
                 questionElapsedMs: questionElapsedMsRef.current,
                 currentIndex,
@@ -898,7 +951,7 @@ const TakeExamPage: React.FC = () => {
 
             await api.put(`/attempts/${attemptId}`, {
                 answers: safeAnswers,
-                answerMeta: sanitizeAnswerMeta(answerMetaRef.current, questionElapsedMsRef.current, exam.questions || [], safeAnswers),
+                answerMeta: sanitizeAnswerMeta(answerMetaRef.current, questionElapsedMsRef.current, exam.questions || [], safeAnswers, flaggedRef.current),
                 currentQuestionIndex: currentIndex,
                 timeSpent: getTimeSpent(exam.timeLimit, timeLeftRef.current),
                 autoSubmitted,
@@ -934,6 +987,69 @@ const TakeExamPage: React.FC = () => {
 
         submitAuto();
     }, [exam, handleFinish, isSubmitting, loading, timeLeft]);
+
+    // Accessible timer: the role lives on a ref (not JSX) so announcements can
+    // briefly swap the timer to role="alert" at key thresholds without React
+    // resetting the attribute on the next tick.
+    useLayoutEffect(() => {
+        const timerElement = timerRef.current;
+        if (!timerElement) return;
+
+        const setTimerRole = (role: 'timer' | 'alert') => {
+            timerRoleRef.current = role;
+            timerElement.setAttribute('role', role);
+        };
+
+        if (timeLeft <= 0) {
+            if (timerRoleSwapTimeoutRef.current !== null) {
+                window.clearTimeout(timerRoleSwapTimeoutRef.current);
+                timerRoleSwapTimeoutRef.current = null;
+            }
+            setTimerRole('alert');
+            prevTimeLeftRef.current = timeLeft;
+            return;
+        }
+
+        const previous = prevTimeLeftRef.current;
+        prevTimeLeftRef.current = timeLeft;
+
+        if (previous === null) {
+            setTimerRole('timer');
+            return;
+        }
+
+        const crossedThreshold =
+            previous > 300 && timeLeft <= 300
+                ? '5 minutes remaining'
+                : previous > 120 && timeLeft <= 120
+                    ? '2 minutes remaining'
+                    : previous > 30 && timeLeft <= 30
+                        ? '30 seconds remaining'
+                        : null;
+
+        if (crossedThreshold) {
+            if (timerRoleSwapTimeoutRef.current !== null) {
+                window.clearTimeout(timerRoleSwapTimeoutRef.current);
+            }
+            setTimerRole('alert');
+            timerRoleSwapTimeoutRef.current = window.setTimeout(() => {
+                timerRoleSwapTimeoutRef.current = null;
+                timerRoleRef.current = 'timer';
+                if (timerRef.current) {
+                    timerRef.current.setAttribute('role', 'timer');
+                }
+            }, 1500);
+        }
+    }, [timeLeft]);
+
+    useEffect(() => {
+        return () => {
+            if (timerRoleSwapTimeoutRef.current !== null) {
+                window.clearTimeout(timerRoleSwapTimeoutRef.current);
+                timerRoleSwapTimeoutRef.current = null;
+            }
+        };
+    }, []);
 
     const sectionGroups = useMemo<SectionGroup[]>(() => {
         const buckets = new Map<string, SectionGroup>();
@@ -1172,6 +1288,7 @@ const TakeExamPage: React.FC = () => {
     }
 
     const currentQuestion = exam.questions[currentIndex] || { id: '', orderNo: 0, text: '', choices: [], section: '' };
+    const isFlagged = Boolean(flagged[currentQuestion.id]);
     const currentSectionName = currentSection?.name || currentQuestion.section?.trim() || 'Main section';
     const currentSectionAnsweredCount = currentSection?.answered || 0;
     const currentSectionTotal = currentSection?.total || 1;
@@ -1232,17 +1349,83 @@ const TakeExamPage: React.FC = () => {
         setSaveStatus('pending');
     };
 
+    const handleToggleFlag = () => {
+        const questionId = currentQuestion.id;
+        if (!questionId) return;
+
+        setFlagged((prev) => {
+            const next = { ...prev };
+            if (next[questionId]) {
+                delete next[questionId];
+            } else {
+                next[questionId] = true;
+            }
+            return next;
+        });
+        dirtyRef.current = true;
+        setSaveStatus('pending');
+    };
+
+    // Bottom-sheet swipe-to-dismiss: only close on a downward drag that starts
+    // while the navigator's scroll container is already at the top, so the
+    // gesture never hijacks a scroll inside the question grid.
+    const handleSheetTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+        sheetTouchStartYRef.current = event.touches[0]?.clientY ?? null;
+        sheetTouchStartScrollTopRef.current = mobileNavigatorScrollRef.current?.scrollTop ?? 0;
+    };
+
+    const handleSheetTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+        const startY = sheetTouchStartYRef.current;
+        const startScrollTop = sheetTouchStartScrollTopRef.current;
+        sheetTouchStartYRef.current = null;
+        sheetTouchStartScrollTopRef.current = null;
+
+        if (startY === null || startScrollTop === null) return;
+
+        const endY = event.changedTouches[0]?.clientY;
+        if (typeof endY !== 'number') return;
+
+        if (endY - startY > 80 && startScrollTop <= 0) {
+            setIsMobileNavigatorOpen(false);
+        }
+    };
+
     const answeredCount = exam.questions.filter((question) => Boolean(answers[question.id])).length;
+    const flaggedCount = exam.questions.filter((question) => Boolean(flagged[question.id])).length;
     const isNowOffline = !navigator.onLine;
+    const formatSavedClockTime = (timestamp: number) => {
+        const date = new Date(timestamp);
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    };
+
     const saveLabel = saveStatus === 'saving'
-        ? 'Saving...'
+        ? 'Saving…'
         : saveStatus === 'saved'
-            ? 'Saved'
+            ? lastSavedAt !== null
+                ? `Saved ${formatSavedClockTime(lastSavedAt)}`
+                : 'Saved'
             : saveStatus === 'pending'
                 ? 'Pending sync'
                 : saveStatus === 'error'
                     ? 'Save failed'
                     : 'Idle';
+
+    const savePillTone = saveStatus === 'error'
+        ? 'border-red-200 bg-red-50 text-red-700'
+        : saveStatus === 'pending'
+            ? 'border-amber-200 bg-amber-50 text-amber-700'
+            : saveStatus === 'saving'
+                ? 'border-slate-200 bg-slate-100 text-slate-700'
+                : saveStatus === 'saved'
+                    ? 'border-slate-200 bg-slate-100 text-slate-600'
+                    : 'border-slate-200 bg-slate-100 text-slate-500';
+
+    const timeState = timeLeft <= 60 ? 'critical' : timeLeft <= 300 ? 'warning' : 'normal';
+    const timerStateClasses = timeState === 'critical'
+        ? 'bg-red-50 text-red-700 border-red-200 shadow-sm animate-pulse'
+        : timeState === 'warning'
+            ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
+            : 'bg-slate-900 text-white border-transparent shadow-sm';
 
     return (
         <div className="fixed inset-y-0 right-0 left-0 z-50 flex flex-col overflow-hidden bg-slate-50">
@@ -1256,12 +1439,26 @@ const TakeExamPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md border ${isNowOffline ? 'text-amber-700 border-amber-200 bg-amber-50' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${isNowOffline ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                         {isNowOffline ? 'Offline' : 'Online'}
                     </span>
-                    <span className="text-xs font-semibold text-slate-400 hidden md:block">{saveLabel}</span>
+                    <span
+                        data-guide="exam-take-save-status"
+                        className={`inline-flex items-center rounded-md border px-1.5 sm:px-2 py-0.5 text-xs font-semibold whitespace-nowrap shadow-sm ${savePillTone}`}
+                    >
+                        <span role={saveStatus === 'error' ? 'alert' : 'status'}>{saveLabel}</span>
+                        {saveStatus === 'error' && (
+                            <button
+                                type="button"
+                                onClick={() => saveAttempt(true)}
+                                className="ml-1 -mr-0.5 rounded-sm px-1 py-0.5 text-xs font-semibold text-red-700 underline decoration-red-300 underline-offset-2 transition-colors hover:bg-red-100 hover:decoration-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                            >
+                                Retry
+                            </button>
+                        )}
+                    </span>
                     <Button
                         type="button"
                         variant="outline"
@@ -1272,14 +1469,49 @@ const TakeExamPage: React.FC = () => {
                         <ListChecks className="h-3.5 w-3.5 mr-1" />
                         Questions
                     </Button>
-                    <div data-guide="exam-take-timer" className="flex items-center gap-1.5 bg-slate-900 text-white px-2.5 sm:px-3 py-1.5 rounded-lg">
+                    <div
+                        ref={timerRef}
+                        aria-atomic="true"
+                        data-guide="exam-take-timer"
+                        className={`flex items-center gap-1.5 border px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors ${timerStateClasses}`}
+                    >
                         <Timer size={13} className="opacity-70" />
-                        <span className="font-mono font-semibold text-xs sm:text-sm tracking-tight">
-                            {formatTime(timeLeft)}
-                        </span>
+                        {timeLeft <= 0 ? (
+                            <span className="text-xs sm:text-sm font-semibold tracking-tight">
+                                Time is up. Your exam was submitted automatically.
+                            </span>
+                        ) : (
+                            <>
+                                <span className="font-mono text-xs sm:text-sm font-semibold tabular-nums tracking-tight">
+                                    {formatTime(timeLeft)}
+                                </span>
+                                {timeState === 'warning' && (
+                                    <span className="hidden text-[11px] font-semibold tracking-wide sm:inline">
+                                        Time running low
+                                    </span>
+                                )}
+                                {timeState === 'critical' && (
+                                    <span className="hidden text-[11px] font-semibold tracking-wide sm:inline">
+                                        Time almost up
+                                    </span>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
+
+            {timeLeft > 0 && timeLeft <= 60 && (
+                <div
+                    role="alert"
+                    className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-200 bg-amber-100 px-3 sm:px-5 py-2 shadow-sm"
+                >
+                    <AlertTriangle size={14} className="shrink-0 text-amber-800" />
+                    <p className="text-center text-xs font-semibold text-amber-800 sm:text-sm">
+                        Auto-submit in {timeLeft}s
+                    </p>
+                </div>
+            )}
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Main Question Area */}
@@ -1351,6 +1583,23 @@ const TakeExamPage: React.FC = () => {
                                     </button>
                                 );
                             })}
+                        </div>
+
+                        {/* Flag for review */}
+                        <div className="flex justify-start shrink-0 mt-2 sm:mt-3">
+                            <button
+                                type="button"
+                                onClick={handleToggleFlag}
+                                aria-pressed={isFlagged}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                    isFlagged
+                                        ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                                        : 'border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-700'
+                                }`}
+                            >
+                                <Flag size={14} fill={isFlagged ? 'currentColor' : 'none'} />
+                                {isFlagged ? 'Unflag' : 'Flag for review'}
+                            </button>
                         </div>
 
                         {/* Navigation Footer */}
@@ -1458,13 +1707,14 @@ const TakeExamPage: React.FC = () => {
                                     const question = exam.questions[questionIndex];
                                     const isCurrent = currentIndex === questionIndex;
                                     const isAnswered = Boolean(answers[question.id]);
+                                    const isQuestionFlagged = Boolean(flagged[question.id]);
 
                                     return (
                                         <button
                                             key={question.id}
                                             onClick={() => setCurrentIndex(questionIndex)}
-                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}`}
-                                            className={`h-9 rounded-lg text-[11px] font-semibold transition-all duration-150 ${
+                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}${isQuestionFlagged ? ' — flagged for review' : ''}`}
+                                            className={`relative h-9 rounded-lg text-[11px] font-semibold transition-all duration-150 ${
                                                 isCurrent
                                                     ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
                                                     : isAnswered
@@ -1473,14 +1723,18 @@ const TakeExamPage: React.FC = () => {
                                             }`}
                                         >
                                             {sectionQuestionIndex + 1}
+                                            {isQuestionFlagged && (
+                                                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-500 border border-white" aria-hidden="true" />
+                                            )}
                                         </button>
                                     );
                                 })}
                             </div>
-                            <div className="flex items-center gap-3 text-xs font-semibold text-slate-400">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-400">
                                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
                                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
                                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-100 border border-slate-200 inline-block" />Open</span>
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Flagged</span>
                             </div>
                         </div>
                     </div>
@@ -1500,16 +1754,23 @@ const TakeExamPage: React.FC = () => {
                 </aside>
             </div>
 
-            <Dialog open={isMobileNavigatorOpen} onOpenChange={setIsMobileNavigatorOpen}>
-                <DialogContent className="max-w-[94vw] sm:max-w-md rounded-xl p-0 overflow-hidden gap-0 lg:hidden">
-                    <DialogHeader className="px-4 pt-4 pb-3 border-b border-slate-100">
-                        <DialogTitle className="text-sm font-semibold text-slate-900">Section Navigator</DialogTitle>
-                        <DialogDescription className="text-xs text-slate-500">
-                            {currentSectionName}: {currentSectionAnsweredCount} of {currentSectionTotal} answered
-                        </DialogDescription>
-                    </DialogHeader>
+            <Sheet open={isMobileNavigatorOpen} onOpenChange={setIsMobileNavigatorOpen}>
+                <SheetContent
+                    side="bottom"
+                    className="flex max-h-[85vh] flex-col rounded-t-xl p-0 lg:hidden"
+                    onTouchStart={handleSheetTouchStart}
+                    onTouchEnd={handleSheetTouchEnd}
+                >
+                    {/* Drag handle — visual affordance; the sheet closes via the header close button, tapping the overlay, or swiping down. */}
+                    <div className="shrink-0 pt-3" aria-hidden="true">
+                        <div className="mx-auto h-1 w-10 rounded-full bg-slate-200" />
+                    </div>
 
-                    <div className="px-4 py-3 space-y-3 max-h-[70vh] overflow-y-auto">
+                    <SheetHeader className="shrink-0 px-4 pb-3 pr-10">
+                        <SheetTitle className="text-base font-semibold text-slate-900">Questions</SheetTitle>
+                    </SheetHeader>
+
+                    <div ref={mobileNavigatorScrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
                         <Progress value={(currentSectionAnsweredCount / currentSectionTotal) * 100} className="h-1.5" />
 
                         {hasMultipleSections && (
@@ -1560,6 +1821,7 @@ const TakeExamPage: React.FC = () => {
                                     const question = exam.questions[questionIndex];
                                     const isCurrent = currentIndex === questionIndex;
                                     const isAnswered = Boolean(answers[question.id]);
+                                    const isQuestionFlagged = Boolean(flagged[question.id]);
 
                                     return (
                                         <button
@@ -1568,8 +1830,8 @@ const TakeExamPage: React.FC = () => {
                                                 setCurrentIndex(questionIndex);
                                                 setIsMobileNavigatorOpen(false);
                                             }}
-                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}`}
-                                            className={`h-9 rounded-md text-xs font-semibold transition-all duration-150 ${
+                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}${isQuestionFlagged ? ' — flagged for review' : ''}`}
+                                            className={`relative h-9 rounded-md text-xs font-semibold transition-all duration-150 ${
                                                 isCurrent
                                                     ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
                                                     : isAnswered
@@ -1578,14 +1840,23 @@ const TakeExamPage: React.FC = () => {
                                             }`}
                                         >
                                             {sectionQuestionIndex + 1}
+                                            {isQuestionFlagged && (
+                                                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-500 border border-white" aria-hidden="true" />
+                                            )}
                                         </button>
                                     );
                                 })}
                             </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-400">
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-100 border border-slate-200 inline-block" />Open</span>
+                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Flagged</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="px-4 pb-4">
+                    <div className="shrink-0 border-t border-slate-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
                         <Button
                             onClick={handleSubmitClick}
                             disabled={isSubmitting}
@@ -1595,8 +1866,8 @@ const TakeExamPage: React.FC = () => {
                             Submit Exam
                         </Button>
                     </div>
-                </DialogContent>
-            </Dialog>
+                </SheetContent>
+            </Sheet>
 
             <Dialog
                 open={showLeaveConfirm}
@@ -1655,30 +1926,102 @@ const TakeExamPage: React.FC = () => {
 
             {/* Submit Confirmation Dialog */}
             <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-                <DialogContent className="max-w-sm rounded-xl p-0 overflow-hidden gap-0">
+                <DialogContent
+                    ref={submitConfirmDialogRef}
+                    role="alertdialog"
+                    aria-describedby="submit-confirm-summary"
+                    tabIndex={-1}
+                    onOpenAutoFocus={(event) => {
+                        // Keep focus on the dialog container so the summary is announced on open.
+                        event.preventDefault();
+                        submitConfirmDialogRef.current?.focus();
+                    }}
+                    className="max-w-sm rounded-xl p-0 overflow-hidden gap-0 shadow-lg"
+                >
                     <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
                         <DialogTitle className="text-sm font-semibold text-slate-900">Submit Exam?</DialogTitle>
-                        <DialogDescription className="text-xs text-slate-500 mt-1">
-                            {answeredCount} of {exam.questions.length} questions answered.
+                        <DialogDescription id="submit-confirm-summary" className="text-xs text-slate-500 mt-1">
+                            You answered {answeredCount}, flagged {flaggedCount}, skipped {skippedQuestions.length} of {exam.questions.length} questions.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="px-5 py-4 space-y-3">
                         {/* Stats row */}
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-center">
-                                <p className="text-lg font-semibold text-emerald-700">{answeredCount}</p>
+                        <div className="grid grid-cols-4 gap-2">
+                            <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-center shadow-sm">
+                                <p className="text-lg font-semibold text-emerald-700 tabular-nums">{answeredCount}</p>
                                 <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Answered</p>
                             </div>
-                            <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-center">
-                                <p className="text-lg font-semibold text-amber-700">{skippedQuestions.length}</p>
+                            <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-center shadow-sm">
+                                <p className="text-lg font-semibold text-red-700 tabular-nums">{flaggedCount}</p>
+                                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Flagged</p>
+                            </div>
+                            <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-center shadow-sm">
+                                <p className="text-lg font-semibold text-amber-700 tabular-nums">{skippedQuestions.length}</p>
                                 <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Skipped</p>
                             </div>
-                            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-center">
-                                <p className="text-lg font-semibold text-slate-700">{exam.questions.length}</p>
+                            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-center shadow-sm">
+                                <p className="text-lg font-semibold text-slate-700 tabular-nums">{exam.questions.length}</p>
                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</p>
                             </div>
                         </div>
+
+                        {/* Jump-to actions */}
+                        {(skippedQuestions.length > 0 || flaggedCount > 0) && (
+                            <div className="flex flex-wrap gap-2">
+                                {skippedQuestions.length > 0 && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowConfirm(false);
+                                            setCurrentIndex(skippedQuestions[0].idx);
+                                        }}
+                                        className="flex-1 h-8 text-xs font-semibold rounded-lg border-slate-200"
+                                    >
+                                        <CircleDot size={12} /> Jump to unanswered
+                                    </Button>
+                                )}
+                                {flaggedCount > 0 && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowConfirm(false);
+                                            const firstFlaggedIndex = exam.questions.findIndex((q) => flagged[q.id]);
+                                            if (firstFlaggedIndex >= 0) setCurrentIndex(firstFlaggedIndex);
+                                        }}
+                                        className="flex-1 h-8 text-xs font-semibold rounded-lg border-slate-200"
+                                    >
+                                        <Flag size={12} /> Jump to flagged
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Section-by-section breakdown */}
+                        {hasMultipleSections && (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em] mb-2">By Section</p>
+                                <ul className="space-y-1.5">
+                                    {sectionGroups.map((sectionItem) => {
+                                        const sectionFlaggedCount = sectionItem.questionIndexes.filter((questionIndex) => flagged[exam.questions[questionIndex]?.id]).length;
+                                        return (
+                                            <li key={sectionItem.name} className="flex items-center justify-between gap-2 text-xs">
+                                                <span className="font-medium text-slate-600 truncate">{sectionItem.name}</span>
+                                                <span className="shrink-0 text-xs tabular-nums text-slate-500">
+                                                    <span className="font-semibold text-slate-700">{sectionItem.answered}</span>
+                                                    /{sectionItem.total}
+                                                    {sectionFlaggedCount > 0 && (
+                                                        <span className="ml-1.5 font-semibold text-red-600">({sectionFlaggedCount} flagged)</span>
+                                                    )}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        )}
 
                         {skippedQuestions.length > 0 && (
                             <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
