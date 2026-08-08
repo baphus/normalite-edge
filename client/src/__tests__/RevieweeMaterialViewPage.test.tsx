@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import api from '@/lib/axios';
@@ -20,6 +20,15 @@ vi.mock('@/contexts/AuthContext', () => ({
             email: 'learner@cnu.edu.ph',
             role: 'REVIEWEE' as const,
         },
+    }),
+}));
+
+const mockCacheDeck = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/hooks/useDeckCache', () => ({
+    useDeckCache: () => ({
+        cachedDeck: null,
+        cacheDeck: mockCacheDeck,
+        isOffline: false,
     }),
 }));
 
@@ -59,20 +68,20 @@ const renderPage = () =>
 beforeEach(() => {
     vi.mocked(api.get).mockReset();
     vi.mocked(api.get).mockResolvedValue({ data: { data: MOCK_DECK } });
+    mockCacheDeck.mockReset();
+    mockCacheDeck.mockResolvedValue(undefined);
 });
 
 describe('RevieweeMaterialViewPage', () => {
     it('shows a loading skeleton while the deck is being fetched', async () => {
-        let resolveFetch: (value: unknown) => void = () => undefined;
-        vi.mocked(api.get).mockImplementationOnce(
-            () => new Promise((resolve) => { resolveFetch = resolve; }),
-        );
-
         renderPage();
 
+        // Loading skeleton is visible synchronously before the promise chain drains
         expect(screen.getByRole('status')).toHaveTextContent('Loading material…');
-        resolveFetch({ data: { data: MOCK_DECK } });
-        await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument());
+
+        // Once the fetch resolves (via the default beforeEach mock), the heading appears
+        const heading = await screen.findByRole('heading', { level: 1 });
+        expect(heading).toHaveTextContent('Gen Ed Set A');
     });
 
     it('renders the material header and facts from a loaded deck', async () => {

@@ -23,6 +23,7 @@ interface StudyDeck {
     description: string;
     category: string;
     categoryCode?: string | null;
+    color?: string | null;
     cardCount: number;
 }
 
@@ -33,6 +34,7 @@ interface DeckResponse {
     subject?: string | null;
     category?: string | null;
     categoryCode?: string | null;
+    color?: string | null;
     totalItems?: number;
     questions?: unknown[];
 }
@@ -44,38 +46,60 @@ const StudyHubPage: React.FC = () => {
 
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
+    const [categoryColors, setCategoryColors] = useState<Record<string, string | null>>({});
 
-    const fetchDecks = useCallback(async () => {
-        setLoadState('loading');
-        setLoadError(null);
-        try {
-            // A single `limit=100` request silently dropped everything past the
-            // first page. The server scopes reviewees to their own track, so the
-            // walked set is already narrow.
-            const { items } = await fetchAllPages<DeckResponse>((page, limit) =>
-                api.get('/decks', { params: { page, limit } }),
-            );
-            setDecks(
-                items.map((deck) => ({
-                    id: deck.id,
-                    title: deck.title,
-                    description: deck.description || '',
-                    category: deck.category || 'No category',
-                    categoryCode: deck.categoryCode ?? null,
-                    cardCount: deck.totalItems ?? deck.questions?.length ?? 0,
-                })),
-            );
-            setLoadState('ready');
-        } catch (error) {
-            console.error('Failed to fetch study decks', error);
-            setLoadError('We could not load your study decks.');
-            setLoadState('error');
-        }
+    const fetchDecks = useCallback(() => {
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the fetch performs no synchronous setState calls.
+        Promise.resolve()
+            .then(() => {
+                setLoadState('loading');
+                setLoadError(null);
+                // A single `limit=100` request silently dropped everything past the
+                // first page. The server scopes reviewees to their own track, so the
+                // walked set is already narrow.
+                return fetchAllPages<DeckResponse>((page, limit) =>
+                    api.get('/decks', { params: { page, limit } }),
+                );
+            })
+            .then(({ items }) => {
+                setDecks(
+                    items.map((deck) => ({
+                        id: deck.id,
+                        title: deck.title,
+                        description: deck.description || '',
+                        category: deck.category || 'No category',
+                        categoryCode: deck.categoryCode ?? null,
+                        cardCount: deck.totalItems ?? deck.questions?.length ?? 0,
+                    })),
+                );
+                setLoadState('ready');
+            })
+            .catch((error) => {
+                console.error('Failed to fetch study decks', error);
+                setLoadError('We could not load your study decks.');
+                setLoadState('error');
+            });
     }, []);
 
     useEffect(() => {
         void fetchDecks();
     }, [fetchDecks]);
+
+    useEffect(() => {
+        api.get('/categories')
+            .then((res) => {
+                const cats = res.data.data || [];
+                const map: Record<string, string | null> = {};
+                for (const cat of cats) {
+                    map[cat.name] = cat.color ?? null;
+                }
+                setCategoryColors(map);
+            })
+            .catch(() => {
+                // silent — cards fall back to the neutral slate tone
+            });
+    }, []);
 
     const categoryOptions = useMemo(
         () => Array.from(new Set(decks.map((deck) => deck.category).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
@@ -126,8 +150,16 @@ const StudyHubPage: React.FC = () => {
             <Link
                 to={`/study/${deck.id}/view`}
                 className="flex min-h-[160px] h-full w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-all duration-150 hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+                style={
+                    categoryColors[deck.category]
+                        ? { borderLeftColor: categoryColors[deck.category]!, borderLeftWidth: '3px' }
+                        : undefined
+                }
             >
-                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                <span
+                    className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500"
+                    style={categoryColors[deck.category] ? { color: categoryColors[deck.category]! } : undefined}
+                >
                     {deck.category}
                 </span>
                 <span className="line-clamp-2 text-[14px] font-semibold text-slate-900">{deck.title}</span>
@@ -139,7 +171,7 @@ const StudyHubPage: React.FC = () => {
                 </span>
             </Link>
         ),
-        [],
+        [categoryColors],
     );
 
     return (

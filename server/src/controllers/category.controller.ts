@@ -12,8 +12,8 @@ export const categoryController = {
     }),
 
     createCategory: catchAsync(async (req: Request, res: Response) => {
-        const { name } = req.body;
-        const category = await categoryService.createCategory(name);
+        const { name, color } = req.body;
+        const category = await categoryService.createCategory(name, color);
 
         await auditService.log({
             actorId: req.user!.userId,
@@ -29,8 +29,8 @@ export const categoryController = {
     }),
 
     updateCategory: catchAsync(async (req: Request, res: Response) => {
-        const { name } = req.body;
-        const category = await categoryService.updateCategory(req.params.id as string, name);
+        const { name, color } = req.body;
+        const category = await categoryService.updateCategory(req.params.id as string, name, color);
 
         await auditService.log({
             actorId: req.user!.userId,

@@ -22,6 +22,7 @@ import api from '@/lib/axios';
 export interface Category {
     id: string;
     name: string;
+    color?: string | null;
     createdAt?: string;
     updatedAt?: string;
     _count?: { exams: number; decks: number };
@@ -49,16 +50,23 @@ export function CategorySelect({
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
 
-    const fetchCategories = useCallback(async () => {
-        try {
-            setLoading(true);
-            const res = await api.get('/categories');
-            setCategories(res.data.data || []);
-        } catch {
-            // silent
-        } finally {
-            setLoading(false);
-        }
+    const fetchCategories = useCallback(() => {
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the fetch performs no synchronous setState calls.
+        Promise.resolve()
+            .then(() => {
+                setLoading(true);
+                return api.get('/categories');
+            })
+            .then((res) => {
+                setCategories(res.data.data || []);
+            })
+            .catch(() => {
+                // silent
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     }, []);
 
     useEffect(() => {
@@ -164,6 +172,12 @@ export function CategorySelect({
                                             value === category.id ? 'opacity-100' : 'opacity-0'
                                         )}
                                     />
+                                    {category.color && (
+                                        <span
+                                            className="mr-2 inline-block h-3 w-3 rounded-full border border-slate-200"
+                                            style={{ backgroundColor: category.color }}
+                                        />
+                                    )}
                                     {category.name}
                                 </CommandItem>
                             ))}

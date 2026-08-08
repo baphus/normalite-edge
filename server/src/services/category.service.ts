@@ -24,7 +24,7 @@ export const categoryService = {
         });
     },
 
-    async createCategory(name: string) {
+    async createCategory(name: string, color?: string | null) {
         const normalized = normalizeCategoryName(name);
 
         // Check for case-insensitive duplicate
@@ -38,7 +38,7 @@ export const categoryService = {
 
         try {
             return await prisma.category.create({
-                data: { name: normalized },
+                data: { name: normalized, color: color ?? null },
             });
         } catch (error: any) {
             if (error.code === 'P2002') {
@@ -54,7 +54,7 @@ export const categoryService = {
         }
     },
 
-    async updateCategory(id: string, name: string) {
+    async updateCategory(id: string, name: string, color?: string | null) {
         const normalized = normalizeCategoryName(name);
 
         const category = await prisma.category.findUnique({ where: { id } });
@@ -76,7 +76,7 @@ export const categoryService = {
 
         return prisma.category.update({
             where: { id },
-            data: { name: normalized },
+            data: { name: normalized, color: color ?? null },
         });
     },
 

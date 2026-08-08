@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { isAxiosError } from 'axios';
 import { MoreHorizontal, Pencil, Trash2, Plus } from 'lucide-react';
 import api from '@/lib/axios';
 import { formatShortDate } from '@/lib/formatters';
@@ -26,6 +27,7 @@ import { ResourceTable, type ResourceColumn } from '@/components/manage/Resource
 interface Category {
     id: string;
     name: string;
+    color?: string | null;
     createdAt: string;
     updatedAt: string;
     _count: { exams: number; decks: number };
@@ -40,18 +42,26 @@ export default function ManageCategoriesPage() {
     const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [name, setName] = useState('');
+    const [color, setColor] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
-    const fetchCategories = useCallback(async () => {
-        try {
-            setLoading(true);
-            const res = await api.get('/categories');
-            setCategories(res.data.data || []);
-        } catch {
-            toast.error('Failed to load categories');
-        } finally {
-            setLoading(false);
-        }
+    const fetchCategories = useCallback(() => {
+        // All state updates run in promise callbacks so the effect that kicks
+        // off the fetch performs no synchronous setState calls.
+        Promise.resolve()
+            .then(() => {
+                setLoading(true);
+                return api.get('/categories');
+            })
+            .then((res) => {
+                setCategories(res.data.data || []);
+            })
+            .catch(() => {
+                toast.error('Failed to load categories');
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     }, []);
 
     useEffect(() => {
@@ -67,12 +77,14 @@ export default function ManageCategoriesPage() {
     const handleCreate = () => {
         setEditingCategory(null);
         setName('');
+        setColor(null);
         setDialogOpen(true);
     };
 
     const handleEdit = (category: Category) => {
         setEditingCategory(category);
         setName(category.name);
+        setColor(category.color ?? null);
         setDialogOpen(true);
     };
 
@@ -85,16 +97,19 @@ export default function ManageCategoriesPage() {
         setSaving(true);
         try {
             if (editingCategory) {
-                await api.patch(`/categories/${editingCategory.id}`, { name: trimmed });
+                await api.patch(`/categories/${editingCategory.id}`, { name: trimmed, color });
                 toast.success('Category updated');
             } else {
-                await api.post('/categories', { name: trimmed });
+                await api.post('/categories', { name: trimmed, color });
                 toast.success('Category created');
             }
             setDialogOpen(false);
             void fetchCategories();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to save category');
+        } catch (err: unknown) {
+            const message = isAxiosError<{ message?: string }>(err)
+                ? err.response?.data?.message
+                : undefined;
+            toast.error(message || 'Failed to save category');
         } finally {
             setSaving(false);
         }
@@ -108,13 +123,29 @@ export default function ManageCategoriesPage() {
             setDeleteDialogOpen(false);
             setDeletingCategory(null);
             void fetchCategories();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to delete category');
+        } catch (err: unknown) {
+            const message = isAxiosError<{ message?: string }>(err)
+                ? err.response?.data?.message
+                : undefined;
+            toast.error(message || 'Failed to delete category');
         }
     };
 
     const columns = useMemo<ResourceColumn<Category>[]>(
         () => [
+            {
+                id: 'color',
+                header: '',
+                className: 'w-10',
+                cell: (cat) =>
+                    cat.color ? (
+                        <span
+                            className="inline-block h-4 w-4 rounded-full border border-slate-200"
+                            style={{ backgroundColor: cat.color }}
+                            title={cat.color}
+                        />
+                    ) : null,
+            },
             {
                 id: 'name',
                 header: 'Name',
@@ -225,7 +256,7 @@ export default function ManageCategoriesPage() {
             />
 
             {/* Create / Edit Dialog */}
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setColor(null); }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
@@ -243,6 +274,28 @@ export default function ManageCategoriesPage() {
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
                                 autoFocus
                             />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                                Color
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="color"
+                                    value={color || '#6366f1'}
+                                    onChange={(e) => setColor(e.target.value)}
+                                    className="h-8 w-8 cursor-pointer rounded-lg border border-slate-200 p-0.5"
+                                />
+                                {color && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setColor(null)}
+                                        className="text-[12px] text-slate-500 hover:text-slate-700"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>
