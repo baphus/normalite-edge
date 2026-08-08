@@ -252,6 +252,23 @@ const ExamsPage: React.FC = () => {
     // during render while still tracking "now" for this page session.
     const [now] = useState(() => Date.now());
 
+    const [categoryColors, setCategoryColors] = useState<Record<string, string | null>>({});
+
+    useEffect(() => {
+        api.get('/categories')
+            .then((res) => {
+                const cats = res.data.data || [];
+                const map: Record<string, string | null> = {};
+                for (const cat of cats) {
+                    map[cat.name] = cat.color ?? null;
+                }
+                setCategoryColors(map);
+            })
+            .catch(() => {
+                // silent — cards fall back to the neutral slate tone
+            });
+    }, []);
+
     const fetchExams = useCallback(async () => {
         setLoadState('loading');
         setLoadError(null);
@@ -454,13 +471,20 @@ const ExamsPage: React.FC = () => {
             <span
                 className={cn(
                     'inline-flex max-w-full items-center truncate rounded-md border px-2 py-0.5 text-[11px] font-semibold',
-                    categoryToneClasses(exam.category, exam.categoryCode),
+                    categoryColors[exam.category]
+                        ? 'border-transparent bg-transparent'
+                        : categoryToneClasses(exam.category, exam.categoryCode),
                 )}
+                style={
+                    categoryColors[exam.category]
+                        ? { color: categoryColors[exam.category]! }
+                        : undefined
+                }
             >
                 {exam.category || 'No category'}
             </span>
         ),
-        [],
+        [categoryColors],
     );
 
     const renderStatus = useCallback((exam: Exam) => {
@@ -649,6 +673,11 @@ const ExamsPage: React.FC = () => {
                             ? 'border-primary/25 shadow-md'
                             : 'border-slate-200 hover:border-primary/25 hover:shadow-md',
                     )}
+                    style={
+                        categoryColors[exam.category]
+                            ? { borderLeftColor: categoryColors[exam.category]!, borderLeftWidth: '3px' }
+                            : undefined
+                    }
                 >
                     {/* Title + status */}
                     <div className="flex items-start justify-between gap-2">
@@ -745,7 +774,7 @@ const ExamsPage: React.FC = () => {
                 </div>
             );
         },
-        [expandedId, renderAction, renderCategoryBadge],
+        [expandedId, renderAction, renderCategoryBadge, categoryColors],
     );
 
     return (
