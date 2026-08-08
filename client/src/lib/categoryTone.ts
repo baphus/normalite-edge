@@ -28,6 +28,16 @@ const TONES = [
     'border-cyan-200 bg-cyan-50 text-cyan-700',
 ] as const;
 
+/** Mid-tone hex colours matching the TONES hues above, offered when creating a category. */
+export const PRESET_COLORS = [
+    '#3b82f6', // blue
+    '#f59e0b', // amber
+    '#8b5cf6', // violet
+    '#14b8a6', // teal
+    '#f43f5e', // rose
+    '#06b6d4', // cyan
+] as const;
+
 /**
  * Continuity with the colours reviewees already associate with the seeded
  * categories. A Map, not an object literal: category names are admin-editable

@@ -149,6 +149,7 @@ export class ExamService {
             // A selected close time is always a hard cutoff. The persisted flag
             // remains for compatibility with existing records and reports.
             closeOnDeadline: Boolean(exam.scheduleEnd),
+            allowRetakes: Boolean(exam.allowRetakes),
             isScheduled: exam.status === 'LIVE' && Boolean(exam.scheduleStart && new Date(exam.scheduleStart) > new Date()),
             isAvailable: exam.status === 'LIVE'
                 && (!exam.scheduleStart || new Date(exam.scheduleStart) <= new Date())
@@ -475,7 +476,7 @@ export class ExamService {
         if (exam.scheduleStart && exam.scheduleStart.getTime() > Date.now()) {
             throw ApiError.forbidden('This exam is scheduled and has not opened yet');
         }
-        if (exam.scheduleEnd && exam.scheduleEnd.getTime() <= Date.now()) {
+        if (exam.scheduleEnd && exam.scheduleEnd.getTime() <= Date.now() && !exam.allowRetakes) {
             throw ApiError.forbidden('This exam has closed');
         }
 
@@ -507,6 +508,7 @@ export class ExamService {
         scheduledDate?: Date;
         deadline?: Date;
         closeOnDeadline?: boolean;
+        allowRetakes?: boolean;
         isPublished?: boolean;
         sections?: string[];
         questions?: {
@@ -549,6 +551,7 @@ export class ExamService {
                     scheduleStart: data.scheduledDate,
                     scheduleEnd: data.deadline,
                     closeOnDeadline: Boolean(data.deadline),
+                    allowRetakes: Boolean(data.allowRetakes),
                     status: data.isPublished ? 'LIVE' : 'DRAFT',
                     createdBy: data.createdBy,
                 },
@@ -652,6 +655,7 @@ export class ExamService {
         scheduledDate?: Date;
         deadline?: Date;
         closeOnDeadline?: boolean;
+        allowRetakes?: boolean;
         isPublished?: boolean;
         status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
         sections?: string[];
@@ -712,6 +716,7 @@ export class ExamService {
                 scheduleStart: data.scheduledDate,
                 scheduleEnd: data.deadline,
                 closeOnDeadline: data.closeOnDeadline,
+                allowRetakes: data.allowRetakes,
                 maxAttempts: data.maxAttempts,
             };
 

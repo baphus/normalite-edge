@@ -171,6 +171,7 @@ model Exam {
   scheduleStart    DateTime?           @map("schedule_start")
   scheduleEnd      DateTime?           @map("schedule_end")
   closeOnDeadline  Boolean             @default(false) @map("close_on_deadline")
+  allowRetakes     Boolean             @default(false) @map("allow_retries")
   createdBy        String              @map("created_by") @db.Uuid
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")

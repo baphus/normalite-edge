@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { CategorySelect } from '@/components/CategorySelect';
 import {
@@ -91,6 +92,7 @@ interface ExamApi {
     scheduledDate?: string | null;
     deadline?: string | null;
     closeOnDeadline?: boolean;
+    allowRetakes?: boolean;
     sections?: Array<{ id: string; title: string; orderNo?: number }>;
     questions?: ExamQuestionApi[];
 }
@@ -129,6 +131,7 @@ const CreateExamPage: React.FC = () => {
     const [title, setTitle] = useState('');
     const [duration, setDuration] = useState('');
     const [maxAttempts, setMaxAttempts] = useState('3');
+    const [allowRetakes, setAllowRetakes] = useState(false);
     const [isCustomDuration, setIsCustomDuration] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [showScheduledDate, setShowScheduledDate] = useState(false);
@@ -176,6 +179,7 @@ const CreateExamPage: React.FC = () => {
                 title,
                 duration,
                 maxAttempts,
+                allowRetakes,
                 scheduledDate,
                 deadline,
                 closeOnDeadline,
@@ -190,6 +194,7 @@ const CreateExamPage: React.FC = () => {
             title,
             duration,
             maxAttempts,
+            allowRetakes,
             scheduledDate,
             deadline,
             closeOnDeadline,
@@ -258,6 +263,7 @@ const CreateExamPage: React.FC = () => {
 
                 setMaxAttempts(String(exam.maxAttempts ?? 3));
                 setCloseOnDeadline(Boolean(exam.closeOnDeadline));
+                setAllowRetakes(Boolean(exam.allowRetakes));
 
                 if (exam.scheduledDate) {
                     const scheduledDateValue = new Date(exam.scheduledDate);
@@ -691,6 +697,7 @@ const CreateExamPage: React.FC = () => {
             scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
             closeOnDeadline: Boolean(deadline),
+            allowRetakes,
             isPublished: publish,
             status: isEditing ? (publish ? 'LIVE' : examStatus) : undefined,
             sections: normalizedSectionList,
@@ -990,6 +997,17 @@ const CreateExamPage: React.FC = () => {
                                         />
                                     </div>
                                 )}
+                                {/* Allow retakes after deadline */}
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[13px] font-medium text-slate-700">Allow retakes after deadline</p>
+                                        <p className="text-[12px] text-slate-500">Reviewees can retake this exam after the deadline passes</p>
+                                    </div>
+                                    <Switch
+                                        checked={allowRetakes}
+                                        onCheckedChange={setAllowRetakes}
+                                    />
+                                </div>
                                 {isEditing && (
                                     <div className="space-y-1.5">
                                         <FieldLabel>Status</FieldLabel>

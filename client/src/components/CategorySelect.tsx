@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { isAxiosError } from 'axios';
 import api from '@/lib/axios';
+import { PRESET_COLORS } from '@/lib/categoryTone';
 
 export interface Category {
     id: string;
@@ -49,6 +50,7 @@ export function CategorySelect({
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
 
     const fetchCategories = useCallback(() => {
         // All state updates run in promise callbacks so the effect that kicks
@@ -96,7 +98,7 @@ export function CategorySelect({
         if (!name) return;
 
         try {
-            const res = await api.post('/categories', { name });
+            const res = await api.post('/categories', { name, color: selectedColor });
             const newCategory = res.data.data;
             setCategories((prev) =>
                 prev.some((c) => c.id === newCategory.id)
@@ -105,6 +107,7 @@ export function CategorySelect({
             );
             onChange?.(newCategory.id);
             setSearch('');
+            setSelectedColor(PRESET_COLORS[0]);
             setOpen(false);
         } catch (err) {
             const message = isAxiosError<{ message?: string }>(err)
@@ -117,11 +120,18 @@ export function CategorySelect({
     const handleSelect = (categoryId: string | null) => {
         onChange?.(categoryId);
         setSearch('');
+        setSelectedColor(PRESET_COLORS[0]);
         setOpen(false);
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover
+            open={open}
+            onOpenChange={(next) => {
+                setOpen(next);
+                if (!next) setSelectedColor(PRESET_COLORS[0]);
+            }}
+        >
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
@@ -191,6 +201,27 @@ export function CategorySelect({
                                     <Plus className="mr-2 h-4 w-4" />
                                     Create "{search.trim()}"
                                 </CommandItem>
+                                <div className="flex items-center gap-1.5 px-2 py-1.5">
+                                    {PRESET_COLORS.map((hex) => (
+                                        <button
+                                            key={hex}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setSelectedColor(hex);
+                                            }}
+                                            className={cn(
+                                                'h-5 w-5 rounded-full border-2 transition-all',
+                                                selectedColor === hex
+                                                    ? 'border-slate-900 scale-110'
+                                                    : 'border-transparent hover:border-slate-300'
+                                            )}
+                                            style={{ backgroundColor: hex }}
+                                            aria-label={`Select color ${hex}`}
+                                        />
+                                    ))}
+                                </div>
                             </CommandGroup>
                         )}
                     </CommandList>
