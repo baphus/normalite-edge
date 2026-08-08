@@ -50,7 +50,7 @@ export function CategorySelect({
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+    const [selectedColor, setSelectedColor] = useState<string>(PRESET_COLORS[0]);
 
     const fetchCategories = useCallback(() => {
         // All state updates run in promise callbacks so the effect that kicks
