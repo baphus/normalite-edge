@@ -353,9 +353,9 @@ const RevieweeMaterialViewPage: React.FC = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Floating Study Button — mobile: fixed near top, desktop: sticky at viewport bottom within scroll area */}
+            {/* Floating Study Button — mobile: fixed above bottom tab bar, desktop: sticky at viewport bottom within scroll area */}
             <div
-                className="pointer-events-none fixed inset-x-4 top-20 z-40 flex justify-center lg:sticky lg:bottom-6 lg:z-30 lg:inset-x-auto lg:top-auto lg:mx-auto lg:w-fit lg:block"
+                className="pointer-events-none fixed inset-x-4 bottom-24 z-40 flex justify-center pb-[env(safe-area-inset-bottom)] lg:sticky lg:bottom-6 lg:z-30 lg:inset-x-auto lg:top-auto lg:mx-auto lg:w-fit lg:block lg:pb-0"
             >
                 <Button
                     data-guide="material-start-btn"
