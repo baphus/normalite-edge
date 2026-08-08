@@ -180,7 +180,7 @@ function ExamCard({
         if (hasInProgress) {
             action = (
                 <Button
-                    className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                    className="h-10 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90 sm:h-8"
                     onClick={() => onNavigate(exam, 'resume')}
                 >
                     Resume →
@@ -189,7 +189,7 @@ function ExamCard({
         } else {
             action = (
                 <Button
-                    className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                    className="h-10 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90 sm:h-8"
                     onClick={() => onNavigate(exam, 'take')}
                 >
                     Take Exam →
@@ -206,13 +206,13 @@ function ExamCard({
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            className="text-[12px] font-semibold text-slate-500 transition-colors hover:text-slate-700"
+                            className="min-h-[44px] px-2 text-[12px] font-semibold text-slate-500 transition-colors hover:text-slate-700 sm:min-h-0 sm:px-0"
                             onClick={() => onNavigate(exam, 'result')}
                         >
                             View Results
                         </button>
                         <Button
-                            className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                            className="h-10 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90 sm:h-8"
                             onClick={() => onNavigate(exam, 'take')}
                         >
                             Retake →
@@ -222,7 +222,7 @@ function ExamCard({
             } else {
                 action = (
                     <Button
-                        className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                        className="h-10 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90 sm:h-8"
                         onClick={() => onNavigate(exam, 'result')}
                     >
                         View Results
@@ -234,7 +234,7 @@ function ExamCard({
     }
 
     return (
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4 transition-all hover:border-primary/25 hover:shadow-sm">
+        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 transition-all hover:border-primary/25 hover:shadow-sm sm:flex-row sm:items-center sm:px-5 sm:py-4">
             {/* Left side */}
             <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-semibold text-slate-900">
@@ -247,7 +247,7 @@ function ExamCard({
             </div>
 
             {/* Right side — date/status + action */}
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="mt-2.5 flex shrink-0 items-center gap-2 sm:mt-0 sm:items-center sm:gap-3">
                 {/* Score for submitted past exams */}
                 {segment === 'past' && hasSubmitted && score != null && (
                     <span
@@ -261,7 +261,7 @@ function ExamCard({
                 )}
 
                 <span className="text-[12px] text-slate-500">{statusText}</span>
-                {action}
+                <div className="flex shrink-0 items-center gap-2">{action}</div>
             </div>
         </div>
     );
