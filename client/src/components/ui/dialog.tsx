@@ -19,7 +19,10 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      // Apple HIG backdrop: 50% black dim, no blur behind modals
+      "fixed inset-0 z-50 bg-black/50",
+      "data-[state=open]:animate-[overlay-in_300ms_cubic-bezier(0.32,0.72,0,1)_forwards]",
+      "data-[state=closed]:animate-[overlay-out_300ms_cubic-bezier(0.32,0.72,0,1)_forwards]",
       className
     )}
     {...props}
@@ -36,13 +39,29 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        // Center dialog: spring-like scale 0.95→1 + fade, no overshoot (Apple HIG)
+        // Note: centering is handled inside the dialog-in/out keyframes
+        // (translate(-50%, -50%)), so no Tailwind translate utilities here —
+        // in Tailwind v4 those emit the standalone `translate` property and
+        // would double-shift the dialog off-center.
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg gap-4 border border-border/50 bg-background p-6 shadow-2xl rounded-xl",
+        "data-[state=open]:animate-[dialog-in_400ms_cubic-bezier(0.32,0.72,0,1)_forwards]",
+        "data-[state=closed]:animate-[dialog-out_300ms_cubic-bezier(0.22,1,0.36,1)_forwards]",
+        // Mobile: bottom sheet (safe-area-aware via max-h, scrolls when tall)
+        "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0 max-sm:w-full max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:max-h-[85vh] max-sm:overflow-y-auto",
+        "max-sm:data-[state=open]:animate-[sheet-bottom-in_500ms_cubic-bezier(0.32,0.72,0,1)_forwards]",
+        "max-sm:data-[state=closed]:animate-[sheet-bottom-out_400ms_cubic-bezier(0.22,1,0.36,1)_forwards]",
         className
       )}
       {...props}
     >
+      {/* Mobile bottom-sheet grab handle */}
+      <div
+        className="mx-auto mt-1 mb-3 h-1 w-10 shrink-0 rounded-full bg-muted sm:hidden"
+        aria-hidden="true"
+      />
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DialogPrimitive.Close className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/5 transition-colors hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none dark:bg-white/10 dark:hover:bg-white/15 sm:h-6 sm:w-6">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

@@ -16,7 +16,9 @@ const AlertDialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/50",
+      "data-[state=open]:animate-[overlay-in_300ms_cubic-bezier(0.32,0.72,0,1)_forwards]",
+      "data-[state=closed]:animate-[overlay-out_300ms_cubic-bezier(0.22,1,0.36,1)_forwards]",
       className
     )}
     {...props}
@@ -28,17 +30,31 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg font-lexend",
+        // Centered dialog (desktop / tablet)
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/50 bg-background shadow-2xl rounded-xl px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+        "data-[state=open]:animate-[dialog-in_400ms_cubic-bezier(0.32,0.72,0,1)_forwards]",
+        "data-[state=closed]:animate-[dialog-out_300ms_cubic-bezier(0.22,1,0.36,1)_forwards]",
+        // Bottom sheet (mobile)
+        "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0 max-sm:w-full max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:max-h-[85vh] max-sm:overflow-y-auto max-sm:px-5 max-sm:pt-5 max-sm:pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+        "max-sm:data-[state=open]:animate-[sheet-bottom-in_500ms_cubic-bezier(0.32,0.72,0,1)_forwards]",
+        "max-sm:data-[state=closed]:animate-[sheet-bottom-out_400ms_cubic-bezier(0.22,1,0.36,1)_forwards]",
         className
       )}
       {...props}
-    />
+    >
+      {/* iOS grabber handle — visible on the mobile bottom sheet only */}
+      <div
+        aria-hidden
+        className="mx-auto hidden h-1 w-10 shrink-0 rounded-full bg-muted-foreground/25 max-sm:block"
+      />
+      {children}
+    </AlertDialogPrimitive.Content>
   </AlertDialogPortal>
 ))
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
