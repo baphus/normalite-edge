@@ -1,19 +1,19 @@
 import React from 'react';
-import { LayoutDashboard, BookOpen, FileText, User } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FileText, CalendarDays, User } from 'lucide-react';
 import { NavItem } from './NavPrimitives';
 
 /* ─── BottomTabBar ──────────────────────────────────────────────────── */
 
 const tabs = [
-    { label: 'Home', icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Study', icon: BookOpen, to: '/study' },
-    { label: 'Exams', icon: FileText, to: '/exams' },
+    { label: 'Exam', icon: FileText, to: '/exams' },
+    { label: 'Home', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Calendar', icon: CalendarDays, to: '/calendar' },
     { label: 'Profile', icon: User, to: '/profile' },
 ] as const;
 
 /**
  * Fixed bottom tab bar for mobile (below lg breakpoint).
- * Calendar and Conferences are accessible from the Profile page, NOT as tabs.
  * The parent DashboardLayout controls visibility — this component always renders
  * but is hidden via CSS at lg+.
  */
