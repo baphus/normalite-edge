@@ -133,33 +133,36 @@ export const DailyChallenge: React.FC<DailyChallengeProps> = ({ onAnswered }) =>
 
     return (
         <>
-            <Card id="daily-challenge" data-guide="dashboard-daily-challenge">
-                <CardContent className="flex items-center gap-3.5 border-l-4 border-primary p-4">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
-                        <Zap size={17} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-primary/80">
-                                Daily challenge
-                            </p>
-                            {result && (
-                                <StatusPill
-                                    tone={result.isCorrect ? 'success' : 'closed'}
-                                    label={result.isCorrect ? 'Correct' : 'Incorrect'}
-                                />
-                            )}
+            <Card id="daily-challenge" data-guide="dashboard-daily-challenge" className="border-l-4 border-primary">
+                <CardContent className="space-y-3 p-4">
+                    {/* Header row: icon + label + status pill */}
+                    <div className="flex items-center gap-2.5">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
+                            <Zap size={15} />
                         </div>
-                        {loading ? (
-                            <p className="mt-0.5 text-sm text-slate-400">Loading today&rsquo;s question…</p>
-                        ) : question ? (
-                            <p className="mt-0.5 truncate text-sm font-semibold text-slate-800">
-                                {question.questionText}
-                            </p>
-                        ) : (
-                            <p className="mt-0.5 text-sm text-slate-400">No question available today.</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-primary/80">
+                            Daily challenge
+                        </p>
+                        {result && (
+                            <StatusPill
+                                tone={result.isCorrect ? 'success' : 'closed'}
+                                label={result.isCorrect ? 'Correct' : 'Incorrect'}
+                            />
                         )}
                     </div>
+
+                    {/* Question text */}
+                    {loading ? (
+                        <p className="text-sm text-slate-400">Loading today&rsquo;s question…</p>
+                    ) : question ? (
+                        <p className="text-sm font-semibold leading-snug text-slate-800">
+                            {question.questionText}
+                        </p>
+                    ) : (
+                        <p className="text-sm text-slate-400">No question available today.</p>
+                    )}
+
+                    {/* Action button — full width on mobile for thumb-friendly tap */}
                     {question && (
                         <Button
                             size="sm"
@@ -169,6 +172,7 @@ export const DailyChallenge: React.FC<DailyChallengeProps> = ({ onAnswered }) =>
                                 setError('');
                             }}
                             disabled={loading}
+                            className="w-full sm:w-auto"
                         >
                             {result ? 'View result' : 'Answer now'}
                         </Button>
