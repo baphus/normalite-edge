@@ -1,25 +1,15 @@
 import React, { useState } from 'react';
-import {
-    ArrowRight,
-    BookOpen,
-    CalendarClock,
-    CheckCircle2,
-    ClipboardList,
-    PlayCircle,
-    Sparkles,
-    Video,
-} from 'lucide-react';
+import { CalendarClock, Sparkles, Video } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SectionLabel } from '@/components/dashboard/reviewee/SectionLabel';
-import { ExamReadinessHero } from '@/components/dashboard/reviewee/ExamReadinessHero';
+import { ReadinessRing } from '@/components/dashboard/reviewee/ReadinessRing';
 import { StatTiles } from '@/components/dashboard/reviewee/StatTiles';
-import { StreakWidget } from '@/components/dashboard/reviewee/StreakWidget';
+import { StreakCompact } from '@/components/dashboard/reviewee/StreakCompact';
 import { DailyChallenge } from '@/components/dashboard/reviewee/DailyChallenge';
 import { RecentAttempts } from '@/components/dashboard/reviewee/RecentAttempts';
-import CalendarEventsWidget from './CalendarEventsWidget';
 import { useStreakContext } from '@/contexts/StreakContext';
 import { StartStreakModal } from '@/components/StartStreakModal';
 import type { RevieweeStats } from '@/components/dashboard/reviewee/types';
@@ -36,8 +26,6 @@ const getSubjectLabel = (raw: string | null | undefined): string | null => {
 const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const { user } = useAuth();
     const firstName = user?.name?.split(' ')[0] || 'Learner';
-    const programTrack =
-        user?.program_track || user?.programTrack || user?.program || user?.major || 'Program track not set';
 
     const upcomingSessions = stats?.upcomingSessions || [];
     const recentAttempts = stats?.recentAttempts || [];
@@ -51,33 +39,11 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const hasAttempts = recentAttempts.length > 0 || (stats?.overallAverage ?? 0) > 0;
     const average = Math.round(Number(stats?.overallAverage ?? 0));
     const submittedCount = recentAttempts.filter((a) => a.status === 'SUBMITTED').length;
-    const inProgress = recentAttempts.find((a) => a.status === 'IN_PROGRESS');
 
-    const { streakCount, longestStreak, activeDays, refetchStreak } = useStreakContext();
+    const { streakCount, refetchStreak } = useStreakContext();
     const navigate = useNavigate();
 
     const [streakModalOpen, setStreakModalOpen] = useState(false);
-
-    const focusAction = inProgress?.exam?.id
-        ? {
-              to: `/exams/${inProgress.exam.id}/take`,
-              label: 'Resume your mock',
-              description: inProgress.exam.title || 'Continue the mock exam you started.',
-              icon: <PlayCircle className="size-5" />,
-          }
-        : (stats?.totalExamsAvailable ?? 0) > 0
-          ? {
-                to: '/exams',
-                label: 'Take a practice exam',
-                description: 'Build confidence with a timed LET mock exam.',
-                icon: <ClipboardList className="size-5" />,
-            }
-          : {
-                to: '/study',
-                label: 'Review study materials',
-                description: 'Strengthen a topic before your next mock exam.',
-                icon: <BookOpen className="size-5" />,
-            };
 
     const formatDateTime = (dateValue: string) => {
         const date = new Date(dateValue);
@@ -118,10 +84,15 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
 
     const handleStreakChoice = (choice: 'daily-question' | 'study-deck' | 'take-exam') => {
         switch (choice) {
-            case 'daily-question':
-                // Scroll to the daily challenge section on the dashboard
-                document.getElementById('daily-challenge')?.scrollIntoView({ behavior: 'smooth' });
+            case 'daily-question': {
+                // DailyChallenge is rendered exactly once, but keep the
+                // querySelectorAll + visibility check as a defensive measure
+                // in case another instance ever sneaks in.
+                const targets = Array.from(document.querySelectorAll<HTMLElement>('#daily-challenge'));
+                const visible = targets.find((node) => node.offsetParent !== null);
+                (visible ?? targets[0])?.scrollIntoView({ behavior: 'smooth' });
                 break;
+            }
             case 'study-deck':
                 navigate('/study');
                 break;
@@ -131,87 +102,61 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
         }
     };
 
+    const readiness = (
+        <ReadinessRing average={average} submittedCount={submittedCount} hasAttempts={hasAttempts} />
+    );
+
+    const streakAndChallenge = (
+        <div className="grid grid-cols-2 gap-3">
+            <StreakCompact currentStreak={streakCount} onStartStreak={() => setStreakModalOpen(true)} />
+            <DailyChallenge onAnswered={refetchStreak} />
+        </div>
+    );
+
     return (
         <div className="flex flex-col gap-3 pb-6 font-lexend">
-            {/* ── Header ─────────────────────────────────────────────── */}
-            <header data-guide="dashboard-header" className="flex flex-col gap-2">
+            {/* ── Header (mobile: greeting + date only; desktop adds subtitle) ── */}
+            <header data-guide="dashboard-header" className="flex flex-col gap-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">{dateLabel}</p>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">
-                            {greeting}, {firstName}
-                        </h1>
-                        <p className="mt-1 text-sm text-slate-600">
-                            Here is the clearest next step for your LET preparation.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
-                            {programTrack}
-                        </span>
-                        {stats != null && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
-                                <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                                {new Intl.NumberFormat('en-US').format(stats.questionsAnswered ?? 0)} answered
-                            </span>
-                        )}
-                    </div>
+                    <h1 className="text-[18px] font-semibold tracking-tight text-slate-900">
+                        {greeting}, {firstName}
+                    </h1>
+                    <p className="hidden text-sm text-slate-600 lg:block">
+                        Here is the clearest next step for your LET preparation.
+                    </p>
                 </div>
             </header>
 
-            {/* ── Focus banner ───────────────────────────────────────── */}
-            {focusAction && (
-                <Link
-                    to={focusAction.to}
-                    className="answer-grid-invert group flex flex-col gap-4 rounded-xl border border-primary/20 bg-primary p-5 text-white transition-colors hover:bg-primary/95 sm:flex-row sm:items-center sm:justify-between sm:p-6"
-                >
-                    <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-secondary">
-                            {focusAction.icon}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-secondary">
-                                Today&rsquo;s focus
-                            </p>
-                            <p className="mt-1 text-lg font-semibold">{focusAction.label}</p>
-                            <p className="mt-1 text-sm text-white/80">{focusAction.description}</p>
-                        </div>
+            {/* ── Dashboard body ─────────────────────────────────────────── */}
+            {/* Single responsive grid visible at every breakpoint. The streak +
+                daily-challenge row renders exactly once, so DailyChallenge mounts a
+                single #daily-challenge node (one fetch, one tour target). StatTiles
+                and the side panel are desktop-only. */}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr] lg:gap-3">
+                {/* Main column */}
+                <section data-guide="dashboard-primary-panel" className="flex flex-col gap-3">
+                    {/* Readiness ring */}
+                    {readiness}
+
+                    {/* Streak + daily challenge (rendered once at all breakpoints) */}
+                    {streakAndChallenge}
+
+                    {/* Stat tiles (desktop only) */}
+                    <div className="hidden lg:block">
+                        <StatTiles
+                            totalMaterials={stats?.totalMaterials ?? 0}
+                            totalExamsTaken={stats?.totalExamsTaken ?? recentAttempts.length}
+                            average={hasAttempts ? average : null}
+                        />
                     </div>
-                    <span className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-secondary px-4 text-sm font-semibold text-secondary-foreground">
-                        Get started <ArrowRight className="size-4" />
-                    </span>
-                </Link>
-            )}
 
-            {/* ── Readiness hero + stat tiles ────────────────────────── */}
-            <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-                <ExamReadinessHero average={average} submittedCount={submittedCount} hasAttempts={hasAttempts} />
-                <div className="flex flex-col gap-3">
-                    <StatTiles
-                        totalMaterials={stats?.totalMaterials ?? 0}
-                        totalExamsTaken={stats?.totalExamsTaken ?? recentAttempts.length}
-                        average={hasAttempts ? average : null}
-                    />
-                    <StreakWidget
-                        currentStreak={streakCount}
-                        longestStreak={longestStreak}
-                        activeDays={activeDays}
-                        onStartStreak={() => setStreakModalOpen(true)}
-                    />
-                </div>
-            </section>
-
-            {/* ── Daily challenge ────────────────────────────────────── */}
-            <DailyChallenge onAnswered={refetchStreak} />
-
-            {/* ── Main content grid ──────────────────────────────────── */}
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
-                <section data-guide="dashboard-primary-panel" className="flex flex-col gap-3 lg:col-span-2">
-                    <RecentAttempts attempts={recentAttempts} />
+                    {/* Recent attempts */}
+                    <RecentAttempts attempts={recentAttempts} maxVisible={3} />
                 </section>
 
-                {/* ── Sidebar ─────────────────────────────────────── */}
-                <div data-guide="dashboard-side-panel" className="flex flex-col gap-3">
+                {/* Sidebar (desktop only) */}
+                <div data-guide="dashboard-side-panel" className="hidden flex-col gap-3 lg:flex">
                     {/* Upcoming exams */}
                     <div>
                         <SectionLabel
@@ -320,9 +265,6 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
                             </CardContent>
                         </Card>
                     </div>
-
-                    {/* Calendar & events */}
-                    <CalendarEventsWidget />
 
                     {/* Quote of the day */}
                     <div>

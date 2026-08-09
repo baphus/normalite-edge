@@ -30,7 +30,6 @@ const stats: RevieweeStats = {
     totalMaterials: 12,
     totalExamsAvailable: 8,
     totalExamsTaken: 3,
-    questionsAnswered: 1234,
     averagesBySubject: [
         { subject: 'General Education', average: 70 },
         { subject: 'Mathematics', average: 60 },
@@ -111,22 +110,23 @@ describe('RevieweeDashboard', () => {
         expect(screen.getByText('Exams taken')).toBeInTheDocument();
         expect(screen.getByText('Avg score')).toBeInTheDocument();
 
-        // Tile values are scoped to the tile grid because the calendar widget
-        // renders day numbers that would otherwise collide with them.
+        // Tile values are scoped to the tile grid.
         const tiles = within(screen.getByTestId('reviewee-stat-tiles'));
         expect(tiles.getByText('12')).toBeInTheDocument();
         expect(tiles.getByText('3')).toBeInTheDocument();
         expect(tiles.getByText('68%')).toBeInTheDocument();
-        // Streak is now rendered by StreakWidget outside the stat-tiles grid.
+
+        // Streak is rendered by StreakCompact in the streak + challenge row.
         expect(screen.getByText('Streak')).toBeInTheDocument();
-        // Hero + tile both render the average.
+
+        // The average renders inside the readiness ring and the tile grid.
         expect(screen.getAllByText('68%').length).toBeGreaterThan(0);
     });
 
     it('renders every dashboard section component', async () => {
         renderDashboard();
 
-        // ExamReadinessHero
+        // ReadinessRing
         expect(screen.getByText('Exam readiness')).toBeInTheDocument();
         // StatTiles
         expect(screen.getByText('Total decks')).toBeInTheDocument();
@@ -134,6 +134,12 @@ describe('RevieweeDashboard', () => {
         expect(await screen.findByText('Daily challenge')).toBeInTheDocument();
         // RecentAttempts
         expect(screen.getByText('Recent mock attempts')).toBeInTheDocument();
+        // Sidebar sections (desktop-only). getAllByText is used because
+        // SectionLabel wraps some labels in a span, so the label text matches
+        // both the <p> and the nested <span>.
+        expect(screen.getAllByText('Upcoming exams').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Upcoming conferences').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Quote of the day').length).toBeGreaterThan(0);
     });
 
     it('shows the empty state when there are no attempts', async () => {
@@ -141,26 +147,11 @@ describe('RevieweeDashboard', () => {
 
         expect(await screen.findByText('No attempts yet')).toBeInTheDocument();
         expect(screen.getByText('No mocks yet')).toBeInTheDocument();
+        // The "browse exams" CTA is reachable from the empty states.
+        expect(screen.getAllByText('Browse exams').length).toBeGreaterThan(0);
     });
 
-    it('renders the questions-answered pill with a thousands-separated count', async () => {
-        renderDashboard();
-
-        await screen.findByText('No question available today.');
-
-        // 1234 should render as "1,234 answered"
-        expect(screen.getByText('1,234 answered')).toBeInTheDocument();
-    });
-
-    it('shows 0 answered for a new user with no data', async () => {
-        renderDashboard({ questionsAnswered: 0 });
-
-        await screen.findByText('No question available today.');
-
-        expect(screen.getByText('0 answered')).toBeInTheDocument();
-    });
-
-    it('hides the questions-answered pill when stats is null', () => {
+    it('renders the empty dashboard state when stats is null', async () => {
         render(
             <MemoryRouter>
                 <MotionProvider>
@@ -171,6 +162,10 @@ describe('RevieweeDashboard', () => {
             </MemoryRouter>,
         );
 
-        expect(screen.queryByText(/answered/)).not.toBeInTheDocument();
+        // Header still greets the learner by first name.
+        expect(screen.getByRole('heading', { name: /good (morning|afternoon|evening), test/i })).toBeInTheDocument();
+
+        // The readiness ring shows the no-mocks CTA.
+        expect(await screen.findByText('No mocks yet')).toBeInTheDocument();
     });
 });
