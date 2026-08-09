@@ -16,8 +16,6 @@ export interface WhatNextCTAsProps {
     score: number;
     /** Current attempt number, 1-based. */
     attemptNo: number;
-    /** Maximum attempts allowed; `null` means unlimited. */
-    maxAttempts: number | null;
     /** Per-section tier breakdown, used to find the weakest section. */
     sections: SectionTier[];
     /** Triggers the PDF report export (actual export lives outside this component). */
@@ -28,6 +26,9 @@ export interface WhatNextCTAsProps {
     onCompare?: () => void;
     /** Retake the exam. */
     onRetake: () => void;
+    /** When false, the retake card is hidden (e.g. a dedicated "Retake for
+     *  Practice" control is rendered elsewhere on the page). Default true. */
+    showRetake?: boolean;
     /** Fail-only: open study material for a section. */
     onStudySection?: (sectionName: string) => void;
 }
@@ -86,20 +87,17 @@ const ICON_SIZE = 'h-4 w-4';
  * weakest-section card with a study-material link (when `onStudySection` is
  * provided), plus retake/compare/download actions. Cards stack vertically on
  * mobile and form a 2-column grid from the `sm` breakpoint up.
- *
- * The retake card is disabled once `attemptNo >= maxAttempts` (or never when
- * `maxAttempts` is `null` — unlimited retakes).
  */
 export const WhatNextCTAs: React.FC<WhatNextCTAsProps> = ({
     passed,
     score,
     attemptNo,
-    maxAttempts,
     sections,
     onDownload,
     onViewCertificate,
     onCompare,
     onRetake,
+    showRetake = true,
     onStudySection,
 }) => {
     // Weakest section = lowest percentage. Since tiers are monotonic in
@@ -110,9 +108,6 @@ export const WhatNextCTAs: React.FC<WhatNextCTAsProps> = ({
             : null;
     const weakTier = weakSection ? getTierLabel(weakSection.percentage) ?? weakSection.tier : null;
 
-    const retakeDisabled = maxAttempts !== null && attemptNo >= maxAttempts;
-    const attemptsLabel = `Attempt ${attemptNo} of ${maxAttempts ?? 'unlimited'}`;
-
     const retakeCard = (
         <CtaCard
             icon={
@@ -121,9 +116,8 @@ export const WhatNextCTAs: React.FC<WhatNextCTAsProps> = ({
                 </IconBadge>
             }
             label={passed ? 'Retake to improve' : 'Retake in 24h'}
-            description={retakeDisabled ? 'Maximum attempts reached' : attemptsLabel}
+            description={`Attempt ${attemptNo}`}
             onClick={onRetake}
-            disabled={retakeDisabled}
         />
     );
 
@@ -180,7 +174,7 @@ export const WhatNextCTAs: React.FC<WhatNextCTAsProps> = ({
                         />
                     )}
                     {compareCard}
-                    {retakeCard}
+                    {showRetake && retakeCard}
                 </div>
             ) : (
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -224,7 +218,7 @@ export const WhatNextCTAs: React.FC<WhatNextCTAsProps> = ({
                             </div>
                         </div>
                     )}
-                    {retakeCard}
+                    {showRetake && retakeCard}
                     {compareCard}
                     {downloadCard}
                 </div>

@@ -22,7 +22,6 @@ interface Exam {
     questionCount: number;
     duration: number;
     status: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | string;
-    attempts_remaining?: number;
     hasSubmitted?: boolean;
     userAttemptStatus?: 'IN_PROGRESS' | 'SUBMITTED' | 'GRADING' | string;
     latestSubmittedAttemptId?: string | null;
@@ -32,6 +31,7 @@ interface Exam {
     scheduledDate?: string;
     scheduleStart?: string;
     scheduleEnd?: string;
+    feedbackMode?: 'IMMEDIATE' | 'AFTER_SUBMIT' | string;
     isScheduled?: boolean;
     isAvailable?: boolean;
     allowRetakes?: boolean;
@@ -79,7 +79,7 @@ function startDateLabel(exam: Exam): string {
  *
  * - **Upcoming**: scheduled (future start), or `isScheduled` flag
  * - **Active**: live, start passed, deadline not passed, not scheduled
- * - **Past**: deadline passed, status CLOSED/ARCHIVED, or exhausted attempts
+ * - **Past**: deadline passed, status CLOSED/ARCHIVED, or already submitted
  */
 function classifyExam(exam: Exam) {
     const now = Date.now();
@@ -88,7 +88,6 @@ function classifyExam(exam: Exam) {
     );
     const hasInProgress = exam.userAttemptStatus === 'IN_PROGRESS';
     const isGrading = exam.userAttemptStatus?.toUpperCase() === 'GRADING';
-    const attemptsRemaining = exam.attempts_remaining ?? 0;
 
     const isLive = exam.status === 'LIVE';
     const isClosed = exam.status === 'CLOSED' || exam.status === 'ARCHIVED';
@@ -109,12 +108,9 @@ function classifyExam(exam: Exam) {
     // Active: live, start passed, not past deadline, not scheduled
     const isActive = isLive && startPassed && !deadlinePassed && !isScheduled;
 
-    // Past: closed/archived, deadline passed, or submitted with no retakes
-    const isPast =
-        isClosed ||
-        deadlinePassed ||
-        (hasSubmitted && !exam.allowRetakes) ||
-        (hasSubmitted && attemptsRemaining <= 0);
+    // Past: closed/archived, deadline passed, or already submitted (retakes
+    // are unlimited when allowRetakes is on, so "submitted" stays in Past)
+    const isPast = isClosed || deadlinePassed || hasSubmitted;
 
     return {
         isUpcoming: !isPast && isScheduled,
@@ -123,7 +119,6 @@ function classifyExam(exam: Exam) {
         hasSubmitted,
         hasInProgress,
         isGrading,
-        attemptsRemaining,
         isScheduled,
     };
 }
@@ -152,10 +147,17 @@ function ExamCard({
     segment: 'upcoming' | 'active' | 'past';
     onNavigate: (exam: Exam, action: 'take' | 'result' | 'resume') => void;
 }) {
-    const { hasSubmitted, hasInProgress, isGrading, attemptsRemaining } =
-        classifyExam(exam);
+    const { hasSubmitted, hasInProgress, isGrading } = classifyExam(exam);
     const score = exam.latestSubmittedScore ?? exam.lastScore;
-    const canRetake = Boolean(exam.allowRetakes && attemptsRemaining > 0);
+    const canRetake = Boolean(exam.allowRetakes);
+
+    // AFTER_SUBMIT exams hide the first attempt's score until the deadline.
+    const resultsPending = Boolean(
+        hasSubmitted &&
+        exam.feedbackMode === 'AFTER_SUBMIT' &&
+        exam.scheduleEnd &&
+        new Date(exam.scheduleEnd).getTime() > Date.now()
+    );
 
     // Right-side status text
     let statusText = '';
@@ -215,7 +217,7 @@ function ExamCard({
                             className="h-10 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90 sm:h-8"
                             onClick={() => onNavigate(exam, 'take')}
                         >
-                            Retake →
+                            Retake for Practice
                         </Button>
                     </div>
                 );
@@ -253,10 +255,10 @@ function ExamCard({
                     <span
                         className={cn(
                             'text-[12px] font-semibold tabular-nums',
-                            scoreClasses(score),
+                            resultsPending ? 'text-slate-500' : scoreClasses(score),
                         )}
                     >
-                        Score: {score}%
+                        {resultsPending ? 'Submitted' : `Score: ${score}%`}
                     </span>
                 )}
 

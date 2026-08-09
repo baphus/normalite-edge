@@ -3,19 +3,37 @@ import { ApiError } from '../utils/ApiError';
 import { notificationService } from './notification.service';
 import { streakService } from './streak.service';
 
+/**
+ * Decide whether a submitted attempt's result should be revealed to its owner.
+ *
+ * - Retakes (`attemptNo > 1`) always show results immediately.
+ * - Exams with `IMMEDIATE` feedback mode show results immediately.
+ * - Exams with no deadline show results immediately.
+ * - `AFTER_SUBMIT` exams only reveal the first attempt's result after the
+ *   exam's `scheduleEnd` deadline has passed.
+ */
+export function isResultReleased(exam: any, attempt: any): boolean {
+    // Retakes always show results
+    if (attempt.attemptNo > 1) return true;
+    // No feedbackMode restriction
+    if (exam.feedbackMode === 'IMMEDIATE') return true;
+    // No deadline set — show immediately
+    if (!exam.scheduleEnd) return true;
+    // AFTER_SUBMIT: show only after deadline
+    return new Date(exam.scheduleEnd) <= new Date();
+}
+
 export class AttemptService {
     private readonly validChoices = new Set(['A', 'B', 'C', 'D']);
-    private readonly defaultMultipleAttemptsLimit = 3;
     private readonly defaultSectionTitle = 'Main section';
 
     private async getSystemSettings() {
         try {
             const rows = await prisma.$queryRaw<Array<{
-                allow_multiple_attempts: boolean;
                 enforce_exam_single_tab: boolean;
                 tab_switch_grace_seconds: number;
             }>>`
-                SELECT allow_multiple_attempts, enforce_exam_single_tab, tab_switch_grace_seconds
+                SELECT enforce_exam_single_tab, tab_switch_grace_seconds
                 FROM system_settings
                 WHERE id = 1
                 LIMIT 1
@@ -23,27 +41,24 @@ export class AttemptService {
 
             if (rows.length > 0) {
                 return {
-                    allowMultipleAttempts: Boolean(rows[0].allow_multiple_attempts),
                     enforceExamSingleTab: Boolean(rows[0].enforce_exam_single_tab),
                     tabSwitchGraceSeconds: Math.max(1, Math.min(30, Math.round(Number(rows[0].tab_switch_grace_seconds || 5)))),
                 };
             }
 
             await prisma.$executeRaw`
-                INSERT INTO system_settings (id, allow_multiple_attempts, enforce_exam_single_tab, tab_switch_grace_seconds, updated_at)
-                VALUES (1, false, false, 5, NOW())
+                INSERT INTO system_settings (id, enforce_exam_single_tab, tab_switch_grace_seconds, updated_at)
+                VALUES (1, false, 5, NOW())
                 ON CONFLICT (id) DO NOTHING
             `;
 
             return {
-                allowMultipleAttempts: false,
                 enforceExamSingleTab: false,
                 tabSwitchGraceSeconds: 5,
             };
         } catch (error) {
             console.error('Failed to read system settings, defaulting to safe values', error);
             return {
-                allowMultipleAttempts: false,
                 enforceExamSingleTab: false,
                 tabSwitchGraceSeconds: 5,
             };
@@ -51,6 +66,8 @@ export class AttemptService {
     }
 
     private async closeExamIfExpired(examId: string) {
+        // Exams that allow retakes stay LIVE past their deadline so reviewees
+        // can keep taking them for practice.
         await prisma.exam.updateMany({
             where: {
                 id: examId,
@@ -58,6 +75,7 @@ export class AttemptService {
                 scheduleEnd: {
                     lte: new Date(),
                 },
+                allowRetakes: false,
             },
             data: {
                 status: 'CLOSED',
@@ -93,6 +111,7 @@ export class AttemptService {
             timeLimit: exam.timeLimitMinutes,
             timeLimitMinutes: exam.timeLimitMinutes,
             totalItems: exam.questions?.length ?? 0,
+            allowRetakes: Boolean(exam.allowRetakes),
         };
     }
 
@@ -338,7 +357,6 @@ export class AttemptService {
     async startAttempt(userId: string, examId: string) {
         await this.closeExamIfExpired(examId);
         const settings = await this.getSystemSettings();
-        const allowMultipleAttempts = settings.allowMultipleAttempts;
 
         const exam = await prisma.exam.findUnique({
             where: { id: examId },
@@ -364,7 +382,7 @@ export class AttemptService {
         if (exam.scheduleStart && exam.scheduleStart.getTime() > Date.now()) {
             throw ApiError.forbidden('This exam is scheduled and has not opened yet');
         }
-        if (exam.scheduleEnd && exam.scheduleEnd.getTime() <= Date.now()) {
+        if (exam.scheduleEnd && exam.scheduleEnd.getTime() <= Date.now() && !exam.allowRetakes) {
             throw ApiError.forbidden('This exam has closed');
         }
 
@@ -372,19 +390,6 @@ export class AttemptService {
 
         return prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
-
-            const submittedAttempt = await tx.attempt.findFirst({
-                where: {
-                    userId,
-                    examId,
-                    status: 'SUBMITTED',
-                },
-                select: { id: true },
-            });
-
-            if (!allowMultipleAttempts && submittedAttempt) {
-                throw ApiError.forbidden('You can only submit this mock exam once');
-            }
 
             const existing = await tx.attempt.findFirst({
                 where: { userId, examId, status: 'IN_PROGRESS' },
@@ -428,25 +433,32 @@ export class AttemptService {
                 orderBy: { attemptNo: 'desc' },
             });
 
-            const effectiveMaxAttempts = allowMultipleAttempts
-                ? (exam.maxAttempts ?? this.defaultMultipleAttemptsLimit)
-                : 1;
             const nextAttemptNo = (latestAttempt?.attemptNo || 0) + 1;
 
-            if (effectiveMaxAttempts && nextAttemptNo > effectiveMaxAttempts) {
-                throw ApiError.forbidden(`Maximum attempts reached (${effectiveMaxAttempts})`);
+            const scheduleEndMs = exam.scheduleEnd?.getTime() ?? Number.POSITIVE_INFINITY;
+            const deadlinePassed = scheduleEndMs <= Date.now();
+
+            // Before the deadline — one shot only. No retakes, regardless of
+            // allowRetakes. A retake before scheduleEnd would reveal the full
+            // result (including correct answers) and defeat AFTER_SUBMIT.
+            if (!deadlinePassed && latestAttempt?.status === 'SUBMITTED') {
+                throw ApiError.forbidden('You have already submitted this exam');
             }
 
-            if (exam.cooldownMinutes > 0 && latestAttempt?.submittedAt) {
-                const lastSubmissionTime = new Date(latestAttempt.submittedAt).getTime();
-                const cooldownEnd = lastSubmissionTime + exam.cooldownMinutes * 60 * 1000;
-                const now = Date.now();
-
-                if (now < cooldownEnd) {
-                    const waitMinutes = Math.ceil((cooldownEnd - now) / (60 * 1000));
-                    throw ApiError.forbidden(`Please wait ${waitMinutes} minute(s) before starting a new attempt`);
-                }
+            // After the deadline — retakes only when allowRetakes is enabled.
+            // (The `exam.scheduleEnd <= now && !allowRetakes` case is rejected
+            // above the transaction as "This exam has closed".)
+            if (deadlinePassed && !exam.allowRetakes) {
+                throw ApiError.forbidden('This exam has closed');
             }
+
+            // Post-deadline retakes (allowRetakes past scheduleEnd) ignore the
+            // already-passed deadline so every practice attempt gets the full
+            // time limit instead of being created already expired.
+            const endsAtMs = Math.min(
+                Date.now() + exam.timeLimitMinutes * 60 * 1000,
+                exam.allowRetakes && deadlinePassed ? Number.POSITIVE_INFINITY : scheduleEndMs,
+            );
 
             const createdAttempt = await tx.attempt.create({
                 data: {
@@ -454,10 +466,7 @@ export class AttemptService {
                     examId,
                     attemptNo: nextAttemptNo,
                     status: 'IN_PROGRESS',
-                    endsAt: new Date(Math.min(
-                        Date.now() + exam.timeLimitMinutes * 60 * 1000,
-                        exam.scheduleEnd?.getTime() ?? Number.POSITIVE_INFINITY,
-                    )),
+                    endsAt: new Date(endsAtMs),
                     lastSavedAt: new Date(),
                     lastActivityAt: new Date(),
                     currentQuestionIndex: 0,
@@ -528,9 +537,43 @@ export class AttemptService {
                 percentage: true,
                 submittedAt: true,
                 timeSpentSeconds: true,
+                exam: {
+                    select: {
+                        feedbackMode: true,
+                        scheduleEnd: true,
+                    },
+                },
             },
         });
-        return attempt || null;
+
+        if (!attempt) return null;
+
+        // First attempts of AFTER_SUBMIT exams with a future deadline keep
+        // their score hidden until the deadline passes. Return a minimal
+        // payload so the retake summary can show "results pending" without
+        // leaking the score. Retakes (attemptNo > 1) always show.
+        if (!isResultReleased(attempt.exam, attempt)) {
+            return {
+                id: attempt.id,
+                attemptNo: attempt.attemptNo,
+                submittedAt: attempt.submittedAt,
+                timeSpentSeconds: attempt.timeSpentSeconds,
+                score: null,
+                percentage: null,
+                isPending: true,
+                feedbackMode: attempt.exam.feedbackMode,
+                scheduleEnd: attempt.exam.scheduleEnd,
+            };
+        }
+
+        return {
+            id: attempt.id,
+            attemptNo: attempt.attemptNo,
+            score: attempt.score,
+            percentage: attempt.percentage,
+            submittedAt: attempt.submittedAt,
+            timeSpentSeconds: attempt.timeSpentSeconds,
+        };
     }
 
     async resetAttemptForTabViolation(attemptId: string, userId: string) {
@@ -694,7 +737,7 @@ export class AttemptService {
         if (refreshedAttempt.exam.status === 'CLOSED') throw ApiError.forbidden('Submissions are closed for this exam');
         if (refreshedAttempt.exam.status !== 'LIVE') throw ApiError.forbidden('This exam is not accepting submissions');
 
-        if (refreshedAttempt.exam.scheduleEnd && new Date(refreshedAttempt.exam.scheduleEnd).getTime() < Date.now()) {
+        if (refreshedAttempt.exam.scheduleEnd && new Date(refreshedAttempt.exam.scheduleEnd).getTime() < Date.now() && !refreshedAttempt.exam.allowRetakes) {
             throw ApiError.forbidden('Submission window has ended for this exam');
         }
 
@@ -996,6 +1039,29 @@ export class AttemptService {
             throw ApiError.badRequest('Result is only available after submission');
         }
 
+        // AFTER_SUBMIT exams with a future deadline keep the first attempt's
+        // result hidden until the deadline passes. Admins/reviewers always see
+        // full results; retakes are always visible to their owner.
+        if (!isAdmin && !isResultReleased(attempt.exam, attempt)) {
+            return {
+                id: attempt.id,
+                examId: attempt.examId,
+                status: attempt.status,
+                attemptNo: attempt.attemptNo,
+                submittedAt: attempt.submittedAt,
+                timeSpentSeconds: attempt.timeSpentSeconds,
+                remainingSeconds: attempt.remainingSeconds,
+                submissionType: attempt.submissionType,
+                isPending: true,
+                feedbackMode: attempt.exam.feedbackMode,
+                scheduleEnd: attempt.exam.scheduleEnd,
+                exam: this.normalizeExam(attempt.exam),
+                stats: null,
+                sections: [],
+                questionDetails: [],
+            };
+        }
+
         const answersMap = Object.fromEntries((attempt.answers || []).map((answer) => [answer.questionId, answer.selectedChoice]));
         const questions = attempt.exam.questions || [];
         const totalQuestions = questions.length;
@@ -1072,6 +1138,9 @@ export class AttemptService {
             score: attempt.score,
             percentage: Number(attempt.percentage || 0),
             submissionType: attempt.submissionType,
+            isPending: false,
+            feedbackMode: attempt.exam.feedbackMode,
+            scheduleEnd: attempt.exam.scheduleEnd,
             exam: this.normalizeExam(attempt.exam),
             stats: {
                 totalQuestions,
@@ -1088,12 +1157,18 @@ export class AttemptService {
 
     /**
      * Get user's attempt history.
+     *
+     * When `firstAttemptOnly` is set (admin/reviewer views of a specific exam),
+     * the listing is restricted to `attemptNo = 1` — retakes exist for practice
+     * but must stay invisible to grading, submissions, analytics, and exports.
      */
     async listAttempts(params: {
         userId?: string;
         examId?: string;
         page?: number;
         limit?: number;
+        firstAttemptOnly?: boolean;
+        isAdmin?: boolean;
     }) {
         const page = params.page || 1;
         const limit = params.limit || 20;
@@ -1102,12 +1177,13 @@ export class AttemptService {
         const where: any = {};
         if (params.userId) where.userId = params.userId;
         if (params.examId) where.examId = params.examId;
+        if (params.firstAttemptOnly) where.attemptNo = 1;
 
         const [attempts, total] = await Promise.all([
             prisma.attempt.findMany({
                 where,
                 include: {
-                    exam: { select: { id: true, title: true, subject: true, timeLimitMinutes: true } },
+                    exam: { select: { id: true, title: true, subject: true, timeLimitMinutes: true, feedbackMode: true, scheduleEnd: true } },
                     user: {
                         select: {
                             id: true,
@@ -1133,12 +1209,21 @@ export class AttemptService {
         ]);
 
         return {
-            attempts: attempts.map((attempt) => ({
-                ...attempt,
-                exam: this.normalizeExam({ ...attempt.exam, questions: new Array(0) }),
-                user: this.normalizeUser(attempt.user),
-                answers: Object.fromEntries(attempt.answers.map((a) => [a.questionId, a.selectedChoice])),
-            })),
+            attempts: attempts.map((attempt) => {
+                // First attempts of AFTER_SUBMIT exams with a future deadline
+                // keep their score hidden from the reviewee until the deadline
+                // passes. Admins/reviewers always see full results; retakes
+                // (attemptNo > 1) are always visible to their owner.
+                const resultsReleased = Boolean(params.isAdmin) || isResultReleased(attempt.exam, attempt);
+                const { score, percentage, ...attemptWithoutScore } = attempt;
+                return {
+                    ...attemptWithoutScore,
+                    ...(resultsReleased ? { score, percentage } : {}),
+                    exam: this.normalizeExam({ ...attempt.exam, questions: new Array(0) }),
+                    user: this.normalizeUser(attempt.user),
+                    answers: Object.fromEntries(attempt.answers.map((a) => [a.questionId, a.selectedChoice])),
+                };
+            }),
             total,
             page,
             limit,
@@ -1190,6 +1275,32 @@ export class AttemptService {
         }
         if (!isAdmin && attempt.status !== 'SUBMITTED') {
             throw ApiError.badRequest('Review is only available after submission');
+        }
+
+        // Same gating as getAttemptResult: first attempts of AFTER_SUBMIT exams
+        // are hidden from their owner until the deadline passes.
+        if (!isAdmin && !isResultReleased(attempt.exam, attempt)) {
+            return {
+                id: attempt.id,
+                examId: attempt.examId,
+                userId: attempt.userId,
+                attemptNo: attempt.attemptNo,
+                status: attempt.status,
+                startedAt: attempt.startedAt,
+                submittedAt: attempt.submittedAt,
+                timeSpentSeconds: attempt.timeSpentSeconds,
+                remainingSeconds: attempt.remainingSeconds,
+                isPending: true,
+                feedbackMode: attempt.exam.feedbackMode,
+                scheduleEnd: attempt.exam.scheduleEnd,
+                exam: {
+                    ...this.normalizeExam(attempt.exam),
+                    questions: [],
+                },
+                user: this.normalizeUser(attempt.user),
+                answers: {},
+                answerMeta: {},
+            };
         }
 
         const elapsedSecondsByQuestionId = new Map<string, number | null>();

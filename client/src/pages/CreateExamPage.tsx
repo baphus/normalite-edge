@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { CategorySelect } from '@/components/CategorySelect';
 import {
@@ -87,12 +88,11 @@ interface ExamApi {
     tracks?: Array<{ id: string; name: string; code?: string | null }>;
     timeLimit?: number;
     timeLimitMinutes?: number;
-    maxAttempts?: number | null;
     status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
     scheduledDate?: string | null;
     deadline?: string | null;
-    closeOnDeadline?: boolean;
     allowRetakes?: boolean;
+    feedbackMode?: 'IMMEDIATE' | 'AFTER_SUBMIT';
     sections?: Array<{ id: string; title: string; orderNo?: number }>;
     questions?: ExamQuestionApi[];
 }
@@ -130,21 +130,19 @@ const CreateExamPage: React.FC = () => {
     // Form state
     const [title, setTitle] = useState('');
     const [duration, setDuration] = useState('');
-    const [maxAttempts, setMaxAttempts] = useState('3');
     const [allowRetakes, setAllowRetakes] = useState(false);
+    const [feedbackMode, setFeedbackMode] = useState<'IMMEDIATE' | 'AFTER_SUBMIT'>('IMMEDIATE');
     const [isCustomDuration, setIsCustomDuration] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [showScheduledDate, setShowScheduledDate] = useState(false);
     const [deadline, setDeadline] = useState('');
     const [showDeadline, setShowDeadline] = useState(false);
-    const [closeOnDeadline, setCloseOnDeadline] = useState(false);
     const [examStatus, setExamStatus] = useState<EditableExamStatus>('DRAFT');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState<string | null>(null);
     const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
     const [tracks, setTracks] = useState<TrackOption[]>([]);
     const [programs, setPrograms] = useState<string[]>(['All Programs']);
-    const [allowMultipleAttemptsConfig, setAllowMultipleAttemptsConfig] = useState(false);
 
     // Sections
     const [sections, setSections] = useState<string[]>([DEFAULT_SECTION_TITLE]);
@@ -178,11 +176,10 @@ const CreateExamPage: React.FC = () => {
             JSON.stringify({
                 title,
                 duration,
-                maxAttempts,
                 allowRetakes,
+                feedbackMode,
                 scheduledDate,
                 deadline,
-                closeOnDeadline,
                 examStatus,
                 description,
                 category,
@@ -193,11 +190,10 @@ const CreateExamPage: React.FC = () => {
         [
             title,
             duration,
-            maxAttempts,
             allowRetakes,
+            feedbackMode,
             scheduledDate,
             deadline,
-            closeOnDeadline,
             examStatus,
             description,
             category,
@@ -227,17 +223,6 @@ const CreateExamPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        api.get('/settings/system')
-            .then((response) =>
-                setAllowMultipleAttemptsConfig(Boolean(response.data?.data?.allowMultipleAttempts)),
-            )
-            .catch((error) => {
-                console.error('Failed to load system settings', error);
-                setAllowMultipleAttemptsConfig(false);
-            });
-    }, []);
-
-    useEffect(() => {
         if (!isEditing || !id) return;
 
         const fetchExam = async () => {
@@ -261,9 +246,8 @@ const CreateExamPage: React.FC = () => {
                 setDuration(loadedDuration);
                 if (!PRESET_DURATIONS.includes(Number(loadedDuration))) setIsCustomDuration(true);
 
-                setMaxAttempts(String(exam.maxAttempts ?? 3));
-                setCloseOnDeadline(Boolean(exam.closeOnDeadline));
                 setAllowRetakes(Boolean(exam.allowRetakes));
+                setFeedbackMode(exam.feedbackMode || 'IMMEDIATE');
 
                 if (exam.scheduledDate) {
                     const scheduledDateValue = new Date(exam.scheduledDate);
@@ -619,19 +603,13 @@ const CreateExamPage: React.FC = () => {
         const list: string[] = [];
         if (!title.trim()) list.push('Exam title is required');
         if (!duration.trim()) list.push('Duration is required');
-        if (allowMultipleAttemptsConfig) {
-            const parsed = Number(maxAttempts);
-            if (!maxAttempts.trim() || !Number.isInteger(parsed) || parsed < 1) {
-                list.push('Max attempts must be a whole number of at least 1');
-            }
-        }
+        if (!feedbackMode) list.push('Select when to show results');
         if (questionsWithContent.length === 0) list.push('Add at least one question');
         if (incompleteQuestions.length > 0) {
             list.push(
                 `${incompleteQuestions.length} question${incompleteQuestions.length === 1 ? '' : 's'} incomplete`,
             );
         }
-        if (closeOnDeadline && !deadline) list.push('Close on deadline needs a deadline');
         if (scheduledDate && deadline && new Date(deadline) <= new Date(scheduledDate)) {
             list.push('Closing time must be after the opening time');
         }
@@ -639,11 +617,9 @@ const CreateExamPage: React.FC = () => {
     }, [
         title,
         duration,
-        allowMultipleAttemptsConfig,
-        maxAttempts,
+        feedbackMode,
         questionsWithContent.length,
         incompleteQuestions.length,
-        closeOnDeadline,
         scheduledDate,
         deadline,
     ]);
@@ -693,10 +669,9 @@ const CreateExamPage: React.FC = () => {
             categoryId: category,
             trackIds: selectedTrackIds,
             timeLimit: Number(duration),
-            maxAttempts: allowMultipleAttemptsConfig ? Number(maxAttempts) : 1,
+            feedbackMode,
             scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
-            closeOnDeadline: Boolean(deadline),
             allowRetakes,
             isPublished: publish,
             status: isEditing ? (publish ? 'LIVE' : examStatus) : undefined,
@@ -982,25 +957,10 @@ const CreateExamPage: React.FC = () => {
                                         </button>
                                     )}
                                 </div>
-                                {allowMultipleAttemptsConfig && (
-                                    <div className="space-y-1.5">
-                                        <FieldLabel htmlFor="exam-attempts">Max attempts</FieldLabel>
-                                        <Input
-                                            id="exam-attempts"
-                                            type="number"
-                                            min={1}
-                                            step={1}
-                                            value={maxAttempts}
-                                            onChange={(event) => setMaxAttempts(event.target.value)}
-                                            placeholder="e.g. 3"
-                                            className="h-9 rounded-lg border-slate-200 text-[13px] shadow-none focus:ring-primary/20"
-                                        />
-                                    </div>
-                                )}
-                                {/* Allow retakes after deadline */}
+                                {/* Allow practice retakes after deadline */}
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-[13px] font-medium text-slate-700">Allow retakes after deadline</p>
+                                        <p className="text-[13px] font-medium text-slate-700">Allow practice retakes after deadline</p>
                                         <p className="text-[12px] text-slate-500">Reviewees can retake this exam after the deadline passes</p>
                                     </div>
                                     <Switch
@@ -1105,7 +1065,6 @@ const CreateExamPage: React.FC = () => {
                                             onClick={() => {
                                                 setShowDeadline(false);
                                                 setDeadline('');
-                                                setCloseOnDeadline(false);
                                             }}
                                             className="flex items-center gap-1 rounded text-[12px] font-semibold text-slate-400 transition-colors hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                         >
@@ -1113,6 +1072,31 @@ const CreateExamPage: React.FC = () => {
                                         </button>
                                     </div>
                                 )}
+                            </SettingsSection>
+
+                            <SettingsSection label="Results">
+                                <div className="space-y-2">
+                                    <RadioGroup
+                                        value={feedbackMode}
+                                        onValueChange={(value) => setFeedbackMode(value as 'IMMEDIATE' | 'AFTER_SUBMIT')}
+                                        className="space-y-2"
+                                    >
+                                        <label className="flex items-start gap-2.5 cursor-pointer">
+                                            <RadioGroupItem value="IMMEDIATE" className="mt-0.5" />
+                                            <div>
+                                                <p className="text-[13px] font-medium text-slate-700">Immediately after submission</p>
+                                                <p className="text-[12px] text-slate-500">Students see their score and feedback as soon as they submit</p>
+                                            </div>
+                                        </label>
+                                        <label className="flex items-start gap-2.5 cursor-pointer">
+                                            <RadioGroupItem value="AFTER_SUBMIT" className="mt-0.5" />
+                                            <div>
+                                                <p className="text-[13px] font-medium text-slate-700">After exam deadline</p>
+                                                <p className="text-[12px] text-slate-500">Results are released to all students after the deadline passes</p>
+                                            </div>
+                                        </label>
+                                    </RadioGroup>
+                                </div>
                             </SettingsSection>
 
                             <SettingsSection label="Description">

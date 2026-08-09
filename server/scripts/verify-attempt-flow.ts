@@ -41,11 +41,8 @@ async function main() {
         title: `Flow Exam ${stamp}`,
         subject: 'Integration',
         timeLimitMinutes: 15,
-        maxAttempts: 2,
-        cooldownMinutes: 0,
         feedbackMode: 'AFTER_SUBMIT',
         status: 'LIVE',
-        closeOnDeadline: false,
         createdBy: reviewer.id,
       },
     });

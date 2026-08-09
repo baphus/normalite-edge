@@ -6,9 +6,11 @@ import type { PrismaClient } from '@prisma/client';
  * Retake logic lives behind the `startAttempt` seam in attempt.service.ts.
  * These tests pin down the retake policy:
  *
- *   - `allowMultipleAttempts` (system setting) gates the single-submission rule
- *   - `exam.maxAttempts` caps total attempts (default 3 when retakes are on)
- *   - `exam.cooldownMinutes` delays the next attempt after a submission
+ *   - No global `allowMultipleAttempts` switch gates retakes
+ *   - No `exam.maxAttempts` cap limits total attempts
+ *   - No `exam.cooldownMinutes` delays the next attempt
+ *   - No retakes before the deadline (or with no deadline) — one shot only
+ *   - Retakes are unlimited after the deadline when `allowRetakes` is true
  *
  * No database is touched. `db.ts` consults `globalThis.__prisma__` exactly
  * once, at module scope, so the mock must be installed *before* the service
@@ -43,8 +45,7 @@ function baseExam(overrides: Record<string, any> = {}) {
         status: 'LIVE',
         scheduleStart: null,
         scheduleEnd: null,
-        maxAttempts: null,
-        cooldownMinutes: 0,
+        allowRetakes: false,
         createdBy: 'admin-1',
         questions: QUESTIONS,
         ...overrides,
@@ -79,9 +80,7 @@ function makeAttempt(overrides: Record<string, any> = {}) {
 
 function makeState(overrides: Record<string, any> = {}) {
     return {
-        allowMultipleAttempts: true,
         exam: baseExam(),
-        submittedAttempt: null as any,
         inProgressAttempt: null as any,
         latestAttempt: null as any,
         created: [] as any[],
@@ -101,7 +100,6 @@ function createMockPrisma() {
         attempt: {
             findFirst: async (args: any) => {
                 const where = args?.where ?? {};
-                if (where.status === 'SUBMITTED') return state.submittedAttempt;
                 if (where.status === 'IN_PROGRESS') return state.inProgressAttempt;
                 return state.latestAttempt;
             },
@@ -119,7 +117,6 @@ function createMockPrisma() {
 
     return {
         $queryRaw: async () => [{
-            allow_multiple_attempts: state.allowMultipleAttempts,
             enforce_exam_single_tab: false,
             tab_switch_grace_seconds: 5,
         }],
@@ -139,10 +136,98 @@ globalThis.__prisma__ = createMockPrisma() as unknown as PrismaClient;
 const { attemptService } = require('../services/attempt.service');
 
 describe('startAttempt retake policy', () => {
-    it('allows a retake when allowMultipleAttempts is enabled', async () => {
+    it('blocks a retake before the deadline even when allowRetakes is enabled', async () => {
         resetState({
-            allowMultipleAttempts: true,
-            submittedAttempt: { id: 'submitted-1' },
+            exam: baseExam({
+                scheduleEnd: new Date(Date.now() + 60_000),
+                allowRetakes: true,
+            }),
+            latestAttempt: makeAttempt({
+                attemptNo: 1,
+                status: 'SUBMITTED',
+                submittedAt: new Date(Date.now() - 3_600_000),
+            }),
+        });
+
+        await assert.rejects(
+            attemptService.startAttempt(USER_ID, EXAM_ID),
+            (err: any) => {
+                assert.equal(err?.statusCode, 403);
+                assert.equal(err?.message, 'You have already submitted this exam');
+                return true;
+            },
+        );
+        assert.equal(state.created.length, 0, 'no retake should be created before the deadline');
+    });
+
+    it('blocks a retake when no deadline is set even when allowRetakes is enabled', async () => {
+        resetState({
+            exam: baseExam({ allowRetakes: true }),
+            latestAttempt: makeAttempt({
+                attemptNo: 1,
+                status: 'SUBMITTED',
+                submittedAt: new Date(Date.now() - 3_600_000),
+            }),
+        });
+
+        await assert.rejects(
+            attemptService.startAttempt(USER_ID, EXAM_ID),
+            (err: any) => {
+                assert.equal(err?.statusCode, 403);
+                assert.equal(err?.message, 'You have already submitted this exam');
+                return true;
+            },
+        );
+        assert.equal(state.created.length, 0, 'no retake should be created without a deadline');
+    });
+
+    it('does not cap the number of retakes', async () => {
+        resetState({
+            exam: baseExam({
+                scheduleEnd: new Date(Date.now() - 60_000),
+                allowRetakes: true,
+            }),
+            latestAttempt: makeAttempt({
+                attemptNo: 5,
+                status: 'SUBMITTED',
+                submittedAt: new Date(Date.now() - 3_600_000),
+            }),
+        });
+
+        const result = await attemptService.startAttempt(USER_ID, EXAM_ID);
+
+        assert.equal(result.attemptNo, 6, 'retakes should continue without an attempt cap');
+        assert.equal(state.created.length, 1);
+        assert.equal(state.created[0].attemptNo, 6);
+    });
+
+    it('allows a retake immediately after a submission (no cooldown)', async () => {
+        resetState({
+            exam: baseExam({
+                scheduleEnd: new Date(Date.now() - 60_000),
+                allowRetakes: true,
+            }),
+            latestAttempt: makeAttempt({
+                attemptNo: 1,
+                status: 'SUBMITTED',
+                submittedAt: new Date(),
+            }),
+        });
+
+        const result = await attemptService.startAttempt(USER_ID, EXAM_ID);
+
+        assert.equal(result.attemptNo, 2, 'a retake should be allowed with no waiting period');
+        assert.equal(result.status, 'IN_PROGRESS');
+        assert.equal(state.created.length, 1);
+        assert.equal(state.created[0].attemptNo, 2);
+    });
+
+    it('allows a retake after the deadline when allowRetakes is enabled', async () => {
+        resetState({
+            exam: baseExam({
+                scheduleEnd: new Date(Date.now() - 60_000),
+                allowRetakes: true,
+            }),
             latestAttempt: makeAttempt({
                 attemptNo: 1,
                 status: 'SUBMITTED',
@@ -152,31 +237,38 @@ describe('startAttempt retake policy', () => {
 
         const result = await attemptService.startAttempt(USER_ID, EXAM_ID);
 
-        assert.equal(result.attemptNo, 2, 'retake should be the next attempt number');
+        assert.equal(result.attemptNo, 2, 'a retake should be allowed after the deadline when allowRetakes is true');
         assert.equal(result.status, 'IN_PROGRESS');
         assert.equal(state.created.length, 1);
         assert.equal(state.created[0].attemptNo, 2);
+        assert.ok(
+            new Date(result.endsAt).getTime() > Date.now(),
+            'a post-deadline retake should get the full time limit, not the already-passed deadline',
+        );
+        assert.ok(result.remainingSeconds > 0, 'a post-deadline retake should not start already expired');
     });
 
-    it('blocks a retake when allowMultipleAttempts is disabled', async () => {
+    it('blocks starting an attempt after the deadline when allowRetakes is disabled', async () => {
         resetState({
-            allowMultipleAttempts: false,
-            submittedAttempt: { id: 'submitted-1' },
+            exam: baseExam({
+                scheduleEnd: new Date(Date.now() - 60_000),
+                allowRetakes: false,
+            }),
         });
 
         await assert.rejects(
             attemptService.startAttempt(USER_ID, EXAM_ID),
             (err: any) => {
                 assert.equal(err?.statusCode, 403);
-                assert.equal(err?.message, 'You can only submit this mock exam once');
+                assert.equal(err?.message, 'This exam has closed');
                 return true;
             },
         );
         assert.equal(state.created.length, 0, 'no attempt should be created');
     });
 
-    it('still allows a first attempt when retakes are disabled', async () => {
-        resetState({ allowMultipleAttempts: false });
+    it('allows a first attempt', async () => {
+        resetState();
 
         const result = await attemptService.startAttempt(USER_ID, EXAM_ID);
 
@@ -184,75 +276,8 @@ describe('startAttempt retake policy', () => {
         assert.equal(state.created.length, 1);
     });
 
-    it('respects exam.maxAttempts', async () => {
+    it('resumes an existing IN_PROGRESS attempt', async () => {
         resetState({
-            allowMultipleAttempts: true,
-            submittedAttempt: { id: 'submitted-2' },
-            latestAttempt: makeAttempt({
-                attemptNo: 2,
-                status: 'SUBMITTED',
-                submittedAt: new Date(Date.now() - 3_600_000),
-            }),
-            exam: baseExam({ maxAttempts: 2 }),
-        });
-
-        await assert.rejects(
-            attemptService.startAttempt(USER_ID, EXAM_ID),
-            (err: any) => {
-                assert.equal(err?.statusCode, 403);
-                assert.equal(err?.message, 'Maximum attempts reached (2)');
-                return true;
-            },
-        );
-        assert.equal(state.created.length, 0, 'no attempt should be created');
-    });
-
-    it('respects the cooldown between attempts', async () => {
-        resetState({
-            allowMultipleAttempts: true,
-            submittedAttempt: { id: 'submitted-1' },
-            latestAttempt: makeAttempt({
-                attemptNo: 1,
-                status: 'SUBMITTED',
-                submittedAt: new Date(Date.now() - 5 * 60_000),
-            }),
-            exam: baseExam({ cooldownMinutes: 10 }),
-        });
-
-        await assert.rejects(
-            attemptService.startAttempt(USER_ID, EXAM_ID),
-            (err: any) => {
-                assert.equal(err?.statusCode, 403);
-                assert.equal(err?.message, 'Please wait 5 minute(s) before starting a new attempt');
-                return true;
-            },
-        );
-        assert.equal(state.created.length, 0, 'no attempt should be created');
-    });
-
-    it('allows a retake once the cooldown has expired', async () => {
-        resetState({
-            allowMultipleAttempts: true,
-            submittedAttempt: { id: 'submitted-1' },
-            latestAttempt: makeAttempt({
-                attemptNo: 1,
-                status: 'SUBMITTED',
-                submittedAt: new Date(Date.now() - 20 * 60_000),
-            }),
-            exam: baseExam({ cooldownMinutes: 10 }),
-        });
-
-        const result = await attemptService.startAttempt(USER_ID, EXAM_ID);
-
-        assert.equal(result.attemptNo, 2, 'retake should be allowed after the cooldown has elapsed');
-        assert.equal(result.status, 'IN_PROGRESS');
-        assert.equal(state.created.length, 1);
-        assert.equal(state.created[0].attemptNo, 2);
-    });
-
-    it('resumes an IN_PROGRESS attempt when retakes are disabled', async () => {
-        resetState({
-            allowMultipleAttempts: false,
             inProgressAttempt: makeAttempt({
                 attemptNo: 1,
                 status: 'IN_PROGRESS',

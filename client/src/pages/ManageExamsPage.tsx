@@ -54,11 +54,9 @@ interface Exam {
     questionCount: number;
     duration: number;
     status: 'live' | 'draft' | 'archived' | 'closed';
-    maxAttempts: number;
     publishedAt?: string;
     openDate?: string;
     deadline?: string;
-    closeOnDeadline: boolean;
     authorId: string;
     authorName: string;
     authorAvatar: string;
@@ -79,11 +77,9 @@ interface ManagedExamApi {
     totalItems?: number;
     timeLimit?: number;
     status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
-    maxAttempts?: number | null;
     scheduledDate?: string | null;
     createdAt?: string;
     deadline?: string | null;
-    closeOnDeadline?: boolean;
     subject?: string;
     categoryCode?: string | null;
     questions?: Array<{
@@ -191,11 +187,9 @@ const mapExam = (exam: ManagedExamApi, tracks: TrackOption[]): Exam => {
                     : exam.status === 'CLOSED'
                         ? 'closed'
                         : 'draft',
-        maxAttempts: exam.maxAttempts ?? 1,
         publishedAt: exam.scheduledDate || exam.createdAt || undefined,
         openDate: exam.scheduledDate || undefined,
         deadline: exam.deadline || undefined,
-        closeOnDeadline: Boolean(exam.closeOnDeadline),
         tracks: exam.tracks || [],
         authorId: exam.creator?.id || '',
         authorName,
@@ -231,7 +225,6 @@ const ManageExamsPage: React.FC = () => {
     );
     const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'with-deadline' | 'without-deadline'>('all');
     const [publishedFilter, setPublishedFilter] = useState<'all' | 'last_7_days' | 'last_30_days'>('all');
-    const [autoCloseFilter, setAutoCloseFilter] = useState<'all' | 'on' | 'off'>('all');
 
     const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
     const [actionExamId, setActionExamId] = useState<string | null>(null);
@@ -351,11 +344,6 @@ const ManageExamsPage: React.FC = () => {
                     || (publishedFilter === 'last_7_days' && publishedTimestamp >= sevenDaysAgo)
                     || (publishedFilter === 'last_30_days' && publishedTimestamp >= thirtyDaysAgo);
 
-                const matchesAutoClose =
-                    autoCloseFilter === 'all'
-                    || (autoCloseFilter === 'on' && exam.closeOnDeadline)
-                    || (autoCloseFilter === 'off' && !exam.closeOnDeadline);
-
                 return (
                     matchesStatus
                     && matchesSearch
@@ -364,7 +352,6 @@ const ManageExamsPage: React.FC = () => {
                     && matchesAuthor
                     && matchesDeadline
                     && matchesPublished
-                    && matchesAutoClose
                 );
             }),
         [
@@ -376,7 +363,6 @@ const ManageExamsPage: React.FC = () => {
             authorFilter,
             deadlineFilter,
             publishedFilter,
-            autoCloseFilter,
             now,
         ],
     );
@@ -418,7 +404,6 @@ const ManageExamsPage: React.FC = () => {
         setAuthorFilter('all');
         setDeadlineFilter('all');
         setPublishedFilter('all');
-        setAutoCloseFilter('all');
         setSearch('');
     }, []);
 
@@ -476,13 +461,6 @@ const ManageExamsPage: React.FC = () => {
                 onClear: () => setPublishedFilter('all'),
             });
         }
-        if (autoCloseFilter !== 'all') {
-            next.push({
-                id: 'autoclose',
-                label: `Close on deadline: ${autoCloseFilter === 'on' ? 'On' : 'Off'}`,
-                onClear: () => setAutoCloseFilter('all'),
-            });
-        }
         return next;
     }, [
         search,
@@ -492,7 +470,6 @@ const ManageExamsPage: React.FC = () => {
         authorFilter,
         deadlineFilter,
         publishedFilter,
-        autoCloseFilter,
         programLabelFor,
     ]);
 
@@ -823,17 +800,7 @@ const ManageExamsPage: React.FC = () => {
                 sortValue: (exam) => new Date(exam.deadline || 0).getTime(),
                 className: 'w-[130px] whitespace-nowrap',
                 cell: (exam) => (
-                    <span className="inline-flex items-center gap-1">
-                        {formatShortDate(exam.deadline)}
-                        {exam.deadline && exam.closeOnDeadline && (
-                            <span
-                                title="Closes automatically on the deadline"
-                                className="rounded bg-blue-50 px-1 text-[11px] font-semibold text-blue-600"
-                            >
-                                auto
-                            </span>
-                        )}
-                    </span>
+                    <span>{formatShortDate(exam.deadline)}</span>
                 ),
                 stackedCell: (exam) => (exam.deadline ? `closes ${formatShortDate(exam.deadline)}` : 'no close date'),
             },
@@ -1004,18 +971,6 @@ const ManageExamsPage: React.FC = () => {
                                 </SelectContent>
                             </Select>
                         </FilterField>
-                        <FilterField label="Close on deadline">
-                            <Select value={autoCloseFilter} onValueChange={(value) => setAutoCloseFilter(value as typeof autoCloseFilter)}>
-                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by close on deadline">
-                                    <SelectValue placeholder="Close on deadline" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All close modes</SelectItem>
-                                    <SelectItem value="on">On</SelectItem>
-                                    <SelectItem value="off">Off</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </FilterField>
                     </>
                 }
                 activeFilterCount={chips.length}
@@ -1041,7 +996,7 @@ const ManageExamsPage: React.FC = () => {
                     emptyDescription="Create your first mock exam to get started."
                     emptyAction={createAction}
                     rowActions={renderRowActions}
-                    resetKey={`${search}|${statusFilter}|${categoryFilter}|${programFilter}|${authorFilter}|${deadlineFilter}|${publishedFilter}|${autoCloseFilter}|${ownershipFilter}`}
+                    resetKey={`${search}|${statusFilter}|${categoryFilter}|${programFilter}|${authorFilter}|${deadlineFilter}|${publishedFilter}|${ownershipFilter}`}
                 />
             ) : (
                 <ResourceGrid

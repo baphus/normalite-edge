@@ -146,10 +146,6 @@ export const ExamDetailHeader: React.FC<ExamDetailHeaderProps> = ({
                 <Fact label="Duration">{formatDurationMinutes(duration)}</Fact>
                 <Fact label="Opens">{formatShortDate(openDate || exam.scheduledDate || undefined)}</Fact>
                 <Fact label="Closes">{formatShortDate(deadline || undefined)}</Fact>
-                <Fact label="Max attempts">
-                    <span className="tabular-nums">{exam.maxAttempts ?? '—'}</span>
-                </Fact>
-                {exam.closeOnDeadline && <Fact label="Auto-close">on deadline</Fact>}
             </dl>
 
             {statusMessage && <p className="text-[12px] text-slate-500">{statusMessage}</p>}

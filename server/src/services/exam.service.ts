@@ -5,36 +5,10 @@ import { notificationService } from './notification.service';
 import { deckService } from './deck.service';
 import { buildTrackVisibilityFilter } from './revieweeVisibility';
 import { cloudinaryService } from './cloudinary.service';
+import { isResultReleased } from './attempt.service';
 
 export class ExamService {
-    private readonly defaultMultipleAttemptsLimit = 3;
     private readonly defaultSectionTitle = 'Main section';
-
-    private async getAllowMultipleAttempts() {
-        try {
-            const rows = await prisma.$queryRaw<Array<{ allow_multiple_attempts: boolean }>>`
-                SELECT allow_multiple_attempts
-                FROM system_settings
-                WHERE id = 1
-                LIMIT 1
-            `;
-
-            if (rows.length > 0) {
-                return Boolean(rows[0].allow_multiple_attempts);
-            }
-
-            await prisma.$executeRaw`
-                INSERT INTO system_settings (id, allow_multiple_attempts, updated_at)
-                VALUES (1, false, NOW())
-                ON CONFLICT (id) DO NOTHING
-            `;
-
-            return false;
-        } catch (error) {
-            console.error('Failed to read system settings, defaulting allowMultipleAttempts=false', error);
-            return false;
-        }
-    }
 
     private toSectionKey(value?: string | null) {
         return (this.toEncodingSafeText(value)?.trim().toLowerCase() || this.defaultSectionTitle.toLowerCase())
@@ -46,12 +20,15 @@ export class ExamService {
     }
 
     private async closeExpiredLiveExams() {
+        // Exams that allow retakes stay LIVE past their deadline so reviewees
+        // can keep taking them for practice.
         await prisma.exam.updateMany({
             where: {
                 status: 'LIVE',
                 scheduleEnd: {
                     lte: new Date(),
                 },
+                allowRetakes: false,
             },
             data: {
                 status: 'CLOSED',
@@ -120,17 +97,28 @@ export class ExamService {
         };
     }
 
-    private normalizeExam(exam: any, options?: { allowMultipleAttempts?: boolean }) {
-        const allowMultipleAttempts = Boolean(options?.allowMultipleAttempts);
-        const attempts = exam.attempts || [];
+    private normalizeExam(exam: any) {
+        // Only the first attempt matters for grading/rankings — later retakes
+        // must never drive the score or status surfaced on the exam list. Rows
+        // without an attemptNo (older payloads) are kept so this stays safe
+        // regardless of which caller populated the include.
+        const attempts = (exam.attempts || []).filter(
+            (attempt: any) => attempt.attemptNo === undefined || attempt.attemptNo === 1,
+        );
         const latestUserAttempt = attempts[0];
         const latestSubmittedAttempt = attempts.find((attempt: any) => attempt.status === 'SUBMITTED');
-        const submittedAttemptsCount = attempts.filter((attempt: any) => attempt.status === 'SUBMITTED').length;
-        const effectiveMaxAttempts = allowMultipleAttempts
-            ? (exam.maxAttempts ?? this.defaultMultipleAttemptsLimit)
-            : 1;
-        const attemptsRemaining = Math.max(effectiveMaxAttempts - submittedAttemptsCount, 0);
-        const hasSubmitted = attemptsRemaining === 0;
+        const hasSubmitted = attempts.some((attempt: any) => attempt.status === 'SUBMITTED');
+
+        // AFTER_SUBMIT exams with a future deadline keep the first attempt's
+        // score hidden from the reviewee's exam list until the deadline passes.
+        // The attempts attached to list payloads are always attemptNo = 1, so
+        // isResultReleased here covers exactly the same condition as the
+        // client-side "results pending" flag. When there is no attached attempt
+        // (admin/creator views) this stays false and the score fields are null
+        // anyway.
+        const resultHidden = latestSubmittedAttempt
+            ? !isResultReleased(exam, latestSubmittedAttempt)
+            : false;
 
         return {
             ...exam,
@@ -146,9 +134,6 @@ export class ExamService {
             timeLimit: exam.timeLimitMinutes,
             scheduledDate: exam.scheduleStart,
             deadline: exam.scheduleEnd,
-            // A selected close time is always a hard cutoff. The persisted flag
-            // remains for compatibility with existing records and reports.
-            closeOnDeadline: Boolean(exam.scheduleEnd),
             allowRetakes: Boolean(exam.allowRetakes),
             isScheduled: exam.status === 'LIVE' && Boolean(exam.scheduleStart && new Date(exam.scheduleStart) > new Date()),
             isAvailable: exam.status === 'LIVE'
@@ -159,9 +144,8 @@ export class ExamService {
             duration: exam.timeLimitMinutes,
             hasSubmitted,
             userAttemptStatus: latestUserAttempt?.status,
-            attempts_remaining: attemptsRemaining,
-            latestSubmittedAttemptId: latestSubmittedAttempt?.id || null,
-            latestSubmittedScore: latestSubmittedAttempt?.percentage ?? null,
+            latestSubmittedAttemptId: resultHidden ? null : (latestSubmittedAttempt?.id || null),
+            latestSubmittedScore: resultHidden ? null : (latestSubmittedAttempt?.percentage ?? null),
             sections: (exam.sections || [])
                 .slice()
                 .sort((a: any, b: any) => (a.orderNo || 0) - (b.orderNo || 0))
@@ -194,7 +178,6 @@ export class ExamService {
         publishedOrMine?: string;
     }) {
         await this.closeExpiredLiveExams();
-        const allowMultipleAttempts = await this.getAllowMultipleAttempts();
 
         const page = params.page || 1;
         const limit = params.limit || 20;
@@ -255,8 +238,11 @@ export class ExamService {
                     trackLinks: { include: { track: true } },
                     attempts: params.publishedOrMine
                         ? {
-                            where: { userId: params.publishedOrMine },
-                            select: { id: true, status: true, submittedAt: true, percentage: true },
+                            // Only the first attempt counts for grading/rankings —
+                            // the score and status surfaced on the exam list must
+                            // come from the student's first attempt, never a retake.
+                            where: { userId: params.publishedOrMine, attemptNo: 1 },
+                            select: { id: true, status: true, submittedAt: true, percentage: true, attemptNo: true },
                             orderBy: { createdAt: 'desc' },
                             take: 5,
                         }
@@ -272,7 +258,7 @@ export class ExamService {
         ]);
 
         return {
-            exams: exams.map((exam) => this.normalizeExam(exam, { allowMultipleAttempts })),
+            exams: exams.map((exam) => this.normalizeExam(exam)),
             total,
             page,
             limit,
@@ -405,7 +391,6 @@ export class ExamService {
                 id: true,
                 status: true,
                 scheduleEnd: true,
-                closeOnDeadline: true,
                 createdBy: true,
             },
         });
@@ -440,7 +425,6 @@ export class ExamService {
                 canStudentsSubmit,
                 message: submissionMessage,
                 scheduleEnd: exam.scheduleEnd,
-                closeOnDeadline: Boolean(exam.closeOnDeadline),
             },
         };
     }
@@ -504,10 +488,9 @@ export class ExamService {
         program?: string;
         trackIds?: string[];
         timeLimit: number;
-        maxAttempts?: number | null;
+        feedbackMode: 'IMMEDIATE' | 'AFTER_SUBMIT';
         scheduledDate?: Date;
         deadline?: Date;
-        closeOnDeadline?: boolean;
         allowRetakes?: boolean;
         isPublished?: boolean;
         sections?: string[];
@@ -547,10 +530,9 @@ export class ExamService {
                     categoryId: data.categoryId ?? null,
                     programTrack: this.toEncodingSafeText(data.program) || undefined,
                     timeLimitMinutes: data.timeLimit,
-                    maxAttempts: data.maxAttempts ?? null,
+                    feedbackMode: data.feedbackMode,
                     scheduleStart: data.scheduledDate,
                     scheduleEnd: data.deadline,
-                    closeOnDeadline: Boolean(data.deadline),
                     allowRetakes: Boolean(data.allowRetakes),
                     status: data.isPublished ? 'LIVE' : 'DRAFT',
                     createdBy: data.createdBy,
@@ -651,10 +633,9 @@ export class ExamService {
         program?: string;
         trackIds?: string[];
         timeLimit?: number;
-        maxAttempts?: number | null;
+        feedbackMode?: 'IMMEDIATE' | 'AFTER_SUBMIT';
         scheduledDate?: Date;
         deadline?: Date;
-        closeOnDeadline?: boolean;
         allowRetakes?: boolean;
         isPublished?: boolean;
         status?: 'LIVE' | 'DRAFT' | 'ARCHIVED' | 'CLOSED' | 'PUBLISHED';
@@ -713,11 +694,10 @@ export class ExamService {
                 categoryId: data.categoryId,
                 programTrack: this.toEncodingSafeText(data.program),
                 timeLimitMinutes: data.timeLimit,
+                feedbackMode: data.feedbackMode,
                 scheduleStart: data.scheduledDate,
                 scheduleEnd: data.deadline,
-                closeOnDeadline: data.closeOnDeadline,
                 allowRetakes: data.allowRetakes,
-                maxAttempts: data.maxAttempts,
             };
 
             // Distinguish "not sent" (leave alone) from an explicit null (clear it).

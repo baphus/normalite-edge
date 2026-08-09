@@ -37,10 +37,8 @@ export interface ExamDetails {
     totalItems?: number;
     duration?: number;
     timeLimit?: number;
-    maxAttempts?: number | null;
     deadline?: string | null;
     scheduledDate?: string | null;
-    closeOnDeadline?: boolean;
     tracks?: ExamTrack[];
     program_track?: string | null;
     sections?: ExamSection[];
@@ -80,7 +78,6 @@ export interface SubmissionAnalytics {
         canStudentsSubmit: boolean;
         message: string;
         scheduleEnd?: string | null;
-        closeOnDeadline?: boolean;
     };
 }
 

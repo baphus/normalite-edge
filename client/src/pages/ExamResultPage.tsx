@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Select,
@@ -78,10 +77,16 @@ interface ExamResultPayload {
     exam?: {
         id?: string;
         title?: string;
+        feedbackMode?: 'IMMEDIATE' | 'AFTER_SUBMIT' | string;
+        scheduleEnd?: string | null;
+        allowRetakes?: boolean;
     };
-    stats: ResultStats;
+    stats?: ResultStats | null;
     sections?: ResultSection[];
     questionDetails?: ResultQuestionDetail[];
+    isPending?: boolean;
+    feedbackMode?: 'IMMEDIATE' | 'AFTER_SUBMIT' | string;
+    scheduleEnd?: string | null;
 }
 
 // Internal page shape for a review row, built from either the dedicated review
@@ -154,13 +159,6 @@ const ExamResultPage: React.FC = () => {
     const [submittedAttempts, setSubmittedAttempts] = useState<AttemptOption[]>([]);
     const [result, setResult] = useState<ExamResultPayload | null>(null);
     const [reviewQuestions, setReviewQuestions] = useState<ReviewQuestionRow[]>([]);
-    const [previousAttempt, setPreviousAttempt] = useState<{
-        attemptNo: number;
-        score: number;
-        percentage: number;
-        submittedAt: string | null;
-    } | null>(null);
-    const [allowMultipleAttempts, setAllowMultipleAttempts] = useState(false);
 
     useEffect(() => {
         const loadAttemptOptions = async () => {
@@ -209,20 +207,6 @@ const ExamResultPage: React.FC = () => {
 
         loadAttemptOptions();
     }, [id, searchParams, setSearchParams]);
-
-    useEffect(() => {
-        if (id) {
-            api.get(`/attempts/previous?examId=${id}&currentAttemptId=${attemptId || ''}`)
-                .then((res) => setPreviousAttempt(res.data.data))
-                .catch(() => {});
-        }
-    }, [id, attemptId]);
-
-    useEffect(() => {
-        api.get('/settings/system')
-            .then((res) => setAllowMultipleAttempts(Boolean(res.data?.data?.allowMultipleAttempts)))
-            .catch(() => {});
-    }, []);
 
     useEffect(() => {
         const fetchResult = async () => {
@@ -482,10 +466,6 @@ const ExamResultPage: React.FC = () => {
         [sectionData]
     );
 
-    // Max attempts is a page-level constant matching the server default; when
-    // multiple attempts are disabled the retake card is simply always disabled.
-    const maxAttempts = allowMultipleAttempts ? 3 : 1;
-
     const handleRetake = () => navigate(`/exams/${id}/take`);
 
     // The per-attempt PDF report export is out of scope for this assembly —
@@ -494,6 +474,24 @@ const ExamResultPage: React.FC = () => {
     const handleDownloadReport = () => {};
 
     const resultDate = result?.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A';
+
+    // AFTER_SUBMIT exams keep the first attempt's result hidden until the
+    // exam deadline passes. The server marks these payloads `isPending`, but
+    // we also re-derive the gate from the exam fields as a fallback.
+    const resultHidden = useMemo(() => {
+        if (result?.isPending) return true;
+        // Retakes always show results immediately
+        if (attemptNo > 1) return false;
+        const feedbackMode = result?.feedbackMode || result?.exam?.feedbackMode;
+        const scheduleEnd = result?.scheduleEnd ?? result?.exam?.scheduleEnd;
+        if (feedbackMode !== 'AFTER_SUBMIT') return false;
+        if (!scheduleEnd) return false;
+        return new Date(scheduleEnd).getTime() > Date.now();
+    }, [result, attemptNo]);
+
+    // When the exam allows retakes, the first submission is the recorded one
+    // and every later attempt is for practice only.
+    const allowRetakes = Boolean(result?.exam?.allowRetakes);
 
     if (loading) {
         return (
@@ -536,19 +534,39 @@ const ExamResultPage: React.FC = () => {
         );
     }
 
+    if (resultHidden) {
+        return (
+            <div className="flex flex-col gap-5 pb-10 max-w-6xl" data-guide="exam-result-pending">
+                {/* Header */}
+                <header className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <Button variant="ghost" size="icon" onClick={() => navigate('/exams')} className="h-8 w-8 rounded-lg shrink-0">
+                            <ArrowLeft size={16} className="text-slate-500" />
+                        </Button>
+                        <div className="min-w-0">
+                            <h1 className="text-sm font-semibold text-slate-900 truncate">{result.exam?.title || 'Exam Result'}</h1>
+                            <p className="text-xs text-slate-400 font-medium">
+                                Submitted {resultDate}
+                                {selectedAttemptMeta?.attemptNo ? ` · Attempt ${selectedAttemptMeta.attemptNo}` : ''}
+                            </p>
+                        </div>
+                    </div>
+                </header>
+
+                {/* Results pending card */}
+                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-6 py-14 text-center">
+                    <Clock size={20} className="text-slate-400" aria-hidden="true" />
+                    <p className="text-[15px] font-semibold text-slate-900">Results pending</p>
+                    <p className="max-w-sm text-[12px] text-slate-500">
+                        Your results will be available after the exam deadline.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-5 pb-10 max-w-6xl">
-            {previousAttempt && allowMultipleAttempts && (
-                <Card className="border-slate-200 shadow-sm rounded-xl p-4 mb-3">
-                    <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-2">Previous Attempt</h3>
-                    <div className="flex items-center gap-4 text-xs text-slate-600">
-                        <span>Attempt {previousAttempt.attemptNo}</span>
-                        <span className="font-semibold">{Number(previousAttempt.percentage || 0).toFixed(1)}%</span>
-                        <span>{previousAttempt.submittedAt ? new Date(previousAttempt.submittedAt).toLocaleDateString() : '—'}</span>
-                    </div>
-                </Card>
-            )}
-
             {/* Header */}
             <header data-guide="exam-result-header" className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -605,14 +623,33 @@ const ExamResultPage: React.FC = () => {
 
             {/* What's next: context-dependent CTAs */}
             <div data-guide="exam-result-actions">
+                {allowRetakes && (
+                    <div
+                        data-guide="exam-result-retake-notice"
+                        className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    >
+                        <div className="min-w-0">
+                            <p className="text-[13px] font-semibold text-amber-900">Practice retakes are open</p>
+                            <p className="mt-0.5 text-[12px] text-amber-800">
+                                Only your first attempt is recorded. Retakes are for your own practice.
+                            </p>
+                        </div>
+                        <Button
+                            onClick={handleRetake}
+                            className="h-9 shrink-0 rounded-lg bg-primary px-3 text-[12px] font-semibold text-white hover:bg-primary/90"
+                        >
+                            Retake for Practice
+                        </Button>
+                    </div>
+                )}
                 <WhatNextCTAs
                     passed={passed}
                     score={score}
                     attemptNo={attemptNo}
-                    maxAttempts={maxAttempts}
                     sections={sectionTiers}
                     onDownload={handleDownloadReport}
                     onRetake={handleRetake}
+                    showRetake={!allowRetakes}
                 />
             </div>
         </div>

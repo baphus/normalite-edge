@@ -11,7 +11,6 @@ export const systemSettingController = {
 
     updateSettings: catchAsync(async (req: Request, res: Response) => {
         const settings = await systemSettingService.updateSettings({
-            allowMultipleAttempts: req.body.allowMultipleAttempts,
             enforceExamSingleTab: req.body.enforceExamSingleTab,
             tabSwitchGraceSeconds: req.body.tabSwitchGraceSeconds,
         });

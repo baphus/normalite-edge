@@ -16,7 +16,6 @@ const renderCTAs = (overrides: Partial<WhatNextCTAsProps> = {}) => {
         passed: false,
         score: 58,
         attemptNo: 1,
-        maxAttempts: 3,
         sections,
         onDownload: vi.fn(),
         onViewCertificate: vi.fn(),
@@ -55,22 +54,18 @@ describe('WhatNextCTAs', () => {
         expect(screen.queryByText('View Certificate')).not.toBeInTheDocument();
     });
 
-    it('disables retake when max attempts have been reached', async () => {
-        const onRetake = vi.fn();
-        const user = userEvent.setup();
-        renderCTAs({ passed: false, attemptNo: 3, maxAttempts: 3, onRetake });
-
-        const retake = screen.getByRole('button', { name: /Retake in 24h/i });
-        expect(retake).toBeDisabled();
-
-        await user.click(retake);
-        expect(onRetake).not.toHaveBeenCalled();
-    });
-
-    it('keeps retake enabled when maxAttempts is null (unlimited)', () => {
-        renderCTAs({ attemptNo: 5, maxAttempts: null });
+    it('keeps retake enabled regardless of attempt count', () => {
+        renderCTAs({ attemptNo: 5 });
 
         expect(screen.getByRole('button', { name: /Retake in 24h/i })).toBeEnabled();
+    });
+
+    it('hides the retake card when showRetake is false (practice-retake notice rendered elsewhere)', () => {
+        renderCTAs({ passed: true, showRetake: false });
+
+        expect(screen.queryByText('Retake to improve')).not.toBeInTheDocument();
+        expect(screen.getByText('Download Report')).toBeInTheDocument();
+        expect(screen.getByText('Compare with Previous Attempts')).toBeInTheDocument();
     });
 
     it('calls onDownload when Download Report is clicked', async () => {

@@ -10,7 +10,6 @@ import {
     ChevronRight,
     Loader2,
     Lock,
-    ToggleRight,
     MonitorSmartphone,
     SlidersHorizontal,
     PartyPopper,
@@ -85,12 +84,10 @@ const SettingsPage: React.FC = () => {
     const [deactivating, setDeactivating] = useState(false);
 
     /* ── System settings state ── */
-    const [allowMultipleAttempts, setAllowMultipleAttempts] = useState(false);
     const [enforceExamSingleTab, setEnforceExamSingleTab] = useState(false);
     const [tabSwitchGraceSeconds, setTabSwitchGraceSeconds] = useState(5);
     const [systemLoading, setSystemLoading] = useState(false);
     const [systemSaving, setSystemSaving] = useState(false);
-    const [settingsUpdatedAt, setSettingsUpdatedAt] = useState<string | null>(null);
 
     /* ── Fetch system settings (admin only) ── */
 
@@ -100,10 +97,8 @@ const SettingsPage: React.FC = () => {
             setSystemLoading(true);
             try {
                 const response = await api.get('/settings/system');
-                setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
                 setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
                 setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
-                setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
             } catch (error) {
                 console.error('Failed to fetch system settings', error);
             } finally {
@@ -151,44 +146,17 @@ const SettingsPage: React.FC = () => {
 
     /* ── System settings handlers (verbatim) ── */
 
-    const handleToggleMultipleAttempts = async (checked: boolean) => {
-        const previousValue = allowMultipleAttempts;
-        setAllowMultipleAttempts(checked);
-        setSystemSaving(true);
-        try {
-            const response = await api.patch('/settings/system', {
-                allowMultipleAttempts: checked,
-                enforceExamSingleTab,
-                tabSwitchGraceSeconds,
-            });
-            setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
-            setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
-            setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
-            setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
-            toast.success(checked ? 'Multiple attempts enabled.' : 'Multiple attempts disabled.');
-        } catch (error) {
-            console.error('Failed to update multiple attempts setting', error);
-            setAllowMultipleAttempts(previousValue);
-            toast.error('Failed to update multiple attempts setting. Please try again.');
-        } finally {
-            setSystemSaving(false);
-        }
-    };
-
     const handleToggleEnforceExamSingleTab = async (checked: boolean) => {
         const previousValue = enforceExamSingleTab;
         setEnforceExamSingleTab(checked);
         setSystemSaving(true);
         try {
             const response = await api.patch('/settings/system', {
-                allowMultipleAttempts,
                 enforceExamSingleTab: checked,
                 tabSwitchGraceSeconds,
             });
-            setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
             setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
             setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
-            setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
             toast.success(checked ? 'Exam focus lock enabled.' : 'Exam focus lock disabled.');
         } catch (error) {
             console.error('Failed to update exam focus lock setting', error);
@@ -209,14 +177,11 @@ const SettingsPage: React.FC = () => {
         setSystemSaving(true);
         try {
             const response = await api.patch('/settings/system', {
-                allowMultipleAttempts,
                 enforceExamSingleTab,
                 tabSwitchGraceSeconds,
             });
-            setAllowMultipleAttempts(Boolean(response.data?.data?.allowMultipleAttempts));
             setEnforceExamSingleTab(Boolean(response.data?.data?.enforceExamSingleTab));
             setTabSwitchGraceSeconds(Math.max(1, Math.min(30, Number(response.data?.data?.tabSwitchGraceSeconds || 5))));
-            setSettingsUpdatedAt(response.data?.data?.updatedAt || null);
             toast.success('Tab switch countdown updated.');
         } catch (error) {
             console.error('Failed to update tab switch countdown', error);
@@ -702,47 +667,6 @@ const SettingsPage: React.FC = () => {
                                     </div>
                                 ) : (
                                     <div className="p-5">
-                                        <div className="flex items-start justify-between gap-6 pb-5 border-b border-slate-100">
-                                            <div className="space-y-1.5 flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <ToggleRight size={15} className="text-slate-400 shrink-0" />
-                                                    <p className="text-sm font-semibold text-slate-900">Allow multiple exam attempts</p>
-                                                </div>
-                                                <p className="text-xs text-slate-500 leading-relaxed pl-5">
-                                                    When <strong>disabled</strong>, reviewees may submit each exam only once. When{' '}
-                                                    <strong>enabled</strong>, reviewees can retake exams up to the configured limit.
-                                                </p>
-                                                <div className="flex items-center gap-2 pl-5 pt-1">
-                                                    <Badge
-                                                        className={cn(
-                                                            'border-none font-semibold text-[11px] px-2 py-0.5',
-                                                            allowMultipleAttempts
-                                                                ? 'bg-emerald-50 text-emerald-600'
-                                                                : 'bg-slate-100 text-slate-500',
-                                                        )}
-                                                    >
-                                                        {allowMultipleAttempts ? 'Enabled' : 'Disabled'}
-                                                    </Badge>
-                                                    {settingsUpdatedAt && (
-                                                        <span className="text-[11px] text-slate-400">
-                                                            Last updated {new Date(settingsUpdatedAt).toLocaleString()}
-                                                        </span>
-                                                    )}
-                                                    {systemSaving && (
-                                                        <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-400">
-                                                            <RefreshCw size={10} className="animate-spin" /> Saving…
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <Switch
-                                                checked={allowMultipleAttempts}
-                                                onCheckedChange={(v) => void handleToggleMultipleAttempts(v)}
-                                                disabled={systemLoading || systemSaving}
-                                                className="data-[state=checked]:bg-primary shrink-0 mt-1"
-                                            />
-                                        </div>
-
                                         <div className="flex items-start justify-between gap-6 pt-5">
                                             <div className="space-y-1.5 flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">

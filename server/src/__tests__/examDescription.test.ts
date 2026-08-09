@@ -23,6 +23,7 @@ const VALID_EXAM = {
     title: 'LET 2024 Comprehensive Mock',
     subject: 'General Education',
     timeLimit: 120,
+    feedbackMode: 'IMMEDIATE' as const,
     questions: [VALID_QUESTION],
 };
 
@@ -63,12 +64,12 @@ describe('exam validator — description', () => {
 
 describe('exam validator - zero-question shell', () => {
     it('accepts an exam without a questions key, yielding undefined questions', () => {
-        const result = createExamSchema.parse({ title: 'Shell', subject: 'Gen Ed', timeLimit: 60 });
+        const result = createExamSchema.parse({ title: 'Shell', subject: 'Gen Ed', timeLimit: 60, feedbackMode: 'IMMEDIATE' });
         assert.equal(result.questions, undefined);
     });
 
     it('accepts an explicit empty questions array', () => {
-        const result = createExamSchema.parse({ title: 'Shell', subject: 'Gen Ed', timeLimit: 60, questions: [] });
+        const result = createExamSchema.parse({ title: 'Shell', subject: 'Gen Ed', timeLimit: 60, feedbackMode: 'IMMEDIATE', questions: [] });
         assert.deepEqual(result.questions, []);
     });
 });

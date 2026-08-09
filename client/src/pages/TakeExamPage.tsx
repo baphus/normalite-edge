@@ -78,6 +78,8 @@ interface ExamTakeResponse {
     subject: string;
     timeLimit: number;
     totalItems: number;
+    feedbackMode?: 'IMMEDIATE' | 'AFTER_SUBMIT' | string;
+    scheduleEnd?: string | null;
     questions: Array<{
         id: string;
         orderNo?: number;
@@ -172,6 +174,7 @@ const TakeExamPage: React.FC = () => {
         timeLimit: number;
         totalQuestions: number;
     } | null>(null);
+    const [delayedResults, setDelayedResults] = useState(false);
     const [endsAt, setEndsAt] = useState<string | null>(null);
     const [isOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
 
@@ -569,6 +572,9 @@ const TakeExamPage: React.FC = () => {
                         timeLimit: Math.max(0, Number(examPayload.timeLimit) || 0),
                         totalQuestions: Array.isArray(examPayload.questions) ? examPayload.questions.length : 0,
                     });
+                    setDelayedResults(Boolean(
+                        examPayload.feedbackMode === 'AFTER_SUBMIT' && examPayload.scheduleEnd
+                    ));
                 }
             } catch {
                 setPreflightSingleTabEnabled(false);

@@ -89,8 +89,6 @@ type SeedExam = {
     categoryName: string;
     programTrack: string;
     timeLimitMinutes: number;
-    maxAttempts: number;
-    cooldownMinutes: number;
     feedbackMode: FeedbackMode;
     status: ExamStatus;
     trackCodes: string[];
@@ -128,8 +126,6 @@ const EXAM_SEEDS: SeedExam[] = [
         categoryName: 'General Education',
         programTrack: 'BEED',
         timeLimitMinutes: 60,
-        maxAttempts: 3,
-        cooldownMinutes: 0,
         feedbackMode: FeedbackMode.AFTER_SUBMIT,
         status: ExamStatus.LIVE,
         trackCodes: ['BEED', 'BSED'],
@@ -258,8 +254,6 @@ const EXAM_SEEDS: SeedExam[] = [
         categoryName: 'Professional Education',
         programTrack: 'BSED',
         timeLimitMinutes: 75,
-        maxAttempts: 2,
-        cooldownMinutes: 15,
         feedbackMode: FeedbackMode.AFTER_SUBMIT,
         status: ExamStatus.LIVE,
         trackCodes: ['BSED', 'BEED'],
@@ -388,8 +382,6 @@ const EXAM_SEEDS: SeedExam[] = [
         categoryName: 'Specialization',
         programTrack: 'BSED-MATH',
         timeLimitMinutes: 90,
-        maxAttempts: 2,
-        cooldownMinutes: 15,
         feedbackMode: FeedbackMode.AFTER_SUBMIT,
         status: ExamStatus.LIVE,
         trackCodes: ['BSED-MATH'],
@@ -719,8 +711,6 @@ async function upsertExamWithContent(examSeed: SeedExam, reviewerId: string, tra
             categoryId,
             programTrack: examSeed.programTrack,
             timeLimitMinutes: examSeed.timeLimitMinutes,
-            maxAttempts: examSeed.maxAttempts,
-            cooldownMinutes: examSeed.cooldownMinutes,
             feedbackMode: examSeed.feedbackMode,
             status: examSeed.status,
             createdBy: reviewerId,
@@ -733,8 +723,6 @@ async function upsertExamWithContent(examSeed: SeedExam, reviewerId: string, tra
             categoryId,
             programTrack: examSeed.programTrack,
             timeLimitMinutes: examSeed.timeLimitMinutes,
-            maxAttempts: examSeed.maxAttempts,
-            cooldownMinutes: examSeed.cooldownMinutes,
             feedbackMode: examSeed.feedbackMode,
             status: examSeed.status,
             createdBy: reviewerId,
@@ -949,7 +937,6 @@ async function seed() {
         update: {},
         create: {
             id: 1,
-            allowMultipleAttempts: false,
             enforceExamSingleTab: false,
             tabSwitchGraceSeconds: 5,
         },

@@ -464,8 +464,8 @@ export function renderExamReportToPdf(doc: jsPDF, input: ExamReportInput): void 
         startY: 49,
         body: [
             ['Status', exam?.status || 'UNKNOWN', 'Category', exam?.category || 'N/A', 'Applicable Track(s)', describeTracks(exam)],
-            ['Questions', String(input.questionCount), 'Duration', durationMinutes > 0 ? `${durationMinutes} minutes` : 'N/A', 'Maximum Attempts', String(exam?.maxAttempts ?? 'N/A')],
-            ['Deadline / Schedule End', formatDateTime(input.deadline), 'Close on Deadline', exam?.closeOnDeadline ? 'Yes' : 'No', 'Created By', describeCreator(exam)],
+            ['Questions', String(input.questionCount), 'Duration', durationMinutes > 0 ? `${durationMinutes} minutes` : 'N/A', 'Deadline / Schedule End', formatDateTime(input.deadline)],
+            ['Created By', describeCreator(exam)],
         ],
         theme: 'grid',
         styles: { fontSize: 6.8, cellPadding: 1.6, lineColor: SLATE_200_RGB, lineWidth: 0.15 },

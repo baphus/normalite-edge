@@ -164,13 +164,10 @@ model Exam {
   categoryId       String?            @map("category_id") @db.Uuid
   programTrack     String?             @map("program_track")
   timeLimitMinutes Int                 @map("time_limit_minutes")
-  maxAttempts      Int?                @map("max_attempts")
-  cooldownMinutes  Int                 @default(0) @map("cooldown_minutes")
-  feedbackMode     FeedbackMode        @default(AFTER_SUBMIT) @map("feedback_mode")
+  feedbackMode     FeedbackMode        @map("feedback_mode")
   status           ExamStatus
   scheduleStart    DateTime?           @map("schedule_start")
   scheduleEnd      DateTime?           @map("schedule_end")
-  closeOnDeadline  Boolean             @default(false) @map("close_on_deadline")
   allowRetakes     Boolean             @default(false) @map("allow_retries")
   createdBy        String              @map("created_by") @db.Uuid
   createdAt        DateTime            @default(now()) @map("created_at")
@@ -455,7 +452,6 @@ model AuditLog {
 
 model SystemSetting {
   id                   Int      @id @default(1)
-  allowMultipleAttempts Boolean  @default(false) @map("allow_multiple_attempts")
   enforceExamSingleTab  Boolean  @default(false) @map("enforce_exam_single_tab")
   tabSwitchGraceSeconds Int      @default(5) @map("tab_switch_grace_seconds")
   createdAt            DateTime @default(now()) @map("created_at")

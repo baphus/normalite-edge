@@ -61,6 +61,10 @@ export const attemptController = {
             examId: examId as string,
             page,
             limit,
+            // Admin/reviewer views grade and rank first attempts only; retakes
+            // are invisible in the submissions list.
+            firstAttemptOnly: isAdmin,
+            isAdmin,
         });
 
         ApiResponse.paginated(res, result.attempts, {

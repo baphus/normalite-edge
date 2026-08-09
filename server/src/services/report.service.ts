@@ -308,12 +308,9 @@ export class ReportService {
                 kv('Created At', formatDateTime(exam.createdAt));
                 kv('Updated At', formatDateTime(exam.updatedAt));
                 kv('Time Limit (Minutes)', exam.timeLimitMinutes);
-                kv('Max Attempts', exam.maxAttempts ?? 'N/A');
-                kv('Cooldown (Minutes)', exam.cooldownMinutes);
                 kv('Feedback Mode', enumLabel(exam.feedbackMode));
                 kv('Schedule Start', formatDateTime(exam.scheduleStart));
                 kv('Schedule End', formatDateTime(exam.scheduleEnd));
-                kv('Close on Deadline', exam.closeOnDeadline ? 'Yes' : 'No');
                 kv('Total Sections', exam.sections.length);
                 kv('Total Questions', exam.questions.length);
 

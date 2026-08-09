@@ -53,9 +53,7 @@ const input = {
     ],
     program_track: null,
     creator: { name: 'Dr. Maria Santos' },
-    maxAttempts: 3,
     timeLimit: 60,
-    closeOnDeadline: true,
     description:
       'This examination covers the first three weeks of lectures on human anatomy and physiology, including cellular structure, tissues, and the skeletal system.',
   },
