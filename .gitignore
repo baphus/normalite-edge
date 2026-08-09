@@ -31,3 +31,6 @@ Desktop.ini
 
 # Coverage
 coverage
+
+# Deepwork state
+.slim/deepwork/

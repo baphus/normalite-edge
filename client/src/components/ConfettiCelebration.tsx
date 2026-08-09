@@ -7,6 +7,11 @@ interface ConfettiCelebrationProps {
     trigger: boolean;
     /** Optional callback fired when the celebration ends. */
     onComplete?: () => void;
+    /**
+     * Number of confetti pieces. Defaults to the full 300-piece burst;
+     * pass a smaller value (e.g. 120) for a subtler celebration.
+     */
+    numberOfPieces?: number;
 }
 
 const CONFETTI_DURATION_MS = 4000;
@@ -33,6 +38,7 @@ const isConfettiEnabled = (): boolean => {
 const ConfettiCelebration: React.FC<ConfettiCelebrationProps> = ({
     trigger,
     onComplete,
+    numberOfPieces = 300,
 }) => {
     const { reducedMotion } = useMotionPreference();
     const [isActive, setIsActive] = useState(false);
@@ -81,7 +87,7 @@ const ConfettiCelebration: React.FC<ConfettiCelebrationProps> = ({
             <Confetti
                 run={isActive}
                 recycle={false}
-                numberOfPieces={300}
+                numberOfPieces={numberOfPieces}
                 onConfettiComplete={handleConfettiComplete}
             />
         </div>

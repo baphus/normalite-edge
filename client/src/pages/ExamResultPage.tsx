@@ -1,21 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-    ArrowLeft,
-    CheckCircle2,
-    XCircle,
-    MinusCircle,
-    Clock,
-    TrendingUp,
-    RotateCcw,
-    Info,
-    ChevronDown,
-    ChevronUp,
-    HelpCircle,
-} from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Select,
@@ -24,29 +11,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import ScoreHero from '@/components/exam/ScoreHero';
+import SectionBreakdown, { type SectionData } from '@/components/exam/SectionBreakdown';
+import QuestionReview, { type ReviewQuestion, type SectionInfo } from '@/components/exam/QuestionReview';
+import WhatNextCTAs, { type SectionTier } from '@/components/exam/WhatNextCTAs';
+import { getScoreTrend, getTierLabel, type ScoreTrendPoint } from '@/lib/examTheme';
 import api from '@/lib/axios';
 import { useStreakContext } from '@/contexts/StreakContext';
-import ConfettiCelebration from '@/components/ConfettiCelebration';
 
-const SECTION_DOTS: Record<string, string> = {
-    'Professional Education': 'bg-purple-500',
-    'General Education': 'bg-blue-500',
-    'Major Subject': 'bg-orange-500',
-};
-
-const formatDuration = (seconds?: number | null, fallback = 'No timing data') => {
-    const numeric = Math.max(0, Math.round(Number(seconds || 0)));
-    if (!numeric) return fallback;
-
-    const minutes = Math.floor(numeric / 60);
-    const remainingSeconds = numeric % 60;
-
-    if (minutes > 0) {
-        return `${minutes}m ${remainingSeconds}s`;
-    }
-
-    return `${remainingSeconds}s`;
-};
+// ScoreHero fires the confetti overlay internally (tiered by score). The page
+// only holds the gates up long enough for the celebration to play, then drops
+// them so a later attempt switch can never re-trigger it.
+const CONFETTI_HOLD_MS = 4500;
 
 interface AttemptOption {
     id: string;
@@ -108,7 +84,9 @@ interface ExamResultPayload {
     questionDetails?: ResultQuestionDetail[];
 }
 
-interface QuestionReview {
+// Internal page shape for a review row, built from either the dedicated review
+// payload or a fallback from the result payload's `questionDetails`.
+interface ReviewQuestionRow {
     id: string;
     orderNo: number;
     text: string;
@@ -153,16 +131,6 @@ interface ApiErrorLike {
     message?: string;
 }
 
-interface SectionBreakdownCard {
-    name: string;
-    total: number;
-    correct: number;
-    incorrect: number;
-    skipped: number;
-    elapsedSeconds: number;
-    accuracy: number;
-}
-
 const ExamResultPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -174,13 +142,18 @@ const ExamResultPage: React.FC = () => {
     const justSubmittedRef = useRef(
         Boolean((location.state as { justSubmitted?: boolean } | null)?.justSubmitted)
     );
+    // Stable "fresh submission" flag for the whole visit — gates ScoreHero's
+    // confetti so revisits stay quiet.
+    const [justSubmitted, setJustSubmitted] = useState(
+        () => Boolean((location.state as { justSubmitted?: boolean } | null)?.justSubmitted)
+    );
+    const [showConfetti, setShowConfetti] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [attemptId, setAttemptId] = useState<string | null>(searchParams.get('attemptId'));
     const [submittedAttempts, setSubmittedAttempts] = useState<AttemptOption[]>([]);
     const [result, setResult] = useState<ExamResultPayload | null>(null);
-    const [reviewQuestions, setReviewQuestions] = useState<QuestionReview[]>([]);
-    const [showConfetti, setShowConfetti] = useState(false);
+    const [reviewQuestions, setReviewQuestions] = useState<ReviewQuestionRow[]>([]);
     const [previousAttempt, setPreviousAttempt] = useState<{
         attemptNo: number;
         score: number;
@@ -188,10 +161,6 @@ const ExamResultPage: React.FC = () => {
         submittedAt: string | null;
     } | null>(null);
     const [allowMultipleAttempts, setAllowMultipleAttempts] = useState(false);
-    const [filterStatus, setFilterStatus] = useState<'all' | 'correct' | 'incorrect'>('all');
-    const [filterSection, setFilterSection] = useState<string>('all');
-    const [collapsedQuestions, setCollapsedQuestions] = useState<Record<string, boolean>>({});
-    const [collapsedExplanations, setCollapsedExplanations] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         const loadAttemptOptions = async () => {
@@ -281,6 +250,17 @@ const ExamResultPage: React.FC = () => {
         fetchResult();
     }, [attemptId, refetchStreak]);
 
+    // Drop the confetti gates a moment after they fire, so a later attempt
+    // switch can never flip the tier gates and re-trigger a celebration.
+    useEffect(() => {
+        if (!showConfetti) return;
+        const resetTimer = window.setTimeout(() => {
+            setShowConfetti(false);
+            setJustSubmitted(false);
+        }, CONFETTI_HOLD_MS);
+        return () => window.clearTimeout(resetTimer);
+    }, [showConfetti]);
+
     // Review data is supplementary to the result payload (it adds per-question
     // elapsed timing). A failure here must never take down the whole page.
     useEffect(() => {
@@ -296,14 +276,11 @@ const ExamResultPage: React.FC = () => {
                 const answerMap = (review.answers || {}) as Record<string, string>;
                 const answerMeta = (review.answerMeta || {}) as Record<string, { elapsedSeconds?: number | null }>;
 
-                setCollapsedQuestions({});
-                setCollapsedExplanations({});
-
                 const sortedQuestions = (review.exam?.questions || [])
                     .slice()
                     .sort((first, second) => Number(first.orderNo ?? 0) - Number(second.orderNo ?? 0));
 
-                const parsedQuestions: QuestionReview[] = sortedQuestions.map((question, index) => {
+                const parsedQuestions: ReviewQuestionRow[] = sortedQuestions.map((question, index) => {
                     const rawSection = question.section;
                     const sectionName = typeof rawSection === 'string'
                         ? rawSection
@@ -345,39 +322,28 @@ const ExamResultPage: React.FC = () => {
         setSearchParams({ attemptId: nextAttemptId }, { replace: true });
     };
 
-    const results = useMemo(() => {
-        if (!result) {
-            return {
-                totalQuestions: 0,
-                correct: 0,
-                incorrect: 0,
-                skipped: 0,
-                score: '0%',
-                date: 'N/A',
-                timeSpent: '00:00:00',
-                avgTime: '0s',
-            };
-        }
+    // ── ScoreHero props ────────────────────────────────────────────────────────
+    const score = result?.percentage ?? result?.stats?.accuracy ?? 0;
+    const correct = result?.stats?.correct ?? 0;
+    const total = result?.stats?.totalQuestions ?? 0;
+    const attemptNo = selectedAttemptMeta?.attemptNo ?? result?.attemptNo ?? 1;
+    const totalAttempts = submittedAttempts.length;
 
-        const timeSpentSeconds = result.timeSpentSeconds || 0;
-        const h = Math.floor(timeSpentSeconds / 3600);
-        const m = Math.floor((timeSpentSeconds % 3600) / 60);
-        const s = Math.floor(timeSpentSeconds % 60);
-        const avgPerQuestion = result.stats.totalQuestions > 0
-            ? Math.round(timeSpentSeconds / result.stats.totalQuestions)
-            : 0;
+    const passed = useMemo(() => {
+        const tier = getTierLabel(score);
+        return tier !== null && tier !== 'Needs Work';
+    }, [score]);
 
-        return {
-            totalQuestions: result.stats.totalQuestions,
-            correct: result.stats.correct,
-            incorrect: result.stats.incorrect,
-            skipped: result.stats.skipped,
-            score: `${Number(result.percentage || result.stats.accuracy || 0).toFixed(2)}%`,
-            date: result.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A',
-            timeSpent: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`,
-            avgTime: `${avgPerQuestion}s`,
-        };
-    }, [result]);
+    // Sparkline data from the attempt history (oldest first, left-to-right).
+    const trend = useMemo<ScoreTrendPoint[]>(() => {
+        const oldestFirst = [...submittedAttempts].sort(
+            (first, second) =>
+                new Date(first.submittedAt ?? 0).getTime() - new Date(second.submittedAt ?? 0).getTime()
+        );
+        return getScoreTrend(oldestFirst);
+    }, [submittedAttempts]);
+
+    // ── Question data pipeline ─────────────────────────────────────────────────
 
     // Normalized question details from the result payload. Used as a fallback
     // for the question review when the dedicated review payload is unavailable.
@@ -402,7 +368,7 @@ const ExamResultPage: React.FC = () => {
             : normalized;
     }, [result?.questionDetails]);
 
-    const fallbackReviewQuestions = useMemo<QuestionReview[]>(() => {
+    const fallbackReviewQuestions = useMemo<ReviewQuestionRow[]>(() => {
         return questionDetails.map((question) => ({
             id: question.id,
             orderNo: question.orderNo,
@@ -419,20 +385,7 @@ const ExamResultPage: React.FC = () => {
 
     const questions = reviewQuestions.length > 0 ? reviewQuestions : fallbackReviewQuestions;
 
-    const sectionOptions = useMemo(() => {
-        return Array.from(new Set(questions.map((question) => question.section).filter(Boolean)));
-    }, [questions]);
-
-    const reviewMetrics = useMemo(() => {
-        const total = questions.length;
-        const correct = questions.filter((question) => question.userAnswer === question.correctAnswer).length;
-        const answered = questions.filter((question) => Boolean(question.userAnswer)).length;
-        const incorrect = answered - correct;
-        const skipped = Math.max(total - answered, 0);
-
-        return { total, correct, incorrect, skipped };
-    }, [questions]);
-
+    // Per-section aggregation (includes per-question timing from the review payload).
     const sectionReviewGroups = useMemo(() => {
         const groups = new Map<string, {
             name: string;
@@ -469,16 +422,14 @@ const ExamResultPage: React.FC = () => {
         return Array.from(groups.values());
     }, [questions]);
 
-    const sectionBreakdown = useMemo<SectionBreakdownCard[]>(() => {
+    // ── SectionBreakdown props ─────────────────────────────────────────────────
+    const sectionData = useMemo<SectionData[]>(() => {
         if (questions.length > 0) {
             return sectionReviewGroups.map((group) => ({
                 name: group.name,
                 total: group.total,
                 correct: group.correct,
-                incorrect: group.incorrect,
-                skipped: group.skipped,
                 elapsedSeconds: group.elapsedSeconds,
-                accuracy: group.total > 0 ? (group.correct / group.total) * 100 : 0,
             }));
         }
 
@@ -488,42 +439,66 @@ const ExamResultPage: React.FC = () => {
                 name: String(section.name || '').trim(),
                 total: section.total,
                 correct: section.correct,
-                incorrect: section.incorrect,
-                skipped: section.skipped,
                 elapsedSeconds: 0,
-                accuracy: Number(section.score || 0),
             }));
-    }, [questions, sectionReviewGroups, result?.sections]);
+    }, [questions.length, sectionReviewGroups, result?.sections]);
 
-    const filteredQuestions = questions.filter((question) => {
-        const matchesStatus = filterStatus === 'all'
-            || (filterStatus === 'correct' && question.userAnswer === question.correctAnswer)
-            || (filterStatus === 'incorrect' && Boolean(question.userAnswer) && question.userAnswer !== question.correctAnswer);
-        const matchesSection = filterSection === 'all' || question.section === filterSection;
-        return matchesStatus && matchesSection;
-    });
+    // ── QuestionReview props ───────────────────────────────────────────────────
+    const reviewItems = useMemo<ReviewQuestion[]>(() =>
+        questions.map((question) => ({
+            id: question.id,
+            orderNo: question.orderNo,
+            section: question.section,
+            questionText: question.text,
+            imageUrl: question.imageUrl,
+            choices: question.options,
+            userAnswer: question.userAnswer,
+            correctAnswer: question.correctAnswer,
+            isCorrect: question.userAnswer === question.correctAnswer,
+            rationalization: question.rationalization,
+        })),
+        [questions]
+    );
 
-    const toggleExpand = (questionId: string) => {
-        setCollapsedQuestions((current) => ({
-            ...current,
-            [questionId]: !current[questionId],
-        }));
-    };
+    const reviewSections = useMemo<SectionInfo[]>(() =>
+        sectionData.map((section) => ({
+            name: section.name,
+            total: section.total,
+            correct: section.correct,
+        })),
+        [sectionData]
+    );
 
-    const toggleExplanation = (questionId: string) => {
-        setCollapsedExplanations((current) => ({
-            ...current,
-            [questionId]: !current[questionId],
-        }));
-    };
+    // ── WhatNextCTAs props ─────────────────────────────────────────────────────
+    const sectionTiers = useMemo<SectionTier[]>(() =>
+        sectionData.map((section) => {
+            const percentage = section.total > 0 ? (section.correct / section.total) * 100 : 0;
+            return {
+                name: section.name,
+                tier: getTierLabel(percentage) ?? 'Needs Work',
+                percentage,
+            };
+        }),
+        [sectionData]
+    );
 
-    const showCorrectMetric = results.correct > 0;
-    const showIncorrectMetric = results.incorrect > 0;
-    const showSkippedMetric = results.skipped > 0;
+    // Max attempts is a page-level constant matching the server default; when
+    // multiple attempts are disabled the retake card is simply always disabled.
+    const maxAttempts = allowMultipleAttempts ? 3 : 1;
+
+    const handleRetake = () => navigate(`/exams/${id}/take`);
+
+    // The per-attempt PDF report export is out of scope for this assembly —
+    // see the WhatNextCTAs props contract.
+    // TODO(T8): wire the actual PDF export here.
+    const handleDownloadReport = () => {};
+
+    const resultDate = result?.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A';
 
     if (loading) {
         return (
             <div className="flex flex-col gap-5 pb-10 max-w-6xl" data-testid="exam-result-skeleton">
+                {/* Header row */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
                         <Skeleton className="h-8 w-8 rounded-lg" />
@@ -534,17 +509,19 @@ const ExamResultPage: React.FC = () => {
                     </div>
                     <Skeleton className="h-8 w-44 rounded-lg" />
                 </div>
-                <Skeleton className="h-24 w-full rounded-xl" />
+                {/* Score hero: banner + sparkline */}
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-                    <div className="space-y-4 lg:col-span-8">
-                        <Skeleton className="h-48 w-full rounded-xl" />
-                        <Skeleton className="h-20 w-full rounded-xl" />
-                        <Skeleton className="h-20 w-full rounded-xl" />
-                    </div>
-                    <div className="space-y-3 lg:col-span-4">
-                        <Skeleton className="h-56 w-full rounded-xl" />
-                        <Skeleton className="h-72 w-full rounded-xl" />
-                    </div>
+                    <Skeleton className="h-36 w-full rounded-xl lg:col-span-8" />
+                    <Skeleton className="h-36 w-full rounded-xl lg:col-span-4" />
+                </div>
+                {/* Section breakdown */}
+                <Skeleton className="h-44 w-full rounded-xl" />
+                {/* Question review */}
+                <Skeleton className="h-96 w-full rounded-xl" />
+                {/* What's next CTAs */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Skeleton className="h-24 w-full rounded-xl" />
+                    <Skeleton className="h-24 w-full rounded-xl" />
                 </div>
             </div>
         );
@@ -581,272 +558,63 @@ const ExamResultPage: React.FC = () => {
                     <div className="min-w-0">
                         <h1 className="text-sm font-semibold text-slate-900 truncate">{result.exam?.title || 'Exam Result'}</h1>
                         <p className="text-xs text-slate-400 font-medium">
-                            Submitted {results.date}
+                            Submitted {resultDate}
                             {selectedAttemptMeta?.attemptNo ? ` · Attempt ${selectedAttemptMeta.attemptNo}` : ''}
                         </p>
                     </div>
                 </div>
-                <div data-guide="exam-result-actions" className="flex items-center gap-2 shrink-0">
-                    {submittedAttempts.length > 1 && (
-                        <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
-                            <SelectTrigger data-guide="exam-result-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-slate-200 w-44">
-                                <SelectValue placeholder="Select attempt" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {submittedAttempts.map((attempt, index) => (
-                                    <SelectItem key={attempt.id} value={attempt.id} className="text-xs">
-                                        Attempt {attempt.attemptNo || submittedAttempts.length - index} · {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : '—'}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                    {allowMultipleAttempts && (() => {
-                        const maxAttempts = 3; // matches server default
-                        const attemptsLeft = maxAttempts - submittedAttempts.length;
-                        return (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={attemptsLeft <= 0}
-                                onClick={() => navigate(`/exams/${id}/take`)}
-                                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 gap-1.5"
-                            >
-                                <RotateCcw size={12} /> Retake {submittedAttempts.length > 0 && `(${submittedAttempts.length}/${maxAttempts})`}
-                            </Button>
-                        );
-                    })()}
-                </div>
+                {submittedAttempts.length > 1 && (
+                    <Select value={attemptId || undefined} onValueChange={handleAttemptChange}>
+                        <SelectTrigger data-guide="exam-result-attempt-selector" className="h-8 text-xs font-semibold rounded-lg border-slate-200 w-44">
+                            <SelectValue placeholder="Select attempt" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {submittedAttempts.map((attempt, index) => (
+                                <SelectItem key={attempt.id} value={attempt.id} className="text-xs">
+                                    Attempt {attempt.attemptNo || submittedAttempts.length - index} · {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : '—'}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
             </header>
 
-            {/* Score Hero */}
-            <div data-guide="exam-result-score-hero" className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="text-5xl font-semibold leading-none text-slate-900">
-                        {results.score}
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 font-medium">{results.correct} correct out of {results.totalQuestions} questions</p>
-                    </div>
-                </div>
-                <div className="sm:ml-auto flex flex-wrap gap-4 text-xs font-semibold text-slate-600">
-                    {showCorrectMetric && (
-                        <span className="flex items-center gap-1.5"><CheckCircle2 size={13} className="text-emerald-600" /> {results.correct} Correct</span>
-                    )}
-                    {showIncorrectMetric && (
-                        <span className="flex items-center gap-1.5"><XCircle size={13} className="text-red-500" /> {results.incorrect} Incorrect</span>
-                    )}
-                    {showSkippedMetric && (
-                        <span className="flex items-center gap-1.5"><MinusCircle size={13} className="text-amber-500" /> {results.skipped} Skipped</span>
-                    )}
-                    <span className="flex items-center gap-1.5"><Clock size={13} className="text-slate-400" /> {results.timeSpent}</span>
-                    <span className="flex items-center gap-1.5"><TrendingUp size={13} className="text-slate-400" /> {results.avgTime}/q</span>
-                </div>
+            {/* Score hero: pass/fail banner, score, sparkline, tiered confetti */}
+            <div data-guide="exam-result-score-hero">
+                <ScoreHero
+                    score={score}
+                    correct={correct}
+                    total={total}
+                    attemptNo={attemptNo}
+                    totalAttempts={totalAttempts}
+                    trend={trend}
+                    justSubmitted={justSubmitted}
+                    showConfetti={showConfetti}
+                />
             </div>
 
-            {/* Section Breakdown */}
-            {sectionBreakdown.length > 1 && (
-                <Card data-guide="exam-result-section-breakdown" className="border-slate-200 shadow-sm rounded-xl overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-100">
-                        <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Section Breakdown</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
-                        {sectionBreakdown.map((section) => {
-                            const dotColor = SECTION_DOTS[section.name] || 'bg-slate-400';
-                            return (
-                                <div key={section.name} className="rounded-lg border border-slate-200 p-3">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <span className={`h-2 w-2 rounded-full shrink-0 ${dotColor}`} />
-                                            <div className="min-w-0">
-                                                <p className="truncate text-xs font-semibold text-slate-800">{section.name}</p>
-                                                <p className="text-xs font-medium text-slate-400">{formatDuration(section.elapsedSeconds, 'No timing data')}</p>
-                                            </div>
-                                        </div>
-                                        <span className="shrink-0 text-xs font-semibold text-slate-700">{section.accuracy.toFixed(1)}%</span>
-                                    </div>
-                                    <Progress value={section.accuracy} className="h-1.5 mt-2" />
-                                    <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
-                                        <div className="rounded-md bg-emerald-50 px-2 py-1">
-                                            <p className="text-xs font-semibold text-emerald-700">{section.correct}</p>
-                                            <p className="text-[11px] font-semibold uppercase text-emerald-600">Correct</p>
-                                        </div>
-                                        <div className="rounded-md bg-red-50 px-2 py-1">
-                                            <p className="text-xs font-semibold text-red-600">{section.incorrect}</p>
-                                            <p className="text-[11px] font-semibold uppercase text-red-500">Wrong</p>
-                                        </div>
-                                        <div className="rounded-md bg-amber-50 px-2 py-1">
-                                            <p className="text-xs font-semibold text-amber-700">{section.skipped}</p>
-                                            <p className="text-[11px] font-semibold uppercase text-amber-600">Skipped</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </Card>
-            )}
+            {/* Section breakdown: tiered bars per section */}
+            <div data-guide="exam-result-section-breakdown">
+                <SectionBreakdown sections={sectionData} />
+            </div>
 
-            {/* Question Review */}
-            <section data-guide="exam-result-question-review" className="space-y-3">
-                <header className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Question Review</h3>
-                    <span className="text-xs text-slate-400 font-medium">{filteredQuestions.length} shown</span>
-                </header>
+            {/* Question review: tabbed, filterable per-question review */}
+            <div data-guide="exam-result-question-review">
+                <QuestionReview questions={reviewItems} sections={reviewSections} />
+            </div>
 
-                <div data-guide="exam-review-filters" className="flex items-center gap-2 flex-wrap">
-                    {(['all', 'correct', 'incorrect'] as const).map((status) => {
-                        const labels = { all: 'All', correct: 'Correct', incorrect: 'Incorrect' };
-                        const counts = { all: questions.length, correct: reviewMetrics.correct, incorrect: reviewMetrics.incorrect };
-                        const active = filterStatus === status;
-                        return (
-                            <button
-                                key={status}
-                                onClick={() => setFilterStatus(status)}
-                                className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${active ? (status === 'incorrect' ? 'bg-red-500 text-white' : status === 'correct' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white') : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                            >
-                                {labels[status]}
-                                <span className={`text-xs font-semibold px-1 rounded ${active ? 'bg-white/20' : 'bg-slate-200 text-slate-400'}`}>{counts[status]}</span>
-                            </button>
-                        );
-                    })}
-                    {sectionOptions.length > 1 && (
-                        <div className="ml-auto">
-                            <Select value={filterSection} onValueChange={setFilterSection}>
-                                <SelectTrigger className="h-7 text-xs font-semibold rounded-md border-slate-200 w-40">
-                                    <SelectValue placeholder="All Sections" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all" className="text-xs">All Sections</SelectItem>
-                                    {sectionOptions.map((sec) => (
-                                        <SelectItem key={sec} value={sec} className="text-xs">{sec}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                </div>
-
-                <div data-guide="exam-review-list" className="flex flex-col gap-3">
-                    {filteredQuestions.map((q, questionIndex) => {
-                        const isCorrect = q.userAnswer === q.correctAnswer;
-                        const isSkipped = !q.userAnswer;
-                        const dotColor = SECTION_DOTS[q.section] || 'bg-slate-400';
-                        const isExpanded = !collapsedQuestions[q.id];
-                        const isExplanationExpanded = !collapsedExplanations[q.id];
-                        const isFirstInSection = questionIndex === 0 || filteredQuestions[questionIndex - 1]?.section !== q.section;
-                        const sectionGroup = sectionReviewGroups.find((group) => group.name === q.section);
-                        const sectionAccuracy = sectionGroup && sectionGroup.total > 0
-                            ? (sectionGroup.correct / sectionGroup.total) * 100
-                            : 0;
-
-                        return (
-                            <React.Fragment key={q.id}>
-                            {isFirstInSection && (
-                                <div className="mt-4 first:mt-0 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-semibold text-slate-800 truncate">
-                                            Section {sectionReviewGroups.findIndex((group) => group.name === q.section) + 1}: {q.section}
-                                        </p>
-                                        <p className="text-xs font-medium text-slate-400">{sectionGroup?.total || 0} questions</p>
-                                    </div>
-                                    <span className="shrink-0 rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
-                                        {sectionGroup?.correct || 0}/{sectionGroup?.total || 0} · {sectionAccuracy.toFixed(0)}%
-                                    </span>
-                                </div>
-                            )}
-                            <Card key={q.id} className={`border shadow-none overflow-hidden rounded-xl transition-all ${isExpanded ? 'border-primary/20 shadow-sm' : 'border-slate-200'}`}>
-                                <div className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => toggleExpand(q.id)}>
-                                    {isCorrect ? (<CheckCircle2 size={15} className="text-emerald-500 shrink-0" />) : isSkipped ? (<MinusCircle size={15} className="text-amber-400 shrink-0" />) : (<XCircle size={15} className="text-red-500 shrink-0" />)}
-                                    <span className="text-[11px] font-semibold text-slate-400 shrink-0 w-5 text-right">{q.orderNo}</span>
-                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
-                                    <p className="flex-1 text-xs font-medium text-slate-800 truncate min-w-0">{q.text}</p>
-                                    {!isExpanded && (
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                            {typeof q.elapsedSeconds === 'number' && q.elapsedSeconds > 0 && (
-                                                <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">{formatDuration(q.elapsedSeconds)}</span>
-                                            )}
-                                            {!isCorrect && !isSkipped && (<span className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">{q.userAnswer} → {q.correctAnswer}</span>)}
-                                            {isSkipped && (<span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">Skipped</span>)}
-                                        </div>
-                                    )}
-                                    {isExpanded ? (<ChevronUp size={14} className="text-slate-300 shrink-0" />) : (<ChevronDown size={14} className="text-slate-300 shrink-0" />)}
-                                </div>
-                                {isExpanded && (
-                                    <CardContent className="px-4 pb-4 pt-0 border-t border-slate-100 bg-slate-50/50 space-y-3">
-                                        <p className="text-xs font-semibold text-slate-800 leading-relaxed pt-3">{q.text}</p>
-                                        {q.imageUrl && (
-                                            <div className="rounded-lg border border-slate-200 bg-white p-2">
-                                                <img src={q.imageUrl} alt="Question attachment" className="max-h-52 w-auto max-w-full rounded object-contain" />
-                                            </div>
-                                        )}
-                                        <div className="grid gap-1.5">
-                                            {q.options.map((opt, idx) => {
-                                                const label = String.fromCharCode(65 + idx);
-                                                const isUserPick = q.userAnswer === label;
-                                                const isCorrectChoice = q.correctAnswer === label;
-                                                let style = 'border-slate-200 bg-white text-slate-600';
-                                                if (isCorrectChoice) style = 'border-emerald-300 bg-emerald-50 text-emerald-800';
-                                                else if (isUserPick && !isCorrect) style = 'border-red-300 bg-red-50 text-red-700';
-                                                return (
-                                                    <div key={idx} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs font-medium ${style}`}>
-                                                        <span className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-semibold shrink-0 ${isCorrectChoice ? 'bg-emerald-600 text-white' : isUserPick && !isCorrectChoice ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{label}</span>
-                                                        <span className="flex-1">{opt}</span>
-                                                        {isCorrectChoice && <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />}
-                                                        {isUserPick && !isCorrectChoice && <XCircle size={13} className="text-red-500 shrink-0" />}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        <div className="rounded-lg border border-blue-100 bg-blue-50 overflow-hidden">
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleExplanation(q.id)}
-                                                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
-                                            >
-                                                <div className="flex items-center gap-2.5 min-w-0">
-                                                    <Info size={13} className="text-blue-500 shrink-0" />
-                                                    <div>
-                                                        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Explanation</p>
-                                                        <p className="text-xs text-blue-500 font-medium">
-                                                            {isExplanationExpanded ? 'Hide explanation' : 'Show explanation'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                {isExplanationExpanded ? (
-                                                    <ChevronUp size={14} className="text-blue-400 shrink-0" />
-                                                ) : (
-                                                    <ChevronDown size={14} className="text-blue-400 shrink-0" />
-                                                )}
-                                            </button>
-                                            {isExplanationExpanded && (
-                                                <div className="border-t border-blue-100 px-3 py-2.5">
-                                                    <p className="text-xs text-slate-700 leading-relaxed font-medium">{q.rationalization}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                )}
-                            </Card>
-                            </React.Fragment>
-                        );
-                    })}
-
-                    {filteredQuestions.length === 0 && (
-                        <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
-                            <div className="h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center">
-                                <HelpCircle size={22} className="text-slate-300" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-semibold text-slate-700">No questions found</p>
-                                <p className="text-xs text-slate-400 font-medium">Adjust your filters to see results.</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </section>
-
-            <ConfettiCelebration trigger={showConfetti} onComplete={() => setShowConfetti(false)} />
+            {/* What's next: context-dependent CTAs */}
+            <div data-guide="exam-result-actions">
+                <WhatNextCTAs
+                    passed={passed}
+                    score={score}
+                    attemptNo={attemptNo}
+                    maxAttempts={maxAttempts}
+                    sections={sectionTiers}
+                    onDownload={handleDownloadReport}
+                    onRetake={handleRetake}
+                />
+            </div>
         </div>
     );
 };

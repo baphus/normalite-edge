@@ -80,6 +80,6 @@ describe('ExamResultPage', () => {
 
         renderPage();
 
-        expect(await screen.findByText('5 correct out of 10 questions')).toBeInTheDocument();
+        expect(await screen.findByText('5/10 correct')).toBeInTheDocument();
     });
 });

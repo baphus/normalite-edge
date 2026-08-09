@@ -1,19 +1,15 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    Timer,
+    AlertTriangle,
     ArrowLeft,
     ArrowRight,
-    Send,
-    AlertTriangle,
-    ListChecks,
-    CheckCircle2,
     CircleDot,
     Flag,
+    Send,
     WifiOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Dialog,
@@ -23,15 +19,24 @@ import {
     DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
 import api from '@/lib/axios';
 import { useStreakContext } from '@/contexts/StreakContext';
 import { toast } from 'sonner';
+import ExamLayout, { type QuestionStatus, type SectionTab } from '@/components/exam/ExamLayout';
+import TimerHeader from '@/components/exam/TimerHeader';
+import ItemReviewScreen from '@/components/exam/ItemReviewScreen';
+import SubmitConfirmDialog from '@/components/exam/SubmitConfirmDialog';
+import ExamInstructions, {
+    KeyboardShortcutsHelp,
+    useExamKeyboardShortcuts,
+} from '@/components/exam/ExamInstructions';
+import {
+    FocusModeToggle,
+    MobileBottomNav,
+    MobileSectionTabs,
+    QuestionGridSheet,
+    useExamFocusMode,
+} from '@/components/exam/MobileExamNav';
 
 interface Question {
     id: string;
@@ -152,8 +157,8 @@ const TakeExamPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-    const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [showReview, setShowReview] = useState(false);
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [enforceExamSingleTab, setEnforceExamSingleTab] = useState(false);
     const [hasReviewedInstructions, setHasReviewedInstructions] = useState(false);
@@ -161,8 +166,16 @@ const TakeExamPage: React.FC = () => {
     const [tabSwitchGraceSeconds, setTabSwitchGraceSeconds] = useState(5);
     const [preflightTabSwitchGraceSeconds, setPreflightTabSwitchGraceSeconds] = useState(5);
     const [preflightLoading, setPreflightLoading] = useState(true);
-    const [isMobileNavigatorOpen, setIsMobileNavigatorOpen] = useState(false);
+    const [preflightExamInfo, setPreflightExamInfo] = useState<{
+        title: string;
+        subject: string;
+        timeLimit: number;
+        totalQuestions: number;
+    } | null>(null);
+    const [endsAt, setEndsAt] = useState<string | null>(null);
     const [isOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+
+    const { isFocusMode, onToggleFocusMode } = useExamFocusMode();
 
     const answersRef = useRef<Record<string, string>>({});
     const answerMetaRef = useRef<Record<string, { viewedAt?: string | null; answeredAt?: string | null; elapsedSeconds?: number | null }>>({});
@@ -184,14 +197,8 @@ const TakeExamPage: React.FC = () => {
     const pendingNavigationPathRef = useRef<string | null>(null);
     const pendingNavigationTypeRef = useRef<'route' | 'history' | null>(null);
     const skipNextPopStateRef = useRef(false);
-    const timerRef = useRef<HTMLDivElement | null>(null);
-    const timerRoleRef = useRef<'timer' | 'alert'>('timer');
-    const timerRoleSwapTimeoutRef = useRef<number | null>(null);
-    const prevTimeLeftRef = useRef<number | null>(null);
-    const mobileNavigatorScrollRef = useRef<HTMLDivElement | null>(null);
-    const sheetTouchStartYRef = useRef<number | null>(null);
-    const sheetTouchStartScrollTopRef = useRef<number | null>(null);
-    const submitConfirmDialogRef = useRef<HTMLDivElement | null>(null);
+    const submitInFlightRef = useRef(false);
+    const submittedThisSessionRef = useRef(false);
 
     const draftKey = useMemo(() => (id ? `exam-draft:${id}` : ''), [id]);
     const startedKey = useMemo(() => (id ? `exam-started:${id}` : ''), [id]);
@@ -544,9 +551,25 @@ const TakeExamPage: React.FC = () => {
             }
             setPreflightLoading(true);
             try {
-                const response = await api.get('/settings/system');
-                setPreflightSingleTabEnabled(Boolean(response.data?.data?.enforceExamSingleTab));
-                setPreflightTabSwitchGraceSeconds(Math.max(1, Math.min(30, Math.round(Number(response.data?.data?.tabSwitchGraceSeconds || 5)))));
+                const [settingsResponse, examResponse] = await Promise.all([
+                    api.get('/settings/system'),
+                    id ? api.get(`/exams/${id}/take`) : Promise.resolve(null),
+                ]);
+                setPreflightSingleTabEnabled(Boolean(settingsResponse.data?.data?.enforceExamSingleTab));
+                setPreflightTabSwitchGraceSeconds(Math.max(1, Math.min(30, Math.round(Number(settingsResponse.data?.data?.tabSwitchGraceSeconds || 5)))));
+
+                // Surface the exam title/subject for the preflight instructions
+                // screen; the attempt itself is only created after the user
+                // presses "Start Exam and Timer".
+                const examPayload = examResponse?.data?.data as ExamTakeResponse | undefined;
+                if (examPayload) {
+                    setPreflightExamInfo({
+                        title: examPayload.title || '',
+                        subject: examPayload.subject || '',
+                        timeLimit: Math.max(0, Number(examPayload.timeLimit) || 0),
+                        totalQuestions: Array.isArray(examPayload.questions) ? examPayload.questions.length : 0,
+                    });
+                }
             } catch {
                 setPreflightSingleTabEnabled(false);
                 setPreflightTabSwitchGraceSeconds(5);
@@ -556,7 +579,7 @@ const TakeExamPage: React.FC = () => {
         };
 
         void loadPreflightSettings();
-    }, [isOffline]);
+    }, [id, isOffline]);
 
     const saveAttempt = useCallback(async (force = false) => {
         if (!attemptId || !exam || isSubmitting) return;
@@ -585,6 +608,7 @@ const TakeExamPage: React.FC = () => {
                 const parsedEndsAtMs = new Date(saved.endsAt).getTime();
                 if (Number.isFinite(parsedEndsAtMs)) {
                     endsAtMsRef.current = parsedEndsAtMs;
+                    setEndsAt(saved.endsAt);
                     const recomputedRemaining = computeRemainingFromEndsAt(parsedEndsAtMs);
                     if (typeof recomputedRemaining === 'number') {
                         setTimeLeft(recomputedRemaining);
@@ -603,7 +627,6 @@ const TakeExamPage: React.FC = () => {
 
             dirtyRef.current = false;
             setSaveStatus('saved');
-            setLastSavedAt(Date.now());
         } catch {
             setSaveStatus('error');
         }
@@ -638,6 +661,15 @@ const TakeExamPage: React.FC = () => {
             const resetTimeLeft = Math.max(0, payload.remainingSeconds ?? exam.timeLimit * 60);
             setTimeLeft(resetTimeLeft);
             timeLeftRef.current = resetTimeLeft;
+
+            // Keep the header ring in sync with the reset countdown.
+            if (payload.endsAt) {
+                const parsedEndsAtMs = new Date(payload.endsAt).getTime();
+                if (Number.isFinite(parsedEndsAtMs)) {
+                    endsAtMsRef.current = parsedEndsAtMs;
+                }
+            }
+            setEndsAt(payload.endsAt || new Date(Date.now() + resetTimeLeft * 1000).toISOString());
 
             toast.error('Tab switch detected. Your attempt was reset and all answers were cleared.');
         } catch {
@@ -683,7 +715,7 @@ const TakeExamPage: React.FC = () => {
                 if (payload?.status === 'SUBMITTED') {
                     clearExamStarted();
                     allowNavigationRef.current = true;
-                    navigate(`/exams/${id}/result?attemptId=${payload.id}`, { replace: true, state: { justSubmitted: true } });
+                    navigate(`/exams/${id}/result?attemptId=${payload.id}`, { replace: true, state: { justSubmitted: false } });
                     return;
                 }
 
@@ -708,6 +740,10 @@ const TakeExamPage: React.FC = () => {
                 endsAtMsRef.current = Number.isFinite(parsedEndsAtMs) ? parsedEndsAtMs : null;
                 const computedFromEndsAt = computeRemainingFromEndsAt(endsAtMsRef.current);
                 const serverTimeLeft = computedFromEndsAt ?? payload.remainingSeconds ?? normalizedExam.timeLimit * 60;
+                // TimerHeader needs a concrete ISO deadline. Prefer the server's
+                // endsAt; otherwise synthesize one from the server's remaining
+                // time so the ring still depletes correctly (no per-tick churn).
+                setEndsAt(payload.endsAt || new Date(Date.now() + Math.max(0, serverTimeLeft) * 1000).toISOString());
                 const serverCurrentIndex = typeof payload.currentQuestionIndex === 'number'
                     ? Math.min(Math.max(payload.currentQuestionIndex, 0), Math.max(normalizedExam.questions.length - 1, 0))
                     : null;
@@ -927,19 +963,14 @@ const TakeExamPage: React.FC = () => {
         };
     }, [attemptId, currentIndex, enforceExamSingleTab, exam, flushActiveQuestionTime, handleTabViolationReset, saveAttempt, shouldWarnOnLeave, startTabViolationCountdown, stopTabViolationCountdown, writeDraft]);
 
-    const formatTime = (seconds: number) => {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    };
-
     const handleFinish = useCallback(async (autoSubmitted = false) => {
-        if (!attemptId || !exam || isSubmitting) return;
+        if (!attemptId || !exam || isSubmitting || submitInFlightRef.current) return;
 
+        submitInFlightRef.current = true;
         flushActiveQuestionTime();
 
         if (!navigator.onLine && !autoSubmitted) {
+            submitInFlightRef.current = false;
             toast.warning('You are offline. Reconnect first to submit. Your progress is saved locally.');
             setSaveStatus('pending');
             return;
@@ -962,11 +993,12 @@ const TakeExamPage: React.FC = () => {
                 params: { tz: new Date().getTimezoneOffset() },
             });
 
+            submittedThisSessionRef.current = true;
             clearDraft();
             clearExamStarted();
             allowNavigationRef.current = true;
             refetchStreak();
-            navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`, { state: { justSubmitted: true } });
+            navigate(`/exams/${exam.id}/result?attemptId=${attemptId}`, { state: { justSubmitted: submittedThisSessionRef.current } });
         } catch (submitError: unknown) {
             const apiError = submitError as ApiErrorLike;
             const message = apiError?.response?.data?.message || 'Failed to submit exam. Your progress remains saved.';
@@ -974,6 +1006,7 @@ const TakeExamPage: React.FC = () => {
             setSaveStatus('error');
         } finally {
             setIsSubmitting(false);
+            submitInFlightRef.current = false;
         }
     }, [attemptId, clearDraft, clearExamStarted, currentIndex, exam, flushActiveQuestionTime, getTimeSpent, isSubmitting, navigate, refetchStreak, sanitizeAnswerMeta, sanitizeAnswersMap]);
 
@@ -981,75 +1014,9 @@ const TakeExamPage: React.FC = () => {
         if (!exam || loading || isSubmitting) return;
         if (timeLeft > 0) return;
 
-        const submitAuto = async () => {
-            await handleFinish(true);
-        };
-
-        submitAuto();
+        // Deferred so the state update happens outside the effect body itself.
+        void Promise.resolve().then(() => void handleFinish(true));
     }, [exam, handleFinish, isSubmitting, loading, timeLeft]);
-
-    // Accessible timer: the role lives on a ref (not JSX) so announcements can
-    // briefly swap the timer to role="alert" at key thresholds without React
-    // resetting the attribute on the next tick.
-    useLayoutEffect(() => {
-        const timerElement = timerRef.current;
-        if (!timerElement) return;
-
-        const setTimerRole = (role: 'timer' | 'alert') => {
-            timerRoleRef.current = role;
-            timerElement.setAttribute('role', role);
-        };
-
-        if (timeLeft <= 0) {
-            if (timerRoleSwapTimeoutRef.current !== null) {
-                window.clearTimeout(timerRoleSwapTimeoutRef.current);
-                timerRoleSwapTimeoutRef.current = null;
-            }
-            setTimerRole('alert');
-            prevTimeLeftRef.current = timeLeft;
-            return;
-        }
-
-        const previous = prevTimeLeftRef.current;
-        prevTimeLeftRef.current = timeLeft;
-
-        if (previous === null) {
-            setTimerRole('timer');
-            return;
-        }
-
-        const crossedThreshold =
-            previous > 300 && timeLeft <= 300
-                ? '5 minutes remaining'
-                : previous > 120 && timeLeft <= 120
-                    ? '2 minutes remaining'
-                    : previous > 30 && timeLeft <= 30
-                        ? '30 seconds remaining'
-                        : null;
-
-        if (crossedThreshold) {
-            if (timerRoleSwapTimeoutRef.current !== null) {
-                window.clearTimeout(timerRoleSwapTimeoutRef.current);
-            }
-            setTimerRole('alert');
-            timerRoleSwapTimeoutRef.current = window.setTimeout(() => {
-                timerRoleSwapTimeoutRef.current = null;
-                timerRoleRef.current = 'timer';
-                if (timerRef.current) {
-                    timerRef.current.setAttribute('role', 'timer');
-                }
-            }, 1500);
-        }
-    }, [timeLeft]);
-
-    useEffect(() => {
-        return () => {
-            if (timerRoleSwapTimeoutRef.current !== null) {
-                window.clearTimeout(timerRoleSwapTimeoutRef.current);
-                timerRoleSwapTimeoutRef.current = null;
-            }
-        };
-    }, []);
 
     const sectionGroups = useMemo<SectionGroup[]>(() => {
         const buckets = new Map<string, SectionGroup>();
@@ -1090,13 +1057,7 @@ const TakeExamPage: React.FC = () => {
     }, [currentIndex, sectionGroups]);
 
     const currentSection = sectionGroups[currentSectionIndex] || null;
-    const hasMultipleSections = sectionGroups.length > 1;
-    const currentSectionQuestionIndexes = currentSection?.questionIndexes || [];
-    const currentSectionQuestionPosition = currentSectionQuestionIndexes.indexOf(currentIndex);
-
-    const questionNumberById = useMemo(() => {
-        return new Map((exam?.questions || []).map((question, index) => [question.id, index + 1]));
-    }, [exam?.questions]);
+    const currentSectionQuestionPosition = (currentSection?.questionIndexes || []).indexOf(currentIndex);
 
     const currentQuestionId = useMemo(() => {
         return exam?.questions?.[currentIndex]?.id || null;
@@ -1138,6 +1099,183 @@ const TakeExamPage: React.FC = () => {
         }
     }, [attemptId, currentQuestionId, exam, flushActiveQuestionTime, isSubmitting, loading]);
 
+    // --- Data derived for the composed exam layout ---
+    const questionIndexById = useMemo(() => {
+        const map = new Map<string, number>();
+        (exam?.questions || []).forEach((question, index) => map.set(question.id, index));
+        return map;
+    }, [exam?.questions]);
+
+    const layoutSections = useMemo<SectionTab[]>(() => (
+        sectionGroups.map((group) => ({ name: group.name, answered: group.answered, total: group.total }))
+    ), [sectionGroups]);
+
+    const layoutQuestions = useMemo<QuestionStatus[]>(() => {
+        const questions = exam?.questions || [];
+        return questions.map((question) => {
+            let status: QuestionStatus['status'] = 'open';
+            if (question.id === currentQuestionId) {
+                status = 'current';
+            } else if (flagged[question.id]) {
+                status = 'flagged';
+            } else if (answers[question.id]) {
+                status = 'answered';
+            }
+            return {
+                id: question.id,
+                orderNo: question.orderNo,
+                section: question.section?.trim() || 'Main section',
+                status,
+            };
+        });
+    }, [answers, currentQuestionId, exam?.questions, flagged]);
+
+    const reviewQuestions = useMemo(() => {
+        const questions = exam?.questions || [];
+        return questions.map((question) => ({
+            id: question.id,
+            orderNo: question.orderNo,
+            section: question.section?.trim() || 'Main section',
+            isAnswered: Boolean(answers[question.id]),
+            isFlagged: Boolean(flagged[question.id]),
+        }));
+    }, [answers, exam?.questions, flagged]);
+
+    const skippedQuestions = useMemo(() => {
+        const questions = exam?.questions || [];
+        return questions
+            .map((q, idx) => ({ q, idx }))
+            .filter(({ q }) => !answers[q.id]);
+    }, [answers, exam?.questions]);
+
+    const allQuestionsAnswered = useMemo(() => {
+        const questions = exam?.questions || [];
+        return questions.length > 0 && questions.every((question) => Boolean(answers[question.id]));
+    }, [answers, exam?.questions]);
+
+    const answeredCount = useMemo(() => {
+        const questions = exam?.questions || [];
+        return questions.filter((question) => Boolean(answers[question.id])).length;
+    }, [answers, exam?.questions]);
+
+    const unansweredNumbers = useMemo(() => skippedQuestions.map(({ q }) => q.orderNo), [skippedQuestions]);
+
+    const totalQuestionCount = exam?.questions?.length ?? 0;
+    const isFirstQuestion = currentIndex <= 0;
+    const isLastQuestion = totalQuestionCount > 0 && currentIndex >= totalQuestionCount - 1;
+
+    // --- Handlers shared by the composed components ---
+    const handleQuestionClick = useCallback((questionId: string) => {
+        const index = questionIndexById.get(questionId);
+        if (typeof index === 'number') setCurrentIndex(index);
+    }, [questionIndexById]);
+
+    const handleSectionChange = useCallback((sectionName: string) => {
+        const section = sectionGroups.find((group) => group.name === sectionName);
+        if (section) setCurrentIndex(section.firstIndex);
+    }, [sectionGroups]);
+
+    const handleStartExam = useCallback(() => {
+        markExamStarted();
+        setHasReviewedInstructions(true);
+    }, [markExamStarted]);
+
+    const handlePreviousQuestion = useCallback(() => {
+        setCurrentIndex((previousIndex) => Math.max(0, previousIndex - 1));
+    }, []);
+
+    const handleSubmitClick = useCallback(() => {
+        if (!exam || !attemptId) return;
+
+        if (!allQuestionsAnswered) {
+            const nextSkippedIndex = skippedQuestions[0]?.idx ?? currentIndex;
+            setCurrentIndex(nextSkippedIndex);
+            toast.warning('Answer all questions before submitting.');
+            return;
+        }
+
+        setShowConfirm(true);
+    }, [allQuestionsAnswered, attemptId, currentIndex, exam, skippedQuestions]);
+
+    const handleNextQuestion = useCallback(() => {
+        if (!exam) return;
+
+        if (!isLastQuestion) {
+            setCurrentIndex((previousIndex) => Math.min(exam.questions.length - 1, previousIndex + 1));
+            return;
+        }
+
+        handleSubmitClick();
+    }, [exam, handleSubmitClick, isLastQuestion]);
+
+    const handleOptionSelect = useCallback((optionIndex: number) => {
+        if (!exam || !attemptId || !currentQuestionId) return;
+
+        const selectedChoice = CHOICE_LABELS[optionIndex] || 'A';
+        const questionId = currentQuestionId;
+        setAnswers((prev) => ({
+            ...prev,
+            [questionId]: selectedChoice,
+        }));
+        setAnswerMeta((prev) => {
+            const previousChoice = answersRef.current[questionId];
+            if (previousChoice === selectedChoice && prev[questionId]?.answeredAt) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                [questionId]: {
+                    viewedAt: prev[questionId]?.viewedAt || new Date().toISOString(),
+                    answeredAt: new Date().toISOString(),
+                },
+            };
+        });
+        dirtyRef.current = true;
+        setSaveStatus('pending');
+    }, [attemptId, currentQuestionId, exam]);
+
+    const handleToggleFlag = useCallback(() => {
+        if (!exam || !attemptId || !currentQuestionId) return;
+
+        const questionId = currentQuestionId;
+        setFlagged((prev) => {
+            const next = { ...prev };
+            if (next[questionId]) {
+                delete next[questionId];
+            } else {
+                next[questionId] = true;
+            }
+            return next;
+        });
+        dirtyRef.current = true;
+        setSaveStatus('pending');
+    }, [attemptId, currentQuestionId, exam]);
+
+    const handleTimeUp = useCallback(() => {
+        void handleFinish(true);
+    }, [handleFinish]);
+
+    const keyboardEnabled = Boolean(
+        hasReviewedInstructions &&
+        attemptId &&
+        exam &&
+        !loading &&
+        !isSubmitting &&
+        !showReview &&
+        !showConfirm &&
+        totalQuestionCount > 0
+    );
+
+    useExamKeyboardShortcuts({
+        onNext: handleNextQuestion,
+        onPrevious: handlePreviousQuestion,
+        onFlag: handleToggleFlag,
+        onSelectChoice: handleOptionSelect,
+    }, keyboardEnabled);
+
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
     if (isOffline) {
         return (
             <div className="p-4 sm:p-6 md:p-8">
@@ -1171,74 +1309,18 @@ const TakeExamPage: React.FC = () => {
 
     if (!hasReviewedInstructions) {
         return (
-            <div className="p-6 md:p-8">
-                <div className="max-w-2xl mx-auto rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <div className="px-6 py-5 border-b border-slate-100">
-                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Exam Instructions</p>
-                        <h1 className="text-2xl font-semibold text-slate-900 mt-1">Are You Ready to Start?</h1>
-                        <p className="text-sm text-slate-500 font-medium mt-2">
-                            Review the exam rules before continuing. The timer will only begin once you click <strong>Start Exam</strong>.
-                        </p>
-                    </div>
-
-                    <div className="p-6 space-y-3">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-slate-800">1. The timer starts only after you press <strong>Start Exam</strong>.</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-slate-800">2. You may move between sections and review or change your answers at any time before submitting.</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-slate-800">3. Once started, the timer keeps running even if you leave this page.</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-slate-800">4. Do not refresh, close, or switch away during the exam unless necessary.</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                            <p className="text-sm font-semibold text-slate-800">5. Save behavior is automatic, but keep a stable internet connection throughout.</p>
-                        </div>
-                        <div className={`rounded-xl border px-4 py-3 ${preflightSingleTabEnabled ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-                            <div className="flex items-start gap-2">
-                                <AlertTriangle size={16} className={preflightSingleTabEnabled ? 'text-red-600 mt-0.5' : 'text-amber-600 mt-0.5'} />
-                                <div>
-                                    <p className={`text-sm font-semibold ${preflightSingleTabEnabled ? 'text-red-700' : 'text-amber-700'}`}>
-                                        6. Tab-Switch Policy
-                                    </p>
-                                    {preflightLoading ? (
-                                        <p className="text-xs font-medium text-slate-500 mt-1">Checking policy...</p>
-                                    ) : preflightSingleTabEnabled ? (
-                                        <p className="text-sm font-semibold text-red-700 mt-1">
-                                            Switching to another browser tab gives you {preflightTabSwitchGraceSeconds}s to return, then the exam resets to the beginning and voids all your answers.
-                                        </p>
-                                    ) : (
-                                        <p className="text-sm font-semibold text-amber-700 mt-1">
-                                            If this policy is enabled by admins, switching to another browser tab only gives a short countdown before resetting your exam and clearing all answers.
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="px-6 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/60">
-                        <Button
-                            variant="outline"
-                            onClick={() => navigate('/exams')}
-                            className="w-full sm:w-auto"
-                        >
-                            Back to Exams
-                        </Button>
-                        <Button
-                            onClick={() => {
-                                markExamStarted();
-                                setHasReviewedInstructions(true);
-                            }}
-                            className="w-full sm:w-auto"
-                        >
-                            Start Exam and Timer
-                        </Button>
-                    </div>
-                </div>
+            <div className="flex min-h-full flex-col bg-slate-50">
+                <ExamInstructions
+                    examTitle={preflightExamInfo?.title ?? ''}
+                    subject={preflightExamInfo?.subject ?? ''}
+                    totalQuestions={preflightExamInfo?.totalQuestions ?? 0}
+                    timeLimitMinutes={preflightExamInfo?.timeLimit ?? 0}
+                    enforceSingleTab={preflightSingleTabEnabled}
+                    tabSwitchGraceSeconds={preflightTabSwitchGraceSeconds}
+                    isOnline={isOnline}
+                    onStart={handleStartExam}
+                    isLoading={preflightLoading}
+                />
             </div>
         );
     }
@@ -1296,234 +1378,59 @@ const TakeExamPage: React.FC = () => {
     const currentSectionName = currentSection?.name || currentQuestion.section?.trim() || 'Main section';
     const currentSectionAnsweredCount = currentSection?.answered || 0;
     const currentSectionTotal = currentSection?.total || 1;
-    const allQuestionsAnswered = exam.questions.every((question) => Boolean(answers[question.id]));
-    const isFirstQuestion = currentIndex <= 0;
-    const isLastQuestion = currentIndex === exam.questions.length - 1;
-
-    const skippedQuestions = exam.questions
-        .map((q, idx) => ({ q, idx }))
-        .filter(({ q }) => !answers[q.id]);
-
-    const handleSubmitClick = () => {
-        if (!allQuestionsAnswered) {
-            const nextSkippedIndex = skippedQuestions[0]?.idx ?? currentIndex;
-            setCurrentIndex(nextSkippedIndex);
-            toast.warning('Answer all questions before submitting.');
-            return;
-        }
-
-        setShowConfirm(true);
-    };
-
-    const handlePreviousQuestion = () => {
-        setCurrentIndex((previousIndex) => Math.max(0, previousIndex - 1));
-    };
-
-    const handleNextQuestion = () => {
-        if (!isLastQuestion) {
-            setCurrentIndex((previousIndex) => Math.min(exam.questions.length - 1, previousIndex + 1));
-            return;
-        }
-
-        handleSubmitClick();
-    };
-
-    const handleOptionSelect = (optionIndex: number) => {
-        const selectedChoice = CHOICE_LABELS[optionIndex] || 'A';
-        const questionId = currentQuestion.id;
-        setAnswers((prev) => ({
-            ...prev,
-            [questionId]: selectedChoice,
-        }));
-        setAnswerMeta((prev) => {
-            const previousChoice = answersRef.current[questionId];
-            if (previousChoice === selectedChoice && prev[questionId]?.answeredAt) {
-                return prev;
-            }
-
-            return {
-                ...prev,
-                [questionId]: {
-                    viewedAt: prev[questionId]?.viewedAt || new Date().toISOString(),
-                    answeredAt: new Date().toISOString(),
-                },
-            };
-        });
-        dirtyRef.current = true;
-        setSaveStatus('pending');
-    };
-
-    const handleToggleFlag = () => {
-        const questionId = currentQuestion.id;
-        if (!questionId) return;
-
-        setFlagged((prev) => {
-            const next = { ...prev };
-            if (next[questionId]) {
-                delete next[questionId];
-            } else {
-                next[questionId] = true;
-            }
-            return next;
-        });
-        dirtyRef.current = true;
-        setSaveStatus('pending');
-    };
-
-    // Bottom-sheet swipe-to-dismiss: only close on a downward drag that starts
-    // while the navigator's scroll container is already at the top, so the
-    // gesture never hijacks a scroll inside the question grid.
-    const handleSheetTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-        sheetTouchStartYRef.current = event.touches[0]?.clientY ?? null;
-        sheetTouchStartScrollTopRef.current = mobileNavigatorScrollRef.current?.scrollTop ?? 0;
-    };
-
-    const handleSheetTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-        const startY = sheetTouchStartYRef.current;
-        const startScrollTop = sheetTouchStartScrollTopRef.current;
-        sheetTouchStartYRef.current = null;
-        sheetTouchStartScrollTopRef.current = null;
-
-        if (startY === null || startScrollTop === null) return;
-
-        const endY = event.changedTouches[0]?.clientY;
-        if (typeof endY !== 'number') return;
-
-        if (endY - startY > 80 && startScrollTop <= 0) {
-            setIsMobileNavigatorOpen(false);
-        }
-    };
-
-    const answeredCount = exam.questions.filter((question) => Boolean(answers[question.id])).length;
-    const flaggedCount = exam.questions.filter((question) => Boolean(flagged[question.id])).length;
-    const isNowOffline = !navigator.onLine;
-    const formatSavedClockTime = (timestamp: number) => {
-        const date = new Date(timestamp);
-        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-    };
-
-    const saveLabel = saveStatus === 'saving'
-        ? 'Saving…'
-        : saveStatus === 'saved'
-            ? lastSavedAt !== null
-                ? `Saved ${formatSavedClockTime(lastSavedAt)}`
-                : 'Saved'
-            : saveStatus === 'pending'
-                ? 'Pending sync'
-                : saveStatus === 'error'
-                    ? 'Save failed'
-                    : 'Idle';
-
-    const savePillTone = saveStatus === 'error'
-        ? 'border-red-200 bg-red-50 text-red-700'
-        : saveStatus === 'pending'
-            ? 'border-amber-200 bg-amber-50 text-amber-700'
-            : saveStatus === 'saving'
-                ? 'border-slate-200 bg-slate-100 text-slate-700'
-                : saveStatus === 'saved'
-                    ? 'border-slate-200 bg-slate-100 text-slate-600'
-                    : 'border-slate-200 bg-slate-100 text-slate-500';
-
-    const timeState = timeLeft <= 60 ? 'critical' : timeLeft <= 300 ? 'warning' : 'normal';
-    const timerStateClasses = timeState === 'critical'
-        ? 'bg-red-50 text-red-700 border-red-200 shadow-sm animate-pulse'
-        : timeState === 'warning'
-            ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
-            : 'bg-slate-900 text-white border-transparent shadow-sm';
+    // The composed layout expects a concrete (non-null) question id; the page
+    // only reaches this render when questions exist, so falling back to '' is
+    // a pure type narrowing — an empty id simply never matches a question.
+    const layoutCurrentQuestionId = currentQuestionId ?? '';
+    const mobileGridQuestions = layoutQuestions.filter((question) => question.section === currentSectionName);
 
     return (
-        <div className="fixed inset-y-0 right-0 left-0 z-50 flex flex-col overflow-hidden bg-slate-50">
-            {/* Header */}
-            <header data-guide="exam-take-header" className="bg-white border-b border-slate-100 px-3 sm:px-5 py-2.5 flex items-center justify-between shrink-0 gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                        <h2 className="text-xs sm:text-sm font-semibold text-slate-900 truncate leading-tight">{exam.title}</h2>
-                        <p className="text-xs sm:text-xs text-slate-400 font-medium truncate">
-                            {exam.subject} · {currentSectionName} ({currentSectionAnsweredCount}/{currentSectionTotal})
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md border ${isNowOffline ? 'text-amber-700 border-amber-200 bg-amber-50' : 'text-emerald-700 border-emerald-200 bg-emerald-50'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isNowOffline ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                        {isNowOffline ? 'Offline' : 'Online'}
-                    </span>
-                    <span
-                        data-guide="exam-take-save-status"
-                        className={`inline-flex items-center rounded-md border px-1.5 sm:px-2 py-0.5 text-xs font-semibold whitespace-nowrap shadow-sm ${savePillTone}`}
-                    >
-                        <span role={saveStatus === 'error' ? 'alert' : 'status'}>{saveLabel}</span>
-                        {saveStatus === 'error' && (
-                            <button
-                                type="button"
-                                onClick={() => saveAttempt(true)}
-                                className="ml-1 -mr-0.5 rounded-sm px-1 py-0.5 text-xs font-semibold text-red-700 underline decoration-red-300 underline-offset-2 transition-colors hover:bg-red-100 hover:decoration-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-                            >
-                                Retry
-                            </button>
-                        )}
-                    </span>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2.5 text-xs font-semibold rounded-lg border-slate-200 lg:hidden"
-                        onClick={() => setIsMobileNavigatorOpen(true)}
-                    >
-                        <ListChecks className="h-3.5 w-3.5 mr-1" />
-                        Questions
-                    </Button>
-                    <div
-                        ref={timerRef}
-                        aria-atomic="true"
-                        data-guide="exam-take-timer"
-                        className={`flex items-center gap-1.5 border px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors ${timerStateClasses}`}
-                    >
-                        <Timer size={13} className="opacity-70" />
-                        {timeLeft <= 0 ? (
-                            <span className="text-xs sm:text-sm font-semibold tracking-tight">
-                                Time is up. Your exam was submitted automatically.
-                            </span>
-                        ) : (
-                            <>
-                                <span className="font-mono text-xs sm:text-sm font-semibold tabular-nums tracking-tight">
-                                    {formatTime(timeLeft)}
-                                </span>
-                                {timeState === 'warning' && (
-                                    <span className="hidden text-[11px] font-semibold tracking-wide sm:inline">
-                                        Time running low
-                                    </span>
-                                )}
-                                {timeState === 'critical' && (
-                                    <span className="hidden text-[11px] font-semibold tracking-wide sm:inline">
-                                        Time almost up
-                                    </span>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-            </header>
+        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-50">
+            {/* Mobile-only section tabs (kept above the scroll container) */}
+            <MobileSectionTabs
+                sections={layoutSections}
+                activeSection={currentSectionName}
+                onSectionChange={handleSectionChange}
+            />
 
-            {timeLeft > 0 && timeLeft <= 60 && (
-                <div
-                    role="alert"
-                    className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-200 bg-amber-100 px-3 sm:px-5 py-2 shadow-sm"
+            <div className="min-h-0 flex-1">
+                <ExamLayout
+                    sections={layoutSections}
+                    questions={layoutQuestions}
+                    currentQuestionId={layoutCurrentQuestionId}
+                    activeSection={currentSectionName}
+                    onSectionChange={handleSectionChange}
+                    onQuestionClick={handleQuestionClick}
+                    header={
+                        <TimerHeader
+                            endsAt={endsAt ?? ''}
+                            examTitle={exam.title}
+                            subject={exam.subject}
+                            sectionLabel={`${currentSectionName} (${currentSectionAnsweredCount}/${currentSectionTotal})`}
+                            saveStatus={saveStatus}
+                            isOnline={isOnline}
+                            onTimeUp={handleTimeUp}
+                        >
+                            <KeyboardShortcutsHelp enabled={keyboardEnabled} />
+                            <FocusModeToggle isFocusMode={isFocusMode} onToggleFocusMode={onToggleFocusMode} />
+                        </TimerHeader>
+                    }
                 >
-                    <AlertTriangle size={14} className="shrink-0 text-amber-800" />
-                    <p className="text-center text-xs font-semibold text-amber-800 sm:text-sm">
-                        Auto-submit in {timeLeft}s
-                    </p>
-                </div>
-            )}
+                    {timeLeft > 0 && timeLeft <= 60 && (
+                        <div
+                            role="alert"
+                            className="sticky top-0 z-10 flex shrink-0 items-center justify-center gap-2 border-b border-amber-200 bg-amber-100 px-3 py-2 shadow-sm sm:px-5"
+                        >
+                            <AlertTriangle size={14} className="shrink-0 text-amber-800" />
+                            <p className="text-center text-xs font-semibold text-amber-800 sm:text-sm">
+                                Auto-submit in {timeLeft}s
+                            </p>
+                        </div>
+                    )}
 
-            <div className="flex-1 flex overflow-hidden">
-                {/* Main Question Area */}
-                <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-slate-50 flex flex-col">
-                    <div className="max-w-4xl mx-auto w-full h-full flex flex-col">
-                        
+                    <div className="mx-auto flex h-full w-full max-w-4xl flex-col p-3 sm:p-4 md:p-6">
                         {/* Question & Image - Flex 1 allows it to take available space */}
-                        <div data-guide="exam-take-question" className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3 sm:gap-4 py-1 sm:py-2 mb-3 sm:mb-4">
+                        <div data-guide="exam-take-question" className="mb-3 flex min-h-0 flex-1 flex-col items-center justify-center gap-3 py-1 sm:mb-4 sm:gap-4 sm:py-2">
                             <div className="flex flex-wrap items-center justify-center gap-2">
                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-primary">
                                     <CircleDot size={12} />
@@ -1533,19 +1440,19 @@ const TakeExamPage: React.FC = () => {
                                     Section question {Math.max(currentSectionQuestionPosition + 1, 1)} of {currentSectionTotal}
                                 </span>
                             </div>
-                            <div className="w-full max-h-[36vh] sm:max-h-[40vh] overflow-y-auto px-1 sm:px-2 flex items-center justify-center">
-                                <h3 className="text-lg sm:text-xl md:text-3xl font-semibold text-slate-900 leading-tight text-center">
+                            <div className="flex max-h-[36vh] w-full items-center justify-center overflow-y-auto px-1 sm:max-h-[40vh] sm:px-2">
+                                <h3 className="text-center text-lg font-semibold leading-tight text-slate-900 sm:text-xl md:text-3xl">
                                     {currentQuestion.text}
                                 </h3>
                             </div>
 
                             {currentQuestion.imageUrl && (
-                                <div className="flex-1 min-h-0 w-full flex justify-center items-center">
-                                    <div className="rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-white p-1.5 inline-flex max-h-full">
+                                <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+                                    <div className="inline-flex max-h-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
                                         <img
                                             src={currentQuestion.imageUrl}
                                             alt="Question attachment"
-                                            className="h-full w-auto max-h-[26vh] sm:max-h-[30vh] object-contain rounded-lg"
+                                            className="h-full max-h-[26vh] w-auto rounded-lg object-contain sm:max-h-[30vh]"
                                         />
                                     </div>
                                 </div>
@@ -1553,18 +1460,18 @@ const TakeExamPage: React.FC = () => {
                         </div>
 
                         {/* Choices Grid - Fixed relative height */}
-                        <div data-guide="exam-take-choices" className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 shrink-0">
+                        <div data-guide="exam-take-choices" className="grid shrink-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
                             {(currentQuestion.choices || []).map((option, idx) => {
                                 const optionLabel = CHOICE_LABELS[idx] || 'A';
                                 const isSelected = answers[currentQuestion.id] === optionLabel;
                                 const hasAnswer = Boolean(answers[currentQuestion.id]);
                                 const label = String.fromCharCode(65 + idx);
-                                
+
                                 const pastelThemes = [
                                     { bg: 'bg-rose-50', hover: 'hover:bg-rose-100', border: 'border-rose-200', text: 'text-rose-950', iconBg: 'bg-rose-100', iconText: 'text-rose-700', activeRing: 'ring-rose-400' },
                                     { bg: 'bg-blue-50', hover: 'hover:bg-blue-100', border: 'border-blue-200', text: 'text-blue-950', iconBg: 'bg-blue-100', iconText: 'text-blue-700', activeRing: 'ring-blue-400' },
                                     { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', border: 'border-amber-200', text: 'text-amber-950', iconBg: 'bg-amber-100', iconText: 'text-amber-700', activeRing: 'ring-amber-400' },
-                                    { bg: 'bg-emerald-50', hover: 'hover:bg-emerald-100', border: 'border-emerald-200', text: 'text-emerald-950', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', activeRing: 'ring-emerald-400' }
+                                    { bg: 'bg-emerald-50', hover: 'hover:bg-emerald-100', border: 'border-emerald-200', text: 'text-emerald-950', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', activeRing: 'ring-emerald-400' },
                                 ];
                                 const theme = pastelThemes[idx % pastelThemes.length];
 
@@ -1572,16 +1479,16 @@ const TakeExamPage: React.FC = () => {
                                     <button
                                         key={idx}
                                         onClick={() => handleOptionSelect(idx)}
-                                        className={`group relative flex items-center justify-start p-3 md:p-4 min-h-18.5 sm:min-h-20 md:min-h-25 rounded-xl border-2 text-left transition-all duration-150 active:translate-y-0.5 ${
+                                        className={`group relative flex min-h-18.5 items-center justify-start rounded-xl border-2 p-3 text-left transition-all duration-150 active:translate-y-0.5 sm:min-h-20 md:min-h-25 md:p-4 ${
                                             isSelected
-                                                ? `ring-2 ring-offset-2 ${theme.activeRing} scale-[1.01] z-10 ${theme.bg} ${theme.border}`
+                                                ? `z-10 scale-[1.01] ring-2 ring-offset-2 ${theme.activeRing} ${theme.bg} ${theme.border}`
                                                 : `shadow-sm ${theme.bg} ${theme.border} ${theme.hover}`
                                         } ${hasAnswer && !isSelected ? 'opacity-50 grayscale-40' : 'opacity-100'} ${theme.text}`}
                                     >
-                                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-semibold text-sm md:text-base shrink-0 mr-2.5 md:mr-4 transition-colors ${theme.iconBg} ${theme.iconText}`}>
+                                        <div className={`mr-2.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold transition-colors md:mr-4 md:h-10 md:w-10 md:text-base ${theme.iconBg} ${theme.iconText}`}>
                                             {label}
                                         </div>
-                                        <span className="text-[13px] sm:text-sm md:text-base font-semibold leading-snug wrap-break-word flex-1">
+                                        <span className="wrap-break-word flex-1 text-[13px] font-semibold leading-snug sm:text-sm md:text-base">
                                             {option}
                                         </span>
                                     </button>
@@ -1590,7 +1497,7 @@ const TakeExamPage: React.FC = () => {
                         </div>
 
                         {/* Flag for review */}
-                        <div className="flex justify-start shrink-0 mt-2 sm:mt-3">
+                        <div className="mt-2 flex shrink-0 justify-start sm:mt-3">
                             <button
                                 type="button"
                                 onClick={handleToggleFlag}
@@ -1607,271 +1514,64 @@ const TakeExamPage: React.FC = () => {
                         </div>
 
                         {/* Navigation Footer */}
-                        <div data-guide="exam-take-question-nav" className="sticky bottom-0 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-200 shrink-0 bg-slate-50/95 backdrop-blur supports-backdrop-filter:bg-slate-50/85">
-                            <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                onClick={handlePreviousQuestion}
-                                disabled={isFirstQuestion}
-                                className="h-10 sm:h-11 px-4 sm:px-5 text-xs sm:text-sm font-semibold gap-1.5 sm:gap-2 rounded-xl bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                            >
-                                <ArrowLeft size={16} /> Previous
-                            </Button>
+                        <div data-guide="exam-take-question-nav" className="sticky bottom-0 mt-3 hidden shrink-0 border-t border-slate-200 bg-slate-50/95 pt-3 backdrop-blur supports-backdrop-filter:bg-slate-50/85 sm:mt-4 sm:pt-4 lg:block">
+                            <div className="flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap sm:gap-3">
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    onClick={handlePreviousQuestion}
+                                    disabled={isFirstQuestion}
+                                    className="h-10 gap-1.5 rounded-xl border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:h-11 sm:gap-2 sm:px-5 sm:text-sm"
+                                >
+                                    <ArrowLeft size={16} /> Previous
+                                </Button>
 
-                            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                                {!answers[currentQuestion.id] && (
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider hidden sm:block">Not answered</span>
-                                )}
-                                {isLastQuestion ? (
-                                    <Button
-                                        size="lg"
-                                        onClick={handleSubmitClick}
-                                        disabled={isSubmitting}
-                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm gap-1.5 sm:gap-2"
-                                    >
-                                        Submit Exam <Send size={16} />
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        size="lg"
-                                        onClick={handleNextQuestion}
-                                        className="h-10 sm:h-11 px-4 sm:px-6 text-xs sm:text-sm font-semibold rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm gap-1.5 sm:gap-2"
-                                    >
-                                        Next <ArrowRight size={16} />
-                                    </Button>
-                                )}
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-
-                {/* Right Sidebar - Navigator */}
-                <aside data-guide="exam-take-navigator" className="w-64 border-l border-slate-200 bg-white flex-col shrink-0 hidden lg:flex">
-                    <div className="p-4 border-b border-slate-100">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em]">Navigator</span>
-                            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                                {answeredCount}/{exam.questions.length}
-                            </span>
-                        </div>
-                        <div className="mt-1.5">
-                            <Progress value={(answeredCount / exam.questions.length) * 100} className="h-1" />
-                        </div>
-                    </div>
-
-                    <div className="p-4 flex-1 overflow-y-auto space-y-5">
-                        {hasMultipleSections && (
-                            <div className="space-y-2">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Section Flow</span>
-                                {sectionGroups.map((sectionItem, sectionIndex) => {
-                                    const isActive = sectionIndex === currentSectionIndex;
-                                    const icon = sectionItem.isComplete
-                                        ? <CheckCircle2 size={13} />
-                                        : <CircleDot size={13} />;
-
-                                    return (
-                                        <button
-                                            type="button"
-                                            key={sectionItem.name}
-                                            onClick={() => setCurrentIndex(sectionItem.firstIndex)}
-                                            aria-label={`Go to ${sectionItem.name}`}
-                                            className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                                                isActive
-                                                    ? 'border-primary/20 bg-primary/5'
-                                                    : sectionItem.isComplete
-                                                        ? 'border-emerald-100 bg-emerald-50/70'
-                                                        : 'border-slate-100 bg-white hover:bg-slate-50'
-                                            }`}
+                                <div className="ml-auto flex items-center gap-2 sm:gap-3">
+                                    {!answers[currentQuestion.id] && (
+                                        <span className="hidden text-xs font-semibold uppercase tracking-wider text-slate-400 sm:block">Not answered</span>
+                                    )}
+                                    {isLastQuestion ? (
+                                        <Button
+                                            size="lg"
+                                            onClick={handleSubmitClick}
+                                            disabled={isSubmitting}
+                                            className="h-10 gap-1.5 rounded-xl bg-slate-900 px-4 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 sm:h-11 sm:gap-2 sm:px-6 sm:text-sm"
                                         >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                                    {icon}
-                                                    <span className="truncate text-[11px] font-semibold">{sectionItem.name}</span>
-                                                </div>
-                                                <span className={`shrink-0 text-xs font-semibold ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                                    {sectionItem.answered}/{sectionItem.total}
-                                                </span>
-                                            </div>
-                                            <Progress value={(sectionItem.answered / sectionItem.total) * 100} className="mt-2 h-1" />
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        <div className={`${hasMultipleSections ? 'pt-3 border-t border-slate-100' : ''} space-y-3`}>
-                            <div>
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Current Section</span>
-                                <p className="mt-1 text-xs font-semibold text-slate-800 truncate">{currentSectionName}</p>
-                            </div>
-                            <div className="grid grid-cols-5 gap-1.5">
-                                {currentSectionQuestionIndexes.map((questionIndex, sectionQuestionIndex) => {
-                                    const question = exam.questions[questionIndex];
-                                    const isCurrent = currentIndex === questionIndex;
-                                    const isAnswered = Boolean(answers[question.id]);
-                                    const isQuestionFlagged = Boolean(flagged[question.id]);
-
-                                    return (
-                                        <button
-                                            key={question.id}
-                                            onClick={() => setCurrentIndex(questionIndex)}
-                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}${isQuestionFlagged ? ' — flagged for review' : ''}`}
-                                            className={`relative h-9 rounded-lg text-[11px] font-semibold transition-all duration-150 ${
-                                                isCurrent
-                                                    ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
-                                                    : isAnswered
-                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                        : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100 hover:text-slate-600'
-                                            }`}
+                                            Submit Exam <Send size={16} />
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            size="lg"
+                                            onClick={handleNextQuestion}
+                                            className="h-10 gap-1.5 rounded-xl bg-primary px-4 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 sm:h-11 sm:gap-2 sm:px-6 sm:text-sm"
                                         >
-                                            {sectionQuestionIndex + 1}
-                                            {isQuestionFlagged && (
-                                                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-500 border border-white" aria-hidden="true" />
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-400">
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-100 border border-slate-200 inline-block" />Open</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Flagged</span>
+                                            Next <ArrowRight size={16} />
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <div className="p-4 border-t border-slate-100">
-                        <Button
-                            data-guide="exam-take-submit-btn"
-                            onClick={handleSubmitClick}
-                            disabled={isSubmitting}
-                            size="sm"
-                            className="w-full h-8 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
-                        >
-                            <Send size={12} />
-                            Submit Exam
-                        </Button>
-                    </div>
-                </aside>
+                </ExamLayout>
             </div>
 
-            <Sheet open={isMobileNavigatorOpen} onOpenChange={setIsMobileNavigatorOpen}>
-                <SheetContent
-                    side="bottom"
-                    className="flex max-h-[85vh] flex-col rounded-t-xl p-0 lg:hidden"
-                    onTouchStart={handleSheetTouchStart}
-                    onTouchEnd={handleSheetTouchEnd}
-                >
-                    {/* Drag handle — visual affordance; the sheet closes via the header close button, tapping the overlay, or swiping down. */}
-                    <div className="shrink-0 pt-3" aria-hidden="true">
-                        <div className="mx-auto h-1 w-10 rounded-full bg-slate-200" />
-                    </div>
-
-                    <SheetHeader className="shrink-0 px-4 pb-3 pr-10">
-                        <SheetTitle className="text-base font-semibold text-slate-900">Questions</SheetTitle>
-                    </SheetHeader>
-
-                    <div ref={mobileNavigatorScrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-                        <Progress value={(currentSectionAnsweredCount / currentSectionTotal) * 100} className="h-1.5" />
-
-                        {hasMultipleSections && (
-                            <div className="space-y-1.5">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Section Flow</span>
-                                {sectionGroups.map((sectionItem, sectionIndex) => {
-                                    const isActive = sectionIndex === currentSectionIndex;
-                                    const icon = sectionItem.isComplete
-                                        ? <CheckCircle2 size={13} />
-                                        : <CircleDot size={13} />;
-
-                                    return (
-                                        <button
-                                            type="button"
-                                            key={sectionItem.name}
-                                            onClick={() => {
-                                                setCurrentIndex(sectionItem.firstIndex);
-                                                setIsMobileNavigatorOpen(false);
-                                            }}
-                                            aria-label={`Go to ${sectionItem.name}`}
-                                            className={`w-full rounded-xl border px-3 py-2.5 text-left ${
-                                                isActive
-                                                    ? 'border-primary/20 bg-primary/5'
-                                                    : sectionItem.isComplete
-                                                        ? 'border-emerald-100 bg-emerald-50/70'
-                                                        : 'border-slate-100 bg-white hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className={`flex min-w-0 items-center gap-2 ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                                    {icon}
-                                                    <span className="truncate text-[11px] font-semibold">{sectionItem.name}</span>
-                                                </div>
-                                                <span className={`shrink-0 text-xs font-semibold ${isActive ? 'text-primary' : sectionItem.isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                                    {sectionItem.answered}/{sectionItem.total}
-                                                </span>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        <div className={`${hasMultipleSections ? 'pt-2 border-t border-slate-100' : ''} space-y-2`}>
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.18em] block">Current Section</span>
-                            <div className="grid grid-cols-5 gap-2">
-                                {currentSectionQuestionIndexes.map((questionIndex, sectionQuestionIndex) => {
-                                    const question = exam.questions[questionIndex];
-                                    const isCurrent = currentIndex === questionIndex;
-                                    const isAnswered = Boolean(answers[question.id]);
-                                    const isQuestionFlagged = Boolean(flagged[question.id]);
-
-                                    return (
-                                        <button
-                                            key={question.id}
-                                            onClick={() => {
-                                                setCurrentIndex(questionIndex);
-                                                setIsMobileNavigatorOpen(false);
-                                            }}
-                                            title={`Question ${sectionQuestionIndex + 1} in ${currentSectionName}${isQuestionFlagged ? ' — flagged for review' : ''}`}
-                                            className={`relative h-9 rounded-md text-xs font-semibold transition-all duration-150 ${
-                                                isCurrent
-                                                    ? 'bg-primary text-white shadow-sm ring-2 ring-primary/20'
-                                                    : isAnswered
-                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                        : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100'
-                                            }`}
-                                        >
-                                            {sectionQuestionIndex + 1}
-                                            {isQuestionFlagged && (
-                                                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-500 border border-white" aria-hidden="true" />
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-400">
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />Current</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-100 border border-emerald-200 inline-block" />Done</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-100 border border-slate-200 inline-block" />Open</span>
-                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Flagged</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="shrink-0 border-t border-slate-100 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-                        <Button
-                            onClick={handleSubmitClick}
-                            disabled={isSubmitting}
-                            className="w-full h-9 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5"
-                        >
-                            <Send size={12} />
-                            Submit Exam
-                        </Button>
-                    </div>
-                </SheetContent>
-            </Sheet>
+            {/* Mobile pieces: bottom Prev/Flag/Next bar + question-grid bottom sheet */}
+            <MobileBottomNav
+                onPrev={handlePreviousQuestion}
+                onNext={handleNextQuestion}
+                hasPrev={!isFirstQuestion}
+                hasNext={!isLastQuestion}
+                isFlagged={isFlagged}
+                onToggleFlag={handleToggleFlag}
+            />
+            <QuestionGridSheet
+                sections={layoutSections}
+                activeSection={currentSectionName}
+                onSectionChange={handleSectionChange}
+                questions={mobileGridQuestions}
+                currentQuestionId={layoutCurrentQuestionId}
+                onQuestionClick={handleQuestionClick}
+            />
 
             <Dialog
                 open={showLeaveConfirm}
@@ -1928,147 +1628,37 @@ const TakeExamPage: React.FC = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Submit Confirmation Dialog */}
-            <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-                <DialogContent
-                    ref={submitConfirmDialogRef}
-                    role="alertdialog"
-                    aria-describedby="submit-confirm-summary"
-                    tabIndex={-1}
-                    onOpenAutoFocus={(event) => {
-                        // Keep focus on the dialog container so the summary is announced on open.
-                        event.preventDefault();
-                        submitConfirmDialogRef.current?.focus();
+            <SubmitConfirmDialog
+                open={showConfirm}
+                totalQuestions={exam.questions.length}
+                answeredCount={answeredCount}
+                unansweredNumbers={unansweredNumbers}
+                onSubmit={() => {
+                    setShowConfirm(false);
+                    void handleFinish(false);
+                }}
+                onReview={() => {
+                    setShowConfirm(false);
+                    setShowReview(true);
+                }}
+                isSubmitting={isSubmitting}
+            />
+
+            {showReview && (
+                <ItemReviewScreen
+                    questions={reviewQuestions}
+                    onQuestionClick={(questionId) => {
+                        setShowReview(false);
+                        handleQuestionClick(questionId);
                     }}
-                    className="max-w-sm rounded-xl p-0 overflow-hidden gap-0 shadow-lg"
-                >
-                    <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
-                        <DialogTitle className="text-sm font-semibold text-slate-900">Submit Exam?</DialogTitle>
-                        <DialogDescription id="submit-confirm-summary" className="text-xs text-slate-500 mt-1">
-                            You answered {answeredCount}, flagged {flaggedCount}, skipped {skippedQuestions.length} of {exam.questions.length} questions.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="px-5 py-4 space-y-3">
-                        {/* Stats row */}
-                        <div className="grid grid-cols-4 gap-2">
-                            <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-center shadow-sm">
-                                <p className="text-lg font-semibold text-emerald-700 tabular-nums">{answeredCount}</p>
-                                <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Answered</p>
-                            </div>
-                            <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-center shadow-sm">
-                                <p className="text-lg font-semibold text-red-700 tabular-nums">{flaggedCount}</p>
-                                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Flagged</p>
-                            </div>
-                            <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-center shadow-sm">
-                                <p className="text-lg font-semibold text-amber-700 tabular-nums">{skippedQuestions.length}</p>
-                                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Skipped</p>
-                            </div>
-                            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-center shadow-sm">
-                                <p className="text-lg font-semibold text-slate-700 tabular-nums">{exam.questions.length}</p>
-                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</p>
-                            </div>
-                        </div>
-
-                        {/* Jump-to actions */}
-                        {(skippedQuestions.length > 0 || flaggedCount > 0) && (
-                            <div className="flex flex-wrap gap-2">
-                                {skippedQuestions.length > 0 && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            setShowConfirm(false);
-                                            setCurrentIndex(skippedQuestions[0].idx);
-                                        }}
-                                        className="flex-1 h-8 text-xs font-semibold rounded-lg border-slate-200"
-                                    >
-                                        <CircleDot size={12} /> Jump to unanswered
-                                    </Button>
-                                )}
-                                {flaggedCount > 0 && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            setShowConfirm(false);
-                                            const firstFlaggedIndex = exam.questions.findIndex((q) => flagged[q.id]);
-                                            if (firstFlaggedIndex >= 0) setCurrentIndex(firstFlaggedIndex);
-                                        }}
-                                        className="flex-1 h-8 text-xs font-semibold rounded-lg border-slate-200"
-                                    >
-                                        <Flag size={12} /> Jump to flagged
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Section-by-section breakdown */}
-                        {hasMultipleSections && (
-                            <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
-                                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em] mb-2">By Section</p>
-                                <ul className="space-y-1.5">
-                                    {sectionGroups.map((sectionItem) => {
-                                        const sectionFlaggedCount = sectionItem.questionIndexes.filter((questionIndex) => flagged[exam.questions[questionIndex]?.id]).length;
-                                        return (
-                                            <li key={sectionItem.name} className="flex items-center justify-between gap-2 text-xs">
-                                                <span className="font-medium text-slate-600 truncate">{sectionItem.name}</span>
-                                                <span className="shrink-0 text-xs tabular-nums text-slate-500">
-                                                    <span className="font-semibold text-slate-700">{sectionItem.answered}</span>
-                                                    /{sectionItem.total}
-                                                    {sectionFlaggedCount > 0 && (
-                                                        <span className="ml-1.5 font-semibold text-red-600">({sectionFlaggedCount} flagged)</span>
-                                                    )}
-                                                </span>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        )}
-
-                        {skippedQuestions.length > 0 && (
-                            <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5">
-                                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Unanswered Questions</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {skippedQuestions.map(({ idx }) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => {
-                                                setShowConfirm(false);
-                                                setCurrentIndex(idx);
-                                            }}
-                                            className="w-7 h-7 rounded-md bg-white border border-amber-200 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
-                                        >
-                                            {questionNumberById.get(exam.questions[idx].id) || idx + 1}
-                                        </button>
-                                    ))}
-                                </div>
-                                <p className="text-xs text-amber-600 mt-2 font-medium">Click a number to go back to that question.</p>
-                            </div>
-                        )}
-                    </div>
-
-                    <DialogFooter className="px-5 pb-5 flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowConfirm(false)}
-                            className="flex-1 h-8 text-xs font-semibold rounded-lg border-slate-200"
-                        >
-                            Go Back
-                        </Button>
-                        <Button
-                            size="sm"
-                            onClick={() => { setShowConfirm(false); handleFinish(false); }}
-                            disabled={isSubmitting}
-                            className="flex-1 h-8 text-xs font-semibold rounded-lg bg-primary hover:bg-primary/90 text-white gap-1.5"
-                        >
-                            <Send size={11} /> Confirm Submit
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    onBackToExam={() => setShowReview(false)}
+                    onSubmit={() => {
+                        setShowReview(false);
+                        void handleFinish(false);
+                    }}
+                    isSubmitting={isSubmitting}
+                />
+            )}
         </div>
     );
 };

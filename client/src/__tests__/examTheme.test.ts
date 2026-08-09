@@ -4,7 +4,6 @@ import {
     TIER_COLORS,
     PASS_FAIL_COLORS,
     getScoreTrend,
-    type ScoreTrendPoint,
 } from '@/lib/examTheme';
 
 // ── getTierLabel ──────────────────────────────────────────────────────────────

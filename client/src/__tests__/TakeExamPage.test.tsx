@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import TakeExamPage from '@/pages/TakeExamPage';
@@ -90,13 +90,16 @@ describe('TakeExamPage', () => {
 
         renderPage();
 
-        fireEvent.click(screen.getByRole('button', { name: /start exam and timer/i }));
+        // The Start button stays disabled until the preflight settings load.
+        const startButton = await screen.findByRole('button', { name: /start exam and timer/i });
+        await waitFor(() => expect(startButton).toBeEnabled());
+        fireEvent.click(startButton);
 
         // Attempt loads and the first question appears.
         expect(await screen.findByText('What is 2+2?')).toBeInTheDocument();
 
-        // The mobile "Questions" button opens the answer-sheet navigator.
-        fireEvent.click(screen.getByRole('button', { name: /questions/i }));
-        expect(await screen.findByText('Section Navigator')).toBeInTheDocument();
+        // The mobile navigator toggle opens the question-grid slide-over.
+        fireEvent.click(screen.getByRole('button', { name: /open question navigator/i }));
+        expect(await screen.findByRole('dialog', { name: /question navigator/i })).toBeInTheDocument();
     });
 });
