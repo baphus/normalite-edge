@@ -56,6 +56,7 @@ interface Exam {
     status: 'live' | 'draft' | 'archived' | 'closed';
     maxAttempts: number;
     publishedAt?: string;
+    openDate?: string;
     deadline?: string;
     closeOnDeadline: boolean;
     authorId: string;
@@ -192,7 +193,8 @@ const mapExam = (exam: ManagedExamApi, tracks: TrackOption[]): Exam => {
                         : 'draft',
         maxAttempts: exam.maxAttempts ?? 1,
         publishedAt: exam.scheduledDate || exam.createdAt || undefined,
-        deadline: exam.deadline || exam.scheduledDate || undefined,
+        openDate: exam.scheduledDate || undefined,
+        deadline: exam.deadline || undefined,
         closeOnDeadline: Boolean(exam.closeOnDeadline),
         tracks: exam.tracks || [],
         authorId: exam.creator?.id || '',
@@ -802,8 +804,20 @@ const ManageExamsPage: React.FC = () => {
                 cell: (exam) => formatDurationMinutes(exam.duration),
             },
             {
+                id: 'openDate',
+                header: 'Opens',
+                sortable: true,
+                stacked: true,
+                sortValue: (exam) => new Date(exam.openDate || 0).getTime(),
+                className: 'w-[130px] whitespace-nowrap',
+                cell: (exam) => (
+                    <span>{formatShortDate(exam.openDate)}</span>
+                ),
+                stackedCell: (exam) => (exam.openDate ? `opens ${formatShortDate(exam.openDate)}` : 'no open date'),
+            },
+            {
                 id: 'deadline',
-                header: 'Deadline',
+                header: 'Closes',
                 sortable: true,
                 stacked: true,
                 sortValue: (exam) => new Date(exam.deadline || 0).getTime(),
@@ -821,7 +835,7 @@ const ManageExamsPage: React.FC = () => {
                         )}
                     </span>
                 ),
-                stackedCell: (exam) => (exam.deadline ? `due ${formatShortDate(exam.deadline)}` : 'no deadline'),
+                stackedCell: (exam) => (exam.deadline ? `closes ${formatShortDate(exam.deadline)}` : 'no close date'),
             },
         ],
         [getDisplayAuthorName, renderStatusCell],
@@ -859,11 +873,11 @@ const ManageExamsPage: React.FC = () => {
                             <dd className="font-semibold text-slate-700">{formatDurationMinutes(exam.duration)}</dd>
                         </div>
                         <div className="flex justify-between gap-2">
-                            <dt className="text-slate-400">Category</dt>
-                            <dd className="truncate font-semibold text-slate-700">{exam.category}</dd>
+                            <dt className="text-slate-400">Opens</dt>
+                            <dd className="font-semibold text-slate-700">{formatShortDate(exam.openDate)}</dd>
                         </div>
                         <div className="flex justify-between gap-2">
-                            <dt className="text-slate-400">Deadline</dt>
+                            <dt className="text-slate-400">Closes</dt>
                             <dd className="font-semibold text-slate-700">{formatShortDate(exam.deadline)}</dd>
                         </div>
                     </dl>

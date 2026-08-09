@@ -31,6 +31,7 @@ const STATUS_LABEL: Record<string, string> = {
 interface ExamDetailHeaderProps {
     exam: ExamDetails;
     questionCount: number;
+    openDate?: string | null;
     deadline?: string | null;
     /**
      * The server's plain-English submission state, e.g. "Students can still
@@ -58,6 +59,7 @@ const Fact: React.FC<{ label: string; children: React.ReactNode }> = ({ label, c
 export const ExamDetailHeader: React.FC<ExamDetailHeaderProps> = ({
     exam,
     questionCount,
+    openDate,
     deadline,
     statusMessage,
     canEdit,
@@ -142,11 +144,12 @@ export const ExamDetailHeader: React.FC<ExamDetailHeaderProps> = ({
                     <span className="tabular-nums">{questionCount}</span>
                 </Fact>
                 <Fact label="Duration">{formatDurationMinutes(duration)}</Fact>
-                <Fact label="Deadline">{formatShortDate(deadline || undefined)}</Fact>
+                <Fact label="Opens">{formatShortDate(openDate || exam.scheduledDate || undefined)}</Fact>
+                <Fact label="Closes">{formatShortDate(deadline || undefined)}</Fact>
                 <Fact label="Max attempts">
                     <span className="tabular-nums">{exam.maxAttempts ?? '—'}</span>
                 </Fact>
-                {exam.closeOnDeadline && <Fact label="Closes">automatically</Fact>}
+                {exam.closeOnDeadline && <Fact label="Auto-close">on deadline</Fact>}
             </dl>
 
             {statusMessage && <p className="text-[12px] text-slate-500">{statusMessage}</p>}

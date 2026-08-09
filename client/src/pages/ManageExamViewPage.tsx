@@ -247,7 +247,7 @@ const ManageExamViewPage: React.FC = () => {
         return ['ALL', ...Array.from(new Set([...fromExam, ...fromQuestions]))];
     }, [exam?.sections, questionsWithSection]);
 
-    const deadline = analytics?.examStatus?.scheduleEnd || exam?.deadline || exam?.scheduledDate;
+    const deadline = analytics?.examStatus?.scheduleEnd || exam?.deadline;
 
     const buildReportInput = useCallback(
         (scope: ExportScope, columnKeys: ExportColumnKey[]): ExamReportInput => {
@@ -345,6 +345,7 @@ const ManageExamViewPage: React.FC = () => {
             <ExamDetailHeader
                 exam={exam}
                 questionCount={questionCount}
+                openDate={exam.scheduledDate}
                 deadline={deadline}
                 statusMessage={analytics?.examStatus?.message}
                 canEdit={canEditExam}
