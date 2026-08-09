@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SectionLabel } from '@/components/dashboard/reviewee/SectionLabel';
 import { ReadinessRing } from '@/components/dashboard/reviewee/ReadinessRing';
 import { StatTiles } from '@/components/dashboard/reviewee/StatTiles';
-import { StreakCompact } from '@/components/dashboard/reviewee/StreakCompact';
+import { StreakWidget } from '@/components/dashboard/reviewee/StreakWidget';
 import { DailyChallenge } from '@/components/dashboard/reviewee/DailyChallenge';
 import { RecentAttempts } from '@/components/dashboard/reviewee/RecentAttempts';
 import { useStreakContext } from '@/contexts/StreakContext';
@@ -40,7 +40,7 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     const average = Math.round(Number(stats?.overallAverage ?? 0));
     const submittedCount = recentAttempts.filter((a) => a.status === 'SUBMITTED').length;
 
-    const { streakCount, refetchStreak } = useStreakContext();
+    const { streakCount, longestStreak, activeDays, refetchStreak } = useStreakContext();
     const navigate = useNavigate();
 
     const [streakModalOpen, setStreakModalOpen] = useState(false);
@@ -107,8 +107,13 @@ const RevieweeDashboard: React.FC<RevieweeDashboardProps> = ({ stats }) => {
     );
 
     const streakAndChallenge = (
-        <div className="grid grid-cols-2 gap-3">
-            <StreakCompact currentStreak={streakCount} onStartStreak={() => setStreakModalOpen(true)} />
+        <div className="flex flex-col gap-3">
+            <StreakWidget
+                currentStreak={streakCount}
+                longestStreak={longestStreak}
+                activeDays={activeDays}
+                onStartStreak={() => setStreakModalOpen(true)}
+            />
             <DailyChallenge onAnswered={refetchStreak} />
         </div>
     );

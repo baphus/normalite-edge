@@ -72,7 +72,7 @@ export const RecentAttempts: React.FC<RecentAttemptsProps> = ({ attempts, maxVis
 
                     const cardInner = (
                         <>
-                            <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-end justify-between gap-4">
                                 <div className="min-w-0 flex-1">
                                     <p
                                         className={`text-[24px] font-semibold leading-none tabular-nums ${
@@ -88,7 +88,11 @@ export const RecentAttempts: React.FC<RecentAttemptsProps> = ({ attempts, maxVis
                                         {dateLabel} · {timeLabel}
                                     </p>
                                 </div>
-                                {isDone && <span className="shrink-0 text-xs font-semibold text-primary">View result</span>}
+                                {isDone && (
+                                    <span className="shrink-0 self-end text-xs font-semibold text-primary">
+                                        View result
+                                    </span>
+                                )}
                             </div>
                             <div className="mt-3 flex flex-wrap items-center gap-1.5">
                                 {subject && (
