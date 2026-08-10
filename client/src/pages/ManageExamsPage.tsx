@@ -81,6 +81,7 @@ interface ManagedExamApi {
     createdAt?: string;
     deadline?: string | null;
     subject?: string;
+    feedbackMode?: 'IMMEDIATE' | 'AFTER_SUBMIT';
     categoryCode?: string | null;
     questions?: Array<{
         questionText?: string;
@@ -546,6 +547,7 @@ const ManageExamsPage: React.FC = () => {
                 categoryId: exam.categoryCode || null,
                 trackIds: exam.tracks?.map((track) => track.id) || [],
                 timeLimit: exam.timeLimit || 60,
+                feedbackMode: exam.feedbackMode || 'IMMEDIATE',
                 isPublished: false,
                 sections: sectionTitles.length > 0 ? sectionTitles : undefined,
                 questions: questions.map((question) => ({
