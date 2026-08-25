@@ -14,6 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // The production entry bundle is slightly larger than Workbox's 2 MiB default.
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
       manifest: {
         name: 'Normalite EDGE',
