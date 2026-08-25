@@ -14,13 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -29,7 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
     ManageToolbar,
-    FilterField,
+    CheckboxFilterGroup,
     type ActiveFilterChip,
     type ManageView,
     type ToolbarSegment,
@@ -59,7 +52,7 @@ interface Exam {
     deadline?: string;
     authorId: string;
     authorName: string;
-    authorAvatar: string;
+    authorAvatar: string | null;
     sectionTitles: string[];
 }
 
@@ -140,12 +133,8 @@ const ALL_PROGRAMS_FILTER = '__all_programs__';
 const LEGACY_PROGRAM_PREFIX = '__legacy__:';
 
 
-const getAuthorAvatar = (name: string, creator?: ManagedExamApi['creator']) => {
-    if (creator?.avatarUrl) return creator.avatarUrl;
-    if (creator?.profilePicture) return creator.profilePicture;
-    const encoded = encodeURIComponent(name || 'User');
-    return `https://ui-avatars.com/api/?name=${encoded}&background=random&rounded=true`;
-};
+const getAuthorAvatar = (creator?: ManagedExamApi['creator']) =>
+    creator?.profilePicture || creator?.avatarUrl || null;
 
 const resolveProgramLabel = (programText?: string | null, tracks: TrackOption[] = []) => {
     if (!programText) return 'All Programs';
@@ -194,7 +183,7 @@ const mapExam = (exam: ManagedExamApi, tracks: TrackOption[]): Exam => {
         tracks: exam.tracks || [],
         authorId: exam.creator?.id || '',
         authorName,
-        authorAvatar: getAuthorAvatar(authorName, exam.creator),
+        authorAvatar: getAuthorAvatar(exam.creator),
         sectionTitles: (exam.sections || [])
             .slice()
             .sort((a, b) => (a.orderNo || 0) - (b.orderNo || 0))
@@ -214,18 +203,18 @@ const ManageExamsPage: React.FC = () => {
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
     const [view, setView] = useState<ManageView>('table');
 
-    const [statusFilter, setStatusFilter] = useState<'all' | Exam['status']>('all');
+    const [statusFilters, setStatusFilters] = useState<Exam['status'][]>([]);
     const [search, setSearch] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('all');
-    const [programFilter, setProgramFilter] = useState('all');
-    const [authorFilter, setAuthorFilter] = useState('all');
+    const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+    const [programFilters, setProgramFilters] = useState<string[]>([]);
+    const [authorFilters, setAuthorFilters] = useState<string[]>([]);
     // Lazy initialiser covers a remount where the session is already known; the
     // render-time guard below covers the first load, where `user` is still null.
     const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'mine' | 'others'>(
         () => (isReviewer ? 'mine' : 'all'),
     );
-    const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'with-deadline' | 'without-deadline'>('all');
-    const [publishedFilter, setPublishedFilter] = useState<'all' | 'last_7_days' | 'last_30_days'>('all');
+    const [deadlineFilters, setDeadlineFilters] = useState<Array<'with-deadline' | 'without-deadline'>>([]);
+    const [publishedFilters, setPublishedFilters] = useState<Array<'last_7_days' | 'last_30_days'>>([]);
 
     const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
     const [actionExamId, setActionExamId] = useState<string | null>(null);
@@ -321,29 +310,31 @@ const ManageExamsPage: React.FC = () => {
     const examsBeforeOwnership = useMemo(
         () =>
             exams.filter((exam) => {
-                const matchesStatus = statusFilter === 'all' || exam.status === statusFilter;
+                const matchesStatus = statusFilters.length === 0 || statusFilters.includes(exam.status);
                 const matchesSearch = exam.title.toLowerCase().includes(search.trim().toLowerCase());
-                const matchesCategory = categoryFilter === 'all' || exam.category === categoryFilter;
+                const matchesCategory = categoryFilters.length === 0 || categoryFilters.includes(exam.category);
                 const matchesProgram =
-                    programFilter === 'all'
-                    || (programFilter === ALL_PROGRAMS_FILTER
-                        && ((exam.tracks || []).length === 0 || exam.program === 'All Programs'))
-                    || (programFilter.startsWith(LEGACY_PROGRAM_PREFIX)
-                        && exam.program === programFilter.slice(LEGACY_PROGRAM_PREFIX.length))
-                    || (exam.tracks || []).some((track) => track.id === programFilter);
-                const matchesAuthor = authorFilter === 'all' || exam.authorName === authorFilter;
+                    programFilters.length === 0
+                    || programFilters.some((programFilter) =>
+                        (programFilter === ALL_PROGRAMS_FILTER
+                            && ((exam.tracks || []).length === 0 || exam.program === 'All Programs'))
+                        || (programFilter.startsWith(LEGACY_PROGRAM_PREFIX)
+                            && exam.program === programFilter.slice(LEGACY_PROGRAM_PREFIX.length))
+                        || (exam.tracks || []).some((track) => track.id === programFilter),
+                    );
+                const matchesAuthor = authorFilters.length === 0 || authorFilters.includes(exam.authorName);
                 const matchesDeadline =
-                    deadlineFilter === 'all'
-                    || (deadlineFilter === 'with-deadline' && Boolean(exam.deadline))
-                    || (deadlineFilter === 'without-deadline' && !exam.deadline);
+                    deadlineFilters.length === 0
+                    || (deadlineFilters.includes('with-deadline') && Boolean(exam.deadline))
+                    || (deadlineFilters.includes('without-deadline') && !exam.deadline);
 
                 const publishedTimestamp = new Date(exam.publishedAt || 0).getTime();
                 const sevenDaysAgo = now - 1000 * 60 * 60 * 24 * 7;
                 const thirtyDaysAgo = now - 1000 * 60 * 60 * 24 * 30;
                 const matchesPublished =
-                    publishedFilter === 'all'
-                    || (publishedFilter === 'last_7_days' && publishedTimestamp >= sevenDaysAgo)
-                    || (publishedFilter === 'last_30_days' && publishedTimestamp >= thirtyDaysAgo);
+                    publishedFilters.length === 0
+                    || (publishedFilters.includes('last_7_days') && publishedTimestamp >= sevenDaysAgo)
+                    || (publishedFilters.includes('last_30_days') && publishedTimestamp >= thirtyDaysAgo);
 
                 return (
                     matchesStatus
@@ -357,13 +348,13 @@ const ManageExamsPage: React.FC = () => {
             }),
         [
             exams,
-            statusFilter,
+            statusFilters,
             search,
-            categoryFilter,
-            programFilter,
-            authorFilter,
-            deadlineFilter,
-            publishedFilter,
+            categoryFilters,
+            programFilters,
+            authorFilters,
+            deadlineFilters,
+            publishedFilters,
             now,
         ],
     );
@@ -399,12 +390,12 @@ const ManageExamsPage: React.FC = () => {
     }, [examsBeforeOwnership, isReviewer, ownershipFilter, user?.id]);
 
     const clearAllFilters = useCallback(() => {
-        setStatusFilter('all');
-        setCategoryFilter('all');
-        setProgramFilter('all');
-        setAuthorFilter('all');
-        setDeadlineFilter('all');
-        setPublishedFilter('all');
+        setStatusFilters([]);
+        setCategoryFilters([]);
+        setProgramFilters([]);
+        setAuthorFilters([]);
+        setDeadlineFilters([]);
+        setPublishedFilters([]);
         setSearch('');
     }, []);
 
@@ -424,53 +415,21 @@ const ManageExamsPage: React.FC = () => {
         if (search.trim().length > 0) {
             next.push({ id: 'search', label: `Search: ${search.trim()}`, onClear: () => setSearch('') });
         }
-        if (statusFilter !== 'all') {
-            next.push({
-                id: 'status',
-                label: `Status: ${STATUS_LABEL[statusFilter]}`,
-                onClear: () => setStatusFilter('all'),
-            });
-        }
-        if (categoryFilter !== 'all') {
-            next.push({
-                id: 'category',
-                label: `Category: ${categoryFilter}`,
-                onClear: () => setCategoryFilter('all'),
-            });
-        }
-        if (programFilter !== 'all') {
-            next.push({
-                id: 'program',
-                label: `Visible to: ${programLabelFor(programFilter)}`,
-                onClear: () => setProgramFilter('all'),
-            });
-        }
-        if (authorFilter !== 'all') {
-            next.push({ id: 'author', label: `Author: ${authorFilter}`, onClear: () => setAuthorFilter('all') });
-        }
-        if (deadlineFilter !== 'all') {
-            next.push({
-                id: 'deadline',
-                label: deadlineFilter === 'with-deadline' ? 'With deadline' : 'Without deadline',
-                onClear: () => setDeadlineFilter('all'),
-            });
-        }
-        if (publishedFilter !== 'all') {
-            next.push({
-                id: 'published',
-                label: publishedFilter === 'last_7_days' ? 'Published: last 7 days' : 'Published: last 30 days',
-                onClear: () => setPublishedFilter('all'),
-            });
-        }
+        statusFilters.forEach((status) => next.push({ id: `status-${status}`, label: `Status: ${STATUS_LABEL[status]}`, onClear: () => setStatusFilters((current) => current.filter((value) => value !== status)) }));
+        categoryFilters.forEach((category) => next.push({ id: `category-${category}`, label: `Category: ${category}`, onClear: () => setCategoryFilters((current) => current.filter((value) => value !== category)) }));
+        programFilters.forEach((program) => next.push({ id: `program-${program}`, label: `Visible to: ${programLabelFor(program)}`, onClear: () => setProgramFilters((current) => current.filter((value) => value !== program)) }));
+        authorFilters.forEach((author) => next.push({ id: `author-${author}`, label: `Author: ${author}`, onClear: () => setAuthorFilters((current) => current.filter((value) => value !== author)) }));
+        deadlineFilters.forEach((deadline) => next.push({ id: `deadline-${deadline}`, label: deadline === 'with-deadline' ? 'With deadline' : 'Without deadline', onClear: () => setDeadlineFilters((current) => current.filter((value) => value !== deadline)) }));
+        publishedFilters.forEach((published) => next.push({ id: `published-${published}`, label: published === 'last_7_days' ? 'Published: last 7 days' : 'Published: last 30 days', onClear: () => setPublishedFilters((current) => current.filter((value) => value !== published)) }));
         return next;
     }, [
         search,
-        statusFilter,
-        categoryFilter,
-        programFilter,
-        authorFilter,
-        deadlineFilter,
-        publishedFilter,
+        statusFilters,
+        categoryFilters,
+        programFilters,
+        authorFilters,
+        deadlineFilters,
+        publishedFilters,
         programLabelFor,
     ]);
 
@@ -721,14 +680,7 @@ const ManageExamsPage: React.FC = () => {
                 sortValue: (exam) => exam.title,
                 className: 'min-w-[260px]',
                 cell: (exam) => (
-                    <div className="flex min-w-0 items-start gap-2">
-                        <Avatar className="mt-0.5 hidden h-5 w-5 shrink-0 lg:flex">
-                            <AvatarImage src={exam.authorAvatar} alt="" />
-                            <AvatarFallback className="text-[11px] font-semibold">
-                                {getDisplayAuthorName(exam).slice(0, 1).toUpperCase()}
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
+                    <div className="min-w-0">
                             <Link
                                 to={`/manage-exams/${exam.id}/view`}
                                 className="block truncate font-semibold text-slate-900 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
@@ -736,12 +688,10 @@ const ManageExamsPage: React.FC = () => {
                                 {exam.title}
                             </Link>
                             <p className="mt-0.5 truncate text-[12px] text-slate-400">
-                                {getDisplayAuthorName(exam)} ·{' '}
                                 {exam.tracks.length > 0
                                     ? exam.tracks.map((track) => track.name).join(', ')
                                     : exam.program || 'All programs'}
                             </p>
-                        </div>
                     </div>
                 ),
             },
@@ -753,6 +703,24 @@ const ManageExamsPage: React.FC = () => {
                 sortValue: (exam) => exam.status,
                 className: 'w-[130px]',
                 cell: renderStatusCell,
+            },
+            {
+                id: 'author',
+                header: 'Author',
+                sortable: true,
+                sortValue: (exam) => getDisplayAuthorName(exam),
+                className: 'w-[180px]',
+                cell: (exam) => (
+                    <div className="flex min-w-0 items-center gap-2">
+                        <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarImage src={exam.authorAvatar ?? undefined} alt="" />
+                            <AvatarFallback className="text-[11px] font-semibold">
+                                {getDisplayAuthorName(exam).slice(0, 1).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <span className="block truncate">{getDisplayAuthorName(exam)}</span>
+                    </div>
+                ),
             },
             {
                 id: 'category',
@@ -879,100 +847,15 @@ const ManageExamsPage: React.FC = () => {
                 segmentValue={ownershipFilter}
                 onSegmentChange={(value) => setOwnershipFilter(value as typeof ownershipFilter)}
                 segmentLabel="Filter by owner"
-                inlineFilters={
-                    <>
-                        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                            <SelectTrigger className="h-8 w-[130px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by status">
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All statuses</SelectItem>
-                                <SelectItem value="live">Live</SelectItem>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="closed">Closed</SelectItem>
-                                <SelectItem value="archived">Archived</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                            <SelectTrigger className="h-8 w-[160px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by category">
-                                <SelectValue placeholder="Category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All categories</SelectItem>
-                                {categoryOptions.map((category) => (
-                                    <SelectItem key={category} value={category}>
-                                        {category}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </>
-                }
+                filterPopoverTitle="Filter exams"
                 popoverFilters={
                     <>
-                        <FilterField label="Visible to">
-                            <Select value={programFilter} onValueChange={setProgramFilter}>
-                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by program visibility">
-                                    <SelectValue placeholder="Visible to" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All programs</SelectItem>
-                                    <SelectItem value={ALL_PROGRAMS_FILTER}>All programs (public)</SelectItem>
-                                    {programOptions.tracked.map((track) => (
-                                        <SelectItem key={track.id} value={track.id}>
-                                            {track.name}
-                                        </SelectItem>
-                                    ))}
-                                    {programOptions.legacy.map((program) => (
-                                        <SelectItem
-                                            key={`${LEGACY_PROGRAM_PREFIX}${program}`}
-                                            value={`${LEGACY_PROGRAM_PREFIX}${program}`}
-                                        >
-                                            {resolveProgramLabel(program, trackOptions)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FilterField>
-                        <FilterField label="Author">
-                            <Select value={authorFilter} onValueChange={setAuthorFilter}>
-                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by author">
-                                    <SelectValue placeholder="Author" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All authors</SelectItem>
-                                    {authorOptions.map((author) => (
-                                        <SelectItem key={author} value={author}>
-                                            {author}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FilterField>
-                        <FilterField label="Deadline">
-                            <Select value={deadlineFilter} onValueChange={(value) => setDeadlineFilter(value as typeof deadlineFilter)}>
-                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by deadline">
-                                    <SelectValue placeholder="Deadline" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All deadlines</SelectItem>
-                                    <SelectItem value="with-deadline">With deadline</SelectItem>
-                                    <SelectItem value="without-deadline">Without deadline</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </FilterField>
-                        <FilterField label="Date published">
-                            <Select value={publishedFilter} onValueChange={(value) => setPublishedFilter(value as typeof publishedFilter)}>
-                                <SelectTrigger className="h-8 text-[12px]" aria-label="Filter by publish date">
-                                    <SelectValue placeholder="Date published" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All dates</SelectItem>
-                                    <SelectItem value="last_7_days">Last 7 days</SelectItem>
-                                    <SelectItem value="last_30_days">Last 30 days</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </FilterField>
+                        <CheckboxFilterGroup label="Status" options={Object.values(STATUS_LABEL)} value={statusFilters.map((status) => STATUS_LABEL[status])} onValueChange={(labels) => setStatusFilters((Object.entries(STATUS_LABEL) as Array<[Exam['status'], string]>).filter(([, label]) => labels.includes(label)).map(([status]) => status))} />
+                        <CheckboxFilterGroup label="Category" options={categoryOptions} value={categoryFilters} onValueChange={setCategoryFilters} />
+                        <CheckboxFilterGroup label="Visible to" options={["All programs (public)", ...programOptions.tracked.map((track) => track.name), ...programOptions.legacy.map((program) => resolveProgramLabel(program, trackOptions))]} value={programFilters.map(programLabelFor)} onValueChange={(labels) => setProgramFilters(labels.map((label) => label === 'All programs (public)' ? ALL_PROGRAMS_FILTER : programOptions.tracked.find((track) => track.name === label)?.id || `${LEGACY_PROGRAM_PREFIX}${programOptions.legacy.find((program) => resolveProgramLabel(program, trackOptions) === label) || label}`))} />
+                        <CheckboxFilterGroup label="Author" options={authorOptions} value={authorFilters} onValueChange={setAuthorFilters} />
+                        <CheckboxFilterGroup label="Deadline" options={['With deadline', 'Without deadline']} value={deadlineFilters.map((value) => value === 'with-deadline' ? 'With deadline' : 'Without deadline')} onValueChange={(labels) => setDeadlineFilters(labels.map((label) => label === 'With deadline' ? 'with-deadline' : 'without-deadline'))} />
+                        <CheckboxFilterGroup label="Date published" options={['Last 7 days', 'Last 30 days']} value={publishedFilters.map((value) => value === 'last_7_days' ? 'Last 7 days' : 'Last 30 days')} onValueChange={(labels) => setPublishedFilters(labels.map((label) => label === 'Last 7 days' ? 'last_7_days' : 'last_30_days'))} />
                     </>
                 }
                 activeFilterCount={chips.length}
@@ -998,7 +881,7 @@ const ManageExamsPage: React.FC = () => {
                     emptyDescription="Create your first mock exam to get started."
                     emptyAction={createAction}
                     rowActions={renderRowActions}
-                    resetKey={`${search}|${statusFilter}|${categoryFilter}|${programFilter}|${authorFilter}|${deadlineFilter}|${publishedFilter}|${ownershipFilter}`}
+                    resetKey={`${search}|${statusFilters.join(',')}|${categoryFilters.join(',')}|${programFilters.join(',')}|${authorFilters.join(',')}|${deadlineFilters.join(',')}|${publishedFilters.join(',')}|${ownershipFilter}`}
                 />
             ) : (
                 <ResourceGrid

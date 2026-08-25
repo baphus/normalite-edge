@@ -15,20 +15,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { ManageToolbar } from '@/components/manage/ManageToolbar';
+import { CheckboxFilterGroup, ManageToolbar, type ActiveFilterChip } from '@/components/manage/ManageToolbar';
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 
 interface CampusItem {
@@ -110,8 +103,8 @@ const CampusesPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
-    const [codeFilter, setCodeFilter] = useState<'ALL' | 'WITH_CODE' | 'NO_CODE'>('ALL');
-    const [activityFilter, setActivityFilter] = useState<'ALL' | 'UPDATED_30_DAYS' | 'OLDER'>('ALL');
+    const [codeFilters, setCodeFilters] = useState<Array<'WITH_CODE' | 'NO_CODE'>>([]);
+    const [activityFilters, setActivityFilters] = useState<Array<'UPDATED_30_DAYS' | 'OLDER'>>([]);
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
@@ -158,19 +151,33 @@ const CampusesPage: React.FC = () => {
                 || (campus.code || '').toLowerCase().includes(normalizedSearch);
 
             const hasCode = Boolean(campus.code?.trim());
-            const matchesCode = codeFilter === 'ALL'
-                || (codeFilter === 'WITH_CODE' && hasCode)
-                || (codeFilter === 'NO_CODE' && !hasCode);
+            const matchesCode = codeFilters.length === 0
+                || (codeFilters.includes('WITH_CODE') && hasCode)
+                || (codeFilters.includes('NO_CODE') && !hasCode);
 
             const updatedAt = toValidDate(campus.updatedAt);
             const isUpdatedRecently = updatedAt ? updatedAt.getTime() >= threshold : false;
-            const matchesActivity = activityFilter === 'ALL'
-                || (activityFilter === 'UPDATED_30_DAYS' && isUpdatedRecently)
-                || (activityFilter === 'OLDER' && !isUpdatedRecently);
+            const matchesActivity = activityFilters.length === 0
+                || (activityFilters.includes('UPDATED_30_DAYS') && isUpdatedRecently)
+                || (activityFilters.includes('OLDER') && !isUpdatedRecently);
 
             return matchesSearch && matchesCode && matchesActivity;
         });
-    }, [campuses, search, codeFilter, activityFilter]);
+    }, [campuses, search, codeFilters, activityFilters]);
+
+    const clearAllFilters = useCallback(() => {
+        setSearch('');
+        setCodeFilters([]);
+        setActivityFilters([]);
+    }, []);
+
+    const chips = useMemo<ActiveFilterChip[]>(() => {
+        const next: ActiveFilterChip[] = [];
+        if (search.trim()) next.push({ id: 'search', label: `Search: ${search.trim()}`, onClear: () => setSearch('') });
+        codeFilters.forEach((value) => next.push({ id: `code-${value}`, label: value === 'WITH_CODE' ? 'With code' : 'No code', onClear: () => setCodeFilters((current) => current.filter((item) => item !== value)) }));
+        activityFilters.forEach((value) => next.push({ id: `activity-${value}`, label: value === 'UPDATED_30_DAYS' ? 'Updated: last 30 days' : 'Updated: older', onClear: () => setActivityFilters((current) => current.filter((item) => item !== value)) }));
+        return next;
+    }, [search, codeFilters, activityFilters]);
 
     const filteredMembers = useMemo(() => {
         const normalizedSearch = memberSearch.trim().toLowerCase();
@@ -379,33 +386,11 @@ const CampusesPage: React.FC = () => {
                 onSearchChange={setSearch}
                 searchPlaceholder="Search campuses…"
                 searchLabel="Search campuses"
-                inlineFilters={
-                    <>
-                        <Select value={codeFilter} onValueChange={(value) => setCodeFilter(value as typeof codeFilter)}>
-                            <SelectTrigger className="h-8 w-[140px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by code status">
-                                <SelectValue placeholder="Code" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All codes</SelectItem>
-                                <SelectItem value="WITH_CODE">With code</SelectItem>
-                                <SelectItem value="NO_CODE">No code</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={activityFilter} onValueChange={(value) => setActivityFilter(value as typeof activityFilter)}>
-                            <SelectTrigger className="h-8 w-[150px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by activity">
-                                <SelectValue placeholder="Updated" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">Any time</SelectItem>
-                                <SelectItem value="UPDATED_30_DAYS">Last 30 days</SelectItem>
-                                <SelectItem value="OLDER">Older</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </>
-                }
-                activeFilterCount={0}
-                chips={[]}
-                onClearAll={() => {}}
+                filterPopoverTitle="Filter campuses"
+                popoverFilters={<><CheckboxFilterGroup label="Code" options={['With code', 'No code']} value={codeFilters.map((value) => value === 'WITH_CODE' ? 'With code' : 'No code')} onValueChange={(values) => setCodeFilters(values.map((value) => value === 'With code' ? 'WITH_CODE' : 'NO_CODE'))} /><CheckboxFilterGroup label="Last updated" options={['Last 30 days', 'Older']} value={activityFilters.map((value) => value === 'UPDATED_30_DAYS' ? 'Last 30 days' : 'Older')} onValueChange={(values) => setActivityFilters(values.map((value) => value === 'Last 30 days' ? 'UPDATED_30_DAYS' : 'OLDER'))} /></>}
+                activeFilterCount={chips.length}
+                chips={chips}
+                onClearAll={clearAllFilters}
                 createAction={createAction}
             />
 
@@ -421,7 +406,9 @@ const CampusesPage: React.FC = () => {
                 emptyDescription="Create your first campus to start assigning users."
                 emptyAction={createAction}
                 rowActions={renderRowActions}
-                resetKey={`${search}|${codeFilter}|${activityFilter}`}
+                filtersActive={chips.length > 0}
+                onClearFilters={clearAllFilters}
+                resetKey={`${search}|${codeFilters.join(',')}|${activityFilters.join(',')}`}
             />
 
             {/* Create / Edit Dialog */}

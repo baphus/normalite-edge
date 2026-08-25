@@ -3,6 +3,108 @@ import { ApiError } from '../utils/ApiError';
 import { buildTrackVisibilityFilter } from './revieweeVisibility';
 import { streakService } from './streak.service';
 
+type AttemptScoreRow = {
+    percentage: { toString(): string } | number;
+    userId: string;
+    submittedAt: Date | null;
+    updatedAt: Date;
+    user: { programTrack: string | null };
+};
+
+const buildDashboardAnalytics = (
+    attemptRows: AttemptScoreRow[],
+    examVolumes: {
+        id: string;
+        title: string;
+        creator: { firstName: string | null; lastName: string | null; profilePicture: string | null };
+        _count: { attempts: number };
+    }[],
+    statusCounts: { status: string; _count: number }[],
+) => {
+    const scores = attemptRows.map((attempt) => Number(attempt.percentage));
+    const scoreBands = [
+        { label: 'Below 50%', count: 0 },
+        { label: '50–74%', count: 0 },
+        { label: '75–89%', count: 0 },
+        { label: '90–100%', count: 0 },
+    ];
+
+    scores.forEach((score) => {
+        const index = score < 50 ? 0 : score < 75 ? 1 : score < 90 ? 2 : 3;
+        scoreBands[index].count += 1;
+    });
+
+    const currentWeek = new Date();
+    currentWeek.setUTCHours(0, 0, 0, 0);
+    currentWeek.setUTCDate(currentWeek.getUTCDate() - ((currentWeek.getUTCDay() + 6) % 7));
+    const weeks = Array.from({ length: 8 }, (_, index) => {
+        const start = new Date(currentWeek);
+        start.setUTCDate(currentWeek.getUTCDate() - (7 * (7 - index)));
+        return {
+            start,
+            label: new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                day: 'numeric',
+                timeZone: 'UTC',
+            }).format(start),
+            count: 0,
+        };
+    });
+
+    attemptRows.forEach((attempt) => {
+        const submittedAt = attempt.submittedAt ?? attempt.updatedAt;
+        const offset = Math.floor((submittedAt.getTime() - weeks[0].start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        if (offset >= 0 && offset < weeks.length) weeks[offset].count += 1;
+    });
+
+    const examStatuses = { live: 0, draft: 0, closed: 0, archived: 0 };
+    statusCounts.forEach((entry) => {
+        const status = entry.status.toLowerCase() as keyof typeof examStatuses;
+        if (status in examStatuses) examStatuses[status] = entry._count;
+    });
+
+    const programScores = new Map<string, { total: number; submissions: number }>();
+    attemptRows.forEach((attempt) => {
+        const program = attempt.user.programTrack?.trim();
+        if (!program) return;
+        const summary = programScores.get(program) ?? { total: 0, submissions: 0 };
+        summary.total += Number(attempt.percentage);
+        summary.submissions += 1;
+        programScores.set(program, summary);
+    });
+
+    return {
+        averageScore: scores.length
+            ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
+            : null,
+        passRate: scores.length
+            ? Math.round((scores.filter((score) => score >= 75).length / scores.length) * 100)
+            : null,
+        learnerCount: new Set(attemptRows.map((attempt) => attempt.userId)).size,
+        scoreDistribution: scoreBands,
+        weeklySubmissions: weeks.map(({ label, count }) => ({ label, count })),
+        topPrograms: [...programScores.entries()]
+            .map(([program, summary]) => ({
+                program,
+                averageScore: Math.round((summary.total / summary.submissions) * 10) / 10,
+                submissions: summary.submissions,
+            }))
+            .sort((first, second) => second.averageScore - first.averageScore || second.submissions - first.submissions)
+            .slice(0, 5),
+        submissionVolume: examVolumes
+            .map((exam) => ({
+                id: exam.id,
+                title: exam.title,
+                author: [exam.creator.firstName, exam.creator.lastName].filter(Boolean).join(' ') || 'Unknown author',
+                authorAvatar: exam.creator.profilePicture,
+                count: exam._count.attempts,
+            }))
+            .sort((first, second) => second.count - first.count || first.title.localeCompare(second.title))
+            .slice(0, 6),
+        examStatuses,
+    };
+};
+
 export class DashboardService {
     private getDailySeed(userId: string) {
         const dateKey = new Date().toISOString().slice(0, 10);
@@ -390,6 +492,9 @@ export class DashboardService {
             recentExams,
             activityFeed,
             upcomingExams,
+            examVolumes,
+            attemptScoreRows,
+            examStatusCounts,
         ] = await Promise.all([
             prisma.exam.count({ where: { createdBy: userId } }),
             prisma.studyDeck.count({ where: { createdBy: userId } }),
@@ -419,7 +524,11 @@ export class DashboardService {
                     status: true,
                     createdAt: true,
                     updatedAt: true,
-                    _count: { select: { attempts: true } },
+                    _count: {
+                        select: {
+                            attempts: { where: { status: { not: 'IN_PROGRESS' } } },
+                        },
+                    },
                 },
                 orderBy: { updatedAt: 'desc' },
                 take: 6,
@@ -456,6 +565,34 @@ export class DashboardService {
                 orderBy: { scheduleStart: 'asc' },
                 take: 5,
             }),
+            prisma.exam.findMany({
+                where: { createdBy: userId },
+                select: {
+                    id: true,
+                    title: true,
+                    creator: { select: { firstName: true, lastName: true, profilePicture: true } },
+                    _count: {
+                        select: {
+                            attempts: { where: { status: { not: 'IN_PROGRESS' } } },
+                        },
+                    },
+                },
+            }),
+            prisma.attempt.findMany({
+                where: { exam: { createdBy: userId }, status: { not: 'IN_PROGRESS' } },
+                select: {
+                    percentage: true,
+                    userId: true,
+                    submittedAt: true,
+                    updatedAt: true,
+                    user: { select: { programTrack: true } },
+                },
+            }),
+            prisma.exam.groupBy({
+                by: ['status'],
+                where: { createdBy: userId },
+                _count: true,
+            }),
         ]);
 
         return {
@@ -467,6 +604,7 @@ export class DashboardService {
             recentExams,
             activityFeed,
             upcomingExams,
+            analytics: buildDashboardAnalytics(attemptScoreRows, examVolumes, examStatusCounts),
         };
     }
 
@@ -489,6 +627,9 @@ export class DashboardService {
             recentUsers,
             recentAuditLogs,
             upcomingExams,
+            examVolumes,
+            attemptScoreRows,
+            examStatusCounts,
         ] = await Promise.all([
             prisma.user.count(),
             // Admin approval was removed with the move to Google SSO, so there
@@ -599,6 +740,32 @@ export class DashboardService {
                 orderBy: { scheduleStart: 'asc' },
                 take: 5,
             }),
+            prisma.exam.findMany({
+                select: {
+                    id: true,
+                    title: true,
+                    creator: { select: { firstName: true, lastName: true, profilePicture: true } },
+                    _count: {
+                        select: {
+                            attempts: { where: { status: { not: 'IN_PROGRESS' } } },
+                        },
+                    },
+                },
+            }),
+            prisma.attempt.findMany({
+                where: { status: { not: 'IN_PROGRESS' } },
+                select: {
+                    percentage: true,
+                    userId: true,
+                    submittedAt: true,
+                    updatedAt: true,
+                    user: { select: { programTrack: true } },
+                },
+            }),
+            prisma.exam.groupBy({
+                by: ['status'],
+                _count: true,
+            }),
         ]);
 
         const usersByRole = await prisma.user.groupBy({
@@ -656,6 +823,7 @@ export class DashboardService {
                 createdAt: log.createdAt,
             })),
             upcomingExams,
+            analytics: buildDashboardAnalytics(attemptScoreRows, examVolumes, examStatusCounts),
         };
     }
 }

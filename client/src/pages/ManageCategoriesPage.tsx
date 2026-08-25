@@ -21,7 +21,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { ManageToolbar } from '@/components/manage/ManageToolbar';
+import { ManageToolbar, type ActiveFilterChip } from '@/components/manage/ManageToolbar';
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 
 interface Category {
@@ -73,6 +73,14 @@ export default function ManageCategoriesPage() {
         if (!term) return categories;
         return categories.filter((cat) => cat.name.toLowerCase().includes(term));
     }, [categories, search]);
+
+    const clearAllFilters = useCallback(() => setSearch(''), []);
+    const chips = useMemo<ActiveFilterChip[]>(
+        () => search.trim()
+            ? [{ id: 'search', label: `Search: ${search.trim()}`, onClear: () => setSearch('') }]
+            : [],
+        [search],
+    );
 
     const handleCreate = () => {
         setEditingCategory(null);
@@ -236,9 +244,9 @@ export default function ManageCategoriesPage() {
                 onSearchChange={setSearch}
                 searchPlaceholder="Search categories…"
                 searchLabel="Search categories"
-                activeFilterCount={0}
-                chips={[]}
-                onClearAll={() => {}}
+                activeFilterCount={chips.length}
+                chips={chips}
+                onClearAll={clearAllFilters}
                 createAction={createAction}
             />
 
@@ -248,6 +256,8 @@ export default function ManageCategoriesPage() {
                 getRowId={(cat) => cat.id}
                 caption="Exam and material categories"
                 state={tableState}
+                filtersActive={chips.length > 0}
+                onClearFilters={clearAllFilters}
                 emptyTitle="No categories yet"
                 emptyDescription="Create your first category to get started."
                 emptyAction={createAction}

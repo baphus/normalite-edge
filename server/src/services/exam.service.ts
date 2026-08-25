@@ -233,7 +233,7 @@ export class ExamService {
             prisma.exam.findMany({
                 where,
                 include: {
-                    creator: { select: { id: true, firstName: true, lastName: true } },
+                    creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                     category: true,
                     trackLinks: { include: { track: true } },
                     attempts: params.publishedOrMine
@@ -282,7 +282,7 @@ export class ExamService {
                         },
                     }
                     : false,
-                creator: { select: { id: true, firstName: true, lastName: true } },
+                creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                 category: true,
                 trackLinks: { include: { track: true } },
                 sections: { select: { id: true, title: true, orderNo: true } },
@@ -594,7 +594,7 @@ export class ExamService {
                 where: { id: createdExam.id },
                 include: {
                     questions: { orderBy: { orderNo: 'asc' } },
-                    creator: { select: { id: true, firstName: true, lastName: true } },
+                    creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                     category: true,
                     trackLinks: { include: { track: true } },
                     sections: { select: { id: true, title: true, orderNo: true } },
@@ -776,7 +776,7 @@ export class ExamService {
                 where: { id: examId },
                 include: {
                     questions: { orderBy: { orderNo: 'asc' } },
-                    creator: { select: { id: true, firstName: true, lastName: true } },
+                    creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                     trackLinks: { include: { track: true } },
                     sections: { select: { id: true, title: true, orderNo: true } },
                 },

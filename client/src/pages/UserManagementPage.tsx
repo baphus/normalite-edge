@@ -3,12 +3,9 @@ import {
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
-    ChevronLeft,
-    ChevronRight,
     Columns3,
     Edit,
     Eye,
-    Filter,
     Shield,
     Trash2,
     UserPlus,
@@ -52,7 +49,10 @@ import api from '@/lib/axios';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useSearchParams } from 'react-router-dom';
-import { ManageToolbar } from '@/components/manage/ManageToolbar';
+import { ManageToolbar, type ActiveFilterChip } from '@/components/manage/ManageToolbar';
+import { DataTablePagination } from '@/components/manage/DataTablePagination';
+import { CheckboxFilterGroup } from '@/components/manage/ManageToolbar';
+import { fetchAllPages } from '@/lib/fetchAllPages';
 
 type UserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
 type CreateUserRole = 'ADMIN' | 'REVIEWER' | 'REVIEWEE';
@@ -191,15 +191,14 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('en-US'
 const UserManagementPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [users, setUsers] = useState<User[]>([]);
-    const [totalUsers, setTotalUsers] = useState(0);
     const [page, setPage] = useState(1);
-    const [limit] = useState(14);
+    const [limit, setLimit] = useState(25);
     const [loading, setLoading] = useState(false);
     const [mutatingId, setMutatingId] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
-    const [statusFilter, setStatusFilter] = useState<'ALL' | UiStatus>('ALL');
+    const [roleFilters, setRoleFilters] = useState<UserRole[]>([]);
+    const [statusFilters, setStatusFilters] = useState<UiStatus[]>([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -236,24 +235,19 @@ const UserManagementPage: React.FC = () => {
         setLoading(true);
         setErrorMessage(null);
         try {
-            const response = await api.get('/users', {
-                params: {
-                    page,
-                    limit,
-                    search: search || undefined,
-                    role: roleFilter === 'ALL' ? undefined : roleFilter,
-                    status: statusFilter === 'ALL' ? undefined : statusToApi(statusFilter),
-                },
-            });
-            const records = (response.data?.data || []) as UserApiItem[];
-            setUsers(records.map(toUiUser));
-            setTotalUsers(response.data?.meta?.total || records.length);
+            const result = await fetchAllPages<UserApiItem>((nextPage, nextLimit) =>
+                api.get('/users', { params: { page: nextPage, limit: nextLimit } }),
+            );
+            setUsers(result.items.map(toUiUser));
+            if (result.truncated) {
+                toast.warning('This user directory is unusually large — some users may not be shown.');
+            }
         } catch (error) {
             setErrorMessage(getApiErrorMessage(error) || 'Failed to load users');
         } finally {
             setLoading(false);
         }
-    }, [page, limit, search, roleFilter, statusFilter]);
+    }, []);
 
     useEffect(() => {
         const load = () => {
@@ -311,12 +305,8 @@ const UserManagementPage: React.FC = () => {
         setDeleteUserTarget(null);
         try {
             setMutatingId(target.id);
-            if (users.length === 1 && page > 1) {
-                setPage((prev) => prev - 1);
-            } else {
-                await api.delete(`/users/${target.id}`);
-                void fetchUsers();
-            }
+            await api.delete(`/users/${target.id}`);
+            void fetchUsers();
             toast.success(`${target.name} has been deleted.`);
         } catch (error) {
             toast.error(getApiErrorMessage(error) || 'Failed to delete user.');
@@ -413,8 +403,22 @@ const UserManagementPage: React.FC = () => {
         setSortDirection('asc');
     };
 
+    const filteredUsers = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        return users.filter((user) => {
+            const matchesSearch = !term
+                || user.name.toLowerCase().includes(term)
+                || user.email.toLowerCase().includes(term)
+                || user.program.toLowerCase().includes(term)
+                || user.campus.toLowerCase().includes(term);
+            return matchesSearch
+                && (roleFilters.length === 0 || roleFilters.includes(user.role))
+                && (statusFilters.length === 0 || statusFilters.includes(user.status));
+        });
+    }, [users, search, roleFilters, statusFilters]);
+
     const sortedUsers = useMemo(() => {
-        const copy = [...users];
+        const copy = [...filteredUsers];
         copy.sort((first, second) => {
             let value = 0;
             if (sortBy === 'name') {
@@ -431,12 +435,12 @@ const UserManagementPage: React.FC = () => {
             return sortDirection === 'asc' ? value : -value;
         });
         return copy;
-    }, [users, sortBy, sortDirection]);
+    }, [filteredUsers, sortBy, sortDirection]);
 
     const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length + 1;
+    const totalUsers = sortedUsers.length;
     const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
-    const fromCount = totalUsers === 0 ? 0 : (page - 1) * limit + 1;
-    const toCount = Math.min(page * limit, totalUsers);
+    const paginatedUsers = useMemo(() => sortedUsers.slice((page - 1) * limit, page * limit), [sortedUsers, page, limit]);
 
     const renderSortIcon = (key: SortKey) => {
         if (sortBy !== key) return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
@@ -445,10 +449,19 @@ const UserManagementPage: React.FC = () => {
     };
 
     const resetFilters = useCallback(() => {
-        setRoleFilter('ALL');
-        setStatusFilter('ALL');
+        setSearch('');
+        setRoleFilters([]);
+        setStatusFilters([]);
         setPage(1);
     }, []);
+
+    const chips = useMemo<ActiveFilterChip[]>(() => {
+        const next: ActiveFilterChip[] = [];
+        if (search.trim()) next.push({ id: 'search', label: `Search: ${search.trim()}`, onClear: () => { setSearch(''); setPage(1); } });
+        roleFilters.forEach((role) => next.push({ id: `role-${role}`, label: `Role: ${role.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())}`, onClear: () => { setRoleFilters((current) => current.filter((value) => value !== role)); setPage(1); } }));
+        statusFilters.forEach((status) => next.push({ id: `status-${status}`, label: `Status: ${status === 'active' ? 'Active' : 'Inactive'}`, onClear: () => { setStatusFilters((current) => current.filter((value) => value !== status)); setPage(1); } }));
+        return next;
+    }, [roleFilters, search, statusFilters]);
 
     const createAction = (
         <Button
@@ -477,43 +490,16 @@ const UserManagementPage: React.FC = () => {
                 onSearchChange={setSearch}
                 searchPlaceholder="Search by name, email, program…"
                 searchLabel="Search users"
-                inlineFilters={
-                    <>
-                        <Select value={roleFilter} onValueChange={(value) => { setPage(1); setRoleFilter(value as 'ALL' | UserRole); }}>
-                            <SelectTrigger className="h-8 w-[140px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by role">
-                                <SelectValue placeholder="Role" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All Roles</SelectItem>
-                                <SelectItem value="REVIEWEE">Reviewee</SelectItem>
-                                <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                                <SelectItem value="ADMIN">Admin</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={statusFilter} onValueChange={(value) => { setPage(1); setStatusFilter(value as 'ALL' | UiStatus); }}>
-                            <SelectTrigger className="h-8 w-[140px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by status">
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All Status</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="inactive">Inactive</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </>
-                }
-                activeFilterCount={0}
-                chips={[]}
+                filterPopoverTitle="Filter users"
+                popoverFilters={<><CheckboxFilterGroup label="Role" options={['Reviewee', 'Reviewer', 'Admin']} value={roleFilters.map((value) => value === 'REVIEWEE' ? 'Reviewee' : value === 'REVIEWER' ? 'Reviewer' : 'Admin')} onValueChange={(values) => { setPage(1); setRoleFilters(values.map((value) => value === 'Reviewee' ? 'REVIEWEE' : value === 'Reviewer' ? 'REVIEWER' : 'ADMIN')); }} /><CheckboxFilterGroup label="Account status" options={['Active', 'Inactive']} value={statusFilters.map((value) => value === 'active' ? 'Active' : 'Inactive')} onValueChange={(values) => { setPage(1); setStatusFilters(values.map((value) => value === 'Active' ? 'active' : 'inactive')); }} /></>}
+                activeFilterCount={chips.length}
+                chips={chips}
                 onClearAll={resetFilters}
                 createAction={createAction}
             />
 
-            {/* Column visibility + filter summary */}
-            <div className="flex flex-wrap gap-3 items-center">
-                <Button variant="outline" className="h-8 px-3 bg-white border border-slate-200 rounded-lg text-[12px] font-semibold text-slate-700 gap-2" onClick={resetFilters}>
-                    <Filter className="w-3.5 h-3.5" />
-                    Reset Filters
-                </Button>
+            {/* Column visibility */}
+            <div className="flex flex-wrap items-center gap-3">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="h-8 px-3 bg-white border border-slate-200 rounded-lg text-[12px] font-semibold text-slate-700 gap-2">
@@ -602,7 +588,7 @@ const UserManagementPage: React.FC = () => {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                sortedUsers.map((user) => (
+                                paginatedUsers.map((user) => (
                                     <TableRow key={user.id} className="border-gray-100 hover:bg-gray-50/70 align-top">
                                         {visibleColumns.user && (
                                             <TableCell className="px-3 py-2.5 min-w-64">
@@ -687,23 +673,17 @@ const UserManagementPage: React.FC = () => {
                     </Table>
                 </div>
 
-                {/* Pagination */}
-                <div className="bg-slate-50 border-t border-slate-100 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <p className="text-[11px] font-semibold text-slate-500">
-                        Showing <span className="text-gray-900">{fromCount}-{toCount}</span> of <span className="text-gray-900">{totalUsers}</span> users
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-gray-200" disabled={page <= 1 || loading} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
-                            <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                        <Badge variant="outline" className="h-8 px-3 rounded-lg text-xs font-bold border-gray-200">
-                            {page} / {totalPages}
-                        </Badge>
-                        <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-gray-200" disabled={page >= totalPages || loading} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>
-                            <ChevronRight className="w-4 h-4" />
-                        </Button>
-                    </div>
-                </div>
+                <DataTablePagination
+                    className="border-t border-slate-200 bg-slate-50/60 px-3 py-2.5"
+                    page={page}
+                    totalPages={totalPages}
+                    totalItems={totalUsers}
+                    pageSize={limit}
+                    onPageChange={setPage}
+                    onPageSizeChange={(nextLimit) => { setPage(1); setLimit(nextLimit); }}
+                    itemLabel="users"
+                    disabled={loading}
+                />
             </div>
 
             {/* Create User Dialog */}

@@ -5,8 +5,6 @@ import {
     Download,
     RefreshCw,
     AlertCircle,
-    ChevronLeft,
-    ChevronRight,
     SearchX,
     Shield,
 } from 'lucide-react';
@@ -23,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import api from '@/lib/axios';
+import { DataTablePagination } from '@/components/manage/DataTablePagination';
 
 type AuditLog = {
     id: string;
@@ -109,7 +108,7 @@ const LogsPage: React.FC = () => {
     const [toDate, setToDate] = useState('');
     const [activePreset, setActivePreset] = useState<'today' | 'last7' | 'last30' | null>(null);
     const [page, setPage] = useState(1);
-    const [limit] = useState(20);
+    const [limit, setLimit] = useState(25);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -432,34 +431,16 @@ const LogsPage: React.FC = () => {
             </Card>
 
             {!!logs.length && (
-                <div className="flex items-center justify-between px-1">
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                        Showing {logs.length} of {total} entries
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            disabled={page <= 1}
-                            onClick={() => setPage((current) => Math.max(1, current - 1))}
-                            className="rounded-md border-gray-200 h-8 w-8 bg-white"
-                        >
-                            <ChevronLeft size={14} />
-                        </Button>
-                        <div className="flex items-center gap-1">
-                            <span className="text-xs font-semibold text-gray-600 min-w-8 text-center">{page} / {totalPages}</span>
-                        </div>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            disabled={page >= totalPages}
-                            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                            className="rounded-md border-gray-200 h-8 w-8 bg-white hover:bg-gray-50"
-                        >
-                            <ChevronRight size={14} />
-                        </Button>
-                    </div>
-                </div>
+                <DataTablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    totalItems={total}
+                    pageSize={limit}
+                    onPageChange={setPage}
+                    onPageSizeChange={(nextLimit) => { setPage(1); setLimit(nextLimit); }}
+                    itemLabel="entries"
+                    disabled={loading}
+                />
             )}
         </div>
     );

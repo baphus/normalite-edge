@@ -1,15 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsUpDown, ArrowDown, ArrowUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ChevronsUpDown, ArrowDown, ArrowUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { CollectionEmpty, CollectionError } from './CollectionState';
+import { DataTablePagination } from './DataTablePagination';
 import { cn } from '@/lib/utils';
 
 export interface ResourceColumn<T> {
@@ -233,9 +226,6 @@ function ResourceTableInner<T>({
     }
 
     // ── Ready ────────────────────────────────────────────────────────────────
-    const firstRowIndex = (safePage - 1) * pageSize + 1;
-    const lastRowIndex = Math.min(safePage * pageSize, sortedRows.length);
-
     return (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {/* Desktop table */}
@@ -332,55 +322,15 @@ function ResourceTableInner<T>({
             </ul>
 
             {/* Pagination footer */}
-            <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[12px] text-slate-500" role="status">
-                    Showing <span className="font-semibold text-slate-700">{firstRowIndex}–{lastRowIndex}</span> of{' '}
-                    <span className="font-semibold text-slate-700">{sortedRows.length}</span>
-                </p>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[12px] text-slate-500">Rows</span>
-                        <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
-                            <SelectTrigger
-                                className="h-7 w-16 rounded-lg border-slate-200 bg-white text-[12px]"
-                                aria-label="Rows per page"
-                            >
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PAGE_SIZES.map((size) => (
-                                    <SelectItem key={size} value={String(size)} className="text-[12px]">
-                                        {size}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <Button
-                            variant="outline"
-                            className="h-7 w-7 rounded-lg border-slate-200 bg-white p-0"
-                            disabled={safePage <= 1}
-                            onClick={() => setPage(safePage - 1)}
-                            aria-label="Previous page"
-                        >
-                            <ChevronLeft size={14} aria-hidden="true" />
-                        </Button>
-                        <span className="px-1 text-[12px] tabular-nums text-slate-500">
-                            {safePage} / {totalPages}
-                        </span>
-                        <Button
-                            variant="outline"
-                            className="h-7 w-7 rounded-lg border-slate-200 bg-white p-0"
-                            disabled={safePage >= totalPages}
-                            onClick={() => setPage(safePage + 1)}
-                            aria-label="Next page"
-                        >
-                            <ChevronRight size={14} aria-hidden="true" />
-                        </Button>
-                    </div>
-                </div>
-            </div>
+            <DataTablePagination
+                className="border-t border-slate-200 bg-slate-50/60 px-3 py-2.5"
+                page={safePage}
+                totalPages={totalPages}
+                totalItems={sortedRows.length}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+            />
         </div>
     );
 }

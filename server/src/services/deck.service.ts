@@ -85,7 +85,7 @@ export class DeckService {
             prisma.studyDeck.findMany({
                 where,
                 include: {
-                    creator: { select: { id: true, firstName: true, lastName: true } },
+                    creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                     category: true,
                     trackLinks: { include: { track: true } },
                     _count: { select: { questions: true } },
@@ -109,7 +109,7 @@ export class DeckService {
         const deck = await prisma.studyDeck.findUnique({
             where: { id },
             include: {
-                creator: { select: { id: true, firstName: true, lastName: true } },
+                creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                 category: true,
                 trackLinks: { include: { track: true } },
                 questions: includeQuestions ? { orderBy: { orderNo: 'asc' } } : false,
@@ -194,7 +194,7 @@ export class DeckService {
             return tx.studyDeck.findUnique({
                 where: { id: createdDeck.id },
                 include: {
-                    creator: { select: { id: true, firstName: true, lastName: true } },
+                    creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                     category: true,
                     trackLinks: { include: { track: true } },
                     questions: { orderBy: { orderNo: 'asc' } },
@@ -325,7 +325,7 @@ export class DeckService {
             return tx.studyDeck.findUnique({
                 where: { id: deckId },
                 include: {
-                    creator: { select: { id: true, firstName: true, lastName: true } },
+                    creator: { select: { id: true, firstName: true, lastName: true, profilePicture: true } },
                     category: true,
                     trackLinks: { include: { track: true } },
                     questions: { orderBy: { orderNo: 'asc' } },

@@ -3,20 +3,14 @@ import { Plus, MoreHorizontal, Trash2, Eye, Edit } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ManageToolbar, type ActiveFilterChip, type ManageView } from '@/components/manage/ManageToolbar';
+import { CheckboxFilterGroup, ManageToolbar, type ActiveFilterChip, type ManageView } from '@/components/manage/ManageToolbar';
 import { ResourceTable, type ResourceColumn } from '@/components/manage/ResourceTable';
 import { StatusPill } from '@/components/manage/StatusPill';
 import { ResourceGrid } from '@/components/manage/ResourceGrid';
@@ -47,6 +41,7 @@ interface Deck {
         firstName?: string;
         lastName?: string;
         name?: string;
+        profilePicture?: string | null;
     };
     createdAt: string;
 }
@@ -104,8 +99,8 @@ const ManageMaterialsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [view, setView] = useState<ManageView>('table');
 
-    const [categoryFilter, setCategoryFilter] = useState<string>('all');
-    const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'PUBLISHED' | 'DRAFT'>('all');
+    const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+    const [visibilityFilters, setVisibilityFilters] = useState<Array<'PUBLISHED' | 'DRAFT'>>([]);
     const [search, setSearch] = useState('');
     const [deleteDeckTarget, setDeleteDeckTarget] = useState<Deck | null>(null);
 
@@ -167,15 +162,6 @@ const ManageMaterialsPage: React.FC = () => {
         [user?.id, user?.role],
     );
 
-    const categoryCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        decks.forEach((deck) => {
-            const category = deck.category || 'No Category';
-            counts[category] = (counts[category] || 0) + 1;
-        });
-        return counts;
-    }, [decks]);
-
     const categoryOptions = useMemo(
         () =>
             Array.from(new Set(decks.map((deck) => deck.category || 'No Category'))).sort((a, b) =>
@@ -201,8 +187,8 @@ const ManageMaterialsPage: React.FC = () => {
     const filteredDecks = useMemo(
         () =>
             decks.filter((deck) => {
-                const matchesCategory = categoryFilter === 'all' || deck.category === categoryFilter;
-                const matchesVisibility = visibilityFilter === 'all' || deck.visibility === visibilityFilter;
+                const matchesCategory = categoryFilters.length === 0 || categoryFilters.includes(deck.category);
+                const matchesVisibility = visibilityFilters.length === 0 || visibilityFilters.includes(deck.visibility);
                 const term = search.trim().toLowerCase();
                 const matchesSearch =
                     term.length === 0
@@ -212,12 +198,12 @@ const ManageMaterialsPage: React.FC = () => {
 
                 return matchesCategory && matchesVisibility && matchesSearch;
             }),
-        [decks, categoryFilter, visibilityFilter, search],
+        [decks, categoryFilters, visibilityFilters, search],
     );
 
     const clearAllFilters = useCallback(() => {
-        setCategoryFilter('all');
-        setVisibilityFilter('all');
+        setCategoryFilters([]);
+        setVisibilityFilters([]);
         setSearch('');
     }, []);
 
@@ -226,22 +212,18 @@ const ManageMaterialsPage: React.FC = () => {
         if (search.trim().length > 0) {
             next.push({ id: 'search', label: `Search: ${search.trim()}`, onClear: () => setSearch('') });
         }
-        if (categoryFilter !== 'all') {
-            next.push({
-                id: 'category',
-                label: `Category: ${categoryFilter}`,
-                onClear: () => setCategoryFilter('all'),
-            });
-        }
-        if (visibilityFilter !== 'all') {
-            next.push({
-                id: 'visibility',
-                label: `Visibility: ${visibilityFilter === 'PUBLISHED' ? 'Published' : 'Draft'}`,
-                onClear: () => setVisibilityFilter('all'),
-            });
-        }
+        categoryFilters.forEach((category) => next.push({
+            id: `category-${category}`,
+            label: `Category: ${category}`,
+            onClear: () => setCategoryFilters((current) => current.filter((value) => value !== category)),
+        }));
+        visibilityFilters.forEach((visibility) => next.push({
+            id: `visibility-${visibility}`,
+            label: `Visibility: ${visibility === 'PUBLISHED' ? 'Published' : 'Draft'}`,
+            onClear: () => setVisibilityFilters((current) => current.filter((value) => value !== visibility)),
+        }));
         return next;
-    }, [search, categoryFilter, visibilityFilter]);
+    }, [search, categoryFilters, visibilityFilters]);
 
     const renderRowActions = useCallback(
         (deck: Deck) => (
@@ -340,8 +322,18 @@ const ManageMaterialsPage: React.FC = () => {
                 header: 'Author',
                 sortable: true,
                 sortValue: (deck) => getDisplayCreatorName(deck),
-                className: 'w-[150px]',
-                cell: (deck) => <span className="block truncate">{getDisplayCreatorName(deck)}</span>,
+                className: 'w-[180px]',
+                cell: (deck) => (
+                    <div className="flex min-w-0 items-center gap-2">
+                        <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarImage src={deck.creator?.profilePicture ?? undefined} alt="" />
+                            <AvatarFallback className="text-[11px] font-semibold">
+                                {getDisplayCreatorName(deck).slice(0, 1).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <span className="block truncate">{getDisplayCreatorName(deck)}</span>
+                    </div>
+                ),
             },
             {
                 id: 'created',
@@ -421,31 +413,22 @@ const ManageMaterialsPage: React.FC = () => {
                 onSearchChange={setSearch}
                 searchPlaceholder="Search materials…"
                 searchLabel="Search materials"
-                inlineFilters={
+                filterPopoverTitle="Filter materials"
+                popoverFilters={
                     <>
-                        <Select value={visibilityFilter} onValueChange={(value) => setVisibilityFilter(value as typeof visibilityFilter)}>
-                            <SelectTrigger className="h-8 w-[140px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by visibility">
-                                <SelectValue placeholder="Visibility" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All visibility</SelectItem>
-                                <SelectItem value="PUBLISHED">Published</SelectItem>
-                                <SelectItem value="DRAFT">Draft</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                            <SelectTrigger className="h-8 w-[170px] rounded-lg border-slate-200 bg-white text-[12px]" aria-label="Filter by category">
-                                <SelectValue placeholder="Category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All categories ({decks.length})</SelectItem>
-                                {categoryOptions.map((category) => (
-                                    <SelectItem key={category} value={category}>
-                                        {category} ({categoryCounts[category] || 0})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <CheckboxFilterGroup
+                            label="Visibility"
+                            options={['PUBLISHED', 'DRAFT']}
+                            value={visibilityFilters}
+                            onValueChange={(value) => setVisibilityFilters(value as Array<'PUBLISHED' | 'DRAFT'>)}
+                        />
+                        <CheckboxFilterGroup
+                            label="Category"
+                            options={categoryOptions}
+                            value={categoryFilters}
+                            onValueChange={setCategoryFilters}
+                            emptyLabel="No categories available"
+                        />
                     </>
                 }
                 activeFilterCount={chips.length}
@@ -471,7 +454,7 @@ const ManageMaterialsPage: React.FC = () => {
                     emptyDescription="Create your first study material for your reviewees."
                     emptyAction={createAction}
                     rowActions={renderRowActions}
-                    resetKey={`${search}|${categoryFilter}|${visibilityFilter}`}
+                    resetKey={`${search}|${categoryFilters.join(',')}|${visibilityFilters.join(',')}`}
                 />
             ) : (
                 <ResourceGrid
