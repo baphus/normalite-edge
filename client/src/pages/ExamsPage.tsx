@@ -6,6 +6,7 @@ import { fetchAllPages } from '@/lib/fetchAllPages';
 import { formatShortDate } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { StatusPill } from '@/components/manage/StatusPill';
+import { useCurrentTime } from '@/hooks/useCurrentTime';
 import { cn } from '@/lib/utils';
 
 /* -------------------------------------------------------------------------- */
@@ -54,9 +55,9 @@ function scoreClasses(score: number): string {
 }
 
 /** "Ends today" / "Ends tomorrow" / "Ends in 3 days" / "Ends in 2 hours" */
-function endsLabel(deadline?: string): string {
+function endsLabel(deadline: string | undefined, currentTime: number): string {
     if (!deadline) return '';
-    const diffMs = new Date(deadline).getTime() - Date.now();
+    const diffMs = new Date(deadline).getTime() - currentTime;
     const diffDays = Math.ceil(diffMs / DAY_MS);
     const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
 
@@ -81,8 +82,7 @@ function startDateLabel(exam: Exam): string {
  * - **Active**: live, start passed, deadline not passed, not scheduled
  * - **Past**: deadline passed, status CLOSED/ARCHIVED, or already submitted
  */
-function classifyExam(exam: Exam) {
-    const now = Date.now();
+function classifyExam(exam: Exam, currentTime: number) {
     const hasSubmitted = Boolean(
         exam.hasSubmitted || exam.userAttemptStatus === 'SUBMITTED',
     );
@@ -95,15 +95,15 @@ function classifyExam(exam: Exam) {
     // Upcoming: scheduled flag, or future start date
     const startDate = exam.scheduleStart || exam.scheduledDate;
     const isScheduled = Boolean(
-        exam.isScheduled || (startDate && new Date(startDate).getTime() > now),
+        exam.isScheduled || (startDate && new Date(startDate).getTime() > currentTime),
     );
 
     // Deadline awareness
     const deadlineMs = exam.deadline ? new Date(exam.deadline).getTime() : null;
-    const deadlinePassed = deadlineMs !== null && deadlineMs <= now;
+    const deadlinePassed = deadlineMs !== null && deadlineMs <= currentTime;
 
     // Start has passed
-    const startPassed = !startDate || new Date(startDate).getTime() <= now;
+    const startPassed = !startDate || new Date(startDate).getTime() <= currentTime;
 
     // Active: live, start passed, not past deadline, not scheduled
     const isActive = isLive && startPassed && !deadlinePassed && !isScheduled;
@@ -141,13 +141,15 @@ function SectionHeader({ title }: { title: string }) {
 function ExamCard({
     exam,
     segment,
+    currentTime,
     onNavigate,
 }: {
     exam: Exam;
     segment: 'upcoming' | 'active' | 'past';
+    currentTime: number;
     onNavigate: (exam: Exam, action: 'take' | 'result' | 'resume') => void;
 }) {
-    const { hasSubmitted, hasInProgress, isGrading } = classifyExam(exam);
+    const { hasSubmitted, hasInProgress, isGrading } = classifyExam(exam, currentTime);
     const score = exam.latestSubmittedScore ?? exam.lastScore;
     const canRetake = Boolean(exam.allowRetakes);
 
@@ -156,7 +158,7 @@ function ExamCard({
         hasSubmitted &&
         exam.feedbackMode === 'AFTER_SUBMIT' &&
         exam.scheduleEnd &&
-        new Date(exam.scheduleEnd).getTime() > Date.now()
+        new Date(exam.scheduleEnd).getTime() > currentTime
     );
 
     // Right-side status text
@@ -164,7 +166,7 @@ function ExamCard({
     if (segment === 'upcoming') {
         statusText = startDateLabel(exam);
     } else if (segment === 'active') {
-        statusText = endsLabel(exam.deadline);
+        statusText = endsLabel(exam.deadline, currentTime);
     } else {
         // Past
         if (isGrading) statusText = 'Grading...';
@@ -299,6 +301,7 @@ const ExamsPage: React.FC = () => {
     const [loadState, setLoadState] = useState<'loading' | 'error' | 'ready'>('loading');
     const [loadError, setLoadError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const currentTime = useCurrentTime();
 
     const fetchExams = useCallback(async () => {
         setLoadState('loading');
@@ -340,14 +343,14 @@ const ExamsPage: React.FC = () => {
         const pa: Exam[] = [];
 
         for (const exam of filteredExams) {
-            const c = classifyExam(exam);
+            const c = classifyExam(exam, currentTime);
             if (c.isUpcoming) up.push(exam);
             else if (c.isActive || c.hasInProgress) ac.push(exam);
             else pa.push(exam);
         }
 
         return { upcoming: up, active: ac, past: pa };
-    }, [filteredExams]);
+    }, [filteredExams, currentTime]);
 
     const allEmpty = upcoming.length === 0 && active.length === 0 && past.length === 0;
     const isSearching = term.length > 0;
@@ -436,6 +439,7 @@ const ExamsPage: React.FC = () => {
                                             key={exam.id}
                                             exam={exam}
                                             segment="upcoming"
+                                            currentTime={currentTime}
                                             onNavigate={handleNavigate}
                                         />
                                     ))}
@@ -451,6 +455,7 @@ const ExamsPage: React.FC = () => {
                                             key={exam.id}
                                             exam={exam}
                                             segment="active"
+                                            currentTime={currentTime}
                                             onNavigate={handleNavigate}
                                         />
                                     ))}
@@ -466,6 +471,7 @@ const ExamsPage: React.FC = () => {
                                             key={exam.id}
                                             exam={exam}
                                             segment="past"
+                                            currentTime={currentTime}
                                             onNavigate={handleNavigate}
                                         />
                                     ))}

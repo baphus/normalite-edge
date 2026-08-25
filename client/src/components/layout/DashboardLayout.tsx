@@ -23,7 +23,7 @@ const DashboardLayout: React.FC = () => {
             </div>
 
             {/* ── Main content ── */}
-            <main className={cn("min-w-0 flex-1 overflow-x-hidden overflow-y-auto", showBottomBar && "pb-24")}>
+            <main className={cn("min-w-0 flex-1 overflow-x-hidden overflow-y-auto", showBottomBar && "pb-[calc(5.5rem+env(safe-area-inset-bottom))]")}>
 
                 {/* Page content with transition */}
                 <div

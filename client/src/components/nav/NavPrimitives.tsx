@@ -52,26 +52,30 @@ export const NavItem: React.FC<NavItemProps> = ({
             onClick={onClick}
             data-guide-nav={dataGuideNav}
             className={cn(
-                'relative flex items-center rounded-lg transition-colors font-medium',
+                'relative flex items-center rounded-lg font-medium transition-[background-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d0f14]',
                 isHorizontal
-                    ? 'flex-col justify-center gap-1 px-2 py-1.5 text-[11px]'
+                    ? 'min-h-14 flex-1 flex-col justify-center gap-0.5 px-1 text-xs'
                     : 'gap-3 px-2.5 h-9 text-[13px]',
                 isActive
                     ? isHorizontal
                         ? 'text-primary'
-                        : 'text-slate-900 dark:text-white'
+                        : 'bg-primary/10 text-primary'
                     : 'text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/6 hover:text-slate-900 dark:hover:text-white/80'
             )}
         >
-            {/* Animated active indicator — shared layoutId creates the pill fly-between effect */}
-            {isActive && (
-                <ActiveIndicator
-                    direction={direction}
-                    reducedMotion={shouldReduceMotion}
-                />
-            )}
-
-            <Icon className={cn('shrink-0', isHorizontal ? 'h-[18px] w-[18px]' : 'h-[18px] w-[18px]')} />
+            <span
+                aria-hidden="true"
+                className={cn(
+                    'relative flex shrink-0 items-center justify-center',
+                    isHorizontal ? 'h-8 w-8' : 'h-6 w-6 rounded-md',
+                    isActive && !isHorizontal && 'bg-primary text-white'
+                )}
+            >
+                {isActive && isHorizontal && (
+                    <ActiveIndicator reducedMotion={shouldReduceMotion} />
+                )}
+                <Icon className={cn('relative z-10 h-[18px] w-[18px]')} />
+            </span>
             <span className="truncate">{label}</span>
             {badge}
         </NavLink>
@@ -81,37 +85,21 @@ export const NavItem: React.FC<NavItemProps> = ({
 /* ─── ActiveIndicator ───────────────────────────────────────────────── */
 
 interface ActiveIndicatorProps {
-    direction: 'horizontal' | 'vertical';
     reducedMotion: boolean;
 }
 
 /**
- * The animated pill behind the active nav item.
- * Uses `layoutId="nav-active"` so only one pill exists visually across
- * all NavItem instances — it springs to the new position on route change.
+ * The animated selection capsule behind the active mobile tab icon. It uses a
+ * shared layout id, preserving a single, calm transition as the active tab
+ * changes. Desktop uses a persistent high-contrast row treatment instead.
  */
 const ActiveIndicator: React.FC<ActiveIndicatorProps> = ({
-    direction,
     reducedMotion,
 }) => {
-    if (direction === 'vertical') {
-        return (
-            <motion.span
-                layoutId="nav-active"
-                className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full bg-primary"
-                transition={
-                    reducedMotion
-                        ? { duration: 0 }
-                        : { type: 'spring', stiffness: 380, damping: 30 }
-                }
-            />
-        );
-    }
-
     return (
         <motion.span
             layoutId="nav-active"
-            className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary"
+            className="absolute inset-0 rounded-full bg-primary/12"
             transition={
                 reducedMotion
                     ? { duration: 0 }

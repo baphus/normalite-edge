@@ -17,6 +17,7 @@ import WhatNextCTAs, { type SectionTier } from '@/components/exam/WhatNextCTAs';
 import { getScoreTrend, getTierLabel, type ScoreTrendPoint } from '@/lib/examTheme';
 import api from '@/lib/axios';
 import { useStreakContext } from '@/contexts/StreakContext';
+import { useCurrentTime } from '@/hooks/useCurrentTime';
 
 // ScoreHero fires the confetti overlay internally (tiered by score). The page
 // only holds the gates up long enough for the celebration to play, then drops
@@ -474,6 +475,11 @@ const ExamResultPage: React.FC = () => {
     const handleDownloadReport = () => {};
 
     const resultDate = result?.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A';
+    const feedbackScheduleEnd = result?.scheduleEnd ?? result?.exam?.scheduleEnd;
+    const feedbackScheduleEndMs = feedbackScheduleEnd
+        ? new Date(feedbackScheduleEnd).getTime()
+        : undefined;
+    const currentTime = useCurrentTime(feedbackScheduleEndMs);
 
     // AFTER_SUBMIT exams keep the first attempt's result hidden until the
     // exam deadline passes. The server marks these payloads `isPending`, but
@@ -483,11 +489,10 @@ const ExamResultPage: React.FC = () => {
         // Retakes always show results immediately
         if (attemptNo > 1) return false;
         const feedbackMode = result?.feedbackMode || result?.exam?.feedbackMode;
-        const scheduleEnd = result?.scheduleEnd ?? result?.exam?.scheduleEnd;
         if (feedbackMode !== 'AFTER_SUBMIT') return false;
-        if (!scheduleEnd) return false;
-        return new Date(scheduleEnd).getTime() > Date.now();
-    }, [result, attemptNo]);
+        if (!feedbackScheduleEndMs) return false;
+        return feedbackScheduleEndMs > currentTime;
+    }, [result, attemptNo, feedbackScheduleEndMs, currentTime]);
 
     // When the exam allows retakes, the first submission is the recorded one
     // and every later attempt is for practice only.
